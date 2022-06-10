@@ -1,7 +1,6 @@
-#ifndef MESH_PROCESSING_H
-#define MESH_PROCESSING_H
+#pragma once
 
-
+#include <Eigen/Core>
 #include <Eigen/Sparse>
 // -------------------- OpenMesh
 #include <OpenMesh/Core/IO/MeshIO.hh>
@@ -64,4 +63,3 @@ public:
 private:
 
 };
-#endif

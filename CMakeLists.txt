@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.1)
-project(lsc LANGUAGES CXX)# level-set curves
+project(lsc)
 
 
 
@@ -33,9 +33,9 @@ option(LIBIGL_WITH_PREDICATES        "Use exact predicates"         ON)
 ################################################################################
 
 ### Configuration
-set(LSC_EXTERNAL "${CMAKE_CURRENT_SOURCE_DIR}/external")
+set(SPARSE_EXTERNAL "${CMAKE_CURRENT_SOURCE_DIR}/external")
 list(APPEND CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/cmake)
-#list(APPEND CMAKE_MODULE_PATH ${THIRD_PARTY_DIR}/Catch2/contrib)
+list(APPEND CMAKE_MODULE_PATH ${THIRD_PARTY_DIR}/Catch2/contrib)
 
 include(Warnings)
 include(UseColors)
@@ -44,45 +44,44 @@ include(PrependCurrentPath)
 include(${PROJECT_NAME}Utils)
 
 
-add_definitions(-D_USE_MATH_DEFINES)
-#include_directories(C:/Users/Jiangc/Documents/libigl/external/external/stb)
-#target_link_libraries(C:/Users/Jiangc/Documents/libigl/build/Release/igl_stb_image.lib)
+set(ANN_DIR ${ANN_PATH}/ann_1.1.2)
+include_directories(${ANN_DIR}/include)
+link_directories(${ANN_DIR}/lib)
+include_directories(${OM_PATH}/OpenMesh-9.1.0/src)
+link_directories(${OM_PATH}/OpenMesh-9.1.0/build/Build/lib)
+############################
+# libraries
+include(src/SOURCE.cmake)
+prepend_current_path(LSC_SOURCES)
+lsc_copy_headers(${LSC_SOURCES})
+lsc_set_source_group(${LSC_SOURCES})  
+add_library(lsc ${LSC_SOURCES})
+#target_sources(lsc PRIVATE ${LSC_SOURCES})
+target_include_directories(lsc PUBLIC ${PROJECT_BINARY_DIR}/include)
+target_include_directories(lsc PUBLIC ${OM_PATH}/OpenMesh-9.1.0/src)
+target_link_libraries(lsc PUBLIC igl::core igl::opengl igl::opengl_glfw igl::opengl_glfw_imgui Eigen3::Eigen)
+
+if(WIN32)
+link_directories(${ANN_DIR}/MS_Win32/dll/Debug)
+link_directories(${ANN_DIR}/MS_Win32/bin)
+target_link_libraries(lsc PUBLIC OpenMeshCored.lib OpenMeshToolsd.lib ANN.lib)
+else(WIN32)
+target_link_libraries(lsc PUBLIC libOpenMeshCore.a libOpenMeshTools.a libANN.a)
+endif(WIN32)
 
 
-# Add your project files
-file(GLOB SRCFILES *.cpp *.h)
-add_executable(${PROJECT_NAME}_bin ${SRCFILES})
-target_link_libraries(${PROJECT_NAME}_bin igl::core igl::opengl igl::opengl_glfw igl::opengl_glfw_imgui)
-target_link_libraries(${PROJECT_NAME}_bin debug OpenMeshCored.lib OpenMeshToolsd.lib)
-# target_link_libraries(${PROJECT_NAME}_bin optimized OpenMeshCore.lib OpenMeshTools.lib ANN.lib)
-
-
-# ############################
-# # level set library.
-# # igl -> lsc
-# include(src/SOURCE.cmake)
-# prepend_current_path(LSC_SOURCES)
-# SI_copy_headers(${LSC_SOURCES})
-# SI_set_source_group(${LSC_SOURCES})  
-# add_library(lsc ${LSC_SOURCES})
-
-# target_include_directories(lsc PUBLIC ${PROJECT_BINARY_DIR}/include)
-# target_link_libraries(lsc PUBLIC igl::core igl::predicates igl::opengl_glfw igl::triangle Eigen3::Eigen)
 # target_compile_definitions(lsc PUBLIC
-#     LSC_MESH_DIR="${CMAKE_CURRENT_SOURCE_DIR}/app/meshes/")
-# SET_TARGET_PROPERTIES(lsc PROPERTIES LINKER_LANGUAGE CXX)
-# ###############################
+#     SI_MESH_DIR="${CMAKE_CURRENT_SOURCE_DIR}/app/meshes/")
+###############################
 
-# ################################
+add_executable(${PROJECT_NAME}_bin app/main.cpp)
+target_link_libraries(${PROJECT_NAME}_bin PUBLIC lsc)
 
+add_definitions(-D_USE_MATH_DEFINES)
+target_compile_definitions(${PROJECT_NAME}_bin PUBLIC
+    CHECKER_BOARD_DATA_DIR="${CMAKE_CURRENT_SOURCE_DIR}/data/")
+################################
 
-# add_executable(${PROJECT_NAME}_bin
-#     app/main.cpp 
-# 	app/test.cpp
-#   )
-# target_include_directories(${PROJECT_NAME}_bin PUBLIC ${PROJECT_BINARY_DIR}/include)
-# target_link_libraries(${PROJECT_NAME}_bin PUBLIC splines igl::core igl::opengl_glfw)
-# target_link_libraries(${PROJECT_NAME}_bin PUBLIC compare)
 
 
 

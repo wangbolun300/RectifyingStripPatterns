@@ -9,12 +9,11 @@
 #include <imgui/imgui.h>
 #include <imgui/imgui.h>
 #include <iostream>
-//#include "omp.hh"
 
 #include <igl/unproject_ray.h>
 
-#include "OptimizerCheckboard.h"
-#include "MeshProcessing.h"
+#include <lsc/MeshProcessing.h>
+#include <lsc/OptimizerCheckboard.h>
 
 // -------------------- OpenMesh
 #include <OpenMesh/Core/IO/MeshIO.hh>
@@ -63,7 +62,7 @@ std::vector<CGMesh> Meshes;
 double InputPx = 0.0;
 double InputPy = 0.0;
 double InputPz = 0.0;
-
+std::vector<int> VertexType;
 void updateMeshViewer(igl::opengl::glfw::Viewer& viewer, CGMesh& mesh)
 {
 	Eigen::MatrixXd V;
@@ -78,7 +77,7 @@ void updateMeshViewer(igl::opengl::glfw::Viewer& viewer, CGMesh& mesh)
 	}
 	//		viewer.data().clear();
 	viewer.data().set_mesh(V, F);
-	viewer.data().data_visiablity = true;
+	viewer.data().is_visible = true;
 
 	// show polygon edges
 	Eigen::MatrixXi E;
@@ -88,9 +87,9 @@ void updateMeshViewer(igl::opengl::glfw::Viewer& viewer, CGMesh& mesh)
 
 	viewer.data().show_lines = false;
 	viewer.data().line_width = 2.0;
-	viewer.core.align_camera_center(viewer.data().V, viewer.data().F);
+	viewer.core().align_camera_center(viewer.data().V, viewer.data().F);
 
-	viewer.data().VertexType.resize(V.size(), 0);
+	VertexType.resize(V.size(), 0);
 
 	/*viewer.data().compute_normals();
 	viewer.data().uniform_colors(Eigen::Vector3d(51.0 / 255.0, 43.0 / 255.0, 33.3 / 255.0),
@@ -150,12 +149,12 @@ bool mouse_down(igl::opengl::glfw::Viewer& viewer, int button, int modifier)
 		Eigen::Vector3f bc;
 		// Cast a ray in the view direction starting from the mouse position
 		double x = viewer.current_mouse_x;
-		double y = viewer.core.viewport(3) - viewer.current_mouse_y;
+		double y = viewer.core().viewport(3) - viewer.current_mouse_y;
 		if (igl::unproject_onto_mesh(
 			Eigen::Vector2f(x, y),
-			viewer.core.view,
-			viewer.core.proj,
-			viewer.core.viewport,
+			viewer.core().view,
+			viewer.core().proj,
+			viewer.core().viewport,
 			viewer.data().V,
 			viewer.data().F,
 			fid,
@@ -165,19 +164,19 @@ bool mouse_down(igl::opengl::glfw::Viewer& viewer, int button, int modifier)
 			bc.maxCoeff(&max);
 			int vid = viewer.data().F(fid, max);
 
-			if (viewer.data().VertexType[vid] != 1)
-				viewer.data().VertexType[vid] = 1;
+			if (VertexType[vid] != 1)
+				VertexType[vid] = 1;
 			else
-				viewer.data().VertexType[vid] = 0;
+				VertexType[vid] = 0;
 
 
 			std::vector<int> fixedVid;
 			std::vector<int> controlVid;
 			for (int i = 0; i < viewer.data().V.size(); i++)
 			{
-				if (viewer.data().VertexType[i] == 1)
+				if (VertexType[i] == 1)
 					fixedVid.push_back(i);
-				if (viewer.data().VertexType[i] == 2)
+				if (VertexType[i] == 2)
 					controlVid.push_back(i);
 
 			}
@@ -199,12 +198,12 @@ bool mouse_down(igl::opengl::glfw::Viewer& viewer, int button, int modifier)
 		Eigen::Vector3f bc;
 		// Cast a ray in the view direction starting from the mouse position
 		double x = viewer.current_mouse_x;
-		double y = viewer.core.viewport(3) - viewer.current_mouse_y;
+		double y = viewer.core().viewport(3) - viewer.current_mouse_y;
 		if (igl::unproject_onto_mesh(
 			Eigen::Vector2f(x, y),
-			viewer.core.view,
-			viewer.core.proj,
-			viewer.core.viewport,
+			viewer.core().view,
+			viewer.core().proj,
+			viewer.core().viewport,
 			viewer.data().V,
 			viewer.data().F,
 			fid,
@@ -214,19 +213,19 @@ bool mouse_down(igl::opengl::glfw::Viewer& viewer, int button, int modifier)
 			bc.maxCoeff(&max);
 			int vid = viewer.data().F(fid, max);
 
-			if (viewer.data().VertexType[vid] != 2)
-				viewer.data().VertexType[vid] = 2;
+			if (VertexType[vid] != 2)
+				VertexType[vid] = 2;
 			else
-				viewer.data().VertexType[vid] = 0;
+				VertexType[vid] = 0;
 
 
 			std::vector<int> fixedVid;
 			std::vector<int> controlVid;
 			for (int i = 0; i < viewer.data().V.size(); i++)
 			{
-				if (viewer.data().VertexType[i] == 1)
+				if (VertexType[i] == 1)
 					fixedVid.push_back(i);
-				if (viewer.data().VertexType[i] == 2)
+				if (VertexType[i] == 2)
 					controlVid.push_back(i);
 
 			}
@@ -251,8 +250,13 @@ int main(int argc, char* argv[])
 {
 	std::map<int, Eigen::RowVector3d> colors;
 	int last_selected = -1;
-
-	std::string fname = "../data/fertility_input.obj";
+	std::string example_root_path(CHECKER_BOARD_DATA_DIR);
+#ifdef _WIN32
+			std::string spliter="\\";
+#else
+			std::string spliter="/";
+#endif
+	std::string fname = example_root_path+std::string("fertility_input.obj");
 	OpenMesh::IO::read_mesh(mesh, fname);
 
 	MP.mesh2Matrix(mesh, V, F);
@@ -297,7 +301,7 @@ int main(int argc, char* argv[])
 			OpenMesh::IO::read_mesh(mesh, fname);
 
 			size_t last_dot = fname.rfind('.');
-			size_t last_slash = fname.rfind('\\');
+			size_t last_slash = fname.rfind(spliter);// TODO on linux it should be '/'
 			std::string fnameNew = fname.substr(last_slash + 1, (last_dot - last_slash - 1));
 			meshFileName.push_back(fnameNew);
 			Meshes.push_back(mesh);
@@ -500,7 +504,7 @@ int main(int argc, char* argv[])
 						fixedVertices = bvs;
 					}
 					for (int i = 0; i < mesh.n_vertices(); i++)
-						if (viewer.data().VertexType[i] == 1)
+						if (VertexType[i] == 1)
 							fixedVertices.push_back(i);
 
 					Optimizer.FixedVertices = fixedVertices;
@@ -589,7 +593,7 @@ int main(int argc, char* argv[])
 			if (ImGui::Button("Focus Selected Mesh", ImVec2(ImGui::GetWindowSize().x * 0.23f, 0.0f)))
 			{
 				int id = viewer.selected_data_index;
-				viewer.core.align_camera_center(viewer.data_list[id].V);
+				viewer.core().align_camera_center(viewer.data_list[id].V);
 			}
 			ImGui::SameLine();
 
@@ -716,9 +720,9 @@ int main(int argc, char* argv[])
 				ImGui::PopID();
 				ImGui::SameLine();
 				if (selectFEV[i])
-					viewer.data_list[i].data_visiablity = true;
+					viewer.data_list[i].is_visible = true;
 				else
-					viewer.data_list[i].data_visiablity = false;
+					viewer.data_list[i].is_visible = false;
 
 
 
@@ -787,7 +791,7 @@ int main(int argc, char* argv[])
 	// Plot the mesh
 	viewer.data().set_mesh(V, F);
 	viewer.data().show_lines = false;
-	viewer.data().data_visiablity = true;
+	viewer.data().is_visible = true;
 	// show polygon edges
 	Eigen::MatrixXi E;
 	MP.meshEdges(mesh, E);
@@ -795,7 +799,7 @@ int main(int argc, char* argv[])
 	viewer.data().set_edges(V, E, C);
 	viewer.data().line_width = 2.0;
 	viewer.data().invert_normals = true;
-	viewer.data().VertexType.resize(V.size(), 0);
+	VertexType.resize(V.size(), 0);
 
 
 
@@ -803,8 +807,8 @@ int main(int argc, char* argv[])
 	viewer.callback_key_down = &key_down;
 	viewer.callback_mouse_down = &mouse_down;
 	viewer.callback_key_up = &key_up;
-	viewer.core.is_animating = false;
-	viewer.core.animation_max_fps = 30.;
-	viewer.core.background_color = Eigen::Vector4f(1, 1, 1, 100);
+	viewer.core().is_animating = false;
+	viewer.core().animation_max_fps = 30.;
+	viewer.core().background_color = Eigen::Vector4f(1, 1, 1, 100);
 	viewer.launch();
 }
