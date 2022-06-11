@@ -388,367 +388,367 @@ int main(int argc, char* argv[])
 		}
 
 
-		static bool updateMeshFlag = false;
-		static int updateMeshId = 0;
-		if (ImGui::Button("Update Reference Mesh", ImVec2(ImGui::GetWindowSize().x * 0.35f, 0.0f)))
-		{
-			updateMeshFlag = true;
-			updateMeshId = viewer.selected_data_index;
-			RefMesh = Meshes[updateMeshId];
-			double refAveEL = 0; double totalL, minL, maxL;
-			MP.getEdgeLengthStatistics(RefMesh, totalL, minL, maxL, refAveEL);
-			bool printInfo = true;
-			if (printInfo)
-			{
-				//	std::cout << "Mesh Informatin Vertices/Edges/Faces/HalfEdges:::::" << RefMesh.n_vertices() << "/" << RefMesh.n_edges() << "/" << RefMesh.n_faces() << "/" << RefMesh.n_halfedges() << std::endl;
-				std::cout << "Edge lengths Total/minL/maxL/averageL:::::" << totalL << "/" << minL << "/" << maxL << "/" << refAveEL << std::endl;
-			}
-			refer_AveEL = refAveEL;
-		}
+		// static bool updateMeshFlag = false;
+		// static int updateMeshId = 0;
+		// if (ImGui::Button("Update Reference Mesh", ImVec2(ImGui::GetWindowSize().x * 0.35f, 0.0f)))
+		// {
+		// 	updateMeshFlag = true;
+		// 	updateMeshId = viewer.selected_data_index;
+		// 	RefMesh = Meshes[updateMeshId];
+		// 	double refAveEL = 0; double totalL, minL, maxL;
+		// 	MP.getEdgeLengthStatistics(RefMesh, totalL, minL, maxL, refAveEL);
+		// 	bool printInfo = true;
+		// 	if (printInfo)
+		// 	{
+		// 		//	std::cout << "Mesh Informatin Vertices/Edges/Faces/HalfEdges:::::" << RefMesh.n_vertices() << "/" << RefMesh.n_edges() << "/" << RefMesh.n_faces() << "/" << RefMesh.n_halfedges() << std::endl;
+		// 		std::cout << "Edge lengths Total/minL/maxL/averageL:::::" << totalL << "/" << minL << "/" << maxL << "/" << refAveEL << std::endl;
+		// 	}
+		// 	refer_AveEL = refAveEL;
+		// }
 
-		if (updateMeshFlag)
-		{
-			ImGui::SameLine();
-			std::string str = meshFileName[updateMeshId];
-			const char* meshnameChar = str.c_str();
-			ImGui::Text(meshnameChar);
-		}
-
-
-		// Add new group
-		if (ImGui::CollapsingHeader("Weights", ImGuiTreeNodeFlags_DefaultOpen))
-		{
-			// Expose variable directly ...			
-			ImGui::InputDouble("Closeness", &weigth_closeness, 0, 0, "%.4f");
-			ImGui::InputDouble("Planarity", &weight_Planarity, 0, 0, "%.4f");
-			ImGui::InputDouble("Planarity_whiteQuad", &weight_polyhedron_vertex, 0, 0, "%.4f");
-			ImGui::InputDouble("NormalizeVnormal", &weight_Normalize_vnormal, 0, 0, "%.4f");
-			ImGui::InputDouble("EqualDiagonals", &weight_EqualDiagornals, 0, 0, "%.4f");
-			ImGui::InputDouble("OrthDiagonals", &weight_OrthDiagornals, 0, 0, "%.4f");
-			ImGui::InputDouble("UniformDiagonals", &weight_UniformDiagornals, 0, 0, "%.4f");
-			ImGui::InputDouble("Fairness", &weight_Fairness, 0, 0, "%.4f");
-
-			ImGui::InputInt("Iteration", &OpIter, 0, 0);
-
-			ImGui::InputDouble("Average Edge length", &refer_AveEL, 0, 0, "%.4f");
-			ImGui::Checkbox("Fix Corners", &fixCorner_checkbox);
-			ImGui::SameLine();
-			ImGui::Checkbox("Fix Boundary", &fixBoundary_checkbox);
-
-			ImGui::SameLine();
-			ImGui::Checkbox("related fairness", &relativeFairness_checkbox);
+		// if (updateMeshFlag)
+		// {
+		// 	ImGui::SameLine();
+		// 	std::string str = meshFileName[updateMeshId];
+		// 	const char* meshnameChar = str.c_str();
+		// 	ImGui::Text(meshnameChar);
+		// }
 
 
+		// // Add new group
+		// if (ImGui::CollapsingHeader("Weights", ImGuiTreeNodeFlags_DefaultOpen))
+		// {
+		// 	// Expose variable directly ...			
+		// 	ImGui::InputDouble("Closeness", &weigth_closeness, 0, 0, "%.4f");
+		// 	ImGui::InputDouble("Planarity", &weight_Planarity, 0, 0, "%.4f");
+		// 	ImGui::InputDouble("Planarity_whiteQuad", &weight_polyhedron_vertex, 0, 0, "%.4f");
+		// 	ImGui::InputDouble("NormalizeVnormal", &weight_Normalize_vnormal, 0, 0, "%.4f");
+		// 	ImGui::InputDouble("EqualDiagonals", &weight_EqualDiagornals, 0, 0, "%.4f");
+		// 	ImGui::InputDouble("OrthDiagonals", &weight_OrthDiagornals, 0, 0, "%.4f");
+		// 	ImGui::InputDouble("UniformDiagonals", &weight_UniformDiagornals, 0, 0, "%.4f");
+		// 	ImGui::InputDouble("Fairness", &weight_Fairness, 0, 0, "%.4f");
 
-		}
+		// 	ImGui::InputInt("Iteration", &OpIter, 0, 0);
 
-		ImGui::Separator();
-		ImGui::PushStyleColor(ImGuiCol_Button, (ImVec4)ImColor::HSV(0.0f, 0.6f, 0.6f));
-		ImGui::PushStyleColor(ImGuiCol_ButtonHovered, (ImVec4)ImColor::HSV(0.0f, 0.7f, 0.7f));
-		ImGui::PushStyleColor(ImGuiCol_ButtonActive, (ImVec4)ImColor::HSV(0.0f, 0.8f, 0.8f));
-		if (ImGui::Button("Optimization"))
-		{
-				int id = viewer.selected_data_index;
-				CGMesh inputMesh = Meshes[id];
-				mesh = inputMesh;
+		// 	ImGui::InputDouble("Average Edge length", &refer_AveEL, 0, 0, "%.4f");
+		// 	ImGui::Checkbox("Fix Corners", &fixCorner_checkbox);
+		// 	ImGui::SameLine();
+		// 	ImGui::Checkbox("Fix Boundary", &fixBoundary_checkbox);
 
-				if (inputMesh.n_vertices() > 0)
-				{
-					OptimizerCheckboard Optimizer;
-					Optimizer.OpIter = OpIter;
-					Optimizer.weight_closeness = weigth_closeness;
-					Optimizer.weight_EqualDiagornals = weight_EqualDiagornals;
-					Optimizer.weight_polyhedron = weight_polyhedron;
-					Optimizer.weight_OrthDiagornals = weight_OrthDiagornals;
-					Optimizer.weight_UniformDiagornals = weight_UniformDiagornals;
-					Optimizer.weight_Fairness = weight_Fairness;
-					Optimizer.weight_FairnessDiag = weight_FairnessDiag;
-					Optimizer.weight_polyhedron_vertex = weight_polyhedron_vertex;
-					Optimizer.weight_Nornalization_vertexNormal = weight_Normalize_vnormal;
-					Optimizer.fairnessChangeType = fairnessChangeType;
-					Optimizer.relativeFairness = relativeFairness_checkbox;
-
-					Optimizer.coarseMesh = mesh;
-					if (RefMesh.n_vertices() == 0)
-						RefMesh = mesh;
-
-					Optimizer.referenceMesh = RefMesh;
-					double refAveEL = 0; double totalL, minL, maxL;
-					if (RefMesh.n_vertices() > 0)
-						MP.getEdgeLengthStatistics(RefMesh, totalL, minL, maxL, refAveEL);
-
-					Optimizer.refAveEL = refAveEL;
-
-					MP.getEdgeLengthStatistics(mesh, totalL, minL, maxL, refAveEL);
-					Optimizer.Lsqure = refer_AveEL * refer_AveEL * 2;
-
-					if (fixCorner_checkbox)
-					{
-						fixedVertices.clear();
-						fixedVertices = MP.meshCorners(mesh);
-						std::vector<int> corners = MP.meshCorners(mesh);
-						int nFix = corners.size();
-						b.resize(nFix);
-						b = Eigen::Map<Eigen::VectorXi, Eigen::Unaligned>(corners.data(), corners.size());
-					}
-
-					if (fixBoundary_checkbox)
-					{
-						fixedVertices.clear();
-						std::vector<int> bvs;
-						for (CGMesh::VertexIter vit = mesh.vertices_begin(); vit != mesh.vertices_end(); ++vit)
-						{
-							if (mesh.is_boundary(vit))
-								bvs.push_back(vit.handle().idx());
-						}
-						fixedVertices = bvs;
-					}
-					for (int i = 0; i < mesh.n_vertices(); i++)
-						if (VertexType[i] == 1)
-							fixedVertices.push_back(i);
-
-					Optimizer.FixedVertices = fixedVertices;
+		// 	ImGui::SameLine();
+		// 	ImGui::Checkbox("related fairness", &relativeFairness_checkbox);
 
 
-					std::vector<double> sol = Optimizer.fillMatandSolve_CheckBoard();
-					CGMesh updatedMesh;
-					MP.MeshUpdate(mesh, updatedMesh, sol);
+
+		// }
+
+		// ImGui::Separator();
+		// ImGui::PushStyleColor(ImGuiCol_Button, (ImVec4)ImColor::HSV(0.0f, 0.6f, 0.6f));
+		// ImGui::PushStyleColor(ImGuiCol_ButtonHovered, (ImVec4)ImColor::HSV(0.0f, 0.7f, 0.7f));
+		// ImGui::PushStyleColor(ImGuiCol_ButtonActive, (ImVec4)ImColor::HSV(0.0f, 0.8f, 0.8f));
+		// if (ImGui::Button("Optimization"))
+		// {
+		// 		int id = viewer.selected_data_index;
+		// 		CGMesh inputMesh = Meshes[id];
+		// 		mesh = inputMesh;
+
+		// 		if (inputMesh.n_vertices() > 0)
+		// 		{
+		// 			OptimizerCheckboard Optimizer;
+		// 			Optimizer.OpIter = OpIter;
+		// 			Optimizer.weight_closeness = weigth_closeness;
+		// 			Optimizer.weight_EqualDiagornals = weight_EqualDiagornals;
+		// 			Optimizer.weight_polyhedron = weight_polyhedron;
+		// 			Optimizer.weight_OrthDiagornals = weight_OrthDiagornals;
+		// 			Optimizer.weight_UniformDiagornals = weight_UniformDiagornals;
+		// 			Optimizer.weight_Fairness = weight_Fairness;
+		// 			Optimizer.weight_FairnessDiag = weight_FairnessDiag;
+		// 			Optimizer.weight_polyhedron_vertex = weight_polyhedron_vertex;
+		// 			Optimizer.weight_Nornalization_vertexNormal = weight_Normalize_vnormal;
+		// 			Optimizer.fairnessChangeType = fairnessChangeType;
+		// 			Optimizer.relativeFairness = relativeFairness_checkbox;
+
+		// 			Optimizer.coarseMesh = mesh;
+		// 			if (RefMesh.n_vertices() == 0)
+		// 				RefMesh = mesh;
+
+		// 			Optimizer.referenceMesh = RefMesh;
+		// 			double refAveEL = 0; double totalL, minL, maxL;
+		// 			if (RefMesh.n_vertices() > 0)
+		// 				MP.getEdgeLengthStatistics(RefMesh, totalL, minL, maxL, refAveEL);
+
+		// 			Optimizer.refAveEL = refAveEL;
+
+		// 			MP.getEdgeLengthStatistics(mesh, totalL, minL, maxL, refAveEL);
+		// 			Optimizer.Lsqure = refer_AveEL * refer_AveEL * 2;
+
+		// 			if (fixCorner_checkbox)
+		// 			{
+		// 				fixedVertices.clear();
+		// 				fixedVertices = MP.meshCorners(mesh);
+		// 				std::vector<int> corners = MP.meshCorners(mesh);
+		// 				int nFix = corners.size();
+		// 				b.resize(nFix);
+		// 				b = Eigen::Map<Eigen::VectorXi, Eigen::Unaligned>(corners.data(), corners.size());
+		// 			}
+
+		// 			if (fixBoundary_checkbox)
+		// 			{
+		// 				fixedVertices.clear();
+		// 				std::vector<int> bvs;
+		// 				for (CGMesh::VertexIter vit = mesh.vertices_begin(); vit != mesh.vertices_end(); ++vit)
+		// 				{
+		// 					if (mesh.is_boundary(vit))
+		// 						bvs.push_back(vit.handle().idx());
+		// 				}
+		// 				fixedVertices = bvs;
+		// 			}
+		// 			for (int i = 0; i < mesh.n_vertices(); i++)
+		// 				if (VertexType[i] == 1)
+		// 					fixedVertices.push_back(i);
+
+		// 			Optimizer.FixedVertices = fixedVertices;
 
 
-					meshFileName.push_back("OP_" + meshFileName[id]);
-					Meshes.push_back(updatedMesh);
-
-					updateMeshViewer(viewer, updatedMesh);
-					viewer.selected_data_index = id;
-				}
-		}
-		ImGui::PopStyleColor(3);
+		// 			std::vector<double> sol = Optimizer.fillMatandSolve_CheckBoard();
+		// 			CGMesh updatedMesh;
+		// 			MP.MeshUpdate(mesh, updatedMesh, sol);
 
 
-		if (ImGui::CollapsingHeader("Mesh Processing", ImGuiTreeNodeFlags_DefaultOpen))
-		{
+		// 			meshFileName.push_back("OP_" + meshFileName[id]);
+		// 			Meshes.push_back(updatedMesh);
+
+		// 			updateMeshViewer(viewer, updatedMesh);
+		// 			viewer.selected_data_index = id;
+		// 		}
+		// }
+		// ImGui::PopStyleColor(3);
+
+
+		// if (ImGui::CollapsingHeader("Mesh Processing", ImGuiTreeNodeFlags_DefaultOpen))
+		// {
 			
-			if (ImGui::Button("Black Rectangles", ImVec2(ImGui::GetWindowSize().x * 0.23f, 0.0f)))
-			{
-				int id = viewer.selected_data_index;
-				CGMesh updatedMesh;
-				CGMesh inputMesh = Meshes[id];
+		// 	if (ImGui::Button("Black Rectangles", ImVec2(ImGui::GetWindowSize().x * 0.23f, 0.0f)))
+		// 	{
+		// 		int id = viewer.selected_data_index;
+		// 		CGMesh updatedMesh;
+		// 		CGMesh inputMesh = Meshes[id];
 
-				std::vector<int> Vtype = MP.MeshVertexClassificationBlackWhite(inputMesh);
-				MP.MeshEdgeDual(inputMesh, updatedMesh, Vtype, 0.5, 0);
+		// 		std::vector<int> Vtype = MP.MeshVertexClassificationBlackWhite(inputMesh);
+		// 		MP.MeshEdgeDual(inputMesh, updatedMesh, Vtype, 0.5, 0);
 				
-				updateMeshViewer(viewer, updatedMesh);
-				viewer.data().face_based = true;
-				viewer.data().uniform_colors(Eigen::Vector3d(51.0 / 255.0, 43.0 / 255.0, 33.3 / 255.0),
-					Eigen::Vector3d(51.0 / 255.0, 43.0 / 255.0, 33.3 / 255.0),
-					Eigen::Vector3d(51.0 / 255.0, 43.0 / 255.0, 33.3 / 255.0));
-				meshFileName.push_back("BLACK_" + meshFileName[id]);
-				Meshes.push_back(updatedMesh);
+		// 		updateMeshViewer(viewer, updatedMesh);
+		// 		viewer.data().face_based = true;
+		// 		viewer.data().uniform_colors(Eigen::Vector3d(51.0 / 255.0, 43.0 / 255.0, 33.3 / 255.0),
+		// 			Eigen::Vector3d(51.0 / 255.0, 43.0 / 255.0, 33.3 / 255.0),
+		// 			Eigen::Vector3d(51.0 / 255.0, 43.0 / 255.0, 33.3 / 255.0));
+		// 		meshFileName.push_back("BLACK_" + meshFileName[id]);
+		// 		Meshes.push_back(updatedMesh);
 
-				// white faces
-				CGMesh updatedMesh1;
-				MP.MeshEdgeDual(inputMesh, updatedMesh1, Vtype, 0.5, 1);
+		// 		// white faces
+		// 		CGMesh updatedMesh1;
+		// 		MP.MeshEdgeDual(inputMesh, updatedMesh1, Vtype, 0.5, 1);
 
-				updateMeshViewer(viewer, updatedMesh1);
-				viewer.data().face_based = true;
-				viewer.data().uniform_colors(Eigen::Vector3d(151.0 / 255.0, 151.0 / 255.0, 151.3 / 255.0),
-					Eigen::Vector3d(151.0 / 255.0, 151.0 / 255.0, 151.3 / 255.0),
-					Eigen::Vector3d(151.0 / 255.0, 151.0 / 255.0, 151.3 / 255.0));
-				meshFileName.push_back("white_" + meshFileName[id]);
-				Meshes.push_back(updatedMesh1);
-				viewer.selected_data_index = id;
-			}
-			ImGui::SameLine();
-			if (ImGui::Button("CaltmullClack", ImVec2(ImGui::GetWindowSize().x * 0.23f, 0.0f)))
-			{
-				int id = viewer.selected_data_index;
-				CGMesh updatedMesh;
-				CGMesh inputMesh = Meshes[id];
-
-
-				MP.SubdivCoarseMesh_CaltmullClack(inputMesh, updatedMesh);
-
-				updateMeshViewer(viewer, updatedMesh);
-				meshFileName.push_back("Subdiv_" + meshFileName[id]);
-				Meshes.push_back(updatedMesh);
-				viewer.selected_data_index = id;
-
-			}
-			ImGui::SameLine();
-
-			if (ImGui::Button("MeshUnitScale", ImVec2(ImGui::GetWindowSize().x * 0.23f, 0.0f)))
-			{
-				int id = viewer.selected_data_index;
-				CGMesh updatedMesh;
-				CGMesh inputMesh = Meshes[id];
-
-				MP.MeshUnitScale(inputMesh, updatedMesh);
-				updateMeshViewer(viewer, updatedMesh);
-				meshFileName.push_back("unit_" + meshFileName[id]);
-				Meshes.push_back(updatedMesh);
-				viewer.selected_data_index = id;
-
-			}
-
-			if (ImGui::Button("Focus Selected Mesh", ImVec2(ImGui::GetWindowSize().x * 0.23f, 0.0f)))
-			{
-				int id = viewer.selected_data_index;
-				viewer.core().align_camera_center(viewer.data_list[id].V);
-			}
-			ImGui::SameLine();
-
-			if (ImGui::Button("Delete Selected Mesh", ImVec2(ImGui::GetWindowSize().x * 0.23f, 0.0f)))
-			{
-				int id = viewer.selected_data_index;
-				//if (id > 1)
-				//	viewer.selected_data_index = id - 2;
-				//std::cout << "The current Mesh ID is" << viewer.selected_data_index << std::endl;
-
-				viewer.erase_mesh(id);
-				if (id > -1)
-				{
-					meshFileName.erase(meshFileName.begin() + id);
-					Meshes.erase(Meshes.begin() + id);
-				}
+		// 		updateMeshViewer(viewer, updatedMesh1);
+		// 		viewer.data().face_based = true;
+		// 		viewer.data().uniform_colors(Eigen::Vector3d(151.0 / 255.0, 151.0 / 255.0, 151.3 / 255.0),
+		// 			Eigen::Vector3d(151.0 / 255.0, 151.0 / 255.0, 151.3 / 255.0),
+		// 			Eigen::Vector3d(151.0 / 255.0, 151.0 / 255.0, 151.3 / 255.0));
+		// 		meshFileName.push_back("white_" + meshFileName[id]);
+		// 		Meshes.push_back(updatedMesh1);
+		// 		viewer.selected_data_index = id;
+		// 	}
+		// 	ImGui::SameLine();
+		// 	if (ImGui::Button("CaltmullClack", ImVec2(ImGui::GetWindowSize().x * 0.23f, 0.0f)))
+		// 	{
+		// 		int id = viewer.selected_data_index;
+		// 		CGMesh updatedMesh;
+		// 		CGMesh inputMesh = Meshes[id];
 
 
-			}
-			ImGui::SameLine();
+		// 		MP.SubdivCoarseMesh_CaltmullClack(inputMesh, updatedMesh);
 
-			if (ImGui::Button("Show boundary Ver", ImVec2(ImGui::GetWindowSize().x * 0.23f, 0.0f)))
-			{
-				int id = viewer.selected_data_index;
+		// 		updateMeshViewer(viewer, updatedMesh);
+		// 		meshFileName.push_back("Subdiv_" + meshFileName[id]);
+		// 		Meshes.push_back(updatedMesh);
+		// 		viewer.selected_data_index = id;
 
-				CGMesh inputMesh = Meshes[id];
+		// 	}
+		// 	ImGui::SameLine();
 
-				std::vector<int> Bvids;
-				for (CGMesh::VertexIter v_it = inputMesh.vertices_begin(); v_it != (inputMesh.vertices_end()); ++v_it)
-				{
+		// 	if (ImGui::Button("MeshUnitScale", ImVec2(ImGui::GetWindowSize().x * 0.23f, 0.0f)))
+		// 	{
+		// 		int id = viewer.selected_data_index;
+		// 		CGMesh updatedMesh;
+		// 		CGMesh inputMesh = Meshes[id];
 
-					if (inputMesh.is_boundary(v_it.handle()))
-						Bvids.push_back(v_it.handle().idx());
+		// 		MP.MeshUnitScale(inputMesh, updatedMesh);
+		// 		updateMeshViewer(viewer, updatedMesh);
+		// 		meshFileName.push_back("unit_" + meshFileName[id]);
+		// 		Meshes.push_back(updatedMesh);
+		// 		viewer.selected_data_index = id;
 
-				}
-				Eigen::VectorXi vids = Eigen::Map<Eigen::VectorXi, Eigen::Unaligned>(Bvids.data(), Bvids.size());
+		// 	}
 
-				viewer.data().set_points(igl::slice(viewer.data().V, vids, 1), hot_red);
+		// 	if (ImGui::Button("Focus Selected Mesh", ImVec2(ImGui::GetWindowSize().x * 0.23f, 0.0f)))
+		// 	{
+		// 		int id = viewer.selected_data_index;
+		// 		viewer.core().align_camera_center(viewer.data_list[id].V);
+		// 	}
+		// 	ImGui::SameLine();
 
-			}
+		// 	if (ImGui::Button("Delete Selected Mesh", ImVec2(ImGui::GetWindowSize().x * 0.23f, 0.0f)))
+		// 	{
+		// 		int id = viewer.selected_data_index;
+		// 		//if (id > 1)
+		// 		//	viewer.selected_data_index = id - 2;
+		// 		//std::cout << "The current Mesh ID is" << viewer.selected_data_index << std::endl;
 
-		}
-
-		if (ImGui::CollapsingHeader("Closest point projection", ImGuiTreeNodeFlags_DefaultOpen))
-		{
-			ImGui::PushItemWidth(100);
-			ImGui::InputDouble("Px", &InputPx, 0, 0, "%.6f");
-			ImGui::SameLine();
-			ImGui::InputDouble("Py", &InputPy, 0, 0, "%.6f");
-			ImGui::SameLine();
-			ImGui::InputDouble("Pz", &InputPz, 0, 0, "%.6f");
-			ImGui::SameLine();
-			if (ImGui::Button("Draw Point", ImVec2(ImGui::GetWindowSize().x * 0.23f, 0.0f)))
-			{
-				int id = viewer.selected_data_index;
-
-				CGMesh inputMesh = Meshes[id];
-
-				OptimizerCheckboard Optimizer;
-				Optimizer.referenceMesh = inputMesh;
-				CGMesh::Point pt = CGMesh::Point(InputPx, InputPy, InputPz);
-				Eigen::MatrixXd ptM(1, 3);
-				ptM << pt[0], pt[1], pt[2];			
-				viewer.data().add_points(ptM, Eigen::RowVector3d(0, 0, 1)); //draw input point				
-			}
-			ImGui::SameLine();
-			if (ImGui::Button("Closest Point", ImVec2(ImGui::GetWindowSize().x * 0.23f, 0.0f)))
-			{
-				int id = viewer.selected_data_index;
-
-				CGMesh inputMesh = Meshes[id];
-
-				OptimizerCheckboard Optimizer;
-				Optimizer.referenceMesh = inputMesh;
-				CGMesh::Point pt = CGMesh::Point(InputPx, InputPy, InputPz);
-				CGMesh::Point Closestpt;
-				double d=Optimizer.closest_point_projection(pt, Closestpt);
-				std::cout << "Input point is (" << pt[0] << "," << pt[1] << "," << pt[2] << ")." << std::endl;
-				std::cout<<"Its closest point is (" << Closestpt[0] << "," << Closestpt[1] << "," << Closestpt[2] << ")." << std::endl;
-				std::cout << "The closest distance is " << d << std::endl;
-
-				Eigen::MatrixXd ptM(1, 3);
-				ptM << pt[0], pt[1], pt[2];
-				Eigen::MatrixXd ClosetptM(1, 3);
-				ClosetptM << Closestpt[0], Closestpt[1], Closestpt[2];
-				viewer.data().add_points(ptM, Eigen::RowVector3d(0, 0, 1)); //draw input point
-				viewer.data().add_points(ClosetptM, Eigen::RowVector3d(1, 0, 0)); // draw its closest point
-				viewer.data().add_edges(ptM, ClosetptM, Eigen::RowVector3d(1, 0, 0)); // draw connection line
-
-			}
-			ImGui::PopItemWidth();
-		}
-
-		ImGui::SetNextTreeNodeOpen(true);
-		if (ImGui::TreeNode("Mesh Management"))
-		{
+		// 		viewer.erase_mesh(id);
+		// 		if (id > -1)
+		// 		{
+		// 			meshFileName.erase(meshFileName.begin() + id);
+		// 			Meshes.erase(Meshes.begin() + id);
+		// 		}
 
 
-			//HelpMarker("This is a more typical looking tree with selectable nodes.\nClick to select, CTRL+Click to toggle, click on arrows or double-click to open.");
+		// 	}
+		// 	ImGui::SameLine();
+
+		// 	if (ImGui::Button("Show boundary Ver", ImVec2(ImGui::GetWindowSize().x * 0.23f, 0.0f)))
+		// 	{
+		// 		int id = viewer.selected_data_index;
+
+		// 		CGMesh inputMesh = Meshes[id];
+
+		// 		std::vector<int> Bvids;
+		// 		for (CGMesh::VertexIter v_it = inputMesh.vertices_begin(); v_it != (inputMesh.vertices_end()); ++v_it)
+		// 		{
+
+		// 			if (inputMesh.is_boundary(v_it.handle()))
+		// 				Bvids.push_back(v_it.handle().idx());
+
+		// 		}
+		// 		Eigen::VectorXi vids = Eigen::Map<Eigen::VectorXi, Eigen::Unaligned>(Bvids.data(), Bvids.size());
+
+		// 		viewer.data().set_points(igl::slice(viewer.data().V, vids, 1), hot_red);
+
+		// 	}
+
+		// }
+
+		// if (ImGui::CollapsingHeader("Closest point projection", ImGuiTreeNodeFlags_DefaultOpen))
+		// {
+		// 	ImGui::PushItemWidth(100);
+		// 	ImGui::InputDouble("Px", &InputPx, 0, 0, "%.6f");
+		// 	ImGui::SameLine();
+		// 	ImGui::InputDouble("Py", &InputPy, 0, 0, "%.6f");
+		// 	ImGui::SameLine();
+		// 	ImGui::InputDouble("Pz", &InputPz, 0, 0, "%.6f");
+		// 	ImGui::SameLine();
+		// 	if (ImGui::Button("Draw Point", ImVec2(ImGui::GetWindowSize().x * 0.23f, 0.0f)))
+		// 	{
+		// 		int id = viewer.selected_data_index;
+
+		// 		CGMesh inputMesh = Meshes[id];
+
+		// 		OptimizerCheckboard Optimizer;
+		// 		Optimizer.referenceMesh = inputMesh;
+		// 		CGMesh::Point pt = CGMesh::Point(InputPx, InputPy, InputPz);
+		// 		Eigen::MatrixXd ptM(1, 3);
+		// 		ptM << pt[0], pt[1], pt[2];			
+		// 		viewer.data().add_points(ptM, Eigen::RowVector3d(0, 0, 1)); //draw input point				
+		// 	}
+		// 	ImGui::SameLine();
+		// 	if (ImGui::Button("Closest Point", ImVec2(ImGui::GetWindowSize().x * 0.23f, 0.0f)))
+		// 	{
+		// 		int id = viewer.selected_data_index;
+
+		// 		CGMesh inputMesh = Meshes[id];
+
+		// 		OptimizerCheckboard Optimizer;
+		// 		Optimizer.referenceMesh = inputMesh;
+		// 		CGMesh::Point pt = CGMesh::Point(InputPx, InputPy, InputPz);
+		// 		CGMesh::Point Closestpt;
+		// 		double d=Optimizer.closest_point_projection(pt, Closestpt);
+		// 		std::cout << "Input point is (" << pt[0] << "," << pt[1] << "," << pt[2] << ")." << std::endl;
+		// 		std::cout<<"Its closest point is (" << Closestpt[0] << "," << Closestpt[1] << "," << Closestpt[2] << ")." << std::endl;
+		// 		std::cout << "The closest distance is " << d << std::endl;
+
+		// 		Eigen::MatrixXd ptM(1, 3);
+		// 		ptM << pt[0], pt[1], pt[2];
+		// 		Eigen::MatrixXd ClosetptM(1, 3);
+		// 		ClosetptM << Closestpt[0], Closestpt[1], Closestpt[2];
+		// 		viewer.data().add_points(ptM, Eigen::RowVector3d(0, 0, 1)); //draw input point
+		// 		viewer.data().add_points(ClosetptM, Eigen::RowVector3d(1, 0, 0)); // draw its closest point
+		// 		viewer.data().add_edges(ptM, ClosetptM, Eigen::RowVector3d(1, 0, 0)); // draw connection line
+
+		// 	}
+		// 	ImGui::PopItemWidth();
+		// }
+
+		// ImGui::SetNextTreeNodeOpen(true);
+		// if (ImGui::TreeNode("Mesh Management"))
+		// {
 
 
-			static int selection_mask = (1 << 2); // Dumb representation of what may be user-side selection state. You may carry selection state inside or outside your objects in whatever format you see fit.
-			int node_clicked = -1;                // Temporary storage of what node we have clicked to process selection at the end of the loop. May be a pointer to your own node type, etc.
-			//ImGui::PushStyleVar(ImGuiStyleVar_IndentSpacing, ImGui::GetFontSize() * 3); // Increase spacing to differentiate leaves from expanded contents.
-			int id = viewer.data_list.size();
-
-			for (int i = 0; i < id; i++)
-			{
-				//// Disable the default open on single-click behavior and pass in Selected flag according to our selection state.
-				ImGuiTreeNodeFlags node_flags = ImGuiTreeNodeFlags_OpenOnArrow | ImGuiTreeNodeFlags_OpenOnDoubleClick;
-				if (selection_mask & (1 << i))
-					node_flags |= ImGuiTreeNodeFlags_Selected;
-				//static bool check = true;
-				//ImGui::Checkbox("checkbox", &check);
-				//ImGui::SameLine();
-				//ImGui::Checkbox("F", &selectFEV[3 * i]);
-				//ImGui::SameLine();
-				//ImGui::Checkbox("E", &selectFEV[3 * i + 1]);
-				//ImGui::SameLine();
-				//ImGui::Checkbox("V", &selectFEV[3 * i + 2]);
-				//ImGui::SameLine();
-				ImGui::PushID(i);
-				ImGui::Checkbox("Visible", &selectFEV[i]);
-				ImGui::PopID();
-				ImGui::SameLine();
-				if (selectFEV[i])
-					viewer.data_list[i].is_visible = true;
-				else
-					viewer.data_list[i].is_visible = false;
+		// 	//HelpMarker("This is a more typical looking tree with selectable nodes.\nClick to select, CTRL+Click to toggle, click on arrows or double-click to open.");
 
 
+		// 	static int selection_mask = (1 << 2); // Dumb representation of what may be user-side selection state. You may carry selection state inside or outside your objects in whatever format you see fit.
+		// 	int node_clicked = -1;                // Temporary storage of what node we have clicked to process selection at the end of the loop. May be a pointer to your own node type, etc.
+		// 	//ImGui::PushStyleVar(ImGuiStyleVar_IndentSpacing, ImGui::GetFontSize() * 3); // Increase spacing to differentiate leaves from expanded contents.
+		// 	int id = viewer.data_list.size();
+
+		// 	for (int i = 0; i < id; i++)
+		// 	{
+		// 		//// Disable the default open on single-click behavior and pass in Selected flag according to our selection state.
+		// 		ImGuiTreeNodeFlags node_flags = ImGuiTreeNodeFlags_OpenOnArrow | ImGuiTreeNodeFlags_OpenOnDoubleClick;
+		// 		if (selection_mask & (1 << i))
+		// 			node_flags |= ImGuiTreeNodeFlags_Selected;
+		// 		//static bool check = true;
+		// 		//ImGui::Checkbox("checkbox", &check);
+		// 		//ImGui::SameLine();
+		// 		//ImGui::Checkbox("F", &selectFEV[3 * i]);
+		// 		//ImGui::SameLine();
+		// 		//ImGui::Checkbox("E", &selectFEV[3 * i + 1]);
+		// 		//ImGui::SameLine();
+		// 		//ImGui::Checkbox("V", &selectFEV[3 * i + 2]);
+		// 		//ImGui::SameLine();
+		// 		ImGui::PushID(i);
+		// 		ImGui::Checkbox("Visible", &selectFEV[i]);
+		// 		ImGui::PopID();
+		// 		ImGui::SameLine();
+		// 		if (selectFEV[i])
+		// 			viewer.data_list[i].is_visible = true;
+		// 		else
+		// 			viewer.data_list[i].is_visible = false;
 
 
 
-				node_flags |= ImGuiTreeNodeFlags_Leaf | ImGuiTreeNodeFlags_NoTreePushOnOpen; // ImGuiTreeNodeFlags_Bullet
-				//node_flags |=  ImGuiTreeNodeFlags_Leaf | ImGuiTreeNodeFlags_DefaultOpen; // ImGuiTreeNodeFlags_Bullet
-				//ImGui::TreeNodeEx((void*)(intptr_t)i, node_flags, "Object %d", i);
-				ImGui::TreeNodeEx((void*)(intptr_t)i, node_flags, meshFileName[i].c_str());
 
-				if (ImGui::IsItemClicked())
-					node_clicked = i;
-			}
-			if (node_clicked != -1)
-			{
-				// Update selection state. Process outside of tree loop to avoid visual inconsistencies during the clicking-frame.
-				if (ImGui::GetIO().KeyCtrl)
-					selection_mask ^= (1 << node_clicked);          // CTRL+click to toggle
-				else //if (!(selection_mask & (1 << node_clicked))) // Depending on selection behavior you want, this commented bit preserve selection when clicking on item that is part of the selection
-					selection_mask = (1 << node_clicked);           // Click to single-select
 
-				viewer.selected_data_index = node_clicked;
-			}
+		// 		node_flags |= ImGuiTreeNodeFlags_Leaf | ImGuiTreeNodeFlags_NoTreePushOnOpen; // ImGuiTreeNodeFlags_Bullet
+		// 		//node_flags |=  ImGuiTreeNodeFlags_Leaf | ImGuiTreeNodeFlags_DefaultOpen; // ImGuiTreeNodeFlags_Bullet
+		// 		//ImGui::TreeNodeEx((void*)(intptr_t)i, node_flags, "Object %d", i);
+		// 		ImGui::TreeNodeEx((void*)(intptr_t)i, node_flags, meshFileName[i].c_str());
 
-			ImGui::TreePop();
-		}
+		// 		if (ImGui::IsItemClicked())
+		// 			node_clicked = i;
+		// 	}
+		// 	if (node_clicked != -1)
+		// 	{
+		// 		// Update selection state. Process outside of tree loop to avoid visual inconsistencies during the clicking-frame.
+		// 		if (ImGui::GetIO().KeyCtrl)
+		// 			selection_mask ^= (1 << node_clicked);          // CTRL+click to toggle
+		// 		else //if (!(selection_mask & (1 << node_clicked))) // Depending on selection behavior you want, this commented bit preserve selection when clicking on item that is part of the selection
+		// 			selection_mask = (1 << node_clicked);           // Click to single-select
+
+		// 		viewer.selected_data_index = node_clicked;
+		// 	}
+
+		// 	ImGui::TreePop();
+		// }
 
 		ImGui::End();
 	};

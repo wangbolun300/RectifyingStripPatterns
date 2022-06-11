@@ -70,9 +70,9 @@ target_link_libraries(lsc PUBLIC libOpenMeshCore.a libOpenMeshTools.a libANN.a)
 endif(WIN32)
 
 
-# target_compile_definitions(lsc PUBLIC
-#     SI_MESH_DIR="${CMAKE_CURRENT_SOURCE_DIR}/app/meshes/")
-###############################
+target_compile_definitions(lsc PUBLIC
+    SI_MESH_DIR="${CMAKE_CURRENT_SOURCE_DIR}/app/meshes/")
+##############################
 
 add_executable(${PROJECT_NAME}_bin app/main.cpp)
 target_link_libraries(${PROJECT_NAME}_bin PUBLIC lsc)
@@ -82,6 +82,11 @@ target_compile_definitions(${PROJECT_NAME}_bin PUBLIC
     CHECKER_BOARD_DATA_DIR="${CMAKE_CURRENT_SOURCE_DIR}/data/")
 ################################
 
+add_executable(${PROJECT_NAME}_devbin app/lsc_main.cpp)
+target_link_libraries(${PROJECT_NAME}_devbin PUBLIC lsc)
 
+add_definitions(-D_USE_MATH_DEFINES)
+target_compile_definitions(${PROJECT_NAME}_devbin PUBLIC
+    CHECKER_BOARD_DATA_DIR="${CMAKE_CURRENT_SOURCE_DIR}/data/")
 
 

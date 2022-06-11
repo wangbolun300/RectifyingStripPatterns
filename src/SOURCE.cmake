@@ -4,6 +4,8 @@ src/MeshProcessing.cpp
 src/OptimizerCheckboard.cpp
 src/MeshProcessing.h
 src/OptimizerCheckboard.h
+src/basic.h
+src/basic.cpp
 )
 ################################################################################
 # Subfolders
