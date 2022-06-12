@@ -27,9 +27,9 @@ const Eigen::RowVector3d sea_green(70. / 255., 252. / 255., 167. / 255.);
 const Eigen::RowVector3d hot_red(255. / 255., 12. / 255., 17. / 255.);
 MeshProcessing MP;
 
-Eigen::MatrixXd V, U;
-Eigen::MatrixXi F, E;
-Eigen::VectorXi  b;
+// This V and F are only for visulization of the default mesh
+Eigen::MatrixXd V;
+Eigen::MatrixXi F;
 
 bool keyPress_1 = false;
 bool keyPress_2 = false;
@@ -87,6 +87,7 @@ void updateMeshViewer(igl::opengl::glfw::Viewer& viewer, CGMesh& mesh)
 	VertexType.resize(V.size(), 0);
 
 }
+
 bool pre_draw(igl::opengl::glfw::Viewer& viewer)
 {
 	return false;
@@ -179,8 +180,9 @@ bool mouse_down(igl::opengl::glfw::Viewer& viewer, int button, int modifier)
 			Eigen::VectorXi vids = Eigen::Map<Eigen::VectorXi, Eigen::Unaligned>(fixedVid.data(), fixedVid.size());
 			Eigen::VectorXi vids2 = Eigen::Map<Eigen::VectorXi, Eigen::Unaligned>(controlVid.data(), controlVid.size());
 
-			std::cout << viewer.current_mouse_x << "___" << viewer.current_mouse_y << std::endl;
-			std::cout << "vid "<<vid << ", fid " << fid << std::endl;
+			std::cout <<"Selected point:\nposition related to the viewer: " <<viewer.current_mouse_x << "___" << viewer.current_mouse_y << std::endl;
+			std::cout << "vid, "<<vid << ", fid, " << fid << std::endl;
+            std::cout<<"point position: ("<<viewer.data().V(vid,0)<<", "<<viewer.data().V(vid,1)<<", "<<viewer.data().V(vid,2)<<")\n\n";		
 			//viewer.data().add_points(igl::slice(viewer.data().V, vids, 1), hot_red);
 			viewer.data().set_points(igl::slice(viewer.data().V, vids, 1), lscif::hot_red);
 			viewer.data().add_points(igl::slice(viewer.data().V, vids2, 1), lscif::sea_green);
@@ -229,8 +231,9 @@ bool mouse_down(igl::opengl::glfw::Viewer& viewer, int button, int modifier)
 			Eigen::VectorXi vids2 = Eigen::Map<Eigen::VectorXi, Eigen::Unaligned>(controlVid.data(), controlVid.size());
 
 
-			std::cout << viewer.current_mouse_x << "___" << viewer.current_mouse_y << std::endl;
-			std::cout << vid << "_xxx_" << fid << std::endl;		
+			std::cout <<"Selected point:\nposition related to the viewer: " <<viewer.current_mouse_x << "___" << viewer.current_mouse_y << std::endl;
+			std::cout << "vid, "<<vid << ", fid, " << fid << std::endl;
+            std::cout<<"point position: ("<<viewer.data().V(vid,0)<<", "<<viewer.data().V(vid,1)<<", "<<viewer.data().V(vid,2)<<")\n\n";		
 			viewer.data().set_points(igl::slice(viewer.data().V, vids, 1), lscif::hot_red);
 			viewer.data().add_points(igl::slice(viewer.data().V, vids2, 1), lscif::sea_green);
 			return true;
@@ -289,7 +292,7 @@ int main(int argc, char* argv[])
 	{
 		// Define next window position + size
 		ImGui::SetNextWindowPos(ImVec2(180.f * menu.menu_scaling(), 10), ImGuiSetCond_FirstUseEver);
-		ImGui::SetNextWindowSize(ImVec2(800, 800), ImGuiSetCond_FirstUseEver);
+		ImGui::SetNextWindowSize(ImVec2(800, 300), ImGuiSetCond_FirstUseEver);
 		ImGui::Begin(
 			"Levelset Curves", nullptr,
 			ImGuiWindowFlags_NoSavedSettings
@@ -428,15 +431,16 @@ int main(int argc, char* argv[])
 			
             if (ImGui::Button("Parametrization", ImVec2(ImGui::GetWindowSize().x * 0.23f, 0.0f)))
 			{
-				// int id = viewer.selected_data_index;
-				// CGMesh updatedMesh;
-				// CGMesh inputMesh = Meshes[id];
 
-				// MP.MeshUnitScale(inputMesh, updatedMesh);
-				// updateMeshViewer(viewer, updatedMesh);
-				// meshFileName.push_back("unit_" + meshFileName[id]);
-				// Meshes.push_back(updatedMesh);
-				// viewer.selected_data_index = id;
+				int id = viewer.selected_data_index;
+				CGMesh updatedMesh;
+				CGMesh inputMesh = lscif::Meshes[id];
+                lsTools lst(inputMesh);
+                lst.convert_paras_as_meshes(updatedMesh);
+				lscif::updateMeshViewer(viewer, updatedMesh);
+				lscif::meshFileName.push_back("paras_" + lscif::meshFileName[id]);
+				lscif::Meshes.push_back(updatedMesh);
+				viewer.selected_data_index = id;
 
 			}
             ImGui::SameLine();
@@ -672,7 +676,7 @@ int main(int argc, char* argv[])
 	Eigen::MatrixXi E;
 	lscif::MP.meshEdges(lscif::mesh, E);
 	Eigen::MatrixXd C = Eigen::MatrixXd::Zero(E.rows(), 3);
-	viewer.data().set_edges(lscif::V, lscif::E, C);
+	viewer.data().set_edges(lscif::V, E, C);
 	viewer.data().line_width = 2.0;
 	viewer.data().invert_normals = true;
 	lscif::VertexType.resize(lscif::V.size(), 0);

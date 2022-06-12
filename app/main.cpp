@@ -330,62 +330,62 @@ int main(int argc, char* argv[])
 		ImGui::SameLine();
 		
 		// Add a button
-		if (ImGui::Button("Save Mesh", ImVec2(ImGui::GetWindowSize().x * 0.25f, 0.0f)))
-		{
-			std::string fname = igl::file_dialog_save();
+		// if (ImGui::Button("Save Mesh", ImVec2(ImGui::GetWindowSize().x * 0.25f, 0.0f)))
+		// {
+		// 	std::string fname = igl::file_dialog_save();
 
-			if (fname.length() == 0)
-				return;
-			fname = fname + ".obj";
+		// 	if (fname.length() == 0)
+		// 		return;
+		// 	fname = fname + ".obj";
 
-			int id = viewer.selected_data_index;
-			OpenMesh::IO::write_mesh(Meshes[id], fname);
-		}
+		// 	int id = viewer.selected_data_index;
+		// 	OpenMesh::IO::write_mesh(Meshes[id], fname);
+		// }
 
-		ImGui::SameLine();
+		// ImGui::SameLine();
 
-		if (ImGui::Button("Import Para", ImVec2(ImGui::GetWindowSize().x * 0.25f, 0.0f)))
-		{
-			std::string fname = igl::file_dialog_open();
+		// if (ImGui::Button("Import Para", ImVec2(ImGui::GetWindowSize().x * 0.25f, 0.0f)))
+		// {
+		// 	std::string fname = igl::file_dialog_open();
 
-			if (fname.length() == 0)
-				return;
+		// 	if (fname.length() == 0)
+		// 		return;
 
-			std::ifstream settings(fname);
-			settings >> weigth_closeness;
-			settings >> weight_Planarity;
-			settings >> weight_polyhedron_vertex;
-			settings >> weight_Normalize_vnormal;
-			settings >> weight_EqualDiagornals;
-			settings >> weight_OrthDiagornals;
-			settings >> weight_UniformDiagornals;
-			settings >> weight_Fairness;
-			settings >> weight_FairnessDiag;
-			settings >> OpIter;
-		}
+		// 	std::ifstream settings(fname);
+		// 	settings >> weigth_closeness;
+		// 	settings >> weight_Planarity;
+		// 	settings >> weight_polyhedron_vertex;
+		// 	settings >> weight_Normalize_vnormal;
+		// 	settings >> weight_EqualDiagornals;
+		// 	settings >> weight_OrthDiagornals;
+		// 	settings >> weight_UniformDiagornals;
+		// 	settings >> weight_Fairness;
+		// 	settings >> weight_FairnessDiag;
+		// 	settings >> OpIter;
+		// }
 
-		ImGui::SameLine();
+		// ImGui::SameLine();
 
-		if (ImGui::Button("Save Para", ImVec2(ImGui::GetWindowSize().x * 0.25f, 0.0f)))
-		{
-			std::string fname = igl::file_dialog_save();
+		// if (ImGui::Button("Save Para", ImVec2(ImGui::GetWindowSize().x * 0.25f, 0.0f)))
+		// {
+		// 	std::string fname = igl::file_dialog_save();
 
-			std::ofstream file;
-			file.open(fname);
+		// 	std::ofstream file;
+		// 	file.open(fname);
 
-			file << weigth_closeness << std::endl;
-			file << weight_Planarity << std::endl;
-			file << weight_polyhedron_vertex << std::endl;
-			file << weight_Normalize_vnormal << std::endl;
-			file << weight_EqualDiagornals << std::endl;
-			file << weight_OrthDiagornals << std::endl;
-			file << weight_UniformDiagornals << std::endl;
-			file << weight_Fairness << std::endl;
-			file << weight_FairnessDiag << std::endl;
-			file << OpIter << std::endl;
+		// 	file << weigth_closeness << std::endl;
+		// 	file << weight_Planarity << std::endl;
+		// 	file << weight_polyhedron_vertex << std::endl;
+		// 	file << weight_Normalize_vnormal << std::endl;
+		// 	file << weight_EqualDiagornals << std::endl;
+		// 	file << weight_OrthDiagornals << std::endl;
+		// 	file << weight_UniformDiagornals << std::endl;
+		// 	file << weight_Fairness << std::endl;
+		// 	file << weight_FairnessDiag << std::endl;
+		// 	file << OpIter << std::endl;
 
-			file.close();
-		}
+		// 	file.close();
+		// }
 
 
 		// static bool updateMeshFlag = false;
@@ -442,10 +442,11 @@ int main(int argc, char* argv[])
 
 		// }
 
-		// ImGui::Separator();
-		// ImGui::PushStyleColor(ImGuiCol_Button, (ImVec4)ImColor::HSV(0.0f, 0.6f, 0.6f));
-		// ImGui::PushStyleColor(ImGuiCol_ButtonHovered, (ImVec4)ImColor::HSV(0.0f, 0.7f, 0.7f));
-		// ImGui::PushStyleColor(ImGuiCol_ButtonActive, (ImVec4)ImColor::HSV(0.0f, 0.8f, 0.8f));
+		ImGui::Separator();
+		ImGui::PushStyleColor(ImGuiCol_Button, (ImVec4)ImColor::HSV(0.0f, 0.6f, 0.6f));
+		ImGui::PushStyleColor(ImGuiCol_ButtonHovered, (ImVec4)ImColor::HSV(0.0f, 0.7f, 0.7f));
+		ImGui::PushStyleColor(ImGuiCol_ButtonActive, (ImVec4)ImColor::HSV(0.0f, 0.8f, 0.8f));
+		ImGui::PopStyleColor(3);
 		// if (ImGui::Button("Optimization"))
 		// {
 		// 		int id = viewer.selected_data_index;
@@ -522,7 +523,7 @@ int main(int argc, char* argv[])
 		// 			viewer.selected_data_index = id;
 		// 		}
 		// }
-		// ImGui::PopStyleColor(3);
+		
 
 
 		// if (ImGui::CollapsingHeader("Mesh Processing", ImGuiTreeNodeFlags_DefaultOpen))
