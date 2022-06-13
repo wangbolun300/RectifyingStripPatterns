@@ -11,6 +11,12 @@ typedef Eigen::SparseVector<double> Efunc;
 //  Eigen::SparseVector<double> ele;
 // };
 
+// // vector of 
+// class VecScalar{
+
+// };
+
+
 // vector of the linear combination of function values (LSC).
 class Vectorlf
 {
@@ -24,23 +30,26 @@ public:
         return mat.size();
     }
 
-    // since for each mesh vertex there is a LSC, and for each LSC, it is the combination of all function values of
-    // the vertices, which can be represented as a vector of size sz (some cofficients are 0, so we use sparse matrix)
+    
     void resize(int sz)
     {
         mat.resize(sz);
-        for (int i = 0; i < sz; i++)
+    }
+    void resize(int sz1, int sz2)
+    {
+        mat.resize(sz1);
+        for (int i = 0; i < sz1; i++)
         {
-            mat[i].resize(sz);
+            mat[i].resize(sz2);
         }
     }
-
     Efunc &operator()(int id)
     {
         assert(id >= 0 && id < mat.size());
         return mat[id];
     }
 };
+
 // The basic tool of LSC. Please initialize it with a mesh
 class lsTools
 {
@@ -52,21 +61,60 @@ private:
     Eigen::MatrixXd angF;                // angel per vertex of each F. nx3, n is the number of faces
     Eigen::VectorXd areaF;               // the area of each face.
     std::vector<Eigen::Matrix3d> Rotate; // the 90 degree rotation matrices for each face.
+    // the rotated 3 half edges for each face, in the plane of this face
+    // the order of the 3 edges are: v0-v2, v1-v0, v2-v1
+    std::vector<std::array<Eigen::Vector3d, 3>> Erotate; 
+    Vectorlf gradVF; //gradient of function in each face
+    Vectorlf gradV; //gradient of function in each vertex
+    void get_mesh_angles();
+    void get_mesh_normals_per_face();
+    void get_mesh_normals_per_ver();
 
+    // This is to calculate the 90 degree rotation matrices in
+    // each triangle face. It can be used to calculate gradients.
+    void get_face_rotation_matices();
+    void get_rotated_edges_for_each_face();
+    template <class Cls>
+    void gradient_v2f( Cls& values,std::array<Cls,3> &output);// calculate gradient in each face from vertex values 
+    template <class Cls>
+    void gradient_v2v( Cls& values,std::array<Cls,3> &output);// calculate gradient in each vertex from vertex values 
 public:
+    // parametrization and find the boundary loop 
     lsTools(CGMesh &mesh);
 
     Eigen::MatrixXd V;
     Eigen::MatrixXi F;
+    Eigen::MatrixXi E;
     Eigen::VectorXi bnd;   // boundary loop
     Eigen::MatrixXd paras; // parameters of the mesh vertices, nx2
-
-    // convert the parameters into a mesh
+    
+    // this function should be calculated first once the class get constructed
+    //  1. get face normals; 
+    //  2. get all the angles;
+    //  3. get vertex normals using angles and face normals;
+    //  4. get the face rotation matrices.
+    //  5. get the rotated edges in each face.
+    void initialize_mesh_properties(){
+        get_mesh_normals_per_face();
+        get_mesh_angles();
+        get_mesh_normals_per_ver();
+        get_face_rotation_matices();
+        get_rotated_edges_for_each_face();
+    }
+     // convert the parameters into a mesh, for visulization purpose
     void convert_paras_as_meshes(CGMesh &output);
-    void get_mesh_angles();
-    void get_mesh_normals_per_face();
-    void get_mesh_normals_per_ver();
-    void get_face_rotation_matices();
-    // template <typename Tp>
-    // void gradient(Tp&)
+
+    void debug_tool(int id=0, double value=0){
+        std::cout<<"the rotation matrix of face id "<<id<<":\n"<<Rotate[id]<<"\n";
+        std::cout<<"points 0 and 1:\np0: "<<V.row(F(id,0))<<", \np1: "<<V.row(F(id,1))<<""<<std::endl;
+        Eigen::Vector3d dirc=Eigen::Vector3d(V.row(F(id,1))-V.row(F(id,0)));
+        std::cout<<"direction v01: "<<dirc<<std::endl;
+
+        Eigen::Vector3d rotated=Rotate[id]*dirc;
+        std::cout<<"Rotated "<<rotated<<std::endl;
+        std::cout<<"the inner product: "<<dirc.dot(rotated)<<std::endl;
+        std::cout<<"the difference of the lengths "<<rotated.norm()-dirc.norm()<<std::endl;
+    }
+
+    
 };

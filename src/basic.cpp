@@ -6,6 +6,7 @@
 lsTools::lsTools(CGMesh &mesh)
 {
     MP.mesh2Matrix(mesh, V, F);
+    MP.meshEdges(mesh, E);
     lsmesh = mesh;
     std::cout << "parametrization start, getting boundary loop, F size " << F.rows() << std::endl;
     igl::boundary_loop(F, bnd);
@@ -103,6 +104,13 @@ void lsTools::get_mesh_normals_per_ver()
                     break;
                 }
             }
+            if (pinf == -1)
+            {
+                std::cout << "ERROR: no find correct one ring face. \npid: " << vh.idx() << " or " << i << std::endl;
+                std::cout << "fid: " << fid << std::endl;
+                std::cout << "the vertices of this face: " << F.row(fid) << std::endl
+                          << std::endl;
+            }
             assert(pinf > -1);
             norm_v.row(i) += angF(fid, pinf) * norm_f.row(fid);
         }
@@ -126,7 +134,92 @@ void lsTools::get_face_rotation_matices()
             x * z - y, y * z + x, z * z;
     }
 }
+void lsTools::get_rotated_edges_for_each_face()
+{
+    Erotate.resize(F.rows());
 
+    // the 3 edges are in the order of the openmesh face-edge iterator provides us
+    for (CGMesh::FaceIter f_it = lsmesh.faces_begin(); f_it != (lsmesh.faces_end()); ++f_it)
+    {
+        int fid = f_it.handle().idx();
+        int ecounter = 0;
+        for (CGMesh::FaceHalfedgeIter fh_it = lsmesh.fh_begin(f_it); fh_it != (lsmesh.fh_end(f_it)); ++fh_it)
+        {
+            CGMesh::HalfedgeHandle heh = fh_it.current_halfedge_handle();
+            int vid1 = lsmesh.from_vertex_handle(heh).idx();
+            int vid2 = lsmesh.to_vertex_handle(heh).idx();
+            // if(1)
+            // //if(!(vid1==F(fid,0)||vid1==F(fid,1)||vid1==F(fid,2))||!(vid2==F(fid,0)||vid2==F(fid,1)||vid2==F(fid,2)))
+            // {
+            //     std::cout << "F and edge not match.\nF " << fid << ", vers, " << F.row(fid) << std::endl;
+            //     std::cout << "E vers: " << vid1<<", "<<vid2 << std::endl
+            //               << std::endl;
+            // }
+
+            // the rotated vector of V[1]-V[0] is obtained here:
+            // the order of the 3 edges are:
+            // V(F(fid,0))-V(F(fid,2)),V(F(fid,1))-V(F(fid,0)),V(F(fid,2))-V(F(fid,1))
+            Erotate[fid][ecounter] = Eigen::Vector3d(Rotate[fid] * Eigen::Vector3d(V.row(vid2) - V.row(vid1)));
+            assert(fid < Erotate.size());
+            assert(vid1 == F(fid, 0) || vid1 == F(fid, 1) || vid1 == F(fid, 2));
+            assert(vid2 == F(fid, 0) || vid2 == F(fid, 1) || vid2 == F(fid, 2));
+            assert(vid1 != vid2);
+            if (ecounter == 0)
+            {
+                assert(vid1 == F(fid, 2) && vid2 == F(fid, 0));
+            }
+            if (ecounter == 1)
+            {
+                assert(vid1 == F(fid, 0) && vid2 == F(fid, 1));
+            }
+            if (ecounter == 2)
+            {
+                assert(vid1 == F(fid, 1) && vid2 == F(fid, 2));
+            }
+            ecounter++;
+        }
+    }
+}
+
+// Cls is a class wich restore the value of each vertex.
+// it can be a Vectorlf, or a Eigen::Vector of double values
+// the size of Cls is already assigned .
+// the 3 dimentions of output is for x, y and z
+template <class Cls>
+void lsTools::gradient_v2f(Cls &input, std::array<Cls, 3> &output)
+{
+    int vsize = V.rows();
+    int fsize = F.rows();
+    output[0].resize(fsize, vsize); // each face has a output value, which is the combination of function input of each vertex
+    output[1].resize(fsize, vsize); // each face has a output value, which is the combination of function input of each vertex
+    output[2].resize(fsize, vsize); // each face has a output value, which is the combination of function input of each vertex
+
+    assert(input.size() == vsize); // each vertex has a input value
+    for (int fid = 0; fid < F.rows(); fid++)
+    {
+        int id0 = F(fid, 0);
+        int id1 = F(fid, 1);
+        int id2 = F(fid, 2);
+        Eigen::Vector3d rot20 = Erotate[fid][0]; // v0-v2
+        Eigen::Vector3d rot01 = Erotate[fid][1]; // v1-v0
+        Eigen::Vector3d rot12 = Erotate[fid][2]; // v2-v1
+        double area = areaF(fid);
+        assert(area > 0);
+        // assert(dimin == 1 || dimin == 3);
+
+        auto value0 = input(id0); // value on the vertex
+        auto value1 = input(id1);
+        auto value2 = input(id2);
+        for (int itr = 0; itr < 3; itr++)
+        {
+            output[itr][fid] = (value0 * rot12[itr] + value1 * rot20[itr] + value2 * rot01[itr]) / (2 * area);
+        }
+    }
+}
+template <class Cls>
+void lsTools::gradient_v2v(Cls &values, std::array<Cls, 3> &output)
+{
+}
 // template<typename Tp>
 // void testlsc(){
 //     Tp aa;

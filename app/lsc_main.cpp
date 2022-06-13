@@ -40,6 +40,9 @@ bool keyPress_2 = false;
 double weigth_closeness = 0.0;
 double refer_AveEL = 1;
 
+int dbg_int;
+double dbg_dbl;
+
 std::vector<int> fixedVertices;
 
 int OpIter = 10;
@@ -264,11 +267,11 @@ int main(int argc, char* argv[])
 #else
 			std::string spliter="/";
 #endif
-	std::string fname = example_root_path+std::string("fertility_input.obj");
+	std::string fname = example_root_path+std::string("RefMesh1.obj");
 	OpenMesh::IO::read_mesh(lscif::mesh, fname);
 
 	lscif::MP.mesh2Matrix(lscif::mesh, lscif::V, lscif::F);
-	lscif::meshFileName.push_back("fertility");
+	lscif::meshFileName.push_back("RefMesh1");
 	lscif::Meshes.push_back(lscif::mesh);
 
 	// Init the viewer
@@ -292,7 +295,7 @@ int main(int argc, char* argv[])
 	{
 		// Define next window position + size
 		ImGui::SetNextWindowPos(ImVec2(180.f * menu.menu_scaling(), 10), ImGuiSetCond_FirstUseEver);
-		ImGui::SetNextWindowSize(ImVec2(800, 300), ImGuiSetCond_FirstUseEver);
+		ImGui::SetNextWindowSize(ImVec2(300, 800), ImGuiSetCond_FirstUseEver);
 		ImGui::Begin(
 			"Levelset Curves", nullptr,
 			ImGuiWindowFlags_NoSavedSettings
@@ -412,11 +415,10 @@ int main(int argc, char* argv[])
 		{
 			// Expose variable directly ...			
 			ImGui::InputDouble("Closeness", &lscif::weigth_closeness, 0, 0, "%.4f");
-			
-
 			ImGui::InputInt("Iteration", &lscif::OpIter, 0, 0);
-
 			ImGui::InputDouble("Average Edge length", &lscif::refer_AveEL, 0, 0, "%.4f");
+            
+
 			ImGui::Checkbox("Fix Corners", &lscif::fixCorner_checkbox);
 			ImGui::SameLine();
 			ImGui::Checkbox("Fix Boundary", &lscif::fixBoundary_checkbox);
@@ -424,13 +426,17 @@ int main(int argc, char* argv[])
 		}
 
 		ImGui::Separator();
-		
 
-		if (ImGui::CollapsingHeader("Mesh Processing", ImGuiTreeNodeFlags_DefaultOpen))
-		{
-			
+        if (ImGui::CollapsingHeader("Mesh Processing", ImGuiTreeNodeFlags_DefaultOpen))
+        {
+            if (ImGui::CollapsingHeader("Debug input", ImGuiTreeNodeFlags_DefaultOpen))
+            {
+                // Expose variable directly ...
+                ImGui::InputInt("int", &lscif::dbg_int, 0, 0);
+                ImGui::InputDouble("double", &lscif::dbg_dbl, 0, 0, "%.4f");
+            }
             if (ImGui::Button("Parametrization", ImVec2(ImGui::GetWindowSize().x * 0.23f, 0.0f)))
-			{
+            {
 
 				int id = viewer.selected_data_index;
 				CGMesh updatedMesh;
@@ -446,10 +452,20 @@ int main(int argc, char* argv[])
             ImGui::SameLine();
             if (ImGui::Button("Print Debug info", ImVec2(ImGui::GetWindowSize().x * 0.23f, 0.0f)))
 			{
+                // int id = viewer.selected_data_index;
+				// std::cout<<"viewer.data().V.rows "<<viewer.data().V.rows()<<"\n";
+                // std::cout<<"viewer.data_list[id].V.rows() "<<viewer.data_list[id].V.rows()<<"\n";
+                // std::cout<<"If the above two numbers, then viewer.data() refers to the selected data."<<std::endl;
                 int id = viewer.selected_data_index;
-				std::cout<<"viewer.data().V.rows "<<viewer.data().V.rows()<<"\n";
-                std::cout<<"viewer.data_list[id].V.rows() "<<viewer.data_list[id].V.rows()<<"\n";
-                std::cout<<"If the above two numbers, then viewer.data() refers to the selected data."<<std::endl;
+				CGMesh inputMesh = lscif::Meshes[id];
+                lsTools tools(inputMesh);
+                tools.initialize_mesh_properties();
+                tools.debug_tool(lscif::dbg_int,lscif::dbg_dbl);
+				// lscif::MP.MeshUnitScale(inputMesh, updatedMesh);
+				// lscif::updateMeshViewer(viewer, updatedMesh);
+				// lscif::meshFileName.push_back("unit_" + lscif::meshFileName[id]);
+				// lscif::Meshes.push_back(updatedMesh);
+				viewer.selected_data_index = id;
 
 			}
             ImGui::SameLine();
@@ -511,10 +527,9 @@ int main(int argc, char* argv[])
 				viewer.data().set_points(igl::slice(viewer.data().V, vids, 1), lscif::hot_red);
 
 			}
+        }
 
-		}
-
-		if (ImGui::CollapsingHeader("Closest point projection", ImGuiTreeNodeFlags_DefaultOpen))
+        if (ImGui::CollapsingHeader("Closest point projection", ImGuiTreeNodeFlags_DefaultOpen))
 		{
 			ImGui::PushItemWidth(100);
 			ImGui::InputDouble("Px", &lscif::InputPx, 0, 0, "%.6f");
