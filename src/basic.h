@@ -77,7 +77,7 @@ private:
     template <class Cls>
     void gradient_v2f( Cls& values,std::array<Cls,3> &output);// calculate gradient in each face from vertex values 
     template <class Cls>
-    void gradient_v2v( Cls& values,std::array<Cls,3> &output);// calculate gradient in each vertex from vertex values 
+    void gradient_f2v( std::array<Cls, 3>& values,std::array<Cls,3> &output);// calculate gradient in each vertex by averging face values 
 public:
     // parametrization and find the boundary loop 
     lsTools(CGMesh &mesh);
@@ -105,15 +105,27 @@ public:
     void convert_paras_as_meshes(CGMesh &output);
 
     void debug_tool(int id=0, double value=0){
-        std::cout<<"the rotation matrix of face id "<<id<<":\n"<<Rotate[id]<<"\n";
-        std::cout<<"points 0 and 1:\np0: "<<V.row(F(id,0))<<", \np1: "<<V.row(F(id,1))<<""<<std::endl;
-        Eigen::Vector3d dirc=Eigen::Vector3d(V.row(F(id,1))-V.row(F(id,0)));
-        std::cout<<"direction v01: "<<dirc<<std::endl;
+        // std::cout<<"the rotation matrix of face id "<<id<<":\n"<<Rotate[id]<<"\n";
+        // std::cout<<"points 0 and 1:\np0: "<<V.row(F(id,0))<<", \np1: "<<V.row(F(id,1))<<""<<std::endl;
+        // Eigen::Vector3d dirc=Eigen::Vector3d(V.row(F(id,1))-V.row(F(id,0)));
+        // std::cout<<"direction v01: "<<dirc<<std::endl;
 
-        Eigen::Vector3d rotated=Rotate[id]*dirc;
-        std::cout<<"Rotated "<<rotated<<std::endl;
-        std::cout<<"the inner product: "<<dirc.dot(rotated)<<std::endl;
-        std::cout<<"the difference of the lengths "<<rotated.norm()-dirc.norm()<<std::endl;
+        // Eigen::Vector3d rotated=Rotate[id]*dirc;
+        // std::cout<<"Rotated "<<rotated<<std::endl;
+        // std::cout<<"the inner product: "<<dirc.dot(rotated)<<std::endl;
+        // std::cout<<"the difference of the lengths "<<rotated.norm()-dirc.norm()<<std::endl;
+        Efunc vec, vec1;
+        vec.resize(3);
+        vec1.resize(3);
+        std::cout<<"print the test sparse vector\n"<<vec<<std::endl;
+        std::cout<<"size "<<vec.size()<<std::endl;
+        std::cout<<"values "<<vec.coeffRef(0)<<std::endl;
+        vec.coeffRef(0)=1.0;
+        vec.coeffRef(2)=2.0;
+        vec=vec*2;
+        std::cout<<"print the test sparse vector\n"<<vec<<std::endl;
+        std::cout<<"size "<<vec.size()<<std::endl;
+        std::cout<<"values "<<vec.coeffRef(0)<<std::endl;
     }
 
     

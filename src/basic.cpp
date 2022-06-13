@@ -217,8 +217,34 @@ void lsTools::gradient_v2f(Cls &input, std::array<Cls, 3> &output)
     }
 }
 template <class Cls>
-void lsTools::gradient_v2v(Cls &values, std::array<Cls, 3> &output)
+void lsTools::gradient_f2v(std::array<Cls, 3> &input, std::array<Cls, 3> &output)
 {
+    int vsize = V.rows();
+    int fsize = F.rows();
+    assert(input[0].size() == fsize);
+    output[0].resize(vsize, vsize);
+    output[1].resize(vsize, vsize);
+    output[2].resize(vsize, vsize);
+    for (int i = 0; i < V.rows(); i++)
+    {
+        CGMesh::VertexHandle vh = lsmesh.vertex_handle(i); // for each vertex, iterate all the faces
+        
+        double areasum=0;
+        for (CGMesh::VertexFaceIter vf_it = lsmesh.vf_begin(vh); vf_it != lsmesh.vf_end(vh); ++vf_it)
+        {
+            assert(vh.idx()==i);
+            int fid = vf_it.handle().idx();
+            double area=areaF(fid);
+            areasum+=area;
+            assert(i<output[0].size());
+            output[0][i] += area *input[0](fid);
+            output[1][i] += area *input[1](fid);
+            output[2][i] += area *input[2](fid);
+        }
+        output[0][i]=output[0][i]/areasum;
+        output[1][i]=output[1][i]/areasum;
+        output[2][i]=output[2][i]/areasum;
+    }
 }
 // template<typename Tp>
 // void testlsc(){
