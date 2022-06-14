@@ -48,6 +48,7 @@ void lsTools::get_mesh_normals_per_face()
     int fsize = F.rows();
     norm_f.resize(fsize, 3);
     areaF.resize(F.rows());
+    areaPF.resize(F.rows());
     for (int i = 0; i < fsize; i++)
     {
         int id0 = F(i, 0);
@@ -56,6 +57,8 @@ void lsTools::get_mesh_normals_per_face()
         Eigen::Vector3d cross = Eigen::Vector3d(V.row(id0) - V.row(id1)).cross(Eigen::Vector3d(V.row(id0) - V.row(id2)));
         norm_f.row(i) = cross.normalized();
         areaF(i) = cross.norm() / 2;
+        Eigen::Vector2d crossp=Eigen::Vector2d(paras.row(id0)- paras.row(id1)).cross(Eigen::Vector2d(paras.row(id0) - paras.row(id2)));
+        areaPF(i)=crossp.norm()/2;
     }
 }
 
@@ -181,12 +184,11 @@ void lsTools::get_rotated_edges_for_each_face()
     }
 }
 
-// Cls is a class wich restore the value of each vertex.
+// Vectorlf is a class wich restore the value of each vertex.
 // it can be a Vectorlf, or a Eigen::Vector of double values
-// the size of Cls is already assigned .
+// the size of Vectorlf is already assigned .
 // the 3 dimentions of output is for x, y and z
-template <class Cls>
-void lsTools::gradient_v2f(Cls &input, std::array<Cls, 3> &output)
+void lsTools::gradient_v2f(Vectorlf &input, std::array<Vectorlf, 3> &output)
 {
     int vsize = V.rows();
     int fsize = F.rows();
@@ -212,12 +214,13 @@ void lsTools::gradient_v2f(Cls &input, std::array<Cls, 3> &output)
         auto value2 = input(id2);
         for (int itr = 0; itr < 3; itr++)
         {
-            output[itr][fid] = (value0 * rot12[itr] + value1 * rot20[itr] + value2 * rot01[itr]) / (2 * area);
+
+            output[itr](fid)= (value0 * rot12[itr] + value1 * rot20[itr] + value2 * rot01[itr]) / (2 * area);
         }
     }
 }
-template <class Cls>
-void lsTools::gradient_f2v(std::array<Cls, 3> &input, std::array<Cls, 3> &output)
+
+void lsTools::gradient_f2v(std::array<Vectorlf, 3> &input, std::array<Vectorlf, 3> &output)
 {
     int vsize = V.rows();
     int fsize = F.rows();
@@ -237,19 +240,133 @@ void lsTools::gradient_f2v(std::array<Cls, 3> &input, std::array<Cls, 3> &output
             double area=areaF(fid);
             areasum+=area;
             assert(i<output[0].size());
-            output[0][i] += area *input[0](fid);
-            output[1][i] += area *input[1](fid);
-            output[2][i] += area *input[2](fid);
+            output[0](i) += area *input[0](fid);
+            output[1](i) += area *input[1](fid);
+            output[2](i) += area *input[2](fid);
         }
-        output[0][i]=output[0][i]/areasum;
-        output[1][i]=output[1][i]/areasum;
-        output[2][i]=output[2][i]/areasum;
+        output[0](i)=output[0](i)/areasum;
+        output[1](i)=output[1](i)/areasum;
+        output[2](i)=output[2](i)/areasum;
     }
 }
-// template<typename Tp>
-// void testlsc(){
-//     Tp aa;
-//     Tp bb=aa;
-//     Eigen::Matrix3d m3d;
-//     double value=m3d(1,3);
-// }
+void lsTools::initialize_function_coefficient(Vectorlf &input){
+    int vsize=V.rows();
+    int fsize=F.rows();
+    // for each vertex there is a function value
+    // #input# is in the form of an identity matrix
+    input.resize(vsize,vsize);
+    for(int i = 0;i<vsize;i++){
+        input(i).coeffRef(i)=i;
+    }
+
+}
+void lsTools::gradient_easy_interface(Vectorlf& func, std::array<Vectorlf,3>& gonf, std::array<Vectorlf,3>& gonv){
+    gradient_v2f(func,gonf);// calculate the gradients on faces;
+    gradient_f2v(gonf, gonv);// calculate the gradients on vertices by area-weighted averaging of face gradients
+}
+
+void lsTools::get_function_gradient_vertex(){
+    Vectorlf iden;// this is the initial function coefficients, in the form of an identity matrix
+    initialize_function_coefficient(iden);
+    gradient_easy_interface(iden, gradVF,gradV);
+
+}
+
+void lsTools::get_function_hessian_vertex(){
+    std::array<Vectorlf,3> temp_f;// temprary value calculated on the faces
+    Vectorlf fx=gradV[0];// partial(f)(x)
+    Vectorlf fy=gradV[1];// partial(f)(y)
+    Vectorlf fz=gradV[2];// partial(f)(z)
+    temp_f[0].clear();
+    temp_f[1].clear();
+    temp_f[2].clear();
+    gradient_easy_interface(fx,temp_f,HessianV[0]);// fxx, fxy, fxz
+    temp_f[0].clear();
+    temp_f[1].clear();
+    temp_f[2].clear();
+    gradient_easy_interface(fy,temp_f,HessianV[1]);// fyx, fyy, fyz
+    temp_f[0].clear();
+    temp_f[1].clear();
+    temp_f[2].clear();
+    gradient_easy_interface(fz,temp_f,HessianV[2]);// fzx, fzy, fzz
+}
+
+void lsTools::get_rotated_parameter_edges(){
+    Eigen::Matrix2d rotate2d;// 2d rotation matrix
+    rotate2d<<0,-1,
+    1,0;
+    
+    Erotate2d.resize(F.rows());
+    
+    // the 3 edges are in the order of the openmesh face-edge iterator provides us
+    for (CGMesh::FaceIter f_it = lsmesh.faces_begin(); f_it != (lsmesh.faces_end()); ++f_it)
+    {
+        int fid = f_it.handle().idx();
+        int ecounter = 0;
+        for (CGMesh::FaceHalfedgeIter fh_it = lsmesh.fh_begin(f_it); fh_it != (lsmesh.fh_end(f_it)); ++fh_it)
+        {
+            CGMesh::HalfedgeHandle heh = fh_it.current_halfedge_handle();
+            int vid1 = lsmesh.from_vertex_handle(heh).idx();
+            int vid2 = lsmesh.to_vertex_handle(heh).idx();
+            Erotate2d[fid][ecounter] = Eigen::Vector2d(rotate2d * Eigen::Vector2d(paras.row(vid2) - paras.row(vid1)));
+            assert(fid < Erotate2d.size());
+            assert(vid1 == F(fid, 0) || vid1 == F(fid, 1) || vid1 == F(fid, 2));
+            assert(vid2 == F(fid, 0) || vid2 == F(fid, 1) || vid2 == F(fid, 2));
+            assert(vid1 != vid2);
+            if (ecounter == 0)
+            {
+                assert(vid1 == F(fid, 2) && vid2 == F(fid, 0));
+            }
+            if (ecounter == 1)
+            {
+                assert(vid1 == F(fid, 0) && vid2 == F(fid, 1));
+            }
+            if (ecounter == 2)
+            {
+                assert(vid1 == F(fid, 1) && vid2 == F(fid, 2));
+            }
+            ecounter++;
+        }
+        assert(ecounter==3);
+    }
+}
+void lsTools::surface_derivate_v2f(){
+    Eigen::MatrixXd pos(3,3);//the 3 vertices of the face
+    Eigen::MatrixXd par(3,2);// the parameters of the 3 vertices
+    std::vector<Eigen::MatrixXd> Deriv; //the derivates for each face;
+    int vsize = V.rows();
+    int fsize = F.rows();
+    Deriv.resize(fsize);
+    for(int i=0;i<fsize;i++){
+        Deriv[i].resize(3,2);
+    }
+    
+    for (int fid = 0; fid < F.rows(); fid++)
+    {
+        int id0 = F(fid, 0);
+        int id1 = F(fid, 1);
+        int id2 = F(fid, 2);
+        Eigen::Vector2d rot20 = Erotate2d[fid][0]; // v0-v2
+        Eigen::Vector2d rot01 = Erotate2d[fid][1]; // v1-v0
+        Eigen::Vector2d rot12 = Erotate2d[fid][2]; // v2-v1
+        double area = areaF(fid);
+        assert(area > 0);
+        // assert(dimin == 1 || dimin == 3);
+
+        auto value0 = input(id0); // value on the vertex
+        auto value1 = input(id1);
+        auto value2 = input(id2);
+        for (int itr = 0; itr < 3; itr++)
+        {
+
+            output[itr](fid)= (value0 * rot12[itr] + value1 * rot20[itr] + value2 * rot01[itr]) / (2 * area);
+        }
+    }
+}
+void lsTools::surface_derivate_f2v(){
+
+}
+
+void lsTools::get_surface_derivate()
+{
+}
