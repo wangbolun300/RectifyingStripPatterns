@@ -13,8 +13,14 @@ private:
 
 public:
     Vectorlf(){};
-    int size()
+    int size() const 
     {
+        
+        return mat.size();
+    }
+    int size() 
+    {
+        
         return mat.size();
     }
 
@@ -35,6 +41,11 @@ public:
         mat.clear();
     }
 
+    Efunc operator()(int id) const
+    {
+        assert(id >= 0 && id < mat.size());
+        return mat[id];
+    }
     Efunc &operator()(int id)
     {
         assert(id >= 0 && id < mat.size());
@@ -62,13 +73,16 @@ private:
     std::array<Vectorlf, 3> gradVF;                  // gradient of function in each face
     std::array<Vectorlf, 3> gradV;                   // gradient of function in each vertex
     std::array<std::array<Vectorlf, 3>, 3> HessianV; // Hessian (2 order deriavate) of function in each vertex
-    std::array<Eigen::MatrixXd, 2> Deriv1;            // the 1 order derivates for each vertex;
-    std::array<Eigen::MatrixXd, 4> Deriv2;            // the 2 order derivates for each vertex;
-    std::vector<double> II_L;// second fundamental form: L
-    std::vector<double> II_M;// second fundamental form: M
-    std::vector<double> II_N;// second fundamental form: N
-    
-    void get_mesh_angles();
+    std::array<Eigen::MatrixXd, 2> Deriv1;           // the 1 order derivates for each vertex;
+    std::array<Eigen::MatrixXd, 4> Deriv2;           // the 2 order derivates for each vertex;
+    std::vector<double> II_L;                        // second fundamental form: L
+    std::vector<double> II_M;                        // second fundamental form: M
+    std::vector<double> II_N;                        // second fundamental form: N
+    Eigen::MatrixXd gfvalue;                         // the calculated gradient values of f for each vertex.
+    std::vector<Eigen::Matrix3d> hfvalue;             // the calculated Hessian values of f for each vertex
+
+        void
+        get_mesh_angles();
     void get_mesh_normals_per_face();
     void get_mesh_normals_per_ver();
     // This is to calculate the 90 degree rotation matrices in
@@ -85,9 +99,10 @@ private:
     void surface_derivate_v2f(const Eigen::MatrixXd &vvalues, std::array<Eigen::MatrixXd, 2> &DonF);             // calculate gradient in each face from vertex values
     void surface_derivate_f2v(const std::array<Eigen::MatrixXd, 2> &DonF, std::array<Eigen::MatrixXd, 2> &DonV); // calculate gradient in each vertex by averging face values
     void surface_derivate_easy_interface(const Eigen::MatrixXd &vvalues, std::array<Eigen::MatrixXd, 2> &DonV);
-    void get_surface_derivate();
-    void get_surface_II_each_ver();
-
+    void get_surface_derivate();        // get the derivates
+    void get_surface_II_each_ver();     // get the second fundamental forms L, M and N
+    void get_gradient_hessian_values(); // get the gradients and hessians on each vertices using the assigned level-set function values
+    void get_lf_value(const Vectorlf& coff, Eigen::VectorXd& res); // get the linear combinations of function values.
 public:
     // parametrization and find the boundary loop
     lsTools(CGMesh &mesh);
@@ -95,9 +110,9 @@ public:
     Eigen::MatrixXd V;
     Eigen::MatrixXi F;
     Eigen::MatrixXi E;
-    Eigen::VectorXi bnd;   // boundary loop
-    Eigen::MatrixXd paras; // parameters of the mesh vertices, nx2
-
+    Eigen::VectorXi bnd;     // boundary loop
+    Eigen::MatrixXd paras;   // parameters of the mesh vertices, nx2
+    Eigen::VectorXd fvalues; // function values
     // this function should be calculated first once the class get constructed
     //  1. get face normals;
     //  2. get all the angles;

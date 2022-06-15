@@ -402,7 +402,7 @@ void lsTools::surface_derivate_easy_interface(const Eigen::MatrixXd &vvalues, st
 }
 void lsTools::get_surface_derivate()
 {
-    surface_derivate_easy_interface(V, Deriv1);// get (x_u, y_u, z_u) and (x_v, y_v, z_v)
+    surface_derivate_easy_interface(V, Deriv1); // get (x_u, y_u, z_u) and (x_v, y_v, z_v)
     std::array<Eigen::MatrixXd, 2> tmp;
     surface_derivate_easy_interface(Deriv1[0], tmp); // get (x_uu, y_uu, z_uu) and (x_uv, y_uv, z_uv)
     Deriv2[0] = tmp[0];
@@ -411,18 +411,70 @@ void lsTools::get_surface_derivate()
     Deriv2[2] = tmp[0];
     Deriv2[3] = tmp[1];
 }
-void lsTools::get_surface_II_each_ver(){
-    int vsize=V.rows();
+void lsTools::get_surface_II_each_ver()
+{
+    int vsize = V.rows();
     II_L.resize(vsize);
     II_M.resize(vsize);
     II_N.resize(vsize);
-    for(int i=0;i<vsize;i++){
-        II_L[i]=Deriv2[0].row(i).dot(norm_v.row(i));// r_uu*n
-        II_M[i]=Deriv2[1].row(i).dot(norm_v.row(i));// r_uv*n
-        II_N[i]=Deriv2[3].row(i).dot(norm_v.row(i));// r_vv*n
-        double r_vu=Deriv2[2].row(i).dot(norm_v.row(i));// r_vu*n
+    int dbgcount = 0;
+    for (int i = 0; i < vsize; i++)
+    {
+        II_L[i] = Deriv2[0].row(i).dot(norm_v.row(i));     // r_uu*n
+        II_N[i] = Deriv2[3].row(i).dot(norm_v.row(i));     // r_vv*n
+        double r_vu = Deriv2[2].row(i).dot(norm_v.row(i)); // r_vu*n
+        double r_uv = Deriv2[1].row(i).dot(norm_v.row(i));
+        II_M[i] = (r_uv + r_vu) / 2; // r_uv*n
         // if(fabs(II_M[i]-r_vu)>SCALAR_ZERO){
-        //     std::cout<<"calculation of II is not accurate:\n"<<II_M[i]<<", "<<r_vu<<", diff: "<<fabs(II_M[i]-r_vu)<<std::endl;
+        //     dbgcount++;
+        //     std::cout<<"calculation of II is not accurate:\n"<<II_M[i]<<", "<<r_vu<<", diff: "<<fabs(II_M[i]-r_vu)<<std::endl
+        //     <<"nbr, "<<dbgcount<<std::endl;
+
         // }
+    }
+}
+void lsTools::get_lf_value(const Vectorlf &coff, Eigen::VectorXd &res)
+{
+    int length = coff.size();
+    assert(length = V.rows());
+    res.resize(length);
+    for (int i = 0; i < length; i++)
+    {
+        res(i) = coff(i).dot(fvalues);
+    }
+}
+void lsTools::get_gradient_hessian_values()
+{
+    int vsize = V.rows();
+    int fsize = F.rows();
+    gfvalue.resize(vsize, 3);
+    hfvalue.resize(vsize);
+
+    Eigen::VectorXd gx, gy, gz;
+    get_lf_value(gradV[0], gx);
+    get_lf_value(gradV[1], gy);
+    get_lf_value(gradV[2], gz);
+    gfvalue.col(0) = gx;
+    gfvalue.col(1) = gy;
+    gfvalue.col(2) = gz;
+
+    Eigen::VectorXd hxx, hxy, hxz, hyx, hyy, hyz, hzx, hzy, hzz;
+    get_lf_value(HessianV[0][0], hxx);
+    get_lf_value(HessianV[0][1], hxy);
+    get_lf_value(HessianV[0][2], hxz);
+
+    get_lf_value(HessianV[1][0], hyx);
+    get_lf_value(HessianV[1][1], hyy);
+    get_lf_value(HessianV[1][2], hyz);
+
+    get_lf_value(HessianV[2][0], hzx);
+    get_lf_value(HessianV[2][1], hzy);
+    get_lf_value(HessianV[2][2], hzz);
+
+    for (int i = 0; i < vsize; i++)
+    {
+        hfvalue[i] << hxx[i], hyx[i], hzx[i],
+            hxy[i], hyy[i], hzy[i],
+            hxz[i], hyz[i], hzz[i];
     }
 }
