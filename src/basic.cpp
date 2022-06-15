@@ -57,8 +57,8 @@ void lsTools::get_mesh_normals_per_face()
         Eigen::Vector3d cross = Eigen::Vector3d(V.row(id0) - V.row(id1)).cross(Eigen::Vector3d(V.row(id0) - V.row(id2)));
         norm_f.row(i) = cross.normalized();
         areaF(i) = cross.norm() / 2;
-        Eigen::Vector2d crossp=Eigen::Vector2d(paras.row(id0)- paras.row(id1)).cross(Eigen::Vector2d(paras.row(id0) - paras.row(id2)));
-        areaPF(i)=crossp.norm()/2;
+        Eigen::Vector2d p1 = paras.row(id0), p2 = paras.row(id1), p3 = paras.row(id2);
+        areaPF(i) = fabs(0.5 * (p1[0] * p2[1] - p2[0] * p1[1]) + (p2[0] * p3[1] - p3[0] * p2[1]) + (p3[0] * p1[1] - p1[0] * p3[1]));
     }
 }
 
@@ -215,7 +215,7 @@ void lsTools::gradient_v2f(Vectorlf &input, std::array<Vectorlf, 3> &output)
         for (int itr = 0; itr < 3; itr++)
         {
 
-            output[itr](fid)= (value0 * rot12[itr] + value1 * rot20[itr] + value2 * rot01[itr]) / (2 * area);
+            output[itr](fid) = (value0 * rot12[itr] + value1 * rot20[itr] + value2 * rot01[itr]) / (2 * area);
         }
     }
 }
@@ -231,73 +231,77 @@ void lsTools::gradient_f2v(std::array<Vectorlf, 3> &input, std::array<Vectorlf, 
     for (int i = 0; i < V.rows(); i++)
     {
         CGMesh::VertexHandle vh = lsmesh.vertex_handle(i); // for each vertex, iterate all the faces
-        
-        double areasum=0;
+
+        double areasum = 0;
         for (CGMesh::VertexFaceIter vf_it = lsmesh.vf_begin(vh); vf_it != lsmesh.vf_end(vh); ++vf_it)
         {
-            assert(vh.idx()==i);
+            assert(vh.idx() == i);
             int fid = vf_it.handle().idx();
-            double area=areaF(fid);
-            areasum+=area;
-            assert(i<output[0].size());
-            output[0](i) += area *input[0](fid);
-            output[1](i) += area *input[1](fid);
-            output[2](i) += area *input[2](fid);
+            double area = areaF(fid);
+            areasum += area;
+            assert(i < output[0].size());
+            output[0](i) += area * input[0](fid);
+            output[1](i) += area * input[1](fid);
+            output[2](i) += area * input[2](fid);
         }
-        output[0](i)=output[0](i)/areasum;
-        output[1](i)=output[1](i)/areasum;
-        output[2](i)=output[2](i)/areasum;
+        output[0](i) = output[0](i) / areasum;
+        output[1](i) = output[1](i) / areasum;
+        output[2](i) = output[2](i) / areasum;
     }
 }
-void lsTools::initialize_function_coefficient(Vectorlf &input){
-    int vsize=V.rows();
-    int fsize=F.rows();
+void lsTools::initialize_function_coefficient(Vectorlf &input)
+{
+    int vsize = V.rows();
+    int fsize = F.rows();
     // for each vertex there is a function value
     // #input# is in the form of an identity matrix
-    input.resize(vsize,vsize);
-    for(int i = 0;i<vsize;i++){
-        input(i).coeffRef(i)=i;
+    input.resize(vsize, vsize);
+    for (int i = 0; i < vsize; i++)
+    {
+        input(i).coeffRef(i) = i;
     }
-
 }
-void lsTools::gradient_easy_interface(Vectorlf& func, std::array<Vectorlf,3>& gonf, std::array<Vectorlf,3>& gonv){
-    gradient_v2f(func,gonf);// calculate the gradients on faces;
-    gradient_f2v(gonf, gonv);// calculate the gradients on vertices by area-weighted averaging of face gradients
+void lsTools::gradient_easy_interface(Vectorlf &func, std::array<Vectorlf, 3> &gonf, std::array<Vectorlf, 3> &gonv)
+{
+    gradient_v2f(func, gonf); // calculate the gradients on faces;
+    gradient_f2v(gonf, gonv); // calculate the gradients on vertices by area-weighted averaging of face gradients
 }
 
-void lsTools::get_function_gradient_vertex(){
-    Vectorlf iden;// this is the initial function coefficients, in the form of an identity matrix
+void lsTools::get_function_gradient_vertex()
+{
+    Vectorlf iden; // this is the initial function coefficients, in the form of an identity matrix
     initialize_function_coefficient(iden);
-    gradient_easy_interface(iden, gradVF,gradV);
-
+    gradient_easy_interface(iden, gradVF, gradV);
 }
 
-void lsTools::get_function_hessian_vertex(){
-    std::array<Vectorlf,3> temp_f;// temprary value calculated on the faces
-    Vectorlf fx=gradV[0];// partial(f)(x)
-    Vectorlf fy=gradV[1];// partial(f)(y)
-    Vectorlf fz=gradV[2];// partial(f)(z)
+void lsTools::get_function_hessian_vertex()
+{
+    std::array<Vectorlf, 3> temp_f; // temprary value calculated on the faces
+    Vectorlf fx = gradV[0];         // partial(f)(x)
+    Vectorlf fy = gradV[1];         // partial(f)(y)
+    Vectorlf fz = gradV[2];         // partial(f)(z)
     temp_f[0].clear();
     temp_f[1].clear();
     temp_f[2].clear();
-    gradient_easy_interface(fx,temp_f,HessianV[0]);// fxx, fxy, fxz
+    gradient_easy_interface(fx, temp_f, HessianV[0]); // fxx, fxy, fxz
     temp_f[0].clear();
     temp_f[1].clear();
     temp_f[2].clear();
-    gradient_easy_interface(fy,temp_f,HessianV[1]);// fyx, fyy, fyz
+    gradient_easy_interface(fy, temp_f, HessianV[1]); // fyx, fyy, fyz
     temp_f[0].clear();
     temp_f[1].clear();
     temp_f[2].clear();
-    gradient_easy_interface(fz,temp_f,HessianV[2]);// fzx, fzy, fzz
+    gradient_easy_interface(fz, temp_f, HessianV[2]); // fzx, fzy, fzz
 }
 
-void lsTools::get_rotated_parameter_edges(){
-    Eigen::Matrix2d rotate2d;// 2d rotation matrix
-    rotate2d<<0,-1,
-    1,0;
-    
+void lsTools::get_rotated_parameter_edges()
+{
+    Eigen::Matrix2d rotate2d; // 2d rotation matrix
+    rotate2d << 0, -1,
+        1, 0;
+
     Erotate2d.resize(F.rows());
-    
+
     // the 3 edges are in the order of the openmesh face-edge iterator provides us
     for (CGMesh::FaceIter f_it = lsmesh.faces_begin(); f_it != (lsmesh.faces_end()); ++f_it)
     {
@@ -327,20 +331,21 @@ void lsTools::get_rotated_parameter_edges(){
             }
             ecounter++;
         }
-        assert(ecounter==3);
+        assert(ecounter == 3);
     }
 }
-void lsTools::surface_derivate_v2f(){
-    Eigen::MatrixXd pos(3,3);//the 3 vertices of the face
-    Eigen::MatrixXd par(3,2);// the parameters of the 3 vertices
-    std::vector<Eigen::MatrixXd> Deriv; //the derivates for each face;
+// the input should be the values on each vertex, nx3, (x, y, z) or (x_u, y_u, z_u)
+// the output is the derivate on each facet, for u and v separately.
+void lsTools::surface_derivate_v2f(const Eigen::MatrixXd &vvalues, std::array<Eigen::MatrixXd, 2> &DonF)
+{
+    Eigen::Matrix<double, 3, 3> pos; // the 3 vertices of the face
+    Eigen::Matrix<double, 3, 2> par; // the parameters of the 3 vertices
+    assert(vvalues.rows() == V.rows());
     int vsize = V.rows();
     int fsize = F.rows();
-    Deriv.resize(fsize);
-    for(int i=0;i<fsize;i++){
-        Deriv[i].resize(3,2);
-    }
-    
+    DonF[0].resize(fsize, 3); // partial derivate to u: x_u, y_u, z_u
+    DonF[1].resize(fsize, 3); // partial derivate to v
+
     for (int fid = 0; fid < F.rows(); fid++)
     {
         int id0 = F(fid, 0);
@@ -349,24 +354,75 @@ void lsTools::surface_derivate_v2f(){
         Eigen::Vector2d rot20 = Erotate2d[fid][0]; // v0-v2
         Eigen::Vector2d rot01 = Erotate2d[fid][1]; // v1-v0
         Eigen::Vector2d rot12 = Erotate2d[fid][2]; // v2-v1
-        double area = areaF(fid);
-        assert(area > 0);
-        // assert(dimin == 1 || dimin == 3);
+        par.row(0) = rot12;
+        par.row(1) = rot20;
+        par.row(2) = rot01;
+        pos.col(0) = vvalues.row(id0);
+        pos.col(1) = vvalues.row(id1);
+        pos.col(2) = vvalues.row(id2);
 
-        auto value0 = input(id0); // value on the vertex
-        auto value1 = input(id1);
-        auto value2 = input(id2);
-        for (int itr = 0; itr < 3; itr++)
-        {
-
-            output[itr](fid)= (value0 * rot12[itr] + value1 * rot20[itr] + value2 * rot01[itr]) / (2 * area);
-        }
+        double areap = areaPF(fid);
+        assert(areap > 0);
+        Eigen::MatrixXd res = pos * par / (2 * areap); // a 3x2 matrix, [xu,xv;yu,yv;zu,zv]
+        DonF[0].row(fid) = res.col(0);
+        DonF[1].row(fid) = res.col(1);
     }
 }
-void lsTools::surface_derivate_f2v(){
 
+void lsTools::surface_derivate_f2v(const std::array<Eigen::MatrixXd, 2> &DonF, std::array<Eigen::MatrixXd, 2> &DonV)
+{
+    int vsize = V.rows();
+    int fsize = F.rows();
+    assert(DonF[0].rows() == fsize);
+    DonV[0] = Eigen::MatrixXd::Zero(vsize, 3);
+    DonV[1] = Eigen::MatrixXd::Zero(vsize, 3);
+    for (int i = 0; i < V.rows(); i++)
+    {
+        CGMesh::VertexHandle vh = lsmesh.vertex_handle(i); // for each vertex, iterate all the faces
+        double areasum = 0;
+        for (CGMesh::VertexFaceIter vf_it = lsmesh.vf_begin(vh); vf_it != lsmesh.vf_end(vh); ++vf_it)
+        {
+            assert(vh.idx() == i);
+            int fid = vf_it.handle().idx();
+            double area = areaPF(fid);
+            areasum += area;
+            DonV[0].row(i) += area * DonF[0].row(fid);
+            DonV[1].row(i) += area * DonF[1].row(fid);
+        }
+        DonV[0].row(i) = DonV[0].row(i) / areasum;
+        DonV[1].row(i) = DonV[1].row(i) / areasum;
+    }
 }
-
+void lsTools::surface_derivate_easy_interface(const Eigen::MatrixXd &vvalues, std::array<Eigen::MatrixXd, 2> &DonV)
+{
+    assert(vvalues.rows() == V.rows() && vvalues.cols() == 3);
+    std::array<Eigen::MatrixXd, 2> DonF;
+    surface_derivate_v2f(vvalues, DonF);
+    surface_derivate_f2v(DonF, DonV);
+}
 void lsTools::get_surface_derivate()
 {
+    surface_derivate_easy_interface(V, Deriv1);// get (x_u, y_u, z_u) and (x_v, y_v, z_v)
+    std::array<Eigen::MatrixXd, 2> tmp;
+    surface_derivate_easy_interface(Deriv1[0], tmp); // get (x_uu, y_uu, z_uu) and (x_uv, y_uv, z_uv)
+    Deriv2[0] = tmp[0];
+    Deriv2[1] = tmp[1];
+    surface_derivate_easy_interface(Deriv1[1], tmp); // get (x_vu, y_vu, z_vu) and (x_vv, y_vv, z_vv)
+    Deriv2[2] = tmp[0];
+    Deriv2[3] = tmp[1];
+}
+void lsTools::get_surface_II_each_ver(){
+    int vsize=V.rows();
+    II_L.resize(vsize);
+    II_M.resize(vsize);
+    II_N.resize(vsize);
+    for(int i=0;i<vsize;i++){
+        II_L[i]=Deriv2[0].row(i).dot(norm_v.row(i));// r_uu*n
+        II_M[i]=Deriv2[1].row(i).dot(norm_v.row(i));// r_uv*n
+        II_N[i]=Deriv2[3].row(i).dot(norm_v.row(i));// r_vv*n
+        double r_vu=Deriv2[2].row(i).dot(norm_v.row(i));// r_vu*n
+        // if(fabs(II_M[i]-r_vu)>SCALAR_ZERO){
+        //     std::cout<<"calculation of II is not accurate:\n"<<II_M[i]<<", "<<r_vu<<", diff: "<<fabs(II_M[i]-r_vu)<<std::endl;
+        // }
+    }
 }

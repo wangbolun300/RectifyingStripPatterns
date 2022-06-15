@@ -5,18 +5,7 @@
 // some function values on their corresponding vertices, of this vertex.
 // i.e. Efunc[0]*f_0+Efunc[1]*f_1+...+Efunc[n]*f_n.
 typedef Eigen::SparseVector<double> Efunc;
-// // this class is the wrapper of the linear combination
-// class lsElem{
-//  public:
-//  Eigen::SparseVector<double> ele;
-// };
-
-// // vector of
-// class VecScalar{
-
-// };
-
-// vector of the linear combination of function values (LSC).
+#define SCALAR_ZERO 1e-8
 class Vectorlf
 {
 private:
@@ -63,7 +52,7 @@ private:
     Eigen::MatrixXd norm_v;              // normal perf vertex
     Eigen::MatrixXd angF;                // angel per vertex of each F. nx3, n is the number of faces
     Eigen::VectorXd areaF;               // the area of each face.
-    Eigen::VectorXd areaPF;// the area of each face in parametric domain;
+    Eigen::VectorXd areaPF;              // the area of each face in parametric domain;
     std::vector<Eigen::Matrix3d> Rotate; // the 90 degree rotation matrices for each face.
     // the rotated 3 half edges for each face, in the plane of this face
     // the order of the 3 directions are: v0-v2, v1-v0, v2-v1
@@ -73,6 +62,12 @@ private:
     std::array<Vectorlf, 3> gradVF;                  // gradient of function in each face
     std::array<Vectorlf, 3> gradV;                   // gradient of function in each vertex
     std::array<std::array<Vectorlf, 3>, 3> HessianV; // Hessian (2 order deriavate) of function in each vertex
+    std::array<Eigen::MatrixXd, 2> Deriv1;            // the 1 order derivates for each vertex;
+    std::array<Eigen::MatrixXd, 4> Deriv2;            // the 2 order derivates for each vertex;
+    std::vector<double> II_L;// second fundamental form: L
+    std::vector<double> II_M;// second fundamental form: M
+    std::vector<double> II_N;// second fundamental form: N
+    
     void get_mesh_angles();
     void get_mesh_normals_per_face();
     void get_mesh_normals_per_ver();
@@ -84,12 +79,15 @@ private:
     void gradient_f2v(std::array<Vectorlf, 3> &values, std::array<Vectorlf, 3> &output); // calculate gradient in each vertex by averging face values
     void initialize_function_coefficient(Vectorlf &input);                               // initialize the coefficients as an identity matrix format.
     void gradient_easy_interface(Vectorlf &func, std::array<Vectorlf, 3> &gonf, std::array<Vectorlf, 3> &gonv);
-    void get_function_gradient_vertex(); // get the gradient of f on vertices
-    void get_function_hessian_vertex();  // get the hessian matrix of f on vertices
-    void get_rotated_parameter_edges();  // get the rotated edges on the 2d parametric domain
-    void surface_derivate_v2f();                // calculate gradient in each face from vertex values
-    void surface_derivate_f2v(); // calculate gradient in each vertex by averging face values
+    void get_function_gradient_vertex();                                                                         // get the gradient of f on vertices
+    void get_function_hessian_vertex();                                                                          // get the hessian matrix of f on vertices
+    void get_rotated_parameter_edges();                                                                          // get the rotated edges on the 2d parametric domain
+    void surface_derivate_v2f(const Eigen::MatrixXd &vvalues, std::array<Eigen::MatrixXd, 2> &DonF);             // calculate gradient in each face from vertex values
+    void surface_derivate_f2v(const std::array<Eigen::MatrixXd, 2> &DonF, std::array<Eigen::MatrixXd, 2> &DonV); // calculate gradient in each vertex by averging face values
+    void surface_derivate_easy_interface(const Eigen::MatrixXd &vvalues, std::array<Eigen::MatrixXd, 2> &DonV);
     void get_surface_derivate();
+    void get_surface_II_each_ver();
+
 public:
     // parametrization and find the boundary loop
     lsTools(CGMesh &mesh);
@@ -124,21 +122,24 @@ public:
         get_rotated_edges_for_each_face();
         // 6
         get_function_gradient_vertex();
-        //  7
+        // 7
         get_function_hessian_vertex();
-        //  8
+        // 8
         get_rotated_parameter_edges();
+        // 9
+        get_surface_derivate();
+        get_surface_II_each_ver();
     }
     // convert the parameters into a mesh, for visulization purpose
     void convert_paras_as_meshes(CGMesh &output);
 
     void debug_tool(int id = 0, double value = 0)
     {
-        std::cout<<"dir: "<<paras.row(F(id,0))-paras.row(F(id,2))<<std::endl;
-        Eigen::Vector2d dir=Eigen::Vector2d(paras.row(F(id,0))-paras.row(F(id,2)));
-        Eigen::Vector2d rot=Erotate2d[id][0];
-        std::cout<<"rot: "<<rot<<std::endl;
-        std::cout<<"inner product "<<rot.dot(dir)<<std::endl;
+        std::cout << "dir: " << paras.row(F(id, 0)) - paras.row(F(id, 2)) << std::endl;
+        Eigen::Vector2d dir = Eigen::Vector2d(paras.row(F(id, 0)) - paras.row(F(id, 2)));
+        Eigen::Vector2d rot = Erotate2d[id][0];
+        std::cout << "rot: " << rot << std::endl;
+        std::cout << "inner product " << rot.dot(dir) << std::endl;
         // Efunc vec, vec1;
         // vec.resize(3);
         // vec1.resize(3);
@@ -162,6 +163,5 @@ public:
         // newvec.resize(1, 3);
         // newvec(0) = vec;
         // std::cout << "Vectorlf value is " << newvec(0) << std::endl;
-
     }
 };
