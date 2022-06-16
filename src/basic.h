@@ -1,6 +1,7 @@
 #pragma once
 #include <lsc/MeshProcessing.h>
-
+// theta <= pi/2, phi<=pi
+ void sphere_example(double radius, double theta, double phi, int nt, int np);
 // Efunc represent a elementary value, which is the linear combination of
 // some function values on their corresponding vertices, of this vertex.
 // i.e. Efunc[0]*f_0+Efunc[1]*f_1+...+Efunc[n]*f_n.
@@ -80,7 +81,7 @@ private:
     std::vector<double> II_N;                        // second fundamental form: N
     Eigen::MatrixXd gfvalue;                         // the calculated gradient values of f for each vertex.
     std::vector<Eigen::Matrix3d> hfvalue;             // the calculated Hessian values of f for each vertex
-
+    std::vector<int> refids;// output the ids of current dealing points. just for debug purpose
         void
         get_mesh_angles();
     void get_mesh_normals_per_face();
@@ -103,6 +104,9 @@ private:
     void get_surface_II_each_ver();     // get the second fundamental forms L, M and N
     void get_gradient_hessian_values(); // get the gradients and hessians on each vertices using the assigned level-set function values
     void get_lf_value(const Vectorlf& coff, Eigen::VectorXd& res); // get the linear combinations of function values.
+    void make_sphere_ls_example(int rowid);
+    
+        
 public:
     // parametrization and find the boundary loop
     lsTools(CGMesh &mesh);
@@ -145,16 +149,19 @@ public:
         get_surface_derivate();
         get_surface_II_each_ver();
     }
+    void show_level_set(Eigen::VectorXd &val); 
     // convert the parameters into a mesh, for visulization purpose
     void convert_paras_as_meshes(CGMesh &output);
-
+    void show_gradients(Eigen::MatrixXd& E0, Eigen::MatrixXd &E1, double ratio);
+    void show_current_reference_points(Eigen::MatrixXd& pts);
     void debug_tool(int id = 0, double value = 0)
     {
-        std::cout << "dir: " << paras.row(F(id, 0)) - paras.row(F(id, 2)) << std::endl;
-        Eigen::Vector2d dir = Eigen::Vector2d(paras.row(F(id, 0)) - paras.row(F(id, 2)));
-        Eigen::Vector2d rot = Erotate2d[id][0];
-        std::cout << "rot: " << rot << std::endl;
-        std::cout << "inner product " << rot.dot(dir) << std::endl;
+        make_sphere_ls_example(id);
+        
+
+        // show gradients as edges
+        
+        //sphere_example(value, 1.3, 1.8, id, id);
         // Efunc vec, vec1;
         // vec.resize(3);
         // vec1.resize(3);

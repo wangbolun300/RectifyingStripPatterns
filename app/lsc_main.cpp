@@ -42,6 +42,7 @@ double refer_AveEL = 1;
 
 int dbg_int;
 double dbg_dbl;
+double vector_scaling=0.01;
 
 std::vector<int> fixedVertices;
 
@@ -434,6 +435,7 @@ int main(int argc, char* argv[])
                 // Expose variable directly ...
                 ImGui::InputInt("int", &lscif::dbg_int, 0, 0);
                 ImGui::InputDouble("double", &lscif::dbg_dbl, 0, 0, "%.4f");
+				ImGui::InputDouble("vector_scaling", &lscif::vector_scaling, 0, 0, "%.4f");
             }
             if (ImGui::Button("Parametrization", ImVec2(ImGui::GetWindowSize().x * 0.23f, 0.0f)))
             {
@@ -462,10 +464,22 @@ int main(int argc, char* argv[])
                 tools.initialize_mesh_properties();
                 tools.debug_tool(lscif::dbg_int,lscif::dbg_dbl);
 				// lscif::MP.MeshUnitScale(inputMesh, updatedMesh);
-				// lscif::updateMeshViewer(viewer, updatedMesh);
-				// lscif::meshFileName.push_back("unit_" + lscif::meshFileName[id]);
-				// lscif::Meshes.push_back(updatedMesh);
+				lscif::updateMeshViewer(viewer, inputMesh);
+				lscif::meshFileName.push_back("dbg_" + lscif::meshFileName[id]);
+				lscif::Meshes.push_back(inputMesh);
+				
+				Eigen::VectorXd level_set_values;
+				tools.show_level_set(level_set_values);
+				viewer.data().set_colors(level_set_values);
+				Eigen::MatrixXd E0, E1;
+				tools.show_gradients(E0,E1, lscif::vector_scaling);
+				const Eigen::RowVector3d red(0.8,0.2,0.2);
+				viewer.data().add_edges(E0,E1,red);
+				Eigen::MatrixXd pts;
+				tools.show_current_reference_points(pts);
+				viewer.data().add_points(pts,red);
 				viewer.selected_data_index = id;
+				
 
 			}
             ImGui::SameLine();

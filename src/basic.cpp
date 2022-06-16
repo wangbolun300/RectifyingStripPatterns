@@ -478,3 +478,108 @@ void lsTools::get_gradient_hessian_values()
             hxz[i], hyz[i], hzz[i];
     }
 }
+
+Eigen::Vector3d sphere_function(double r, double theta, double phi)
+{
+    double x = r * sin(theta) * cos(phi);
+    double y = r * sin(theta) * sin(phi);
+    double z = r * cos(theta);
+    return Eigen::Vector3d(x, y, z);
+}
+// create a triangle mesh sphere.
+#include <igl/write_triangle_mesh.h>
+void sphere_example(double radius, double theta, double phi, int nt, int np)
+{
+
+    Eigen::MatrixXd ver;
+    Eigen::MatrixXi faces;
+    ver.resize(nt * np, 3);
+    faces.resize(2 * (nt - 1) * (np - 1), 3);
+    int verline = 0;
+    double titv = 2 * theta / (nt - 1);
+    double pitv = 2 * phi / (np - 1);
+    for (int i = 0; i < nt; i++)
+    {
+        for (int j = 0; j < np; j++)
+        {
+            double upara = 0.5*3.1415926-theta + i * titv;
+            double vpara = -phi + j * pitv;
+            ver.row(verline) = sphere_function(radius, upara, vpara);
+            verline++;
+        }
+    }
+    faces.resize(2 * (nt - 1) * (np - 1), 3);
+    int fline = 0;
+    for (int i = 0; i < nt - 1; i++)
+    {
+        for (int j = 0; j < np - 1; j++)
+        {
+            int id0 = nt * j + i;
+            int id1 = nt * (j + 1) + i;
+            int id2 = nt * (j + 1) + i + 1;
+            int id3 = nt * j + i + 1;
+            faces.row(fline) = Eigen::Vector3i(id0, id1, id2);
+            faces.row(fline + 1) = Eigen::Vector3i(id0, id2, id3);
+            fline += 2;
+        }
+    }
+    std::string path("/Users/wangb0d/bolun/D/vs/levelset/level-set-curves/data/");
+    igl::write_triangle_mesh(path+"sphere_"+std::to_string(radius)+"_"+std::to_string(theta)+"_"+
+    std::to_string(phi)+"_"+std::to_string(nt)+"_"+std::to_string(np)+".obj", ver, faces);
+    std::cout<<"sphere mesh file saved "<<std::endl;
+}
+
+void lsTools::make_sphere_ls_example(int rowid){
+    int vsize=V.rows();
+    int fsize=F.rows();
+    int rnbr=20;// # vertices in each row
+    fvalues.resize(vsize);
+    
+    for(int i=0;i<vsize;i++){
+        fvalues(i)=V(i,2);// make function value = z
+    }
+    get_gradient_hessian_values();
+    refids.clear();
+    for(int i=0;i<rnbr;i++)
+    {
+        int vid = rowid * rnbr + i;
+        refids.push_back(vid);
+        Eigen::Matrix2d LMN;
+        LMN << II_L[vid], -II_M[vid],
+            -II_M[vid], II_N[vid];
+        Eigen::Matrix<double, 3, 2> rvru;
+        rvru.col(0)=Deriv1[1].row(vid);// x_v, y_v, z_v
+        rvru.col(1)=Deriv1[0].row(vid);// x_u, y_u, z_u
+        Eigen::Vector3d gradient=gfvalue.row(vid);
+        Eigen::MatrixXd hessian=hfvalue[vid];
+        Eigen::Matrix<double, 3,2> mrurv; // [-ru, rv]
+        mrurv.col(0)=-1*Deriv1[0].row(vid);
+        mrurv.col(1)=Deriv1[1].row(vid);
+        double normgradf=gradient.norm();
+        Eigen::MatrixXd inner_left=normgradf*rvru*LMN*rvru.transpose();
+        Eigen::MatrixXd inner_right=rvru*mrurv.transpose()*hessian*mrurv*rvru.transpose();
+        double left=gradient.transpose()*inner_left*gradient;
+        double right=gradient.transpose()*inner_right*gradient;
+        assert(right!=0);
+        double b=left/right;
+        std::cout<<"the current row nbr "<<rowid<<" with pid "<<i<<"\n**b is "<<b<<"\ngradient, "<<gradient.transpose()<<"\n\n";
+    }
+    std::cout<<"__________________________________________________"<<std::endl;
+}
+void lsTools::show_level_set(Eigen::VectorXd &val){
+   val= fvalues;
+}
+
+void lsTools::show_gradients(Eigen::MatrixXd& E0, Eigen::MatrixXd &E1, double ratio){
+    
+    E0=V+gfvalue*ratio;
+    E1=V-gfvalue*ratio;
+    assert(V.rows()==gfvalue.rows());
+}
+void lsTools::show_current_reference_points(Eigen::MatrixXd& pts){
+    int size= refids.size();
+    pts.resize(size,3);
+    for(int i=0;i<size;i++){
+        pts.row(i)=V.row(refids[i]);
+    }
+}
