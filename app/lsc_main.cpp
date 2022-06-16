@@ -474,12 +474,16 @@ int main(int argc, char* argv[])
 				Eigen::MatrixXd E0, E1;
 				tools.show_gradients(E0,E1, lscif::vector_scaling);
 				const Eigen::RowVector3d red(0.8,0.2,0.2);
-				viewer.data().add_edges(E0,E1,red);
+				const Eigen::RowVector3d blue(0.2, 0.2, 0.8);
+				Eigen::MatrixXd E2, E3;
+				tools.show_face_gradients(E2, E3, lscif::vector_scaling);
+				//viewer.data().add_edges(E0,E1,red);
+				viewer.data().add_edges(E2,E3,blue);
 				Eigen::MatrixXd pts;
 				tools.show_current_reference_points(pts);
 				viewer.data().add_points(pts,red);
 				viewer.selected_data_index = id;
-				
+
 
 			}
             ImGui::SameLine();

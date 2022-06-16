@@ -82,6 +82,7 @@ private:
     Eigen::MatrixXd gfvalue;                         // the calculated gradient values of f for each vertex.
     std::vector<Eigen::Matrix3d> hfvalue;             // the calculated Hessian values of f for each vertex
     std::vector<int> refids;// output the ids of current dealing points. just for debug purpose
+    // Eigen::MatrixXd Fcenters;// face centers, used for debug;
         void
         get_mesh_angles();
     void get_mesh_normals_per_face();
@@ -153,6 +154,7 @@ public:
     // convert the parameters into a mesh, for visulization purpose
     void convert_paras_as_meshes(CGMesh &output);
     void show_gradients(Eigen::MatrixXd& E0, Eigen::MatrixXd &E1, double ratio);
+    void show_face_gradients(Eigen::MatrixXd& E0, Eigen::MatrixXd &E1, double ratio);
     void show_current_reference_points(Eigen::MatrixXd& pts);
     void debug_tool(int id = 0, double value = 0)
     {

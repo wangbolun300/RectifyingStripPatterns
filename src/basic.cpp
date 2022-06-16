@@ -232,21 +232,29 @@ void lsTools::gradient_f2v(std::array<Vectorlf, 3> &input, std::array<Vectorlf, 
     {
         CGMesh::VertexHandle vh = lsmesh.vertex_handle(i); // for each vertex, iterate all the faces
 
-        double areasum = 0;
+        double anglesum = 0;
         for (CGMesh::VertexFaceIter vf_it = lsmesh.vf_begin(vh); vf_it != lsmesh.vf_end(vh); ++vf_it)
         {
             assert(vh.idx() == i);
             int fid = vf_it.handle().idx();
-            double area = areaF(fid);
-            areasum += area;
+            int vvid=-1;
+            for(int vv=0;vv<3;vv++){
+                if(i==F(fid,vv)){
+                    vvid=vv;
+                }
+            }
+            assert(vvid>-1);
+            double angle = angF(fid,vvid);
+            assert(angle>0);
+            anglesum += angle;
             assert(i < output[0].size());
-            output[0](i) += area * input[0](fid);
-            output[1](i) += area * input[1](fid);
-            output[2](i) += area * input[2](fid);
+            output[0](i) += angle * input[0](fid);
+            output[1](i) += angle * input[1](fid);
+            output[2](i) += angle * input[2](fid);
         }
-        output[0](i) = output[0](i) / areasum;
-        output[1](i) = output[1](i) / areasum;
-        output[2](i) = output[2](i) / areasum;
+        output[0](i) = output[0](i) / anglesum;
+        output[1](i) = output[1](i) / anglesum;
+        output[2](i) = output[2](i) / anglesum;
     }
 }
 void lsTools::initialize_function_coefficient(Vectorlf &input)
@@ -379,18 +387,27 @@ void lsTools::surface_derivate_f2v(const std::array<Eigen::MatrixXd, 2> &DonF, s
     for (int i = 0; i < V.rows(); i++)
     {
         CGMesh::VertexHandle vh = lsmesh.vertex_handle(i); // for each vertex, iterate all the faces
-        double areasum = 0;
+        double anglesum = 0;
         for (CGMesh::VertexFaceIter vf_it = lsmesh.vf_begin(vh); vf_it != lsmesh.vf_end(vh); ++vf_it)
         {
             assert(vh.idx() == i);
             int fid = vf_it.handle().idx();
-            double area = areaPF(fid);
-            areasum += area;
-            DonV[0].row(i) += area * DonF[0].row(fid);
-            DonV[1].row(i) += area * DonF[1].row(fid);
+            int vvid=-1;
+            for(int vv=0;vv<3;vv++){
+                if(i==F(fid,vv)){
+                    vvid=vv;
+                }
+            }
+            assert(vvid>-1);
+            double angle = angF(fid,vvid);
+            assert(angle>0);
+            
+            angle += angle;
+            DonV[0].row(i) += angle * DonF[0].row(fid);
+            DonV[1].row(i) += angle * DonF[1].row(fid);
         }
-        DonV[0].row(i) = DonV[0].row(i) / areasum;
-        DonV[1].row(i) = DonV[1].row(i) / areasum;
+        DonV[0].row(i) = DonV[0].row(i) / anglesum;
+        DonV[1].row(i) = DonV[1].row(i) / anglesum;
     }
 }
 void lsTools::surface_derivate_easy_interface(const Eigen::MatrixXd &vvalues, std::array<Eigen::MatrixXd, 2> &DonV)
@@ -436,7 +453,7 @@ void lsTools::get_surface_II_each_ver()
 void lsTools::get_lf_value(const Vectorlf &coff, Eigen::VectorXd &res)
 {
     int length = coff.size();
-    assert(length = V.rows());
+    
     res.resize(length);
     for (int i = 0; i < length; i++)
     {
@@ -582,4 +599,23 @@ void lsTools::show_current_reference_points(Eigen::MatrixXd& pts){
     for(int i=0;i<size;i++){
         pts.row(i)=V.row(refids[i]);
     }
+}
+void lsTools::show_face_gradients(Eigen::MatrixXd& E0, Eigen::MatrixXd &E1, double ratio){
+    Eigen::MatrixXd fcent(F.rows(),3);
+    for(int i=0;i<F.rows();i++){
+        fcent.row(i)=(V.row(F(i,0))+V.row(F(i,1))+V.row(F(i,2)))/3;
+    }
+    Eigen::MatrixXd dirc(F.rows(),3);
+    Eigen::VectorXd gx, gy, gz;
+    get_lf_value(gradVF[0], gx);
+    get_lf_value(gradVF[1], gy);
+    get_lf_value(gradVF[2], gz);
+    dirc.col(0) = gx;
+    dirc.col(1) = gy;
+    dirc.col(2) = gz;
+
+
+    E0=fcent+dirc*ratio;
+    E1=fcent-dirc*ratio;
+    assert(fcent.rows()==dirc.rows());
 }
