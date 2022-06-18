@@ -137,6 +137,22 @@ void lsTools::get_face_rotation_matices()
             x * z - y, y * z + x, z * z;
     }
 }
+void lsTools::get_vertex_rotation_matices()
+{
+    int vsize = V.rows();
+    RotateV.resize(vsize);
+    for (int i = 0; i < vsize; i++)
+    {
+        RotateV[i].resize(3, 3);
+        Eigen::Vector3d norm = norm_v.row(i);
+        double x = norm(0);
+        double y = norm(1);
+        double z = norm(2);
+        RotateV[i] << x * x, x * y - z, x * z + y,
+            x * y + z, y * y, y * z - x,
+            x * z - y, y * z + x, z * z;
+    }
+}
 void lsTools::get_rotated_edges_for_each_face()
 {
     Erotate.resize(F.rows());
@@ -183,7 +199,7 @@ void lsTools::get_rotated_edges_for_each_face()
         }
     }
 }
-
+// bool dbg01=true;
 // Vectorlf is a class wich restore the value of each vertex.
 // it can be a Vectorlf, or a Eigen::Vector of double values
 // the size of Vectorlf is already assigned .
@@ -212,6 +228,11 @@ void lsTools::gradient_v2f(Vectorlf &input, std::array<Vectorlf, 3> &output)
         auto value0 = input(id0); // value on the vertex
         auto value1 = input(id1);
         auto value2 = input(id2);
+        // if(dbg01){
+        //     std::cout<<"the values on v0, v1 and v2, "<<value0<<", "<<value1<<", "<<value2<<std::endl;
+        //     std::cout<<"the rotated edges \n"<<rot20.transpose()<<"\n"<<rot01.transpose()<<"\n"<<rot12.transpose()<<"\n";
+        //     dbg01=false;
+        // }
         for (int itr = 0; itr < 3; itr++)
         {
 
@@ -266,7 +287,7 @@ void lsTools::initialize_function_coefficient(Vectorlf &input)
     input.resize(vsize, vsize);
     for (int i = 0; i < vsize; i++)
     {
-        input(i).coeffRef(i) = i;
+        input(i).coeffRef(i) = 1;
     }
 }
 void lsTools::gradient_easy_interface(Vectorlf &func, std::array<Vectorlf, 3> &gonf, std::array<Vectorlf, 3> &gonv)
@@ -402,10 +423,11 @@ void lsTools::surface_derivate_f2v(const std::array<Eigen::MatrixXd, 2> &DonF, s
             double angle = angF(fid,vvid);
             assert(angle>0);
             
-            angle += angle;
+            anglesum += angle;
             DonV[0].row(i) += angle * DonF[0].row(fid);
             DonV[1].row(i) += angle * DonF[1].row(fid);
         }
+        assert(anglesum>0);
         DonV[0].row(i) = DonV[0].row(i) / anglesum;
         DonV[1].row(i) = DonV[1].row(i) / anglesum;
     }
@@ -464,17 +486,23 @@ void lsTools::get_gradient_hessian_values()
 {
     int vsize = V.rows();
     int fsize = F.rows();
-    gfvalue.resize(vsize, 3);
+    gvvalue.resize(vsize, 3);
     hfvalue.resize(vsize);
 
     Eigen::VectorXd gx, gy, gz;
     get_lf_value(gradV[0], gx);
     get_lf_value(gradV[1], gy);
     get_lf_value(gradV[2], gz);
+    gvvalue.col(0) = gx;
+    gvvalue.col(1) = gy;
+    gvvalue.col(2) = gz;
+    gfvalue.resize(fsize,3);
+    get_lf_value(gradVF[0],gx);
+    get_lf_value(gradVF[1],gy);
+    get_lf_value(gradVF[2],gz);
     gfvalue.col(0) = gx;
     gfvalue.col(1) = gy;
     gfvalue.col(2) = gz;
-
     Eigen::VectorXd hxx, hxy, hxz, hyx, hyy, hyz, hzx, hzy, hzz;
     get_lf_value(HessianV[0][0], hxx);
     get_lf_value(HessianV[0][1], hxy);
@@ -557,9 +585,11 @@ void lsTools::make_sphere_ls_example(int rowid){
     }
     get_gradient_hessian_values();
     refids.clear();
+
     for(int i=0;i<rnbr;i++)
     {
         int vid = rowid * rnbr + i;
+
         refids.push_back(vid);
         Eigen::Matrix2d LMN;
         LMN << II_L[vid], -II_M[vid],
@@ -567,8 +597,8 @@ void lsTools::make_sphere_ls_example(int rowid){
         Eigen::Matrix<double, 3, 2> rvru;
         rvru.col(0)=Deriv1[1].row(vid);// x_v, y_v, z_v
         rvru.col(1)=Deriv1[0].row(vid);// x_u, y_u, z_u
-        Eigen::Vector3d gradient=gfvalue.row(vid);
-        Eigen::MatrixXd hessian=hfvalue[vid];
+        Eigen::Vector3d gradient=gvvalue.row(vid);
+        Eigen::Matrix3d hessian=hfvalue[vid];
         Eigen::Matrix<double, 3,2> mrurv; // [-ru, rv]
         mrurv.col(0)=-1*Deriv1[0].row(vid);
         mrurv.col(1)=Deriv1[1].row(vid);
@@ -580,7 +610,62 @@ void lsTools::make_sphere_ls_example(int rowid){
         assert(right!=0);
         double b=left/right;
         std::cout<<"the current row nbr "<<rowid<<" with pid "<<i<<"\n**b is "<<b<<"\ngradient, "<<gradient.transpose()<<"\n\n";
+        Eigen::Vector3d rotgrad=RotateV[vid]*gradient;
+        Eigen::Vector3d s1=hessian*rotgrad;
+        double s2=rotgrad.dot(s1);
+        double kg=(s2)/(normgradf*normgradf*normgradf);
+        std::cout<<"Kg is "<<kg<<std::endl;
     }
+    // double zav=ztotal/rnbr;
+    // double zdiffmax=0;
+    // for(int i=0;i<rnbr;i++)
+    // {
+    //     int vid = rowid * rnbr + i;
+    //     double zdiff=fabs(zav-V(vid,2));
+    //     if(zdiffmax<zdiff){
+    //         zdiffmax=zdiff;
+    //     }
+    // }
+    // double max_edge_error=0;
+    // double max_rot_err=0;
+    // int maxrid=-1, maxeid=-1;
+    // for(int i=0;i<F.rows();i++){
+    //     int v0id=F(i,0);
+    //     int v1id=F(i,1);
+    //     int v2id=F(i,2);
+    //     double error0=Erotate[i][0].dot(Eigen::Vector3d(V.row(v0id)-V.row(v2id)));
+    //     double error1=Erotate[i][1].dot(Eigen::Vector3d(V.row(v1id)-V.row(v0id)));
+    //     double error2=Erotate[i][2].dot(Eigen::Vector3d(V.row(v2id)-V.row(v1id)));
+    //     // std::cout<<"edge dot, fid "<<i<<", "<<error0<<" "<<error1
+    //     // <<" "<<error2<<"\n";
+    //     if(max_edge_error<fabs(error0)){
+    //         max_edge_error=fabs(error0);
+    //         maxeid=i;
+    //     }
+    //     if(max_edge_error<fabs(error0)){
+    //         max_edge_error=fabs(error0);
+    //         maxeid=i;
+    //     }
+    //     if(max_edge_error<fabs(error1)){
+    //         max_edge_error=fabs(error1);
+    //         maxeid=i;
+    //     }
+    //     if(max_edge_error<fabs(error2)){
+    //         max_edge_error=fabs(error2);
+    //         maxeid=i;
+    //     }
+    //     double rdt=Rotate[i].determinant();
+    //     rdt=fabs(rdt-1);
+    //     if(max_rot_err<rdt){
+    //         max_rot_err=rdt;
+    //         maxrid=i;
+    //     }
+    // }
+    
+    // std::cout<<"max edge dot error "<<max_edge_error<<" in fid "<<maxeid<<std::endl;
+    // std::cout<<"max rotate deter error "<<max_rot_err<<" in fid "<<maxrid<<std::endl;
+    // std::cout<<"max z value diff "<<zdiffmax<<std::endl;
+
     std::cout<<"__________________________________________________"<<std::endl;
 }
 void lsTools::show_level_set(Eigen::VectorXd &val){
@@ -589,9 +674,9 @@ void lsTools::show_level_set(Eigen::VectorXd &val){
 
 void lsTools::show_gradients(Eigen::MatrixXd& E0, Eigen::MatrixXd &E1, double ratio){
     
-    E0=V+gfvalue*ratio;
-    E1=V-gfvalue*ratio;
-    assert(V.rows()==gfvalue.rows());
+    E0=V+gvvalue*ratio;
+    E1=V-gvvalue*ratio;
+    assert(V.rows()==gvvalue.rows());
 }
 void lsTools::show_current_reference_points(Eigen::MatrixXd& pts){
     int size= refids.size();
@@ -618,4 +703,57 @@ void lsTools::show_face_gradients(Eigen::MatrixXd& E0, Eigen::MatrixXd &E1, doub
     E0=fcent+dirc*ratio;
     E1=fcent-dirc*ratio;
     assert(fcent.rows()==dirc.rows());
+}
+void lsTools::show_face_grad_max_angle(Eigen::MatrixXd& points){
+    // double max_diff=0;
+    // int diff_id=0;
+    // int fsize=F.rows();
+    // for(int i=0;i<fsize;i++){
+    //     Eigen::Vector3d v0=Eigen::Vector3d(V.row(F(i,0)));
+    //     Eigen::Vector3d v1=Eigen::Vector3d(V.row(F(i,1)));
+    //     Eigen::Vector3d v2=Eigen::Vector3d(V.row(F(i,2)));
+    //     Eigen::Vector3d e01=v0-v1;
+    //     Eigen::Vector3d e12=v1-v2;
+    //     Eigen::Vector3d e20=v2-v0;
+    //     Eigen::Vector3d grad=Eigen::Vector3d(gfvalue.row(i));
+    //     double diff01=fabs(e01.normalized().dot(grad.normalized()));
+    //     double diff12=fabs(e12.normalized().dot(grad.normalized()));
+    //     double diff20=fabs(e20.normalized().dot(grad.normalized()));
+    //     double diff=std::min(std::min(diff01,diff12),diff20);
+    //     if(diff>max_diff){
+    //         max_diff=diff;
+    //         diff_id=i;
+    //     }
+    // }
+    // std::cout<<"max grad-edge dot diff is "<<max_diff<<", the angle is "<<acos(max_diff)*180/3.1415926<<", fid "<<diff_id<<std::endl;
+    // points.resize(3,3);
+    // points.row(0)=V.row(F(diff_id,0));
+    // points.row(1)=V.row(F(diff_id,1));
+    // points.row(2)=V.row(F(diff_id,2));
+    // std::cout<<"the three vertices\n "<<points.row(0)<<"\n"<<points.row(1)<<"\n"<<points.row(2)<<"\n";
+    // std::cout<<"the fvalues "<<fvalues(F(diff_id,0))<<", "<<fvalues(F(diff_id,1))<<", "<<fvalues(F(diff_id,2))<<"\n";
+    // std::cout<<"rotation matrix\n "<<Rotate[diff_id]<<"\n";
+    // std::cout<<"normal "<<norm_f.row(diff_id)<<"\n";
+    // std::cout<<"gradient "<<gfvalue.row(diff_id)<<std::endl;
+    // std::cout<<"gradient*norm, "<<Eigen::Vector3d(gfvalue.row(diff_id)).dot(Eigen::Vector3d(norm_f.row(diff_id)))<<"\n"<<std::endl;
+    
+    // Eigen::Vector3d re02 = Erotate[diff_id][0];
+    // Eigen::Vector3d re10 = Erotate[diff_id][1];
+    // Eigen::Vector3d re21 = Erotate[diff_id][2];
+    // Eigen::Vector3d norm = norm_f.row(diff_id);
+    // std::cout<<"rotated edges * norm, "<<re02.dot(norm)<<", "<<re10.dot(norm)<<", "<<re21.dot(norm)<<std::endl;
+    // Eigen::Vector3d grad=Eigen::Vector3d(gfvalue.row(diff_id));
+    // std::cout<<"sum of rotated "<<re02+re10+re21<<std::endl;
+    // Eigen::Vector3d v0 = Eigen::Vector3d(V.row(F(diff_id, 0)));
+    // Eigen::Vector3d v1 = Eigen::Vector3d(V.row(F(diff_id, 1)));
+    // Eigen::Vector3d v2 = Eigen::Vector3d(V.row(F(diff_id, 2)));
+    // Eigen::Vector3d e01 = v0 - v1;
+    // Eigen::Vector3d e12 = v1 - v2;
+    // Eigen::Vector3d e20 = v2 - v0;
+    // std::cout << "the three edges dot gradient " <<e01.dot(grad)<<", "<<e12.dot(grad)<<", "<<e20.dot(grad)<<std::endl;
+    // Eigen::Vector3d fake_grad=fvalues(F(diff_id,0))*re21+fvalues(F(diff_id,1))*re02+fvalues(F(diff_id,2))*re10;
+    // double area=areaF(diff_id);
+    // fake_grad/=2*area;
+    // std::cout<<"recalculated grad, "<<fake_grad<<std::endl;
+    // std::cout<<"recalculated gradient dot edges "<<e01.dot(fake_grad)<<", "<<e12.dot(fake_grad)<<", "<<e20.dot(fake_grad)<<std::endl;
 }

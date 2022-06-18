@@ -66,6 +66,7 @@ private:
     Eigen::VectorXd areaF;               // the area of each face.
     Eigen::VectorXd areaPF;              // the area of each face in parametric domain;
     std::vector<Eigen::Matrix3d> Rotate; // the 90 degree rotation matrices for each face.
+    std::vector<Eigen::Matrix3d> RotateV;// on vertices
     // the rotated 3 half edges for each face, in the plane of this face
     // the order of the 3 directions are: v0-v2, v1-v0, v2-v1
     std::vector<std::array<Eigen::Vector3d, 3>> Erotate;
@@ -79,7 +80,8 @@ private:
     std::vector<double> II_L;                        // second fundamental form: L
     std::vector<double> II_M;                        // second fundamental form: M
     std::vector<double> II_N;                        // second fundamental form: N
-    Eigen::MatrixXd gfvalue;                         // the calculated gradient values of f for each vertex.
+    Eigen::MatrixXd gvvalue;                         // the calculated gradient values of f for each vertex.
+    Eigen::MatrixXd gfvalue;                         // the calculated gradient values of f for each face.
     std::vector<Eigen::Matrix3d> hfvalue;             // the calculated Hessian values of f for each vertex
     std::vector<int> refids;// output the ids of current dealing points. just for debug purpose
     // Eigen::MatrixXd Fcenters;// face centers, used for debug;
@@ -106,6 +108,7 @@ private:
     void get_gradient_hessian_values(); // get the gradients and hessians on each vertices using the assigned level-set function values
     void get_lf_value(const Vectorlf& coff, Eigen::VectorXd& res); // get the linear combinations of function values.
     void make_sphere_ls_example(int rowid);
+    void get_vertex_rotation_matices();
     
         
 public:
@@ -138,6 +141,7 @@ public:
         get_mesh_normals_per_ver();
         // 4
         get_face_rotation_matices();
+        get_vertex_rotation_matices();
         // 5
         get_rotated_edges_for_each_face();
         // 6
@@ -156,6 +160,7 @@ public:
     void show_gradients(Eigen::MatrixXd& E0, Eigen::MatrixXd &E1, double ratio);
     void show_face_gradients(Eigen::MatrixXd& E0, Eigen::MatrixXd &E1, double ratio);
     void show_current_reference_points(Eigen::MatrixXd& pts);
+    void show_face_grad_max_angle(Eigen::MatrixXd& points);
     void debug_tool(int id = 0, double value = 0)
     {
         make_sphere_ls_example(id);

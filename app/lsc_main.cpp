@@ -42,7 +42,7 @@ double refer_AveEL = 1;
 
 int dbg_int;
 double dbg_dbl;
-double vector_scaling=0.01;
+double vector_scaling=1;
 
 std::vector<int> fixedVertices;
 
@@ -477,11 +477,17 @@ int main(int argc, char* argv[])
 				const Eigen::RowVector3d blue(0.2, 0.2, 0.8);
 				Eigen::MatrixXd E2, E3;
 				tools.show_face_gradients(E2, E3, lscif::vector_scaling);
-				//viewer.data().add_edges(E0,E1,red);
-				viewer.data().add_edges(E2,E3,blue);
+				viewer.data().add_edges(E0,E1,red);
+				// viewer.data().add_edges(E2,E3,blue);
 				Eigen::MatrixXd pts;
 				tools.show_current_reference_points(pts);
 				viewer.data().add_points(pts,red);
+				Eigen::MatrixXd fpoints;
+				tools.show_face_grad_max_angle(fpoints);
+				viewer.data().add_points(fpoints,blue);
+
+
+
 				viewer.selected_data_index = id;
 
 
