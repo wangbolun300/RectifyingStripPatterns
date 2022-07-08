@@ -84,6 +84,7 @@ private:
     Eigen::MatrixXd gfvalue;                         // the calculated gradient values of f for each face.
     std::vector<Eigen::Matrix3d> hfvalue;             // the calculated Hessian values of f for each vertex
     std::vector<int> refids;// output the ids of current dealing points. just for debug purpose
+    std::array<Eigen::MatrixXd, 2> DonFtmp;
     // Eigen::MatrixXd Fcenters;// face centers, used for debug;
         void
         get_mesh_angles();
@@ -161,6 +162,8 @@ public:
     void show_face_gradients(Eigen::MatrixXd& E0, Eigen::MatrixXd &E1, double ratio);
     void show_current_reference_points(Eigen::MatrixXd& pts);
     void show_face_grad_max_angle(Eigen::MatrixXd& points);
+    void show_1_order_derivate(Eigen::MatrixXd& E0, Eigen::MatrixXd &E1,Eigen::MatrixXd &E2,Eigen::MatrixXd &E3, double ratio);
+    void show_face_1_order_derivate(Eigen::MatrixXd& E0, Eigen::MatrixXd &E1,Eigen::MatrixXd &E2,Eigen::MatrixXd &E3, double ratio);
     void debug_tool(int id = 0, double value = 0)
     {
         make_sphere_ls_example(id);

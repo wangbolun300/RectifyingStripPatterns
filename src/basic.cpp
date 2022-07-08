@@ -57,8 +57,13 @@ void lsTools::get_mesh_normals_per_face()
         Eigen::Vector3d cross = Eigen::Vector3d(V.row(id0) - V.row(id1)).cross(Eigen::Vector3d(V.row(id0) - V.row(id2)));
         norm_f.row(i) = cross.normalized();
         areaF(i) = cross.norm() / 2;
-        Eigen::Vector2d p1 = paras.row(id0), p2 = paras.row(id1), p3 = paras.row(id2);
-        areaPF(i) = fabs(0.5 * (p1[0] * p2[1] - p2[0] * p1[1]) + (p2[0] * p3[1] - p3[0] * p2[1]) + (p3[0] * p1[1] - p1[0] * p3[1]));
+        Eigen::Vector2d p0 = paras.row(id0), p1 = paras.row(id1), p2 = paras.row(id2);
+        double le0=(p2-p1).norm();
+        double le1=(p0-p2).norm();
+        double le2=(p0-p1).norm();
+        double lp=(le0+le1+le2)/2;
+        areaPF(i) = sqrt(lp*(lp-le0)*(lp-le1)*(lp-le2));
+        std::cout<<"areaPF "<<areaPF(i)<<std::endl;
     }
 }
 
@@ -591,8 +596,8 @@ void lsTools::make_sphere_ls_example(int rowid){
         int vid = rowid * rnbr + i;
 
         refids.push_back(vid);
-        Eigen::Matrix2d LMN;
-        LMN << II_L[vid], -II_M[vid],
+        Eigen::Matrix2d LmMN;
+        LmMN << II_L[vid], -II_M[vid],
             -II_M[vid], II_N[vid];
         Eigen::Matrix<double, 3, 2> rvru;
         rvru.col(0)=Deriv1[1].row(vid);// x_v, y_v, z_v
@@ -603,18 +608,37 @@ void lsTools::make_sphere_ls_example(int rowid){
         mrurv.col(0)=-1*Deriv1[0].row(vid);
         mrurv.col(1)=Deriv1[1].row(vid);
         double normgradf=gradient.norm();
-        Eigen::MatrixXd inner_left=normgradf*rvru*LMN*rvru.transpose();
+        Eigen::MatrixXd inner_left=normgradf*rvru*LmMN*rvru.transpose();
         Eigen::MatrixXd inner_right=rvru*mrurv.transpose()*hessian*mrurv*rvru.transpose();
         double left=gradient.transpose()*inner_left*gradient;
         double right=gradient.transpose()*inner_right*gradient;
         assert(right!=0);
         double b=left/right;
-        std::cout<<"the current row nbr "<<rowid<<" with pid "<<i<<"\n**b is "<<b<<"\ngradient, "<<gradient.transpose()<<"\n\n";
+        std::cout<<"vid "<<vid<<"\n";
+        std::cout<<"the current row nbr "<<rowid<<" with pid "<<i<<"\n**b is "<<b<<"\ngradient, "<<gradient.transpose()<<"\n";
         Eigen::Vector3d rotgrad=RotateV[vid]*gradient;
         Eigen::Vector3d s1=hessian*rotgrad;
         double s2=rotgrad.dot(s1);
-        double kg=(s2)/(normgradf*normgradf*normgradf);
+        double kg=-(s2)/(normgradf*normgradf*normgradf);
         std::cout<<"Kg is "<<kg<<std::endl;
+        std::cout<<"Kn (estimate) is "<<kg/b<<"\n";
+        Eigen::Vector3d ru=Deriv1[0].row(vid);
+        Eigen::Vector3d rv=Deriv1[1].row(vid);
+        double gfrv=gradient.dot(rv);
+        double gfru=gradient.dot(ru);
+        // Eigen::Matrix2d LMN;
+        // LMN << II_L[vid], II_M[vid],
+        //     II_M[vid], II_N[vid];
+        Eigen::Vector2d IIl = Eigen::Vector2d(gfrv, gfru);
+        double up=IIl.transpose()*LmMN*IIl;
+        double cosuv=ru.dot(rv)/(ru.norm()*rv.norm());
+        double sin2=1-cosuv*cosuv;assert(sin2>=0);
+        double down=ru.norm()*ru.norm()*rv.norm()*rv.norm()*normgradf*normgradf*sin2;
+        double kn=up/down;
+        std::cout<<"Kn (calculate) is "<<up/down<<std::endl;
+        std::cout<<"b recalculate is "<<kg/kn<<std::endl;
+        // std::cout<<"__\nthe"
+        std::cout<<"\n";
     }
     // double zav=ztotal/rnbr;
     // double zdiffmax=0;
@@ -703,6 +727,33 @@ void lsTools::show_face_gradients(Eigen::MatrixXd& E0, Eigen::MatrixXd &E1, doub
     E0=fcent+dirc*ratio;
     E1=fcent-dirc*ratio;
     assert(fcent.rows()==dirc.rows());
+}
+void lsTools::show_1_order_derivate(Eigen::MatrixXd& E0, Eigen::MatrixXd &E1,Eigen::MatrixXd &E2,Eigen::MatrixXd &E3, double ratio){
+    
+    E0=V+Deriv1[0]*ratio;
+    E1=V-Deriv1[0]*ratio;
+    E2=V+Deriv1[1]*ratio;
+    E3=V-Deriv1[1]*ratio;
+}
+void lsTools::show_face_1_order_derivate(Eigen::MatrixXd& E0, Eigen::MatrixXd &E1,Eigen::MatrixXd &E2,Eigen::MatrixXd &E3, double ratio){
+    surface_derivate_v2f(V, DonFtmp);
+    Eigen::MatrixXd fcent(F.rows(),3);
+    for(int i=0;i<F.rows();i++){
+        fcent.row(i)=(V.row(F(i,0))+V.row(F(i,1))+V.row(F(i,2)))/3;
+    }
+    Eigen::MatrixXd dirc1(F.rows(),3);
+    Eigen::MatrixXd dirc2(F.rows(),3);
+    
+    
+    dirc1=DonFtmp[0];// get partial u direction
+    dirc2=DonFtmp[1];// get partial u direction
+
+    E0=fcent+dirc1*ratio;
+    E1=fcent-dirc1*ratio;
+    E2=fcent+dirc2*ratio;
+    E3=fcent-dirc2*ratio;
+    
+
 }
 void lsTools::show_face_grad_max_angle(Eigen::MatrixXd& points){
     // double max_diff=0;
