@@ -110,6 +110,8 @@ private:
     void get_lf_value(const Vectorlf& coff, Eigen::VectorXd& res); // get the linear combinations of function values.
     void make_sphere_ls_example(int rowid);
     void get_vertex_rotation_matices();
+
+    void get_I_and_II_locally();
     
         
 public:
@@ -152,8 +154,8 @@ public:
         // 8
         get_rotated_parameter_edges();
         // 9
-        get_surface_derivate();
-        get_surface_II_each_ver();
+        // get_surface_derivate();
+        // get_surface_II_each_ver();
     }
     void show_level_set(Eigen::VectorXd &val); 
     // convert the parameters into a mesh, for visulization purpose

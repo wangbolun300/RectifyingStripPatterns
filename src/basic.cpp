@@ -531,6 +531,13 @@ void lsTools::get_gradient_hessian_values()
     }
 }
 
+void lsTools::get_I_and_II_locally(){
+    
+}
+
+
+
+
 Eigen::Vector3d sphere_function(double r, double theta, double phi)
 {
     double x = r * sin(theta) * cos(phi);
