@@ -164,6 +164,7 @@ public:
     void show_face_grad_max_angle(Eigen::MatrixXd& points);
     void show_1_order_derivate(Eigen::MatrixXd& E0, Eigen::MatrixXd &E1,Eigen::MatrixXd &E2,Eigen::MatrixXd &E3, double ratio);
     void show_face_1_order_derivate(Eigen::MatrixXd& E0, Eigen::MatrixXd &E1,Eigen::MatrixXd &E2,Eigen::MatrixXd &E3, double ratio);
+    void show_vertex_normal(Eigen::MatrixXd& E0, Eigen::MatrixXd& E1, double ratio);
     void debug_tool(int id = 0, double value = 0)
     {
         make_sphere_ls_example(id);

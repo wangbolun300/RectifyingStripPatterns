@@ -477,9 +477,10 @@ int main(int argc, char* argv[])
 				const Eigen::RowVector3d blue(0.2, 0.2, 0.8);
 				Eigen::MatrixXd E2, E3;
 				//tools.show_face_gradients(E2, E3, lscif::vector_scaling);
-				tools.show_face_1_order_derivate(E0, E1, E2, E3, lscif::vector_scaling);
+				// tools.show_1_order_derivate(E0, E1, E2, E3, lscif::vector_scaling);
+				tools.show_vertex_normal(E0,E1,lscif::vector_scaling);
 				viewer.data().add_edges(E0,E1,red);
-				viewer.data().add_edges(E2,E3,blue);
+				// viewer.data().add_edges(E2,E3,blue);
 				Eigen::MatrixXd pts;
 				tools.show_current_reference_points(pts);
 				viewer.data().add_points(pts,red);

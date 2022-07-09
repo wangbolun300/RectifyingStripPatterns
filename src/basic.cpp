@@ -63,7 +63,7 @@ void lsTools::get_mesh_normals_per_face()
         double le2=(p0-p1).norm();
         double lp=(le0+le1+le2)/2;
         areaPF(i) = sqrt(lp*(lp-le0)*(lp-le1)*(lp-le2));
-        std::cout<<"areaPF "<<areaPF(i)<<std::endl;
+        
     }
 }
 
@@ -469,6 +469,8 @@ void lsTools::get_surface_II_each_ver()
         double r_vu = Deriv2[2].row(i).dot(norm_v.row(i)); // r_vu*n
         double r_uv = Deriv2[1].row(i).dot(norm_v.row(i));
         II_M[i] = (r_uv + r_vu) / 2; // r_uv*n
+        std::cout<<i<<" ruv "<<r_uv<<" rvu "<<r_vu<<" diff ruv: "<<fabs(r_uv-r_vu)<<std::endl;
+        std::cout<<"vec view, ruv "<<Deriv2[2].row(i)<<", rvu "<<Deriv2[1].row(i)<<std::endl;
         // if(fabs(II_M[i]-r_vu)>SCALAR_ZERO){
         //     dbgcount++;
         //     std::cout<<"calculation of II is not accurate:\n"<<II_M[i]<<", "<<r_vu<<", diff: "<<fabs(II_M[i]-r_vu)<<std::endl
@@ -754,6 +756,12 @@ void lsTools::show_face_1_order_derivate(Eigen::MatrixXd& E0, Eigen::MatrixXd &E
     E3=fcent-dirc2*ratio;
     
 
+}
+void lsTools::show_vertex_normal(Eigen::MatrixXd& E0, Eigen::MatrixXd& E1, double ratio){
+    E0.resize(V.rows(),3);
+    E1=E0;
+    E0=V;
+    E1=E0+norm_v*ratio;
 }
 void lsTools::show_face_grad_max_angle(Eigen::MatrixXd& points){
     // double max_diff=0;
