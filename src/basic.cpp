@@ -93,38 +93,38 @@ void lsTools::get_mesh_angles()
 }
 
 // this method use angle of the triangles to get a better smoothness of the mesh
-void lsTools::get_mesh_normals_per_ver()
-{
-    norm_v.resize(V.rows(), 3);
-    for (int i = 0; i < V.rows(); i++)
-    {
-        norm_v.row(i) << 0, 0, 0;
-        CGMesh::VertexHandle vh = lsmesh.vertex_handle(i); // for each vertex, iterate all the faces
-        for (CGMesh::VertexFaceIter vf_it = lsmesh.vf_begin(vh); vf_it != lsmesh.vf_end(vh); ++vf_it)
-        {
-            int fid = vf_it.handle().idx();
-            int pinf = -1;
-            for (int j = 0; j < 3; j++)
-            {
-                if (F(fid, j) == i)
-                {
-                    pinf = j;
-                    break;
-                }
-            }
-            if (pinf == -1)
-            {
-                std::cout << "ERROR: no find correct one ring face. \npid: " << vh.idx() << " or " << i << std::endl;
-                std::cout << "fid: " << fid << std::endl;
-                std::cout << "the vertices of this face: " << F.row(fid) << std::endl
-                          << std::endl;
-            }
-            assert(pinf > -1);
-            norm_v.row(i) += angF(fid, pinf) * norm_f.row(fid);
-        }
-        norm_v.row(i) = Eigen::Vector3d(norm_v.row(i)).normalized();
-    }
-}
+// void lsTools::get_mesh_normals_per_ver()
+// {
+//     norm_v.resize(V.rows(), 3);
+//     for (int i = 0; i < V.rows(); i++)
+//     {
+//         norm_v.row(i) << 0, 0, 0;
+//         CGMesh::VertexHandle vh = lsmesh.vertex_handle(i); // for each vertex, iterate all the faces
+//         for (CGMesh::VertexFaceIter vf_it = lsmesh.vf_begin(vh); vf_it != lsmesh.vf_end(vh); ++vf_it)
+//         {
+//             int fid = vf_it.handle().idx();
+//             int pinf = -1;
+//             for (int j = 0; j < 3; j++)
+//             {
+//                 if (F(fid, j) == i)
+//                 {
+//                     pinf = j;
+//                     break;
+//                 }
+//             }
+//             if (pinf == -1)
+//             {
+//                 std::cout << "ERROR: no find correct one ring face. \npid: " << vh.idx() << " or " << i << std::endl;
+//                 std::cout << "fid: " << fid << std::endl;
+//                 std::cout << "the vertices of this face: " << F.row(fid) << std::endl
+//                           << std::endl;
+//             }
+//             assert(pinf > -1);
+//             norm_v.row(i) += angF(fid, pinf) * norm_f.row(fid);
+//         }
+//         norm_v.row(i) = Eigen::Vector3d(norm_v.row(i)).normalized();
+//     }
+// }
 
 void lsTools::get_face_rotation_matices()
 {
@@ -368,117 +368,6 @@ void lsTools::get_rotated_parameter_edges()
         assert(ecounter == 3);
     }
 }
-// the input should be the values on each vertex, nx3, (x, y, z) or (x_u, y_u, z_u)
-// the output is the derivate on each facet, for u and v separately.
-void lsTools::surface_derivate_v2f(const Eigen::MatrixXd &vvalues, std::array<Eigen::MatrixXd, 2> &DonF)
-{
-    Eigen::Matrix<double, 3, 3> pos; // the 3 vertices of the face
-    Eigen::Matrix<double, 3, 2> par; // the parameters of the 3 vertices
-    assert(vvalues.rows() == V.rows());
-    int vsize = V.rows();
-    int fsize = F.rows();
-    DonF[0].resize(fsize, 3); // partial derivate to u: x_u, y_u, z_u
-    DonF[1].resize(fsize, 3); // partial derivate to v
-
-    for (int fid = 0; fid < F.rows(); fid++)
-    {
-        int id0 = F(fid, 0);
-        int id1 = F(fid, 1);
-        int id2 = F(fid, 2);
-        Eigen::Vector2d rot20 = Erotate2d[fid][0]; // v0-v2
-        Eigen::Vector2d rot01 = Erotate2d[fid][1]; // v1-v0
-        Eigen::Vector2d rot12 = Erotate2d[fid][2]; // v2-v1
-        par.row(0) = rot12;
-        par.row(1) = rot20;
-        par.row(2) = rot01;
-        pos.col(0) = vvalues.row(id0);
-        pos.col(1) = vvalues.row(id1);
-        pos.col(2) = vvalues.row(id2);
-
-        double areap = areaPF(fid);
-        assert(areap > 0);
-        Eigen::MatrixXd res = pos * par / (2 * areap); // a 3x2 matrix, [xu,xv;yu,yv;zu,zv]
-        DonF[0].row(fid) = res.col(0);
-        DonF[1].row(fid) = res.col(1);
-    }
-}
-
-void lsTools::surface_derivate_f2v(const std::array<Eigen::MatrixXd, 2> &DonF, std::array<Eigen::MatrixXd, 2> &DonV)
-{
-    int vsize = V.rows();
-    int fsize = F.rows();
-    assert(DonF[0].rows() == fsize);
-    DonV[0] = Eigen::MatrixXd::Zero(vsize, 3);
-    DonV[1] = Eigen::MatrixXd::Zero(vsize, 3);
-    for (int i = 0; i < V.rows(); i++)
-    {
-        CGMesh::VertexHandle vh = lsmesh.vertex_handle(i); // for each vertex, iterate all the faces
-        double anglesum = 0;
-        for (CGMesh::VertexFaceIter vf_it = lsmesh.vf_begin(vh); vf_it != lsmesh.vf_end(vh); ++vf_it)
-        {
-            assert(vh.idx() == i);
-            int fid = vf_it.handle().idx();
-            int vvid=-1;
-            for(int vv=0;vv<3;vv++){
-                if(i==F(fid,vv)){
-                    vvid=vv;
-                }
-            }
-            assert(vvid>-1);
-            double angle = angF(fid,vvid);
-            assert(angle>0);
-            
-            anglesum += angle;
-            DonV[0].row(i) += angle * DonF[0].row(fid);
-            DonV[1].row(i) += angle * DonF[1].row(fid);
-        }
-        assert(anglesum>0);
-        DonV[0].row(i) = DonV[0].row(i) / anglesum;
-        DonV[1].row(i) = DonV[1].row(i) / anglesum;
-    }
-}
-void lsTools::surface_derivate_easy_interface(const Eigen::MatrixXd &vvalues, std::array<Eigen::MatrixXd, 2> &DonV)
-{
-    assert(vvalues.rows() == V.rows() && vvalues.cols() == 3);
-    std::array<Eigen::MatrixXd, 2> DonF;
-    surface_derivate_v2f(vvalues, DonF);
-    surface_derivate_f2v(DonF, DonV);
-}
-void lsTools::get_surface_derivate()
-{
-    surface_derivate_easy_interface(V, Deriv1); // get (x_u, y_u, z_u) and (x_v, y_v, z_v)
-    std::array<Eigen::MatrixXd, 2> tmp;
-    surface_derivate_easy_interface(Deriv1[0], tmp); // get (x_uu, y_uu, z_uu) and (x_uv, y_uv, z_uv)
-    Deriv2[0] = tmp[0];
-    Deriv2[1] = tmp[1];
-    surface_derivate_easy_interface(Deriv1[1], tmp); // get (x_vu, y_vu, z_vu) and (x_vv, y_vv, z_vv)
-    Deriv2[2] = tmp[0];
-    Deriv2[3] = tmp[1];
-}
-void lsTools::get_surface_II_each_ver()
-{
-    int vsize = V.rows();
-    II_L.resize(vsize);
-    II_M.resize(vsize);
-    II_N.resize(vsize);
-    int dbgcount = 0;
-    for (int i = 0; i < vsize; i++)
-    {
-        II_L[i] = Deriv2[0].row(i).dot(norm_v.row(i));     // r_uu*n
-        II_N[i] = Deriv2[3].row(i).dot(norm_v.row(i));     // r_vv*n
-        double r_vu = Deriv2[2].row(i).dot(norm_v.row(i)); // r_vu*n
-        double r_uv = Deriv2[1].row(i).dot(norm_v.row(i));
-        II_M[i] = (r_uv + r_vu) / 2; // r_uv*n
-        std::cout<<i<<" ruv "<<r_uv<<" rvu "<<r_vu<<" diff ruv: "<<fabs(r_uv-r_vu)<<std::endl;
-        std::cout<<"vec view, ruv "<<Deriv2[2].row(i)<<", rvu "<<Deriv2[1].row(i)<<std::endl;
-        // if(fabs(II_M[i]-r_vu)>SCALAR_ZERO){
-        //     dbgcount++;
-        //     std::cout<<"calculation of II is not accurate:\n"<<II_M[i]<<", "<<r_vu<<", diff: "<<fabs(II_M[i]-r_vu)<<std::endl
-        //     <<"nbr, "<<dbgcount<<std::endl;
-
-        // }
-    }
-}
 void lsTools::get_lf_value(const Vectorlf &coff, Eigen::VectorXd &res)
 {
     int length = coff.size();
@@ -531,9 +420,7 @@ void lsTools::get_gradient_hessian_values()
     }
 }
 
-void lsTools::get_I_and_II_locally(){
-    
-}
+
 
 
 
@@ -744,26 +631,26 @@ void lsTools::show_1_order_derivate(Eigen::MatrixXd& E0, Eigen::MatrixXd &E1,Eig
     E2=V+Deriv1[1]*ratio;
     E3=V-Deriv1[1]*ratio;
 }
-void lsTools::show_face_1_order_derivate(Eigen::MatrixXd& E0, Eigen::MatrixXd &E1,Eigen::MatrixXd &E2,Eigen::MatrixXd &E3, double ratio){
-    surface_derivate_v2f(V, DonFtmp);
-    Eigen::MatrixXd fcent(F.rows(),3);
-    for(int i=0;i<F.rows();i++){
-        fcent.row(i)=(V.row(F(i,0))+V.row(F(i,1))+V.row(F(i,2)))/3;
-    }
-    Eigen::MatrixXd dirc1(F.rows(),3);
-    Eigen::MatrixXd dirc2(F.rows(),3);
+// void lsTools::show_face_1_order_derivate(Eigen::MatrixXd& E0, Eigen::MatrixXd &E1,Eigen::MatrixXd &E2,Eigen::MatrixXd &E3, double ratio){
+//     surface_derivate_v2f(V, DonFtmp);
+//     Eigen::MatrixXd fcent(F.rows(),3);
+//     for(int i=0;i<F.rows();i++){
+//         fcent.row(i)=(V.row(F(i,0))+V.row(F(i,1))+V.row(F(i,2)))/3;
+//     }
+//     Eigen::MatrixXd dirc1(F.rows(),3);
+//     Eigen::MatrixXd dirc2(F.rows(),3);
     
     
-    dirc1=DonFtmp[0];// get partial u direction
-    dirc2=DonFtmp[1];// get partial u direction
+//     dirc1=DonFtmp[0];// get partial u direction
+//     dirc2=DonFtmp[1];// get partial u direction
 
-    E0=fcent+dirc1*ratio;
-    E1=fcent-dirc1*ratio;
-    E2=fcent+dirc2*ratio;
-    E3=fcent-dirc2*ratio;
+//     E0=fcent+dirc1*ratio;
+//     E1=fcent-dirc1*ratio;
+//     E2=fcent+dirc2*ratio;
+//     E3=fcent-dirc2*ratio;
     
 
-}
+// }
 void lsTools::show_vertex_normal(Eigen::MatrixXd& E0, Eigen::MatrixXd& E1, double ratio){
     E0.resize(V.rows(),3);
     E1=E0;

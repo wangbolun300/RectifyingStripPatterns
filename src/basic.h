@@ -89,7 +89,7 @@ private:
         void
         get_mesh_angles();
     void get_mesh_normals_per_face();
-    void get_mesh_normals_per_ver();
+    // void get_mesh_normals_per_ver();
     // This is to calculate the 90 degree rotation matrices in
     // each triangle face. It can be used to calculate gradients.
     void get_face_rotation_matices();
@@ -101,11 +101,11 @@ private:
     void get_function_gradient_vertex();                                                                         // get the gradient of f on vertices
     void get_function_hessian_vertex();                                                                          // get the hessian matrix of f on vertices
     void get_rotated_parameter_edges();                                                                          // get the rotated edges on the 2d parametric domain
-    void surface_derivate_v2f(const Eigen::MatrixXd &vvalues, std::array<Eigen::MatrixXd, 2> &DonF);             // calculate gradient in each face from vertex values
-    void surface_derivate_f2v(const std::array<Eigen::MatrixXd, 2> &DonF, std::array<Eigen::MatrixXd, 2> &DonV); // calculate gradient in each vertex by averging face values
-    void surface_derivate_easy_interface(const Eigen::MatrixXd &vvalues, std::array<Eigen::MatrixXd, 2> &DonV);
-    void get_surface_derivate();        // get the derivates
-    void get_surface_II_each_ver();     // get the second fundamental forms L, M and N
+    // void surface_derivate_v2f(const Eigen::MatrixXd &vvalues, std::array<Eigen::MatrixXd, 2> &DonF);             // calculate gradient in each face from vertex values
+    // void surface_derivate_f2v(const std::array<Eigen::MatrixXd, 2> &DonF, std::array<Eigen::MatrixXd, 2> &DonV); // calculate gradient in each vertex by averging face values
+    // void surface_derivate_easy_interface(const Eigen::MatrixXd &vvalues, std::array<Eigen::MatrixXd, 2> &DonV);
+    // void get_surface_derivate();        // get the derivates
+    // void get_surface_II_each_ver();     // get the second fundamental forms L, M and N
     void get_gradient_hessian_values(); // get the gradients and hessians on each vertices using the assigned level-set function values
     void get_lf_value(const Vectorlf& coff, Eigen::VectorXd& res); // get the linear combinations of function values.
     void make_sphere_ls_example(int rowid);
@@ -140,11 +140,11 @@ public:
         get_mesh_normals_per_face();
         // 2
         get_mesh_angles();
-        // 3
-        get_mesh_normals_per_ver();
+        // // 3
+        // get_mesh_normals_per_ver();
         // 4
         get_face_rotation_matices();
-        get_vertex_rotation_matices();
+        
         // 5
         get_rotated_edges_for_each_face();
         // 6
@@ -154,6 +154,8 @@ public:
         // 8
         get_rotated_parameter_edges();
         // 9
+        get_I_and_II_locally();
+        get_vertex_rotation_matices();
         // get_surface_derivate();
         // get_surface_II_each_ver();
     }
