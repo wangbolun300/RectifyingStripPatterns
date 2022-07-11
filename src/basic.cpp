@@ -328,46 +328,6 @@ void lsTools::get_function_hessian_vertex()
     gradient_easy_interface(fz, temp_f, HessianV[2]); // fzx, fzy, fzz
 }
 
-void lsTools::get_rotated_parameter_edges()
-{
-    Eigen::Matrix2d rotate2d; // 2d rotation matrix
-    rotate2d << 0, -1,
-        1, 0;
-
-    Erotate2d.resize(F.rows());
-
-    // the 3 edges are in the order of the openmesh face-edge iterator provides us
-    for (CGMesh::FaceIter f_it = lsmesh.faces_begin(); f_it != (lsmesh.faces_end()); ++f_it)
-    {
-        int fid = f_it.handle().idx();
-        int ecounter = 0;
-        for (CGMesh::FaceHalfedgeIter fh_it = lsmesh.fh_begin(f_it); fh_it != (lsmesh.fh_end(f_it)); ++fh_it)
-        {
-            CGMesh::HalfedgeHandle heh = fh_it.current_halfedge_handle();
-            int vid1 = lsmesh.from_vertex_handle(heh).idx();
-            int vid2 = lsmesh.to_vertex_handle(heh).idx();
-            Erotate2d[fid][ecounter] = Eigen::Vector2d(rotate2d * Eigen::Vector2d(paras.row(vid2) - paras.row(vid1)));
-            assert(fid < Erotate2d.size());
-            assert(vid1 == F(fid, 0) || vid1 == F(fid, 1) || vid1 == F(fid, 2));
-            assert(vid2 == F(fid, 0) || vid2 == F(fid, 1) || vid2 == F(fid, 2));
-            assert(vid1 != vid2);
-            if (ecounter == 0)
-            {
-                assert(vid1 == F(fid, 2) && vid2 == F(fid, 0));
-            }
-            if (ecounter == 1)
-            {
-                assert(vid1 == F(fid, 0) && vid2 == F(fid, 1));
-            }
-            if (ecounter == 2)
-            {
-                assert(vid1 == F(fid, 1) && vid2 == F(fid, 2));
-            }
-            ecounter++;
-        }
-        assert(ecounter == 3);
-    }
-}
 void lsTools::get_lf_value(const Vectorlf &coff, Eigen::VectorXd &res)
 {
     int length = coff.size();
@@ -543,55 +503,6 @@ void lsTools::make_sphere_ls_example(int rowid){
         // std::cout<<"__\nthe"
         std::cout<<"\n";
     }
-    // double zav=ztotal/rnbr;
-    // double zdiffmax=0;
-    // for(int i=0;i<rnbr;i++)
-    // {
-    //     int vid = rowid * rnbr + i;
-    //     double zdiff=fabs(zav-V(vid,2));
-    //     if(zdiffmax<zdiff){
-    //         zdiffmax=zdiff;
-    //     }
-    // }
-    // double max_edge_error=0;
-    // double max_rot_err=0;
-    // int maxrid=-1, maxeid=-1;
-    // for(int i=0;i<F.rows();i++){
-    //     int v0id=F(i,0);
-    //     int v1id=F(i,1);
-    //     int v2id=F(i,2);
-    //     double error0=Erotate[i][0].dot(Eigen::Vector3d(V.row(v0id)-V.row(v2id)));
-    //     double error1=Erotate[i][1].dot(Eigen::Vector3d(V.row(v1id)-V.row(v0id)));
-    //     double error2=Erotate[i][2].dot(Eigen::Vector3d(V.row(v2id)-V.row(v1id)));
-    //     // std::cout<<"edge dot, fid "<<i<<", "<<error0<<" "<<error1
-    //     // <<" "<<error2<<"\n";
-    //     if(max_edge_error<fabs(error0)){
-    //         max_edge_error=fabs(error0);
-    //         maxeid=i;
-    //     }
-    //     if(max_edge_error<fabs(error0)){
-    //         max_edge_error=fabs(error0);
-    //         maxeid=i;
-    //     }
-    //     if(max_edge_error<fabs(error1)){
-    //         max_edge_error=fabs(error1);
-    //         maxeid=i;
-    //     }
-    //     if(max_edge_error<fabs(error2)){
-    //         max_edge_error=fabs(error2);
-    //         maxeid=i;
-    //     }
-    //     double rdt=Rotate[i].determinant();
-    //     rdt=fabs(rdt-1);
-    //     if(max_rot_err<rdt){
-    //         max_rot_err=rdt;
-    //         maxrid=i;
-    //     }
-    // }
-    
-    // std::cout<<"max edge dot error "<<max_edge_error<<" in fid "<<maxeid<<std::endl;
-    // std::cout<<"max rotate deter error "<<max_rot_err<<" in fid "<<maxrid<<std::endl;
-    // std::cout<<"max z value diff "<<zdiffmax<<std::endl;
 
     std::cout<<"__________________________________________________"<<std::endl;
 }
@@ -638,26 +549,6 @@ void lsTools::show_1_order_derivate(Eigen::MatrixXd& E0, Eigen::MatrixXd &E1,Eig
     E2=V+Deriv1[1]*ratio;
     E3=V-Deriv1[1]*ratio;
 }
-// void lsTools::show_face_1_order_derivate(Eigen::MatrixXd& E0, Eigen::MatrixXd &E1,Eigen::MatrixXd &E2,Eigen::MatrixXd &E3, double ratio){
-//     surface_derivate_v2f(V, DonFtmp);
-//     Eigen::MatrixXd fcent(F.rows(),3);
-//     for(int i=0;i<F.rows();i++){
-//         fcent.row(i)=(V.row(F(i,0))+V.row(F(i,1))+V.row(F(i,2)))/3;
-//     }
-//     Eigen::MatrixXd dirc1(F.rows(),3);
-//     Eigen::MatrixXd dirc2(F.rows(),3);
-    
-    
-//     dirc1=DonFtmp[0];// get partial u direction
-//     dirc2=DonFtmp[1];// get partial u direction
-
-//     E0=fcent+dirc1*ratio;
-//     E1=fcent-dirc1*ratio;
-//     E2=fcent+dirc2*ratio;
-//     E3=fcent-dirc2*ratio;
-    
-
-// }
 void lsTools::show_vertex_normal(Eigen::MatrixXd& E0, Eigen::MatrixXd& E1, double ratio){
     E0.resize(V.rows(),3);
     E1=E0;
@@ -665,55 +556,5 @@ void lsTools::show_vertex_normal(Eigen::MatrixXd& E0, Eigen::MatrixXd& E1, doubl
     E1=E0+norm_v*ratio;
 }
 void lsTools::show_face_grad_max_angle(Eigen::MatrixXd& points){
-    // double max_diff=0;
-    // int diff_id=0;
-    // int fsize=F.rows();
-    // for(int i=0;i<fsize;i++){
-    //     Eigen::Vector3d v0=Eigen::Vector3d(V.row(F(i,0)));
-    //     Eigen::Vector3d v1=Eigen::Vector3d(V.row(F(i,1)));
-    //     Eigen::Vector3d v2=Eigen::Vector3d(V.row(F(i,2)));
-    //     Eigen::Vector3d e01=v0-v1;
-    //     Eigen::Vector3d e12=v1-v2;
-    //     Eigen::Vector3d e20=v2-v0;
-    //     Eigen::Vector3d grad=Eigen::Vector3d(gfvalue.row(i));
-    //     double diff01=fabs(e01.normalized().dot(grad.normalized()));
-    //     double diff12=fabs(e12.normalized().dot(grad.normalized()));
-    //     double diff20=fabs(e20.normalized().dot(grad.normalized()));
-    //     double diff=std::min(std::min(diff01,diff12),diff20);
-    //     if(diff>max_diff){
-    //         max_diff=diff;
-    //         diff_id=i;
-    //     }
-    // }
-    // std::cout<<"max grad-edge dot diff is "<<max_diff<<", the angle is "<<acos(max_diff)*180/3.1415926<<", fid "<<diff_id<<std::endl;
-    // points.resize(3,3);
-    // points.row(0)=V.row(F(diff_id,0));
-    // points.row(1)=V.row(F(diff_id,1));
-    // points.row(2)=V.row(F(diff_id,2));
-    // std::cout<<"the three vertices\n "<<points.row(0)<<"\n"<<points.row(1)<<"\n"<<points.row(2)<<"\n";
-    // std::cout<<"the fvalues "<<fvalues(F(diff_id,0))<<", "<<fvalues(F(diff_id,1))<<", "<<fvalues(F(diff_id,2))<<"\n";
-    // std::cout<<"rotation matrix\n "<<Rotate[diff_id]<<"\n";
-    // std::cout<<"normal "<<norm_f.row(diff_id)<<"\n";
-    // std::cout<<"gradient "<<gfvalue.row(diff_id)<<std::endl;
-    // std::cout<<"gradient*norm, "<<Eigen::Vector3d(gfvalue.row(diff_id)).dot(Eigen::Vector3d(norm_f.row(diff_id)))<<"\n"<<std::endl;
     
-    // Eigen::Vector3d re02 = Erotate[diff_id][0];
-    // Eigen::Vector3d re10 = Erotate[diff_id][1];
-    // Eigen::Vector3d re21 = Erotate[diff_id][2];
-    // Eigen::Vector3d norm = norm_f.row(diff_id);
-    // std::cout<<"rotated edges * norm, "<<re02.dot(norm)<<", "<<re10.dot(norm)<<", "<<re21.dot(norm)<<std::endl;
-    // Eigen::Vector3d grad=Eigen::Vector3d(gfvalue.row(diff_id));
-    // std::cout<<"sum of rotated "<<re02+re10+re21<<std::endl;
-    // Eigen::Vector3d v0 = Eigen::Vector3d(V.row(F(diff_id, 0)));
-    // Eigen::Vector3d v1 = Eigen::Vector3d(V.row(F(diff_id, 1)));
-    // Eigen::Vector3d v2 = Eigen::Vector3d(V.row(F(diff_id, 2)));
-    // Eigen::Vector3d e01 = v0 - v1;
-    // Eigen::Vector3d e12 = v1 - v2;
-    // Eigen::Vector3d e20 = v2 - v0;
-    // std::cout << "the three edges dot gradient " <<e01.dot(grad)<<", "<<e12.dot(grad)<<", "<<e20.dot(grad)<<std::endl;
-    // Eigen::Vector3d fake_grad=fvalues(F(diff_id,0))*re21+fvalues(F(diff_id,1))*re02+fvalues(F(diff_id,2))*re10;
-    // double area=areaF(diff_id);
-    // fake_grad/=2*area;
-    // std::cout<<"recalculated grad, "<<fake_grad<<std::endl;
-    // std::cout<<"recalculated gradient dot edges "<<e01.dot(fake_grad)<<", "<<e12.dot(fake_grad)<<", "<<e20.dot(fake_grad)<<std::endl;
 }
