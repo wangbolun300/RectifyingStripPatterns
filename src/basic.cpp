@@ -495,21 +495,23 @@ void lsTools::make_sphere_ls_example(int rowid){
         Eigen::Matrix2d LmMN;
         LmMN << II_L[vid], -II_M[vid],
             -II_M[vid], II_N[vid];
-        Eigen::Matrix<double, 3, 2> rvru;
-        rvru.col(0)=Deriv1[1].row(vid);// x_v, y_v, z_v
-        rvru.col(1)=Deriv1[0].row(vid);// x_u, y_u, z_u
+        Eigen::Matrix<double, 3, 2> rurv, rvru;
+        rurv.col(0)=Deriv1[0].row(vid);
+        rurv.col(1)=Deriv1[1].row(vid);
+        rvru.col(0)=Deriv1[1].row(vid);
+        rvru.col(1)=Deriv1[0].row(vid);
         Eigen::Vector3d gradient=gvvalue.row(vid);
         Eigen::Matrix3d hessian=hfvalue[vid];
-        Eigen::Matrix<double, 3,2> mrurv; // [-ru, rv]
-        mrurv.col(0)=-1*Deriv1[0].row(vid);
-        mrurv.col(1)=Deriv1[1].row(vid);
+        Eigen::Matrix<double, 3,2> mrvru; // [-rv, ru]
+        mrvru.col(0)=-1*Deriv1[1].row(vid);
+        mrvru.col(1)=Deriv1[0].row(vid);
         double normgradf=gradient.norm();
         Eigen::MatrixXd inner_left=normgradf*rvru*LmMN*rvru.transpose();
-        Eigen::MatrixXd inner_right=rvru*mrurv.transpose()*hessian*mrurv*rvru.transpose();
+        Eigen::MatrixXd inner_right=mrvru*rurv.transpose()*hessian*rurv*mrvru.transpose();
         double left=gradient.transpose()*inner_left*gradient;
         double right=gradient.transpose()*inner_right*gradient;
         assert(right!=0);
-        double b=left/right;
+        double b=right/left;
         std::cout<<"vid "<<vid<<"\n";
         std::cout<<"the current row nbr "<<rowid<<" with pid "<<i<<"\n**b is "<<b<<"\ngradient, "<<gradient.transpose()<<"\n";
         Eigen::Vector3d rotgrad=RotateV[vid]*gradient;
@@ -533,6 +535,11 @@ void lsTools::make_sphere_ls_example(int rowid){
         double kn=up/down;
         std::cout<<"Kn (calculate) is "<<up/down<<std::endl;
         std::cout<<"b recalculate is "<<kg/kn<<std::endl;
+  
+        Eigen::Vector3d q=-(gradient.dot(rv))*ru+gradient.dot(ru)*rv;
+        Eigen::Vector3d rf_test=q.normalized()*gradient.norm();
+        //std::cout<<"gradf size is "<<gradient.norm()<<"\ngrad test angle diff "<<rf_test.dot(gradient)<<std::endl;
+        std::cout<<"qnorm calculated and norm "<<gradient.norm()*ru.norm()*rv.norm()*sqrt(sin2)<<" "<<q.norm()<<std::endl;
         // std::cout<<"__\nthe"
         std::cout<<"\n";
     }
