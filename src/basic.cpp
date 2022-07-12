@@ -555,6 +555,67 @@ void lsTools::show_vertex_normal(Eigen::MatrixXd& E0, Eigen::MatrixXd& E1, doubl
     E0=V;
     E1=E0+norm_v*ratio;
 }
-void lsTools::show_face_grad_max_angle(Eigen::MatrixXd& points){
+
+void lsTools::get_gradient_partial_cofficient_matrix(int i){
+    int vnbr=V.rows();// nbr of unknown
     
+    SpMat result(vnbr,3);// each row is the partial for variable fj, is d(fx, fy, fz)/dfj
+    Efunc Cfx,Cfy,Cfz;// the cofficient of fx, fy, fz.
+    Cfx=gradV[0](i);
+    Cfy=gradV[1](i);
+    Cfz=gradV[2](i);
+    std::vector<Trip> triplets;
+    for(int j=0;j<vnbr;j++){// for each 
+        
+    }
+    for (Efunc::InnerIterator it(Cfx); it; ++it)
+    {
+        int rowid=it.index();
+        int colid=0;
+        double value=Cfx.coeffRef(rowid);
+        triplets.push_back(Trip(rowid,colid,value));
+    }
+    for (Efunc::InnerIterator it(Cfy); it; ++it)
+    {
+        int rowid=it.index();
+        int colid=1;
+        double value=Cfy.coeffRef(rowid);
+        triplets.push_back(Trip(rowid,colid,value));
+    }
+    for (Efunc::InnerIterator it(Cfz); it; ++it)
+    {
+        int rowid=it.index();
+        int colid=2;
+        double value=Cfz.coeffRef(rowid);
+        triplets.push_back(Trip(rowid,colid,value));
+    }
+    result.setFromTriplets(triplets.begin(),triplets.end());
+
+}
+void lsTools::get_hessian_partial_cofficient_matrix(int i){
+    int vnbr=V.rows();// nbr of unknown
+    
+    SpMat result(vnbr,9);// each row is the partial for variable fj, is d(fxx, fxy, fxz, fyx, ...fzy, fzz)/dfj
+    std::array<Efunc,9> Cfs;
+    Cfs[0]=HessianV[0][0](i);
+    Cfs[1]=HessianV[0][1](i);
+    Cfs[2]=HessianV[0][2](i);
+    Cfs[3]=HessianV[1][0](i);
+    Cfs[4]=HessianV[1][1](i);
+    Cfs[5]=HessianV[1][2](i);
+    Cfs[6]=HessianV[2][0](i);
+    Cfs[7]=HessianV[2][1](i);
+    Cfs[8]=HessianV[2][2](i);
+    std::vector<Trip> triplets;
+    for (int comp = 0; comp < 9; comp++)
+    {
+        for (Efunc::InnerIterator it(Cfs[comp]); it; ++it)
+        {
+            int rowid = it.index();
+            int colid = comp;
+            double value = Cfs[comp].coeffRef(rowid);
+            triplets.push_back(Trip(rowid, colid, value));
+        }
+    }
+    result.setFromTriplets(triplets.begin(),triplets.end());
 }

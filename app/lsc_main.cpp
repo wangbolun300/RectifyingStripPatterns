@@ -484,9 +484,7 @@ int main(int argc, char* argv[])
 				Eigen::MatrixXd pts;
 				tools.show_current_reference_points(pts);
 				viewer.data().add_points(pts,red);
-				Eigen::MatrixXd fpoints;
-				tools.show_face_grad_max_angle(fpoints);
-				viewer.data().add_points(fpoints,blue);
+				
 
 
 

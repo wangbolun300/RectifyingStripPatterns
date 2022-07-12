@@ -6,6 +6,8 @@
 // some function values on their corresponding vertices, of this vertex.
 // i.e. Efunc[0]*f_0+Efunc[1]*f_1+...+Efunc[n]*f_n.
 typedef Eigen::SparseVector<double> Efunc;
+typedef Eigen::SparseMatrix<double> SpMat;
+typedef Eigen::Triplet<double> Trip;
 #define SCALAR_ZERO 1e-8
 class Vectorlf
 {
@@ -106,6 +108,12 @@ private:
     void get_vertex_rotation_matices();
 
     void get_I_and_II_locally();
+    // get the partial derivate of gradient gradF on each vertex i
+    void get_gradient_partial_cofficient_matrix(int i);
+    // get the partial derivate cofficient matrix of the hessian on each vertex i
+    void get_hessian_partial_cofficient_matrix(int i);
+    // the partial derivate of ||gradF||: partial{||gradF||}{fj} on each vertex vi. 
+    void get_gradient_norm_partial_cofficient_matrix(int i);
     
         
 public:
@@ -159,7 +167,6 @@ public:
     void show_gradients(Eigen::MatrixXd& E0, Eigen::MatrixXd &E1, double ratio);
     void show_face_gradients(Eigen::MatrixXd& E0, Eigen::MatrixXd &E1, double ratio);
     void show_current_reference_points(Eigen::MatrixXd& pts);
-    void show_face_grad_max_angle(Eigen::MatrixXd& points);
     void show_1_order_derivate(Eigen::MatrixXd& E0, Eigen::MatrixXd &E1,Eigen::MatrixXd &E2,Eigen::MatrixXd &E3, double ratio);
     void show_face_1_order_derivate(Eigen::MatrixXd& E0, Eigen::MatrixXd &E1,Eigen::MatrixXd &E2,Eigen::MatrixXd &E3, double ratio);
     void show_vertex_normal(Eigen::MatrixXd& E0, Eigen::MatrixXd& E1, double ratio);
@@ -170,3 +177,8 @@ public:
 
     }
 };
+
+// // partial derivate tools, regard level set function as variates.
+// class PDtools{
+//     PDtools(){};
+// };
