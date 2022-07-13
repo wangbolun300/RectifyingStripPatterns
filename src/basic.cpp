@@ -619,3 +619,15 @@ void lsTools::get_hessian_partial_cofficient_matrix(int i){
     }
     result.setFromTriplets(triplets.begin(),triplets.end());
 }
+ void lsTools::get_gradient_norm_partial_cofficient_matrix(int i,SpMat& GP){
+    int vnbr=V.rows();// nbr of unknown
+    Eigen::Vector3d gradient=gvvalue.row(i);
+    Efunc result(vnbr);
+    Efunc temp0(vnbr);
+    Efunc temp1(vnbr);
+    Efunc temp2(vnbr);
+    double c1=gradient.norm();
+    c1=1/c1;
+    result = GP.col(0) * gradient(0) + GP.col(1) * gradient(1) + GP.col(2) * gradient(2);
+    result*=c1;
+ }

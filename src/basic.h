@@ -112,8 +112,8 @@ private:
     void get_gradient_partial_cofficient_matrix(int i);
     // get the partial derivate cofficient matrix of the hessian on each vertex i
     void get_hessian_partial_cofficient_matrix(int i);
-    // the partial derivate of ||gradF||: partial{||gradF||}{fj} on each vertex vi. 
-    void get_gradient_norm_partial_cofficient_matrix(int i);
+    // the partial derivate of ||gradF||: partial{||gradF||}{fj} on each vertex vi. takes partial matrix GP of vertex i as input
+    void get_gradient_norm_partial_cofficient_matrix(int i,SpMat& GP);
     
         
 public:
@@ -158,6 +158,7 @@ public:
         // 9
         get_I_and_II_locally();
         get_vertex_rotation_matices();
+        get_gradient_hessian_values();
         // get_surface_derivate();
         // get_surface_II_each_ver();
     }
