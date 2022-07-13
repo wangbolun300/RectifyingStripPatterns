@@ -158,7 +158,7 @@ public:
         // 9
         get_I_and_II_locally();
         get_vertex_rotation_matices();
-        get_gradient_hessian_values();
+        // get_gradient_hessian_values();
         // get_surface_derivate();
         // get_surface_II_each_ver();
     }
@@ -173,6 +173,7 @@ public:
     void show_vertex_normal(Eigen::MatrixXd& E0, Eigen::MatrixXd& E1, double ratio);
     void debug_tool(int id = 0, double value = 0)
     {
+        // sphere_example(5, 80.0/180*3.1415926, 1.8, 17, 20);
         make_sphere_ls_example(id);
         
 

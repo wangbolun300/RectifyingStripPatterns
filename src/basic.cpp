@@ -420,10 +420,10 @@ void sphere_example(double radius, double theta, double phi, int nt, int np)
     {
         for (int j = 0; j < np - 1; j++)
         {
-            int id0 = nt * j + i;
-            int id1 = nt * (j + 1) + i;
-            int id2 = nt * (j + 1) + i + 1;
-            int id3 = nt * j + i + 1;
+            int id0 = np * i + j;
+            int id1 = np * (i + 1) + j;
+            int id2 = np * (i + 1) + j + 1;
+            int id3 = np * i + j + 1;
             faces.row(fline) = Eigen::Vector3i(id0, id1, id2);
             faces.row(fline + 1) = Eigen::Vector3i(id0, id2, id3);
             fline += 2;
@@ -500,6 +500,7 @@ void lsTools::make_sphere_ls_example(int rowid){
         Eigen::Vector3d rf_test=q.normalized()*gradient.norm();
         //std::cout<<"gradf size is "<<gradient.norm()<<"\ngrad test angle diff "<<rf_test.dot(gradient)<<std::endl;
         std::cout<<"qnorm calculated and norm "<<gradient.norm()*ru.norm()*rv.norm()*sqrt(sin2)<<" "<<q.norm()<<std::endl;
+        std::cout<<"angle is "<<atan(kg/kn)*180/3.1415926<<std::endl;
         // std::cout<<"__\nthe"
         std::cout<<"\n";
     }
