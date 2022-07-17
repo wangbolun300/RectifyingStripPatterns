@@ -58,12 +58,11 @@ void lsTools::get_mesh_normals_per_face()
         norm_f.row(i) = cross.normalized();
         areaF(i) = cross.norm() / 2;
         Eigen::Vector2d p0 = paras.row(id0), p1 = paras.row(id1), p2 = paras.row(id2);
-        double le0=(p2-p1).norm();
-        double le1=(p0-p2).norm();
-        double le2=(p0-p1).norm();
-        double lp=(le0+le1+le2)/2;
-        areaPF(i) = sqrt(lp*(lp-le0)*(lp-le1)*(lp-le2));
-        
+        double le0 = (p2 - p1).norm();
+        double le1 = (p0 - p2).norm();
+        double le2 = (p0 - p1).norm();
+        double lp = (le0 + le1 + le2) / 2;
+        areaPF(i) = sqrt(lp * (lp - le0) * (lp - le1) * (lp - le2));
     }
 }
 
@@ -263,15 +262,17 @@ void lsTools::gradient_f2v(std::array<Vectorlf, 3> &input, std::array<Vectorlf, 
         {
             assert(vh.idx() == i);
             int fid = vf_it.handle().idx();
-            int vvid=-1;
-            for(int vv=0;vv<3;vv++){
-                if(i==F(fid,vv)){
-                    vvid=vv;
+            int vvid = -1;
+            for (int vv = 0; vv < 3; vv++)
+            {
+                if (i == F(fid, vv))
+                {
+                    vvid = vv;
                 }
             }
-            assert(vvid>-1);
-            double angle = angF(fid,vvid);
-            assert(angle>0);
+            assert(vvid > -1);
+            double angle = angF(fid, vvid);
+            assert(angle > 0);
             anglesum += angle;
             assert(i < output[0].size());
             output[0](i) += angle * input[0](fid);
@@ -331,7 +332,7 @@ void lsTools::get_function_hessian_vertex()
 void lsTools::get_lf_value(const Vectorlf &coff, Eigen::VectorXd &res)
 {
     int length = coff.size();
-    
+
     res.resize(length);
     for (int i = 0; i < length; i++)
     {
@@ -352,10 +353,10 @@ void lsTools::get_gradient_hessian_values()
     gvvalue.col(0) = gx;
     gvvalue.col(1) = gy;
     gvvalue.col(2) = gz;
-    gfvalue.resize(fsize,3);
-    get_lf_value(gradVF[0],gx);
-    get_lf_value(gradVF[1],gy);
-    get_lf_value(gradVF[2],gz);
+    gfvalue.resize(fsize, 3);
+    get_lf_value(gradVF[0], gx);
+    get_lf_value(gradVF[1], gy);
+    get_lf_value(gradVF[2], gz);
     gfvalue.col(0) = gx;
     gfvalue.col(1) = gy;
     gfvalue.col(2) = gz;
@@ -380,11 +381,6 @@ void lsTools::get_gradient_hessian_values()
     }
 }
 
-
-
-
-
-
 Eigen::Vector3d sphere_function(double r, double theta, double phi)
 {
     double x = r * sin(theta) * cos(phi);
@@ -408,7 +404,7 @@ void sphere_example(double radius, double theta, double phi, int nt, int np)
     {
         for (int j = 0; j < np; j++)
         {
-            double upara = 0.5*3.1415926-theta + i * titv;
+            double upara = 0.5 * 3.1415926 - theta + i * titv;
             double vpara = -phi + j * pitv;
             ver.row(verline) = sphere_function(radius, upara, vpara);
             verline++;
@@ -430,24 +426,35 @@ void sphere_example(double radius, double theta, double phi, int nt, int np)
         }
     }
     std::string path("/Users/wangb0d/bolun/D/vs/levelset/level-set-curves/data/");
-    igl::write_triangle_mesh(path+"sphere_"+std::to_string(radius)+"_"+std::to_string(theta)+"_"+
-    std::to_string(phi)+"_"+std::to_string(nt)+"_"+std::to_string(np)+".obj", ver, faces);
-    std::cout<<"sphere mesh file saved "<<std::endl;
+    igl::write_triangle_mesh(path + "sphere_" + std::to_string(radius) + "_" + std::to_string(theta) + "_" +
+                                 std::to_string(phi) + "_" + std::to_string(nt) + "_" + std::to_string(np) + ".obj",
+                             ver, faces);
+    std::cout << "sphere mesh file saved " << std::endl;
 }
 
-void lsTools::make_sphere_ls_example(int rowid){
-    int vsize=V.rows();
-    int fsize=F.rows();
-    int rnbr=20;// # vertices in each row
+void lsTools::make_sphere_ls_example(int rowid)
+{
+    int vsize = V.rows();
+    int fsize = F.rows();
+    int rnbr = 20; // # vertices in each row
     fvalues.resize(vsize);
-    
-    for(int i=0;i<vsize;i++){
-        fvalues(i)=V(i,2);// make function value = z
+
+    for (int i = 0; i < vsize; i++)
+    {
+        fvalues(i) = V(i, 2); // make function value = z
     }
     get_gradient_hessian_values();
     refids.clear();
+    bool writefile = false;
+    std::ofstream fout;
+    std::string filename = std::string("/Users/wangb0d/bolun/D/vs/levelset/level-set-curves/build/") + std::to_string(rowid) + "_info.csv";
+    if (writefile)
+    {
+        fout.open(filename);
+        fout << "angle,kn,kg\n";
+    }
 
-    for(int i=0;i<rnbr;i++)
+    for (int i = 0; i < rnbr; i++)
     {
         int vid = rowid * rnbr + i;
 
@@ -456,80 +463,95 @@ void lsTools::make_sphere_ls_example(int rowid){
         LmMN << II_L[vid], -II_M[vid],
             -II_M[vid], II_N[vid];
         Eigen::Matrix<double, 3, 2> rurv, rvru;
-        rurv.col(0)=Deriv1[0].row(vid);
-        rurv.col(1)=Deriv1[1].row(vid);
-        rvru.col(0)=Deriv1[1].row(vid);
-        rvru.col(1)=Deriv1[0].row(vid);
-        Eigen::Vector3d gradient=gvvalue.row(vid);
-        Eigen::Matrix3d hessian=hfvalue[vid];
-        Eigen::Matrix<double, 3,2> mrvru; // [-rv, ru]
-        mrvru.col(0)=-1*Deriv1[1].row(vid);
-        mrvru.col(1)=Deriv1[0].row(vid);
-        double normgradf=gradient.norm();
-        Eigen::MatrixXd inner_left=normgradf*rvru*LmMN*rvru.transpose();
-        Eigen::MatrixXd inner_right=mrvru*rurv.transpose()*hessian*rurv*mrvru.transpose();
-        double left=gradient.transpose()*inner_left*gradient;
-        double right=gradient.transpose()*inner_right*gradient;
-        assert(right!=0);
-        double b=right/left;
-        std::cout<<"vid "<<vid<<"\n";
-        std::cout<<"the current row nbr "<<rowid<<" with pid "<<i<<"\n**b is "<<b<<"\ngradient, "<<gradient.transpose()<<"\n";
-        Eigen::Vector3d rotgrad=RotateV[vid]*gradient;
-        Eigen::Vector3d s1=hessian*rotgrad;
-        double s2=rotgrad.dot(s1);
-        double kg=-(s2)/(normgradf*normgradf*normgradf);
-        std::cout<<"Kg is "<<kg<<std::endl;
-        std::cout<<"Kn (estimate) is "<<kg/b<<"\n";
-        Eigen::Vector3d ru=Deriv1[0].row(vid);
-        Eigen::Vector3d rv=Deriv1[1].row(vid);
-        double gfrv=gradient.dot(rv);
-        double gfru=gradient.dot(ru);
+        rurv.col(0) = Deriv1[0].row(vid);
+        rurv.col(1) = Deriv1[1].row(vid);
+        rvru.col(0) = Deriv1[1].row(vid);
+        rvru.col(1) = Deriv1[0].row(vid);
+        Eigen::Vector3d gradient = gvvalue.row(vid);
+        Eigen::Matrix3d hessian = hfvalue[vid];
+        Eigen::Matrix<double, 3, 2> mrvru; // [-rv, ru]
+        mrvru.col(0) = -1 * Deriv1[1].row(vid);
+        mrvru.col(1) = Deriv1[0].row(vid);
+        double normgradf = gradient.norm();
+        Eigen::MatrixXd inner_left = normgradf * rvru * LmMN * rvru.transpose();
+        Eigen::MatrixXd inner_right = mrvru * rurv.transpose() * hessian * rurv * mrvru.transpose();
+        double left = gradient.transpose() * inner_left * gradient;
+        double right = gradient.transpose() * inner_right * gradient;
+        assert(right != 0);
+        double b = right / left;
+        std::cout << "vid " << vid << "\n";
+        std::cout << "the current row nbr " << rowid << " with pid " << i << "\n**b is " << b << "\ngradient, " << gradient.transpose() << "\n";
+        Eigen::Vector3d rotgrad = RotateV[vid] * gradient;
+        Eigen::Vector3d s1 = hessian * rotgrad;
+        double s2 = rotgrad.dot(s1);
+        double kg = -(s2) / (normgradf * normgradf * normgradf);
+        std::cout << "Kg is " << kg << std::endl;
+        std::cout << "Kn (estimate) is " << kg / b << "\n";
+        Eigen::Vector3d ru = Deriv1[0].row(vid);
+        Eigen::Vector3d rv = Deriv1[1].row(vid);
+        double gfrv = gradient.dot(rv);
+        double gfru = gradient.dot(ru);
         // Eigen::Matrix2d LMN;
         // LMN << II_L[vid], II_M[vid],
         //     II_M[vid], II_N[vid];
         Eigen::Vector2d IIl = Eigen::Vector2d(gfrv, gfru);
-        double up=IIl.transpose()*LmMN*IIl;
-        double cosuv=ru.dot(rv)/(ru.norm()*rv.norm());
-        double sin2=1-cosuv*cosuv;assert(sin2>=0);
-        double down=ru.norm()*ru.norm()*rv.norm()*rv.norm()*normgradf*normgradf*sin2;
-        double kn=up/down;
-        std::cout<<"Kn (calculate) is "<<up/down<<std::endl;
-        std::cout<<"b recalculate is "<<kg/kn<<std::endl;
-  
-        Eigen::Vector3d q=-(gradient.dot(rv))*ru+gradient.dot(ru)*rv;
-        Eigen::Vector3d rf_test=q.normalized()*gradient.norm();
-        //std::cout<<"gradf size is "<<gradient.norm()<<"\ngrad test angle diff "<<rf_test.dot(gradient)<<std::endl;
-        std::cout<<"qnorm calculated and norm "<<gradient.norm()*ru.norm()*rv.norm()*sqrt(sin2)<<" "<<q.norm()<<std::endl;
-        std::cout<<"angle is "<<atan(kg/kn)*180/3.1415926<<std::endl;
+        double up = IIl.transpose() * LmMN * IIl;
+        double cosuv = ru.dot(rv) / (ru.norm() * rv.norm());
+        double sin2 = 1 - cosuv * cosuv;
+        assert(sin2 >= 0);
+        double down = ru.norm() * ru.norm() * rv.norm() * rv.norm() * normgradf * normgradf * sin2;
+        double kn = up / down;
+        std::cout << "Kn (calculate) is " << up / down << std::endl;
+        std::cout << "b recalculate is " << kg / kn << std::endl;
+
+        Eigen::Vector3d q = -(gradient.dot(rv)) * ru + gradient.dot(ru) * rv;
+        Eigen::Vector3d rf_test = q.normalized() * gradient.norm();
+        // std::cout<<"gradf size is "<<gradient.norm()<<"\ngrad test angle diff "<<rf_test.dot(gradient)<<std::endl;
+        std::cout << "qnorm calculated and norm " << gradient.norm() * ru.norm() * rv.norm() * sqrt(sin2) << " " << q.norm() << std::endl;
+        double ang = atan(kg / kn) * 180 / 3.1415926;
+        std::cout << "angle is " << ang << std::endl;
+        if (writefile)
+        {
+            fout << ang << "," << up / down << "," << kg << "\n";
+        }
         // std::cout<<"__\nthe"
-        std::cout<<"\n";
+        std::cout << "\n";
     }
+    if (writefile)
+    {
+        fout.close();
+    }
+    std::cout << "__________________________________________________" << std::endl;
+}
+void lsTools::show_level_set(Eigen::VectorXd &val)
+{
+    val = fvalues;
+}
 
-    std::cout<<"__________________________________________________"<<std::endl;
-}
-void lsTools::show_level_set(Eigen::VectorXd &val){
-   val= fvalues;
-}
+void lsTools::show_gradients(Eigen::MatrixXd &E0, Eigen::MatrixXd &E1, double ratio)
+{
 
-void lsTools::show_gradients(Eigen::MatrixXd& E0, Eigen::MatrixXd &E1, double ratio){
-    
-    E0=V+gvvalue*ratio;
-    E1=V-gvvalue*ratio;
-    assert(V.rows()==gvvalue.rows());
+    E0 = V + gvvalue * ratio;
+    E1 = V - gvvalue * ratio;
+    assert(V.rows() == gvvalue.rows());
 }
-void lsTools::show_current_reference_points(Eigen::MatrixXd& pts){
-    int size= refids.size();
-    pts.resize(size,3);
-    for(int i=0;i<size;i++){
-        pts.row(i)=V.row(refids[i]);
+void lsTools::show_current_reference_points(Eigen::MatrixXd &pts)
+{
+    int size = refids.size();
+    pts.resize(size, 3);
+    for (int i = 0; i < size; i++)
+    {
+        pts.row(i) = V.row(refids[i]);
     }
 }
-void lsTools::show_face_gradients(Eigen::MatrixXd& E0, Eigen::MatrixXd &E1, double ratio){
-    Eigen::MatrixXd fcent(F.rows(),3);
-    for(int i=0;i<F.rows();i++){
-        fcent.row(i)=(V.row(F(i,0))+V.row(F(i,1))+V.row(F(i,2)))/3;
+void lsTools::show_face_gradients(Eigen::MatrixXd &E0, Eigen::MatrixXd &E1, double ratio)
+{
+    Eigen::MatrixXd fcent(F.rows(), 3);
+    for (int i = 0; i < F.rows(); i++)
+    {
+        fcent.row(i) = (V.row(F(i, 0)) + V.row(F(i, 1)) + V.row(F(i, 2))) / 3;
     }
-    Eigen::MatrixXd dirc(F.rows(),3);
+    Eigen::MatrixXd dirc(F.rows(), 3);
     Eigen::VectorXd gx, gy, gz;
     get_lf_value(gradVF[0], gx);
     get_lf_value(gradVF[1], gy);
@@ -538,75 +560,76 @@ void lsTools::show_face_gradients(Eigen::MatrixXd& E0, Eigen::MatrixXd &E1, doub
     dirc.col(1) = gy;
     dirc.col(2) = gz;
 
+    E0 = fcent + dirc * ratio;
+    E1 = fcent - dirc * ratio;
+    assert(fcent.rows() == dirc.rows());
+}
+void lsTools::show_1_order_derivate(Eigen::MatrixXd &E0, Eigen::MatrixXd &E1, Eigen::MatrixXd &E2, Eigen::MatrixXd &E3, double ratio)
+{
 
-    E0=fcent+dirc*ratio;
-    E1=fcent-dirc*ratio;
-    assert(fcent.rows()==dirc.rows());
+    E0 = V + Deriv1[0] * ratio;
+    E1 = V - Deriv1[0] * ratio;
+    E2 = V + Deriv1[1] * ratio;
+    E3 = V - Deriv1[1] * ratio;
 }
-void lsTools::show_1_order_derivate(Eigen::MatrixXd& E0, Eigen::MatrixXd &E1,Eigen::MatrixXd &E2,Eigen::MatrixXd &E3, double ratio){
-    
-    E0=V+Deriv1[0]*ratio;
-    E1=V-Deriv1[0]*ratio;
-    E2=V+Deriv1[1]*ratio;
-    E3=V-Deriv1[1]*ratio;
-}
-void lsTools::show_vertex_normal(Eigen::MatrixXd& E0, Eigen::MatrixXd& E1, double ratio){
-    E0.resize(V.rows(),3);
-    E1=E0;
-    E0=V;
-    E1=E0+norm_v*ratio;
+void lsTools::show_vertex_normal(Eigen::MatrixXd &E0, Eigen::MatrixXd &E1, double ratio)
+{
+    E0.resize(V.rows(), 3);
+    E1 = E0;
+    E0 = V;
+    E1 = E0 + norm_v * ratio;
 }
 
-void lsTools::get_gradient_partial_cofficient_matrix(int i){
-    int vnbr=V.rows();// nbr of unknown
-    
-    SpMat result(vnbr,3);// each row is the partial for variable fj, is d(fx, fy, fz)/dfj
-    Efunc Cfx,Cfy,Cfz;// the cofficient of fx, fy, fz.
-    Cfx=gradV[0](i);
-    Cfy=gradV[1](i);
-    Cfz=gradV[2](i);
+void lsTools::get_gradient_partial_cofficient_matrix(int i)
+{
+    int vnbr = V.rows(); // nbr of unknown
+
+    spMat result(vnbr, 3); // each row is the partial for variable fj, is d(fx, fy, fz)/dfj
+    Efunc Cfx, Cfy, Cfz;   // the cofficient of fx, fy, fz.
+    Cfx = gradV[0](i);
+    Cfy = gradV[1](i);
+    Cfz = gradV[2](i);
     std::vector<Trip> triplets;
-    for(int j=0;j<vnbr;j++){// for each 
-        
-    }
+
     for (Efunc::InnerIterator it(Cfx); it; ++it)
     {
-        int rowid=it.index();
-        int colid=0;
-        double value=Cfx.coeffRef(rowid);
-        triplets.push_back(Trip(rowid,colid,value));
+        int rowid = it.index();
+        int colid = 0;
+        double value = Cfx.coeffRef(rowid);
+        triplets.push_back(Trip(rowid, colid, value));
     }
     for (Efunc::InnerIterator it(Cfy); it; ++it)
     {
-        int rowid=it.index();
-        int colid=1;
-        double value=Cfy.coeffRef(rowid);
-        triplets.push_back(Trip(rowid,colid,value));
+        int rowid = it.index();
+        int colid = 1;
+        double value = Cfy.coeffRef(rowid);
+        triplets.push_back(Trip(rowid, colid, value));
     }
     for (Efunc::InnerIterator it(Cfz); it; ++it)
     {
-        int rowid=it.index();
-        int colid=2;
-        double value=Cfz.coeffRef(rowid);
-        triplets.push_back(Trip(rowid,colid,value));
+        int rowid = it.index();
+        int colid = 2;
+        double value = Cfz.coeffRef(rowid);
+        triplets.push_back(Trip(rowid, colid, value));
     }
-    result.setFromTriplets(triplets.begin(),triplets.end());
-
+    result.setFromTriplets(triplets.begin(), triplets.end());
+    Dgrad[i]=result;
 }
-void lsTools::get_hessian_partial_cofficient_matrix(int i){
-    int vnbr=V.rows();// nbr of unknown
-    
-    SpMat result(vnbr,9);// each row is the partial for variable fj, is d(fxx, fxy, fxz, fyx, ...fzy, fzz)/dfj
-    std::array<Efunc,9> Cfs;
-    Cfs[0]=HessianV[0][0](i);
-    Cfs[1]=HessianV[0][1](i);
-    Cfs[2]=HessianV[0][2](i);
-    Cfs[3]=HessianV[1][0](i);
-    Cfs[4]=HessianV[1][1](i);
-    Cfs[5]=HessianV[1][2](i);
-    Cfs[6]=HessianV[2][0](i);
-    Cfs[7]=HessianV[2][1](i);
-    Cfs[8]=HessianV[2][2](i);
+void lsTools::get_hessian_partial_cofficient_matrix(int i)
+{
+    int vnbr = V.rows(); // nbr of unknown
+
+    spMat result(vnbr, 9); // each row is the partial for variable fj, is d(fxx, fxy, fxz, fyx, ...fzy, fzz)/dfj
+    std::array<Efunc, 9> Cfs;
+    Cfs[0] = HessianV[0][0](i);
+    Cfs[1] = HessianV[0][1](i);
+    Cfs[2] = HessianV[0][2](i);
+    Cfs[3] = HessianV[1][0](i);
+    Cfs[4] = HessianV[1][1](i);
+    Cfs[5] = HessianV[1][2](i);
+    Cfs[6] = HessianV[2][0](i);
+    Cfs[7] = HessianV[2][1](i);
+    Cfs[8] = HessianV[2][2](i);
     std::vector<Trip> triplets;
     for (int comp = 0; comp < 9; comp++)
     {
@@ -618,17 +641,94 @@ void lsTools::get_hessian_partial_cofficient_matrix(int i){
             triplets.push_back(Trip(rowid, colid, value));
         }
     }
-    result.setFromTriplets(triplets.begin(),triplets.end());
+    result.setFromTriplets(triplets.begin(), triplets.end());
+    Dhess[i]=result;
 }
- void lsTools::get_gradient_norm_partial_cofficient_matrix(int i,SpMat& GP){
-    int vnbr=V.rows();// nbr of unknown
-    Eigen::Vector3d gradient=gvvalue.row(i);
+void lsTools::get_gradient_norm_partial_cofficient_matrix(int i, const spMat &GP)
+{
+    int vnbr = V.rows(); // nbr of unknown
+    Eigen::Vector3d gradient = gvvalue.row(i);
     Efunc result(vnbr);
     Efunc temp0(vnbr);
     Efunc temp1(vnbr);
     Efunc temp2(vnbr);
-    double c1=gradient.norm();
-    c1=1/c1;
+    double c1 = gradient.norm();
+    c1 = 1 / c1;
     result = GP.col(0) * gradient(0) + GP.col(1) * gradient(1) + GP.col(2) * gradient(2);
-    result*=c1;
- }
+    result *= c1;
+    Dgrad_norm[i]=result;
+}
+void lsTools::get_laplacian_square_partial_cofficient_matrix(int i, const spMat& HP){
+    assert(HP.cols()==9); // the input should be a Hessian matrix
+    Efunc Cfxx=HP.col(0);
+    Efunc Cfyy=HP.col(4);
+    Efunc Cfzz=HP.col(8);
+
+    double laplacian = hfvalue[i](0, 0) + hfvalue[i](1, 1) + hfvalue[i](2, 2);
+    Efunc result=2*laplacian*(HP.col(0)+HP.col(4)+HP.col(8));
+    Dlpsqr[i]=result;
+}
+void lsTools::get_laplacian_partial_cofficient_matrix(int i, const spMat& HP){
+    assert(HP.cols()==9); // the input should be a Hessian matrix
+    Efunc Cfxx=HP.col(0);
+    Efunc Cfyy=HP.col(4);
+    Efunc Cfzz=HP.col(8);
+    Dlps[i]=HP.col(0)+HP.col(4)+HP.col(8);
+}
+
+void lsTools::get_all_the_derivate_matrices(){
+    int vnbr=V.rows();
+    Dlpsqr.resize(vnbr);
+    Dgrad.resize(vnbr); 
+    Dhess.resize(vnbr); 
+    Dgrad_norm.resize(vnbr);
+    for(int itr=0;itr<vnbr;itr++){
+        get_gradient_partial_cofficient_matrix(itr);
+        get_hessian_partial_cofficient_matrix(itr);
+    }
+    for(int itr=0;itr<vnbr;itr++){
+        get_gradient_norm_partial_cofficient_matrix(itr,Dgrad[itr]);
+        get_laplacian_partial_cofficient_matrix(itr,Dhess[itr]);
+        get_laplacian_square_partial_cofficient_matrix(itr, Dhess[itr]);
+    }
+    
+}
+//H*dx=B, H=J.transpose()*J, B=-J.transpose()*x
+void lsTools::assemble_solver_laplacian_part(spMat &H, Efunc& B){
+    int vnbr=V.rows();
+    spMat mass;// mass(i,i) is the area of the voronoi cell of vertex vi
+    igl::massmatrix(V,F,igl::MASSMATRIX_TYPE_BARYCENTRIC,mass);
+    
+    H.resize(vnbr,vnbr);
+    B.resize(vnbr);
+    for(int i=0;i<vnbr;i++){
+        Efunc Ji(vnbr);
+        Ji=Dlps[i];
+        spMat JTJi=Ji.transpose()*Ji;
+        H+=mass.coeffRef(i,i)*JTJi;
+        Efunc mJTF=-Ji.transpose()*(hfvalue[i](0, 0) + hfvalue[i](1, 1) + hfvalue[i](2, 2));
+        B+=mass.coeffRef(i,i)*mJTF;
+    }
+}
+void lsTools::initialize_and_smooth_level_set_by_laplacian(){
+    int vnbr=V.rows();
+    int fnbr=F.rows();
+    double weight_assign_face_valie;// weight of the assigned value shown in the solver
+    int assign_face_id;// the weight of the 
+    double assign_value[3];
+    
+    weight_assign_face_valie=10;
+    assign_face_id=fnbr/2;
+    assign_value[0]=0;
+    assign_value[1]=1;
+    assign_value[2]=2;
+    if(fvalues.size()!=vnbr){
+        fvalues.setZero(vnbr);
+    }
+    get_gradient_hessian_values();
+    spMat H;
+    Efunc B;
+    // H*dx=B, H: vnbr*vnbr, B:vnbr.
+    assemble_solver_laplacian_part(H, B);
+    assert()
+}

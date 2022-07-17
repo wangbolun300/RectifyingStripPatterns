@@ -6,7 +6,7 @@
 // some function values on their corresponding vertices, of this vertex.
 // i.e. Efunc[0]*f_0+Efunc[1]*f_1+...+Efunc[n]*f_n.
 typedef Eigen::SparseVector<double> Efunc;
-typedef Eigen::SparseMatrix<double> SpMat;
+// typedef Eigen::SparseMatrix<double> spMat;
 typedef Eigen::Triplet<double> Trip;
 #define SCALAR_ZERO 1e-8
 class Vectorlf
@@ -86,6 +86,11 @@ private:
     Eigen::MatrixXd gfvalue;                         // the calculated gradient values of f for each face.
     std::vector<Eigen::Matrix3d> hfvalue;             // the calculated Hessian values of f for each vertex
     std::vector<int> refids;// output the ids of current dealing points. just for debug purpose
+    std::vector<Efunc> Dlpsqr;// the derivates of ||laplacian F||^2 for all the vertices.
+    std::vector<Efunc> Dlps;// the derivates of laplacian F for all the vertices.
+    std::vector<spMat> Dgrad; // the derivates of gradients for all the vertices.
+    std::vector<spMat> Dhess; // the derivates of hessian for all the vertices.
+    std::vector<Efunc> Dgrad_norm;//the derivates of the norm of gradients for all the vertices.
 
         void
         get_mesh_angles();
@@ -112,9 +117,16 @@ private:
     void get_gradient_partial_cofficient_matrix(int i);
     // get the partial derivate cofficient matrix of the hessian on each vertex i
     void get_hessian_partial_cofficient_matrix(int i);
-    // the partial derivate of ||gradF||: partial{||gradF||}{fj} on each vertex vi. takes partial matrix GP of vertex i as input
-    void get_gradient_norm_partial_cofficient_matrix(int i,SpMat& GP);
-    
+    // the partial derivate of ||gradF||: partial{||gradF||}{fj} on each vertex vi. takes partial matrix of gradient GP of vertex i as input
+    void get_gradient_norm_partial_cofficient_matrix(int i,const spMat& GP);
+
+    // the partial derivate of laplacian(F on vertex vi. takes partial matrix of hessian HP as input
+    void get_laplacian_partial_cofficient_matrix(int i, const spMat& HP);
+    // the partial derivate of ||laplacian(F)||^2 on vertex vi. takes partial matrix of hessian HP as input
+    void get_laplacian_square_partial_cofficient_matrix(int i, const spMat& HP);
+    // CAUTION: please call this after you initialize the function values.
+    void get_all_the_derivate_matrices();
+    void assemble_solver_laplacian_part(spMat &H, Efunc& B);
         
 public:
     // parametrization and find the boundary loop
@@ -171,6 +183,7 @@ public:
     void show_1_order_derivate(Eigen::MatrixXd& E0, Eigen::MatrixXd &E1,Eigen::MatrixXd &E2,Eigen::MatrixXd &E3, double ratio);
     void show_face_1_order_derivate(Eigen::MatrixXd& E0, Eigen::MatrixXd &E1,Eigen::MatrixXd &E2,Eigen::MatrixXd &E3, double ratio);
     void show_vertex_normal(Eigen::MatrixXd& E0, Eigen::MatrixXd& E1, double ratio);
+    void initialize_and_smooth_level_set_by_laplacian();
     void debug_tool(int id = 0, double value = 0)
     {
         // sphere_example(5, 80.0/180*3.1415926, 1.8, 17, 20);
