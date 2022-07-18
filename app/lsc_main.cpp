@@ -39,7 +39,12 @@ bool keyPress_2 = false;
 //Optimization Parameters
 double weigth_closeness = 0.0;
 double refer_AveEL = 1;
-
+double weight_assign_face_value=10; // weight of the assigned value shown in the solver
+double weight_mass=0.01;				 // weight of the mass function to
+int assign_face_id=310;				 // the face id of which we will assign value to
+double assign_value0=0;
+double assign_value1=1;
+double assign_value2=2;
 int dbg_int;
 double dbg_dbl;
 double vector_scaling=1;
@@ -54,7 +59,7 @@ static bool fixBoundary_checkbox = false;
 static bool selectFEV[30] = { true, true, true, true, true, true, true, true, true, true, true, true, true, true, true,true, true, true, true, true, true, true, true, true, true,true, true, true, true, true };
 std::vector<std::string> meshFileName;
 std::vector<CGMesh> Meshes;
-
+lsTools tools;
 double InputPx = 0.0;
 double InputPy = 0.0;
 double InputPz = 0.0;
@@ -186,7 +191,10 @@ bool mouse_down(igl::opengl::glfw::Viewer& viewer, int button, int modifier)
 
 			std::cout <<"Selected point:\nposition related to the viewer: " <<viewer.current_mouse_x << "___" << viewer.current_mouse_y << std::endl;
 			std::cout << "vid, "<<vid << ", fid, " << fid << std::endl;
-            std::cout<<"point position: ("<<viewer.data().V(vid,0)<<", "<<viewer.data().V(vid,1)<<", "<<viewer.data().V(vid,2)<<")\n\n";		
+			if(lscif::tools.fvalues.rows()>0){
+				std::cout<<"level set value "<<lscif::tools.fvalues[vid]<<std::endl;
+			}	
+            std::cout<<"point position: ("<<viewer.data().V(vid,0)<<", "<<viewer.data().V(vid,1)<<", "<<viewer.data().V(vid,2)<<")\n\n";	
 			//viewer.data().add_points(igl::slice(viewer.data().V, vids, 1), hot_red);
 			viewer.data().set_points(igl::slice(viewer.data().V, vids, 1), lscif::hot_red);
 			viewer.data().add_points(igl::slice(viewer.data().V, vids2, 1), lscif::sea_green);
@@ -237,6 +245,9 @@ bool mouse_down(igl::opengl::glfw::Viewer& viewer, int button, int modifier)
 
 			std::cout <<"Selected point:\nposition related to the viewer: " <<viewer.current_mouse_x << "___" << viewer.current_mouse_y << std::endl;
 			std::cout << "vid, "<<vid << ", fid, " << fid << std::endl;
+			if(lscif::tools.fvalues.rows()>0){
+				std::cout<<"level set value "<<lscif::tools.fvalues[vid]<<std::endl;
+			}	
             std::cout<<"point position: ("<<viewer.data().V(vid,0)<<", "<<viewer.data().V(vid,1)<<", "<<viewer.data().V(vid,2)<<")\n\n";		
 			viewer.data().set_points(igl::slice(viewer.data().V, vids, 1), lscif::hot_red);
 			viewer.data().add_points(igl::slice(viewer.data().V, vids2, 1), lscif::sea_green);
@@ -415,14 +426,20 @@ int main(int argc, char* argv[])
 		if (ImGui::CollapsingHeader("Weights", ImGuiTreeNodeFlags_DefaultOpen))
 		{
 			// Expose variable directly ...			
-			ImGui::InputDouble("Closeness", &lscif::weigth_closeness, 0, 0, "%.4f");
+			// ImGui::InputDouble("Closeness", &lscif::weigth_closeness, 0, 0, "%.4f");
 			ImGui::InputInt("Iteration", &lscif::OpIter, 0, 0);
+			ImGui::InputDouble("weight ls mass(small)", &lscif::weight_mass, 0, 0, "%.4f");
+			ImGui::InputDouble("weight ls equivalence (big)", &lscif::weight_assign_face_value, 0, 0, "%.4f");
+			ImGui::InputInt("assign face id", &lscif::assign_face_id, 0, 0);
+			ImGui::InputDouble("assign face value 0", &lscif::assign_value0, 0, 0, "%.4f");
+			ImGui::InputDouble("assign face value 1", &lscif::assign_value1, 0, 0, "%.4f");
+			ImGui::InputDouble("assign face value 2", &lscif::assign_value2, 0, 0, "%.4f");
 			ImGui::InputDouble("Average Edge length", &lscif::refer_AveEL, 0, 0, "%.4f");
-            
 
-			ImGui::Checkbox("Fix Corners", &lscif::fixCorner_checkbox);
-			ImGui::SameLine();
-			ImGui::Checkbox("Fix Boundary", &lscif::fixBoundary_checkbox);
+
+			// ImGui::Checkbox("Fix Corners", &lscif::fixCorner_checkbox);
+			// ImGui::SameLine();
+			// ImGui::Checkbox("Fix Boundary", &lscif::fixBoundary_checkbox);
 
 		}
 
@@ -452,7 +469,33 @@ int main(int argc, char* argv[])
 
 			}
             ImGui::SameLine();
-            if (ImGui::Button("Print Debug info", ImVec2(ImGui::GetWindowSize().x * 0.23f, 0.0f)))
+			if (ImGui::Button("sphere example", ImVec2(ImGui::GetWindowSize().x * 0.23f, 0.0f)))
+			{
+                
+                int id = viewer.selected_data_index;
+				CGMesh inputMesh = lscif::Meshes[id];
+                lscif::tools.init(inputMesh);
+                lscif::tools.initialize_mesh_properties();
+                lscif::tools.debug_tool(lscif::dbg_int,lscif::dbg_dbl);
+				// lscif::MP.MeshUnitScale(inputMesh, updatedMesh);
+				lscif::updateMeshViewer(viewer, inputMesh);
+				lscif::meshFileName.push_back("dbg_" + lscif::meshFileName[id]);
+				lscif::Meshes.push_back(inputMesh);
+				
+				Eigen::VectorXd level_set_values;
+				lscif::tools.show_level_set(level_set_values);
+				viewer.data().set_colors(level_set_values);
+				Eigen::MatrixXd E0, E1;
+				// lscif::tools.show_gradients(E0,E1, lscif::vector_scaling);
+				const Eigen::RowVector3d red(0.8,0.2,0.2);
+				const Eigen::RowVector3d blue(0.2, 0.2, 0.8);
+				Eigen::MatrixXd E2, E3;
+				Eigen::MatrixXd pts;
+				lscif::tools.show_current_reference_points(pts);
+				viewer.data().add_points(pts,red);
+				viewer.selected_data_index = id;
+			}
+            if (ImGui::Button("init level set", ImVec2(ImGui::GetWindowSize().x * 0.23f, 0.0f)))
 			{
                 // int id = viewer.selected_data_index;
 				// std::cout<<"viewer.data().V.rows "<<viewer.data().V.rows()<<"\n";
@@ -460,37 +503,52 @@ int main(int argc, char* argv[])
                 // std::cout<<"If the above two numbers, then viewer.data() refers to the selected data."<<std::endl;
                 int id = viewer.selected_data_index;
 				CGMesh inputMesh = lscif::Meshes[id];
-                lsTools tools(inputMesh);
-                tools.initialize_mesh_properties();
-                tools.debug_tool(lscif::dbg_int,lscif::dbg_dbl);
+                lscif::tools.init(inputMesh);
+                lscif::tools.initialize_mesh_properties();
+				viewer.selected_data_index = id;
+			}
+			if (ImGui::Button("smooth level set", ImVec2(ImGui::GetWindowSize().x * 0.23f, 0.0f)))
+			{
+                
+                int id = viewer.selected_data_index;
+				CGMesh inputMesh = lscif::Meshes[id];
+				lscif::tools.weight_assign_face_value=lscif::weight_assign_face_value;
+				lscif::tools.weight_mass=lscif::weight_mass;
+				lscif::tools.assign_face_id=lscif::assign_face_id;
+				lscif::tools.assign_value[0]=lscif::assign_value0;
+				lscif::tools.assign_value[1]=lscif::assign_value1;
+				lscif::tools.assign_value[2]=lscif::assign_value2;
+				for(int i=0;i<lscif::OpIter;i++){
+					lscif::tools.initialize_and_smooth_level_set_by_laplacian();
+					std::cout<<"step length "<<lscif::tools.level_set_step_length<<std::endl;
+				}
+				std::cout<<"waiting for instruction..."<<std::endl;
 				// lscif::MP.MeshUnitScale(inputMesh, updatedMesh);
 				lscif::updateMeshViewer(viewer, inputMesh);
 				lscif::meshFileName.push_back("dbg_" + lscif::meshFileName[id]);
 				lscif::Meshes.push_back(inputMesh);
 				
 				Eigen::VectorXd level_set_values;
-				tools.show_level_set(level_set_values);
+				lscif::tools.show_level_set(level_set_values);
 				viewer.data().set_colors(level_set_values);
-				Eigen::MatrixXd E0, E1;
-				// tools.show_gradients(E0,E1, lscif::vector_scaling);
+				// Eigen::MatrixXd E0, E1;
+				// // lscif::tools.show_gradients(E0,E1, lscif::vector_scaling);
 				const Eigen::RowVector3d red(0.8,0.2,0.2);
 				const Eigen::RowVector3d blue(0.2, 0.2, 0.8);
-				Eigen::MatrixXd E2, E3;
-				//tools.show_face_gradients(E2, E3, lscif::vector_scaling);
-				// tools.show_1_order_derivate(E0, E1, E2, E3, lscif::vector_scaling);
-				// tools.show_vertex_normal(E0,E1,lscif::vector_scaling);
-				// viewer.data().add_edges(E0,E1,red);
-				// viewer.data().add_edges(E2,E3,blue);
+				// Eigen::MatrixXd E2, E3;
+				// //lscif::tools.show_face_gradients(E2, E3, lscif::vector_scaling);
+				// // lscif::tools.show_1_order_derivate(E0, E1, E2, E3, lscif::vector_scaling);
+				// // lscif::tools.show_vertex_normal(E0,E1,lscif::vector_scaling);
+				// // viewer.data().add_edges(E0,E1,red);
+				// // viewer.data().add_edges(E2,E3,blue);
 				Eigen::MatrixXd pts;
-				tools.show_current_reference_points(pts);
+				lscif::tools.show_current_reference_points(pts);
 				viewer.data().add_points(pts,red);
 				
 
 
 
 				viewer.selected_data_index = id;
-
-
 			}
             ImGui::SameLine();
 			if (ImGui::Button("MeshUnitScale", ImVec2(ImGui::GetWindowSize().x * 0.23f, 0.0f)))

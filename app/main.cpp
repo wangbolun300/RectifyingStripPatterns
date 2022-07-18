@@ -24,7 +24,7 @@ int main(int argc, char *argv[])
   using namespace std;
 
   // Load a mesh in OFF format
-  igl::readOFF("/Users/wangb0d/bolun/D/vs/levelset/level-set-curves/build/libigl-tutorial-data/cow.off", V, F);
+  igl::readOFF("/Users/wangb0d/bolun/D/vs/levelset/level-set-curves/build/libigl-tutorial-data/camelhead.off", V, F);
 
   // Compute Laplace-Beltrami operator: #V by #V
   igl::cotmatrix(V,F,L);
@@ -58,21 +58,22 @@ int main(int argc, char *argv[])
         igl::massmatrix(U,F,igl::MASSMATRIX_TYPE_BARYCENTRIC,M);
 		
         std::cout<<"v size "<<U.rows()<<" M size "<<M.rows()<<std::endl;
-        for(int itr=0;itr<M.rows();itr++){
-          for(int itr1=0;itr1<M.rows();itr1++){
-            if(itr!=itr1){
-              if(M.coeffRef(itr,itr1)!=0){
-                std::cout<<"error, M("<<itr<<","<<itr1<<")="<<M.coeffRef(itr,itr1)<<std::endl;
-              }
-            }
+        // for(int itr=0;itr<M.rows();itr++){
+        //   for(int itr1=0;itr1<M.rows();itr1++){
+        //     if(itr!=itr1){
+        //       if(M.coeffRef(itr,itr1)!=0){
+        //         std::cout<<"error, M("<<itr<<","<<itr1<<")="<<M.coeffRef(itr,itr1)<<std::endl;
+        //       }
+        //     }
             
-          }
-        }
+        //   }
+        // }
         // Solve (M-delta*L) U = M*U
-        const auto & S = (M - 0.001*L);
+        const auto & S = L;
         Eigen::SimplicialLLT<Eigen::SparseMatrix<double > > solver(S);
         assert(solver.info() == Eigen::Success);
-        U = solver.solve(M*U).eval();
+		Eigen::MatrixXd zeros=Eigen::MatrixXd::Zero(U.rows(),U.cols());
+        U = solver.solve(zeros).eval();
         // Compute centroid and subtract (also important for numerics)
         VectorXd dblA;
         igl::doublearea(U,F,dblA);
