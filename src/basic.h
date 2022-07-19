@@ -201,6 +201,7 @@ std::vector<Trip> to_triplets(spMat &M);
 // convert a vector to a matrix with size 1*n
 spMat sparse_vec_to_sparse_maxrix(Efunc &vec);
 Efunc sparse_mat_col_to_sparse_vec(const spMat &mat, const int col);
+Efunc dense_vec_to_sparse_vec(const Eigen::VectorXd& vec);
 // // partial derivate tools, regard level set function as variates.
 // class PDtools{
 //     PDtools(){};

@@ -735,6 +735,34 @@ void lsTools::assemble_solver_laplacian_part(spMat &H, Efunc &B)
     }
 }
 
+// this version use libigl 
+// void lsTools::assemble_solver_laplacian_part(spMat &H, Efunc &B)
+// {
+//     // laplacian matrix
+//     spMat L;
+//     igl::cotmatrix(V,F,L);
+//     ////////////////////////////////////////
+//     // J=L
+//     spMat JTJ = L.transpose() * L;
+//     Efunc mJTF = dense_vec_to_sparse_vec(-JTJ * fvalues);
+    
+//     H = mass * JTJ;
+//     B = mass * mJTF;
+//     assert(B.size()==V.rows());
+//     assert(H.rows()==H.cols()&&H.rows()==V.rows());
+//     // Eigen::MatrixXd lap=
+//     // std::cout<<"current lap norm "<<
+//     ////////////////////////////////////////
+//     // (M-delta)*(f+df)=M*f->(M-delta*L)*df=delta*L*f
+// //     H=mass-weight_mass*L;
+// //     Eigen::VectorXd LF=L*fvalues;
+
+// //    Efunc sLF= dense_vec_to_sparse_vec(LF);
+// //    B=weight_mass*sLF;
+
+
+// }
+
 // min()
 void lsTools::initialize_and_smooth_level_set_by_laplacian()
 {
@@ -755,10 +783,10 @@ void lsTools::initialize_and_smooth_level_set_by_laplacian()
     if (fvalues.size() != vnbr)
     {
         fvalues.setZero(vnbr);
-        // for (int i = 0; i < 3; i++)
-        // {
-        //     fvalues(F(assign_face_id, i)) = assign_value[i];
-        // }
+        for (int i = 0; i < 3; i++)
+        {
+            fvalues(F(assign_face_id, i)) = assign_value[i];
+        }
     }
     get_gradient_hessian_values();
 
@@ -775,22 +803,22 @@ void lsTools::initialize_and_smooth_level_set_by_laplacian()
     // std::vector<Trip> triplets;
     // triplets = to_triplets(H);
     // std::cout<<"triplets size "<<triplets.size()<<std::endl;
-    for (int i = 0; i < 3; i++)
-    {
-        H.coeffRef(F(assign_face_id, i), F(assign_face_id, i)) += weight_assign_face_value;
-        // triplets.push_back(Trip(F(assign_face_id, i), F(assign_face_id, i), weight_assign_face_value));
-        B.coeffRef(F(assign_face_id, i)) += (assign_value[i] - fvalues(F(assign_face_id, i))) * weight_assign_face_value;
-    }
+    // for (int i = 0; i < 3; i++)
+    // {
+    //     H.coeffRef(F(assign_face_id, i), F(assign_face_id, i)) += weight_assign_face_value;
+    //     // triplets.push_back(Trip(F(assign_face_id, i), F(assign_face_id, i), weight_assign_face_value));
+    //     B.coeffRef(F(assign_face_id, i)) += (assign_value[i] - fvalues(F(assign_face_id, i))) * weight_assign_face_value;
+    // }
     // extendedH.resize(vnbr + 3,vnbr);
     // extendedH.setFromTriplets(triplets.begin(), triplets.end());
     // std::cout << "finish assemble solver with assigned values" << std::endl;
     // now add mass matrix to make the matrix full rank
     assert(mass.rows() == vnbr);
+    spMat mass_inverse=mass;
+    for(int i=0;i<vnbr;i++){
+        mass_inverse.coeffRef(i,i)=1;
+    }
     H += weight_mass * mass;
-
-    // // now assemble the overdetermined system: ATAx=ATB
-    // spMat left_mat = extendedH.transpose() * extendedH;
-    // Efunc right_vec = extendedH.transpose() * B;
 
     assert(H.rows() == vnbr);
     assert(H.cols() == vnbr);
@@ -843,4 +871,14 @@ Efunc sparse_mat_col_to_sparse_vec(const spMat &mat, const int col)
         vec.coeffRef(it.index()) = it.value();
     }
     return vec;
+}
+Efunc dense_vec_to_sparse_vec(const Eigen::VectorXd& vec){
+    Efunc result;
+    result.resize(vec.size());
+    for(int i=0;i<vec.size();i++){
+        if(vec[i]!=0){
+            result.coeffRef(i)=vec[i];
+        }
+    }
+    return result;
 }

@@ -69,11 +69,10 @@ int main(int argc, char *argv[])
         //   }
         // }
         // Solve (M-delta*L) U = M*U
-        const auto & S = L;
+        const auto & S = (M - 0.001*L);
         Eigen::SimplicialLLT<Eigen::SparseMatrix<double > > solver(S);
         assert(solver.info() == Eigen::Success);
-		Eigen::MatrixXd zeros=Eigen::MatrixXd::Zero(U.rows(),U.cols());
-        U = solver.solve(zeros).eval();
+        U = solver.solve(M*U).eval();
         // Compute centroid and subtract (also important for numerics)
         VectorXd dblA;
         igl::doublearea(U,F,dblA);
