@@ -493,6 +493,13 @@ int main(int argc, char* argv[])
 				Eigen::MatrixXd pts;
 				lscif::tools.show_current_reference_points(pts);
 				viewer.data().add_points(pts,red);
+				// Eigen::MatrixXd E2, E3;
+				lscif::tools.show_gradients(E2, E3, lscif::vector_scaling);
+				//  lscif::tools.show_1_order_derivate(E0, E1, E2, E3, lscif::vector_scaling);
+				//  lscif::tools.show_vertex_normal(E0,E1,lscif::vector_scaling);
+				//  viewer.data().add_edges(E0,E1,red);
+				 viewer.data().add_edges(E2,E3,blue);
+
 				viewer.selected_data_index = id;
 			}
             if (ImGui::Button("init level set", ImVec2(ImGui::GetWindowSize().x * 0.23f, 0.0f)))
