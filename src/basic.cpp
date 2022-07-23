@@ -3,6 +3,7 @@
 #include <igl/harmonic.h>
 #include <igl/boundary_loop.h>
 #include <igl/grad.h>
+#include <igl/hessian.h>
 
 lsTools::lsTools(CGMesh &mesh)
 {
@@ -214,15 +215,15 @@ void lsTools::get_rotated_edges_for_each_face()
 // output is the 3 matrices of fx, fy and fz.
 void lsTools::gradient_v2f(std::array<spMat, 3> &output)
 {
-    
+
     int vsize = V.rows();
     int fsize = F.rows();
     output[0].resize(fsize, vsize); // each face has a output value, which is the combination of function input of each vertex
     output[1].resize(fsize, vsize); // each face has a output value, which is the combination of function input of each vertex
     output[2].resize(fsize, vsize); // each face has a output value, which is the combination of function input of each vertex
 
-    spMat G;// gradient matrix
-    igl::grad(V,F,G);
+    spMat G; // gradient matrix
+    igl::grad(V, F, G);
     // spMat Gtrans=G.transpose();// transport of G to get 3*vnbr cols
     // std::vector<Trip> triplets0, triplets1, triplets2;
     // triplets0.reserve(vsize*fsize);
@@ -249,22 +250,21 @@ void lsTools::gradient_v2f(std::array<spMat, 3> &output)
     // output[0].setFromTriplets(triplets0.begin(), triplets0.end());
     // output[1].setFromTriplets(triplets1.begin(), triplets1.end());
     // output[2].setFromTriplets(triplets2.begin(), triplets2.end());
-    output[0]=G.topRows(fsize);
-    output[1]=G.middleRows(fsize,fsize);
-    output[2]=G.bottomRows(fsize);
-    
+    output[0] = G.topRows(fsize);
+    output[1] = G.middleRows(fsize, fsize);
+    output[2] = G.bottomRows(fsize);
 }
 
 // the output is a weight matrix acorrding to angles, size is vsize*fsize
-void lsTools::gradient_f2v(spMat& output)
+void lsTools::gradient_f2v(spMat &output)
 {
     int vsize = V.rows();
     int fsize = F.rows();
     std::vector<Trip> triplets, triplets_as;
-    triplets.reserve(vsize*fsize);
+    triplets.reserve(vsize * fsize);
     triplets_as.reserve(vsize);
-    output.resize(vsize,fsize);
-    spMat ASI(vsize,vsize);// a diagnal matrix with 1/(sum of the angles) as elements
+    output.resize(vsize, fsize);
+    spMat ASI(vsize, vsize); // a diagnal matrix with 1/(sum of the angles) as elements
     for (int i = 0; i < V.rows(); i++)
     {
         CGMesh::VertexHandle vh = lsmesh.vertex_handle(i); // for each vertex, iterate all the faces
@@ -285,71 +285,111 @@ void lsTools::gradient_f2v(spMat& output)
             double angle = angF(fid, vvid);
             assert(angle > 0);
             anglesum += angle;
-            triplets.push_back(Trip(i,fid,angle));
+            triplets.push_back(Trip(i, fid, angle));
         }
-        triplets_as.push_back(Trip(i,i,1/anglesum));
+        triplets_as.push_back(Trip(i, i, 1 / anglesum));
     }
-    output.setFromTriplets(triplets.begin(),triplets.end());
-    ASI.setFromTriplets(triplets_as.begin(),triplets_as.end());
-    output=ASI* output;
+    output.setFromTriplets(triplets.begin(), triplets.end());
+    ASI.setFromTriplets(triplets_as.begin(), triplets_as.end());
+    output = ASI * output;
 }
 void lsTools::get_function_gradient_vertex()
 {
-    
+
     gradient_v2f(gradVF);
     spMat f2vmat;
     gradient_f2v(f2vmat);
-    gradV[0]=f2vmat*gradVF[0];
-    gradV[1]=f2vmat*gradVF[1];
-    gradV[2]=f2vmat*gradVF[2];
+    gradV[0] = f2vmat * gradVF[0];
+    gradV[1] = f2vmat * gradVF[1];
+    gradV[2] = f2vmat * gradVF[2];
 }
 
 void lsTools::get_function_hessian_vertex()
 {
-    
-    for(int i=0;i<3;i++){
-        for(int j=0;j<3;j++){
-            HessianV[i][j]=gradV[j]*gradV[i];
+    spMat hess_igl, HT;
+    igl::hessian(V, F, hess_igl);
+    HT = hess_igl.transpose();
+    int vnbr = V.rows();
+    assert(hess_igl.rows() == vnbr * 9);
+    std::array<std::array<std::vector<Trip>, 3>, 3> triplets;
+    for (int j = 0; j < 3; j++)
+    {
+        for (int k = 0; k < 3; k++)
+        {
+            HessianV[j][k].resize(vnbr, vnbr);
+            triplets[j][k].reserve(vnbr * vnbr);
         }
     }
+    for (int i = 0; i < vnbr; i++)
+    {
+        int counter = 0;
+        for (int j = 0; j < 3; j++)
+        {
+            for (int k = 0; k < 3; k++)
+            {
+                mat_col_to_triplets(HT, i * 9 + counter, i, true, triplets[j][k]);
+                // HessianV[j][k].row(i) = hess_igl.row(i * 9 + counter);
+                counter++;
+            }
+        }
+    }
+    for (int j = 0; j < 3; j++)
+    {
+        for (int k = 0; k < 3; k++)
+        {
+            HessianV[j][k].setFromTriplets(triplets[j][k].begin(),triplets[j][k].end());
+            
+        }
+    }
+
+    // the code below is to use derivate of derivate
+    // for(int i=0;i<3;i++){
+    //     for(int j=0;j<3;j++){
+    //         HessianV[i][j]=gradV[j]*gradV[i];
+    //     }
+    // }
 }
 
 void lsTools::get_gradient_hessian_values()
 {
 
-
     int vsize = V.rows();
     int fsize = F.rows();
-    gvvalue.resize(vsize, 3);// gradient on v
-    gfvalue.resize(fsize, 3);// gradient on f
-    hfvalue.resize(vsize);// hessian
+    gvvalue.resize(vsize, 3); // gradient on v
+    gfvalue.resize(fsize, 3); // gradient on f
+    hfvalue.resize(vsize);    // hessian
     // gv
-    Eigen::VectorXd gvx=gradV[0]*fvalues;
-    Eigen::VectorXd gvy=gradV[1]*fvalues;
-    Eigen::VectorXd gvz=gradV[2]*fvalues;
-    gvvalue.col(0)=gvx;
-    gvvalue.col(1)=gvy;
-    gvvalue.col(2)=gvz;
+    Eigen::VectorXd gvx = gradV[0] * fvalues;
+    Eigen::VectorXd gvy = gradV[1] * fvalues;
+    Eigen::VectorXd gvz = gradV[2] * fvalues;
+    gvvalue.col(0) = gvx;
+    gvvalue.col(1) = gvy;
+    gvvalue.col(2) = gvz;
 
     // gf
-    Eigen::VectorXd gfx=gradVF[0]*fvalues;
-    Eigen::VectorXd gfy=gradVF[1]*fvalues;
-    Eigen::VectorXd gfz=gradVF[2]*fvalues;
-    gfvalue.col(0)=gfx;
-    gfvalue.col(1)=gfy;
-    gfvalue.col(2)=gfz;
+    Eigen::VectorXd gfx = gradVF[0] * fvalues;
+    Eigen::VectorXd gfy = gradVF[1] * fvalues;
+    Eigen::VectorXd gfz = gradVF[2] * fvalues;
+    gfvalue.col(0) = gfx;
+    gfvalue.col(1) = gfy;
+    gfvalue.col(2) = gfz;
 
     // hessian
-    std::array<std::array<Eigen::VectorXd,3>,3> fii;
-    for(int i=0;i<3;i++){
-        for(int j=0;j<3;j++){
-            fii[i][j]=HessianV[i][j]*fvalues;
+    std::array<std::array<Eigen::VectorXd, 3>, 3> fii;
+    for (int i = 0; i < 3; i++)
+    {
+        for (int j = 0; j < 3; j++)
+        {
+            fii[i][j] = HessianV[i][j] * fvalues;
         }
     }
-    for(int k=0;k<vsize;k++){
-        for(int i=0;i<3;i++){
-            for(int j=0;j<3;j++){
-                hfvalue[k](i,j)=fii[i][j](k);
+    for (int k = 0; k < vsize; k++)
+    {
+        for (int i = 0; i < 3; i++)
+        {
+            for (int j = 0; j < 3; j++)
+            {
+                hfvalue[k](i, j) = fii[i][j](k);
             }
         }
     }
@@ -509,6 +549,25 @@ void lsTools::show_gradients(Eigen::MatrixXd &E0, Eigen::MatrixXd &E1, double ra
     E1 = V - gvvalue * ratio;
     assert(V.rows() == gvvalue.rows());
 }
+
+void lsTools::show_hessian(Eigen::MatrixXd &E0, Eigen::MatrixXd &E1, double ratio, int which)
+{
+    Eigen::MatrixXd direction(V.rows(), 3);
+    for (int i = 0; i < V.rows(); i++)
+    {
+        direction.row(i) = hfvalue[i].row(which);
+    }
+    // spMat hess_igl;
+    // igl::hessian(V,F,hess_igl);
+    // std::cout<<"hessian size "<<hess_igl.rows()<<" "<<hess_igl.cols()<<std::endl;
+
+    E0 = V + direction * ratio;
+    E1 = V;
+}
+void lsTools::show_gradient_scalar(Eigen::VectorXd &values, int which)
+{
+    values = gvvalue.col(which);
+}
 void lsTools::show_current_reference_points(Eigen::MatrixXd &pts)
 {
     int size = refids.size();
@@ -533,12 +592,12 @@ void lsTools::show_face_gradients(Eigen::MatrixXd &E0, Eigen::MatrixXd &E1, doub
     // int counter=0;
     // for(int j=0;j<3;j++){
     // for(int i=0;i<F.rows();i++){
-        
+
     //         dirc(i,j)=total(counter);
     //         counter++;
     //     }
     // }
-    dirc=gfvalue;
+    dirc = gfvalue;
 
     E0 = fcent + dirc * ratio;
     E1 = fcent - dirc * ratio;
@@ -695,33 +754,32 @@ void lsTools::get_all_the_derivate_matrices()
 //     }
 // }
 
-// this version use libigl 
+// this version use libigl
 void lsTools::assemble_solver_laplacian_part(spMat &H, Efunc &B)
 {
     // laplacian matrix
     spMat L;
-    // igl::cotmatrix(V,F,L);
-    L=Dlps;
+    igl::cotmatrix(V, F, L);
+    // std::cout<<"diff two matrices "<<(L-Dlps)<<std::endl;
+    // L=Dlps;
     ////////////////////////////////////////
     // J=L
     spMat JTJ = L.transpose() * L;
     Efunc mJTF = dense_vec_to_sparse_vec(-JTJ * fvalues);
-    
+
     H = mass * JTJ;
     B = mass * mJTF;
-    assert(B.size()==V.rows());
-    assert(H.rows()==H.cols()&&H.rows()==V.rows());
+    assert(B.size() == V.rows());
+    assert(H.rows() == H.cols() && H.rows() == V.rows());
     // Eigen::MatrixXd lap=
     // std::cout<<"current lap norm "<<
     ////////////////////////////////////////
     // (M-delta)*(f+df)=M*f->(M-delta*L)*df=delta*L*f
-//     H=mass-weight_mass*L;
-//     Eigen::VectorXd LF=L*fvalues;
+    //     H=mass-weight_mass*L;
+    //     Eigen::VectorXd LF=L*fvalues;
 
-//    Efunc sLF= dense_vec_to_sparse_vec(LF);
-//    B=weight_mass*sLF;
-
-
+    //    Efunc sLF= dense_vec_to_sparse_vec(LF);
+    //    B=weight_mass*sLF;
 }
 
 // min()
@@ -729,8 +787,7 @@ void lsTools::initialize_and_smooth_level_set_by_laplacian()
 {
     int vnbr = V.rows();
     int fnbr = F.rows();
-    
-    
+
     // weight_assign_face_value = 10;
     // weight_mass = 0.1;
     // assign_face_id = fnbr / 2;
@@ -764,22 +821,21 @@ void lsTools::initialize_and_smooth_level_set_by_laplacian()
     // std::vector<Trip> triplets;
     // triplets = to_triplets(H);
     // std::cout<<"triplets size "<<triplets.size()<<std::endl;
-    // for (int i = 0; i < 3; i++)
-    // {
-    //     H.coeffRef(F(assign_face_id, i), F(assign_face_id, i)) += weight_assign_face_value;
-    //     // triplets.push_back(Trip(F(assign_face_id, i), F(assign_face_id, i), weight_assign_face_value));
-    //     B.coeffRef(F(assign_face_id, i)) += (assign_value[i] - fvalues(F(assign_face_id, i))) * weight_assign_face_value;
-    // }
-    // extendedH.resize(vnbr + 3,vnbr);
-    // extendedH.setFromTriplets(triplets.begin(), triplets.end());
+    for (int i = 0; i < 3; i++)
+    {
+        H.coeffRef(F(assign_face_id, i), F(assign_face_id, i)) += weight_assign_face_value;
+        // triplets.push_back(Trip(F(assign_face_id, i), F(assign_face_id, i), weight_assign_face_value));
+        B.coeffRef(F(assign_face_id, i)) += (assign_value[i] - fvalues(F(assign_face_id, i))) * weight_assign_face_value;
+    }
     // std::cout << "finish assemble solver with assigned values" << std::endl;
     // now add mass matrix to make the matrix full rank
     assert(mass.rows() == vnbr);
-    spMat mass_inverse=mass;
-    for(int i=0;i<vnbr;i++){
-        mass_inverse.coeffRef(i,i)=1;
+    spMat mass_inverse = mass;
+    for (int i = 0; i < vnbr; i++)
+    {
+        mass_inverse.coeffRef(i, i) = 1 / mass_inverse.coeffRef(i, i);
     }
-    H += weight_mass * mass;
+    H += weight_mass * mass_inverse;
 
     assert(H.rows() == vnbr);
     assert(H.cols() == vnbr);
@@ -833,13 +889,33 @@ Efunc sparse_mat_col_to_sparse_vec(const spMat &mat, const int col)
     }
     return vec;
 }
-Efunc dense_vec_to_sparse_vec(const Eigen::VectorXd& vec){
+Efunc dense_vec_to_sparse_vec(const Eigen::VectorXd &vec)
+{
     Efunc result;
     result.resize(vec.size());
-    for(int i=0;i<vec.size();i++){
-        if(vec[i]!=0){
-            result.coeffRef(i)=vec[i];
+    for (int i = 0; i < vec.size(); i++)
+    {
+        if (vec[i] != 0)
+        {
+            result.coeffRef(i) = vec[i];
         }
     }
     return result;
+}
+void mat_col_to_triplets(const spMat &mat, const int col, const int ref, const bool inverse, std::vector<Trip> &triplets)
+{
+
+    for (spMat::InnerIterator it(mat, col); it; ++it)
+    {
+        int id = it.index();
+        double value = it.value();
+        if (inverse)
+        {
+            triplets.push_back(Trip(ref, id, value));
+        }
+        else
+        {
+            triplets.push_back(Trip(id, ref, value));
+        }
+    }
 }

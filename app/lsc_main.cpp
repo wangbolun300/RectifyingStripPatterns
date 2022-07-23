@@ -40,7 +40,7 @@ bool keyPress_2 = false;
 double weigth_closeness = 0.0;
 double refer_AveEL = 1;
 double weight_assign_face_value=10; // weight of the assigned value shown in the solver
-double weight_mass=0.01;				 // weight of the mass function to
+double weight_mass=100.;				 // weight of the mass function to
 int assign_face_id=310;				 // the face id of which we will assign value to
 double assign_value0=0;
 double assign_value1=1;
@@ -259,7 +259,10 @@ bool mouse_down(igl::opengl::glfw::Viewer& viewer, int button, int modifier)
 	return false;
 }
 
-
+void show_axis(Eigen::MatrixXd &E0, Eigen::MatrixXd &E1, double ratio){
+	E0=Eigen::MatrixXd::Zero(3,3);
+	E1=ratio*Eigen::MatrixXd::Identity(3,3);
+}
 
 
 };
@@ -489,17 +492,23 @@ int main(int argc, char* argv[])
 				// lscif::tools.show_gradients(E0,E1, lscif::vector_scaling);
 				const Eigen::RowVector3d red(0.8,0.2,0.2);
 				const Eigen::RowVector3d blue(0.2, 0.2, 0.8);
-				Eigen::MatrixXd E2, E3;
+				Eigen::MatrixXd RGB=Eigen::MatrixXd::Identity(3,3);
+				Eigen::MatrixXd E2, E3, Ea0, Ea1;
 				Eigen::MatrixXd pts;
 				lscif::tools.show_current_reference_points(pts);
 				viewer.data().add_points(pts,red);
-				// Eigen::MatrixXd E2, E3;
-				lscif::tools.show_gradients(E2, E3, lscif::vector_scaling);
-				//  lscif::tools.show_1_order_derivate(E0, E1, E2, E3, lscif::vector_scaling);
-				//  lscif::tools.show_vertex_normal(E0,E1,lscif::vector_scaling);
-				//  viewer.data().add_edges(E0,E1,red);
+				// lscif::tools.show_gradients(E2, E3, lscif::vector_scaling);
+				int which=1;
+				lscif::tools.show_hessian(E2, E3, lscif::vector_scaling, which);
+				// Eigen::VectorXd gradient_xyz_values;
+				// lscif::tools.show_gradient_scalar(gradient_xyz_values,which);
+				// //  lscif::tools.show_1_order_derivate(E0, E1, E2, E3, lscif::vector_scaling);
+				// //  lscif::tools.show_vertex_normal(E0,E1,lscif::vector_scaling);
+				// //  viewer.data().add_edges(E0,E1,red);
 				 viewer.data().add_edges(E2,E3,blue);
-
+				// lscif::show_axis(Ea0,Ea1,lscif::vector_scaling);
+				// viewer.data().add_edges(Ea0,Ea1,RGB);
+				// viewer.data().set_colors(gradient_xyz_values);
 				viewer.selected_data_index = id;
 			}
             if (ImGui::Button("init level set", ImVec2(ImGui::GetWindowSize().x * 0.23f, 0.0f)))
