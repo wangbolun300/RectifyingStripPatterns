@@ -306,41 +306,43 @@ void lsTools::get_function_gradient_vertex()
 
 void lsTools::get_function_hessian_vertex()
 {
-    spMat hess_igl, HT;
+    spMat hess_igl;
     igl::hessian(V, F, hess_igl);
-    HT = hess_igl.transpose();
     int vnbr = V.rows();
-    assert(hess_igl.rows() == vnbr * 9);
-    std::array<std::array<std::vector<Trip>, 3>, 3> triplets;
+    assert(hess_igl.rows() == vnbr * 9&&hess_igl.cols()==vnbr);
+    // std::array<std::array<std::vector<Trip>, 3>, 3> triplets;
+    int count=0;
     for (int j = 0; j < 3; j++)
     {
         for (int k = 0; k < 3; k++)
         {
-            HessianV[j][k].resize(vnbr, vnbr);
-            triplets[j][k].reserve(vnbr * vnbr);
+            HessianV[j][k]=hess_igl.middleRows(count*vnbr,vnbr);
+            // triplets[j][k].reserve(vnbr * vnbr);
+            count++;
         }
     }
-    for (int i = 0; i < vnbr; i++)
-    {
-        int counter = 0;
-        for (int j = 0; j < 3; j++)
-        {
-            for (int k = 0; k < 3; k++)
-            {
-                mat_col_to_triplets(HT, i * 9 + counter, i, true, triplets[j][k]);
-                // HessianV[j][k].row(i) = hess_igl.row(i * 9 + counter);
-                counter++;
-            }
-        }
-    }
-    for (int j = 0; j < 3; j++)
-    {
-        for (int k = 0; k < 3; k++)
-        {
-            HessianV[j][k].setFromTriplets(triplets[j][k].begin(),triplets[j][k].end());
+    
+    // for (int i = 0; i < vnbr; i++)
+    // {
+    //     int counter = 0;
+    //     for (int j = 0; j < 3; j++)
+    //     {
+    //         for (int k = 0; k < 3; k++)
+    //         {
+    //             mat_col_to_triplets(HT, i * 9 + counter, i, true, triplets[j][k]);
+    //             // HessianV[j][k].row(i) = hess_igl.row(i * 9 + counter);
+    //             counter++;
+    //         }
+    //     }
+    // }
+    // for (int j = 0; j < 3; j++)
+    // {
+    //     for (int k = 0; k < 3; k++)
+    //     {
+    //         HessianV[j][k].setFromTriplets(triplets[j][k].begin(),triplets[j][k].end());
             
-        }
-    }
+    //     }
+    // }
 
     // the code below is to use derivate of derivate
     // for(int i=0;i<3;i++){
