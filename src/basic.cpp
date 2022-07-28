@@ -585,70 +585,6 @@ void lsTools::show_vertex_normal(Eigen::MatrixXd &E0, Eigen::MatrixXd &E1, doubl
     E1 = E0 + norm_v * ratio;
 }
 
-// void lsTools::get_gradient_partial_cofficient_matrix(int i)
-// {
-//     int vnbr = V.rows(); // nbr of unknown
-
-//     spMat result(vnbr, 3); // each row is the partial for variable fj, is d(fx, fy, fz)/dfj
-//     Efunc Cfx, Cfy, Cfz;   // the cofficient of fx, fy, fz.
-//     Cfx = gradV[0](i);
-//     Cfy = gradV[1](i);
-//     Cfz = gradV[2](i);
-//     std::vector<Trip> triplets;
-
-//     for (Efunc::InnerIterator it(Cfx); it; ++it)
-//     {
-//         int rowid = it.index();
-//         int colid = 0;
-//         double value = Cfx.coeffRef(rowid);
-//         triplets.push_back(Trip(rowid, colid, value));
-//     }
-//     for (Efunc::InnerIterator it(Cfy); it; ++it)
-//     {
-//         int rowid = it.index();
-//         int colid = 1;
-//         double value = Cfy.coeffRef(rowid);
-//         triplets.push_back(Trip(rowid, colid, value));
-//     }
-//     for (Efunc::InnerIterator it(Cfz); it; ++it)
-//     {
-//         int rowid = it.index();
-//         int colid = 2;
-//         double value = Cfz.coeffRef(rowid);
-//         triplets.push_back(Trip(rowid, colid, value));
-//     }
-//     result.setFromTriplets(triplets.begin(), triplets.end());
-//     Dgrad[i] = result;
-// }
-// void lsTools::get_hessian_partial_cofficient_matrix(int i)
-// {
-//     int vnbr = V.rows(); // nbr of unknown
-
-//     spMat result(vnbr, 9); // each row is the partial for variable fj, is d(fxx, fxy, fxz, fyx, ...fzy, fzz)/dfj
-//     std::array<Efunc, 9> Cfs;
-//     Cfs[0] = HessianV[0][0](i);
-//     Cfs[1] = HessianV[0][1](i);
-//     Cfs[2] = HessianV[0][2](i);
-//     Cfs[3] = HessianV[1][0](i);
-//     Cfs[4] = HessianV[1][1](i);
-//     Cfs[5] = HessianV[1][2](i);
-//     Cfs[6] = HessianV[2][0](i);
-//     Cfs[7] = HessianV[2][1](i);
-//     Cfs[8] = HessianV[2][2](i);
-//     std::vector<Trip> triplets;
-//     for (int comp = 0; comp < 9; comp++)
-//     {
-//         for (Efunc::InnerIterator it(Cfs[comp]); it; ++it)
-//         {
-//             int rowid = it.index();
-//             int colid = comp;
-//             double value = Cfs[comp].coeffRef(rowid);
-//             triplets.push_back(Trip(rowid, colid, value));
-//         }
-//     }
-//     result.setFromTriplets(triplets.begin(), triplets.end());
-//     Dhess[i] = result;
-// }
 // void lsTools::get_gradient_norm_partial_cofficient_matrix(int i, const spMat &GP)
 // {
 //     int vnbr = V.rows(); // nbr of unknown
@@ -663,21 +599,14 @@ void lsTools::show_vertex_normal(Eigen::MatrixXd &E0, Eigen::MatrixXd &E1, doubl
 //     result *= c1;
 //     Dgrad_norm[i] = result;
 // }
-// void lsTools::get_laplacian_partial_cofficient_matrix(int i, const spMat &HP)
-// {
-//     assert(HP.cols() == 9); // the input should be a Hessian matrix
-//     Efunc Cfxx = sparse_mat_col_to_sparse_vec(HP, 0);
-//     Efunc Cfyy = sparse_mat_col_to_sparse_vec(HP, 4);
-//     Efunc Cfzz = sparse_mat_col_to_sparse_vec(HP, 8);
-//     assert(Cfxx.size() == Cfyy.size());
-//     assert(Cfxx.size() == Cfzz.size());
-//     Dlps[i] = Cfxx + Cfyy + Cfzz;
-// }
+
 
 void lsTools::get_all_the_derivate_matrices()
 {
 
-    Dlps = HessianV[0][0] + HessianV[1][1] + HessianV[2][2];
+    igl::cotmatrix(V, F, Dlps);
+    
+    // Dlps = HessianV[0][0] + HessianV[1][1] + HessianV[2][2];
     // int vnbr = V.rows();
     // // Dlpsqr.resize(vnbr);
     // Dhess.resize(vnbr);
@@ -693,11 +622,7 @@ void lsTools::get_all_the_derivate_matrices()
     // // {
     // //     // get_gradient_norm_partial_cofficient_matrix(itr, Dgrad[itr]);
     // // }
-    // for (int itr = 0; itr < vnbr; itr++)
-    // {
 
-    //     get_laplacian_partial_cofficient_matrix(itr, Dhess[itr]);
-    // }
     derivates_calculated = true;
 }
 
@@ -724,13 +649,9 @@ void lsTools::get_all_the_derivate_matrices()
 void lsTools::assemble_solver_laplacian_part(spMat &H, Efunc &B)
 {
     // laplacian matrix
-    spMat L;
-    igl::cotmatrix(V, F, L);
-    // std::cout<<"diff two matrices "<<(L-Dlps)<<std::endl;
-    // L=Dlps;
-    ////////////////////////////////////////
-    // J=L
-    spMat JTJ = L.transpose() * L;
+    
+
+    spMat JTJ = Dlps.transpose() * Dlps;
     Efunc mJTF = dense_vec_to_sparse_vec(-JTJ * fvalues);
 
     H = mass * JTJ;
@@ -754,12 +675,6 @@ void lsTools::initialize_and_smooth_level_set_by_laplacian()
     int vnbr = V.rows();
     int fnbr = F.rows();
 
-    // weight_assign_face_value = 10;
-    // weight_mass = 0.1;
-    // assign_face_id = fnbr / 2;
-    // assign_value[0] = 0;
-    // assign_value[1] = 1;
-    // assign_value[2] = 2;
     refids.clear();
     refids.push_back(F(assign_face_id, 0));
     refids.push_back(F(assign_face_id, 1));
@@ -781,16 +696,10 @@ void lsTools::initialize_and_smooth_level_set_by_laplacian()
     Efunc B;
     // H*dx=B, H: vnbr*vnbr, B:vnbr.
     assemble_solver_laplacian_part(H, B);
-    // std::cout << "finish assemble solver" << std::endl;
-    // now add 3 assigned values. they are added to the end of H and B, with higher weights. TODO update it later
-    // B.conservativeResize(vnbr + 3);
-    // std::vector<Trip> triplets;
-    // triplets = to_triplets(H);
-    // std::cout<<"triplets size "<<triplets.size()<<std::endl;
+
     for (int i = 0; i < 3; i++)
     {
         H.coeffRef(F(assign_face_id, i), F(assign_face_id, i)) += weight_assign_face_value;
-        // triplets.push_back(Trip(F(assign_face_id, i), F(assign_face_id, i), weight_assign_face_value));
         B.coeffRef(F(assign_face_id, i)) += (assign_value[i] - fvalues(F(assign_face_id, i))) * weight_assign_face_value;
     }
     // std::cout << "finish assemble solver with assigned values" << std::endl;

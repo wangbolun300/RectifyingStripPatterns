@@ -88,8 +88,6 @@ private:
     std::vector<int> refids;                         // output the ids of current dealing points. just for debug purpose
     // spMat Dlpsqr;                       // the derivates of ||laplacian F||^2 for all the vertices.
     spMat Dlps;                         // the derivates of laplacian F for all the vertices.
-    // std::array<spMat,3> Dgrad;                        // the derivates of gradients for all the vertices.
-    // std::vector<spMat> Dhess;                        // the derivates of hessian for all the vertices.
     // spMat Dgrad_norm;                   // the derivates of the norm of gradients for all the vertices.
     spMat mass;                                      // mass(i,i) is the area of the voronoi cell of vertex vi
     // spMat F2V;                                       // the matrix averaging face values to vertices values, acorrding to the angels
@@ -114,15 +112,11 @@ private:
     void get_vertex_rotation_matices();
 
     void get_I_and_II_locally();
-    // get the partial derivate of gradient gradF on each vertex i
-    void get_gradient_partial_cofficient_matrix(int i);
-    // get the partial derivate cofficient matrix of the hessian on each vertex i
-    void get_hessian_partial_cofficient_matrix(int i);
+
+
     // the partial derivate of ||gradF||: partial{||gradF||}{fj} on each vertex vi. takes partial matrix of gradient GP of vertex i as input
     void get_gradient_norm_partial_cofficient_matrix(int i, const spMat &GP);
 
-    // the partial derivate of laplacian(F on vertex vi. takes partial matrix of hessian HP as input
-    void get_laplacian_partial_cofficient_matrix(int i, const spMat &HP);
     // the partial derivate of ||laplacian(F)||^2 on vertex vi. takes partial matrix of hessian HP as input
     // void get_laplacian_square_partial_cofficient_matrix(int i, const spMat &HP);
     // CAUTION: please call this after you initialize the function values.
