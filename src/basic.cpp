@@ -585,65 +585,32 @@ void lsTools::show_vertex_normal(Eigen::MatrixXd &E0, Eigen::MatrixXd &E1, doubl
     E1 = E0 + norm_v * ratio;
 }
 
-// void lsTools::get_gradient_norm_partial_cofficient_matrix(int i, const spMat &GP)
-// {
-//     int vnbr = V.rows(); // nbr of unknown
-//     Eigen::Vector3d gradient = gvvalue.row(i);
-//     Efunc result(vnbr);
-//     Efunc temp0(vnbr);
-//     Efunc temp1(vnbr);
-//     Efunc temp2(vnbr);
-//     double c1 = gradient.norm();
-//     c1 = 1 / c1;
-//     result = GP.col(0) * gradient(0) + GP.col(1) * gradient(1) + GP.col(2) * gradient(2);
-//     result *= c1;
-//     Dgrad_norm[i] = result;
-// }
-
 
 void lsTools::get_all_the_derivate_matrices()
 {
 
+    int vsize=V.rows();
     igl::cotmatrix(V, F, Dlps);
-    
-    // Dlps = HessianV[0][0] + HessianV[1][1] + HessianV[2][2];
-    // int vnbr = V.rows();
-    // // Dlpsqr.resize(vnbr);
-    // Dhess.resize(vnbr);
-    // Dgrad_norm.resize(vnbr);
-    // Dlps.resize(vnbr);
-    // for (int itr = 0; itr < vnbr; itr++)
-    // {
-    //     get_gradient_partial_cofficient_matrix(itr);
-
-    //     get_hessian_partial_cofficient_matrix(itr);
-    // }
-    // // for (int itr = 0; itr < vnbr; itr++)
-    // // {
-    // //     // get_gradient_norm_partial_cofficient_matrix(itr, Dgrad[itr]);
-    // // }
-
+    spMat fx_diag, fy_diag, fz_diag;// diagnal matrices with gradeint values as matrices
+    Eigen::VectorXd fxvec,fyvec,fzvec;// gradient values, fx, fy, fz
+    fxvec= gvvalue.col(0);
+    fyvec= gvvalue.col(1);
+    fzvec= gvvalue.col(2);
+    fx_diag=fxvec.asDiagonal();
+    fy_diag=fyvec.asDiagonal();
+    fz_diag=fzvec.asDiagonal();
+    Eigen::VectorXd grad_norm_diag=gvvalue.rowwise().norm();// take 1/||gradV(i)|| as ith diagnal element
+    // invert grad_norm_diag
+    for(int i=0;i<vsize;i++){
+        if(grad_norm_diag(i)>0){
+            grad_norm_diag(i)=1./grad_norm_diag(i);
+        }
+    }
+    // each row of Dgrad_norm is the jacobian of ||gradV(i)||
+    Dgrad_norm=grad_norm_diag*(fx_diag*gradV[0]+fy_diag*gradV[1]+fz_diag*gradV[2]);
     derivates_calculated = true;
 }
 
-// H*dx=B, H=J.transpose()*J, B=-J.transpose()*x
-// void lsTools::assemble_solver_laplacian_part(spMat &H, Efunc &B)
-// {
-//     assert(derivates_calculated);
-//     int vnbr = V.rows();
-//     H.resize(vnbr, vnbr);
-//     B.resize(vnbr);
-//     for (int i = 0; i < vnbr; i++)
-//     {
-//         Efunc Ji(vnbr);
-//         Ji = Dlps[i];
-//         spMat Jmat = sparse_vec_to_sparse_maxrix(Ji);
-//         spMat JTJi = Jmat.transpose() * Jmat;
-//         H += mass.coeffRef(i, i) * JTJi;
-//         Efunc mJTF = -Ji.transpose() * (hfvalue[i](0, 0) + hfvalue[i](1, 1) + hfvalue[i](2, 2));
-//         B += mass.coeffRef(i, i) * mJTF;
-//     }
-// }
 
 // this version use libigl
 void lsTools::assemble_solver_laplacian_part(spMat &H, Efunc &B)
@@ -658,15 +625,21 @@ void lsTools::assemble_solver_laplacian_part(spMat &H, Efunc &B)
     B = mass * mJTF;
     assert(B.size() == V.rows());
     assert(H.rows() == H.cols() && H.rows() == V.rows());
-    // Eigen::MatrixXd lap=
-    // std::cout<<"current lap norm "<<
-    ////////////////////////////////////////
-    // (M-delta)*(f+df)=M*f->(M-delta*L)*df=delta*L*f
-    //     H=mass-weight_mass*L;
-    //     Eigen::VectorXd LF=L*fvalues;
+}
 
-    //    Efunc sLF= dense_vec_to_sparse_vec(LF);
-    //    B=weight_mass*sLF;
+// assemble matrices for \sum{area(i)*(||gradient(i)||-strip_width)^2}
+void lsTools::assemble_solver_strip_width_part(spMat &H, Efunc &B)
+{
+    int vsize = V.rows();
+    Eigen::VectorXd f = gvvalue.rowwise().norm(); // f=||gradient{i}||-strip_width
+    for (int i = 0; i < vsize; i++)
+    {
+        f(i) - strip_width;
+    }
+    spMat JTJ = Dgrad_norm.transpose() * mass * Dgrad_norm;
+    Eigen::VectorXd mJTF_dense = -Dgrad_norm.transpose() * mass * f;
+    H = JTJ;
+    B = dense_vec_to_sparse_vec(mJTF_dense);
 }
 
 // min()
@@ -725,6 +698,9 @@ void lsTools::initialize_and_smooth_level_set_by_laplacian()
     // {
     //     fvalues(F(assign_face_id, i)) = assign_value[i];
     // }
+}
+void lsTools::initialize_and_optimize_strip_width(){
+    
 }
 
 std::vector<Trip> to_triplets(spMat &M)

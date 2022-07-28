@@ -88,7 +88,7 @@ private:
     std::vector<int> refids;                         // output the ids of current dealing points. just for debug purpose
     // spMat Dlpsqr;                       // the derivates of ||laplacian F||^2 for all the vertices.
     spMat Dlps;                         // the derivates of laplacian F for all the vertices.
-    // spMat Dgrad_norm;                   // the derivates of the norm of gradients for all the vertices.
+    spMat Dgrad_norm;                   // the derivates of the norm of gradients for all the vertices.
     spMat mass;                                      // mass(i,i) is the area of the voronoi cell of vertex vi
     // spMat F2V;                                       // the matrix averaging face values to vertices values, acorrding to the angels
 
@@ -113,15 +113,10 @@ private:
 
     void get_I_and_II_locally();
 
-
-    // the partial derivate of ||gradF||: partial{||gradF||}{fj} on each vertex vi. takes partial matrix of gradient GP of vertex i as input
-    void get_gradient_norm_partial_cofficient_matrix(int i, const spMat &GP);
-
-    // the partial derivate of ||laplacian(F)||^2 on vertex vi. takes partial matrix of hessian HP as input
-    // void get_laplacian_square_partial_cofficient_matrix(int i, const spMat &HP);
     // CAUTION: please call this after you initialize the function values.
     void get_all_the_derivate_matrices();
     void assemble_solver_laplacian_part(spMat &H, Efunc &B);
+    void assemble_solver_strip_width_part(spMat &H, Efunc& B);
 
 public:
     // parametrization and find the boundary loop
@@ -139,6 +134,7 @@ public:
     double weight_mass;              // weight of the mass function to
     int assign_face_id;              // the face id of which we will assign value to
     double assign_value[3];
+    double strip_width=0; // strip width, defined as h/w.
     // this function should be calculated first once the class get constructed
     //  1. get face normals;
     //  2. get all the angles;
@@ -186,6 +182,7 @@ public:
     void show_face_1_order_derivate(Eigen::MatrixXd &E0, Eigen::MatrixXd &E1, Eigen::MatrixXd &E2, Eigen::MatrixXd &E3, double ratio);
     void show_vertex_normal(Eigen::MatrixXd &E0, Eigen::MatrixXd &E1, double ratio);
     void initialize_and_smooth_level_set_by_laplacian();
+    void initialize_and_optimize_strip_width();
     void debug_tool(int id = 0, double value = 0)
     {
         // sphere_example(5, 80.0/180*3.1415926, 1.8, 17, 20);
