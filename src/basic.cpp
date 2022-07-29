@@ -700,7 +700,37 @@ void lsTools::initialize_and_smooth_level_set_by_laplacian()
     // }
 }
 void lsTools::initialize_and_optimize_strip_width(){
-    
+    int vnbr = V.rows();
+    int fnbr = F.rows();
+
+    refids.clear();
+    refids.push_back(F(assign_face_id, 0));
+    refids.push_back(F(assign_face_id, 1));
+    refids.push_back(F(assign_face_id, 2));
+    if (fvalues.size() != vnbr)
+    {
+        fvalues.setZero(vnbr);
+        for (int i = 0; i < 3; i++)
+        {
+            fvalues(F(assign_face_id, i)) = assign_value[i];
+        }
+    }
+    get_gradient_hessian_values();
+
+    // std::cout << "finished calculate gradient and hessian" << std::endl;
+    get_all_the_derivate_matrices();
+    // the matrices
+    spMat H;
+    Efunc B;
+    assemble_solver_strip_width_part(H,B);
+    H += weight_mass * mass;
+    Eigen::SimplicialLLT<Eigen::SparseMatrix<double>> solver(H);
+    assert(solver.info() == Eigen::Success);
+
+    Eigen::VectorXd dx = solver.solve(B).eval();
+    // std::cout << "step length " << dx.norm() << std::endl;
+    level_set_step_length = dx.norm();
+    fvalues += dx;
 }
 
 std::vector<Trip> to_triplets(spMat &M)

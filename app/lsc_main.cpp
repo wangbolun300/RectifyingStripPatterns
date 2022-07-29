@@ -566,6 +566,50 @@ int main(int argc, char* argv[])
 
 				viewer.selected_data_index = id;
 			}
+			ImGui::SameLine();
+			if (ImGui::Button("opti band width", ImVec2(ImGui::GetWindowSize().x * 0.23f, 0.0f)))
+			{
+                
+                int id = viewer.selected_data_index;
+				CGMesh inputMesh = lscif::Meshes[id];
+				lscif::tools.weight_assign_face_value=lscif::weight_assign_face_value;
+				lscif::tools.weight_mass=lscif::weight_mass;
+				lscif::tools.assign_face_id=lscif::assign_face_id;
+				lscif::tools.assign_value[0]=lscif::assign_value0;
+				lscif::tools.assign_value[1]=lscif::assign_value1;
+				lscif::tools.assign_value[2]=lscif::assign_value2;
+				for(int i=0;i<lscif::OpIter;i++){
+					lscif::tools.initialize_and_optimize_strip_width();
+					std::cout<<"step length "<<lscif::tools.level_set_step_length<<std::endl;
+				}
+				std::cout<<"waiting for instruction..."<<std::endl;
+				// lscif::MP.MeshUnitScale(inputMesh, updatedMesh);
+				lscif::updateMeshViewer(viewer, inputMesh);
+				lscif::meshFileName.push_back("dbg_" + lscif::meshFileName[id]);
+				lscif::Meshes.push_back(inputMesh);
+				
+				Eigen::VectorXd level_set_values;
+				lscif::tools.show_level_set(level_set_values);
+				viewer.data().set_colors(level_set_values);
+				// Eigen::MatrixXd E0, E1;
+				// // lscif::tools.show_gradients(E0,E1, lscif::vector_scaling);
+				const Eigen::RowVector3d red(0.8,0.2,0.2);
+				const Eigen::RowVector3d blue(0.2, 0.2, 0.8);
+				// Eigen::MatrixXd E2, E3;
+				// //lscif::tools.show_face_gradients(E2, E3, lscif::vector_scaling);
+				// // lscif::tools.show_1_order_derivate(E0, E1, E2, E3, lscif::vector_scaling);
+				// // lscif::tools.show_vertex_normal(E0,E1,lscif::vector_scaling);
+				// // viewer.data().add_edges(E0,E1,red);
+				// // viewer.data().add_edges(E2,E3,blue);
+				Eigen::MatrixXd pts;
+				lscif::tools.show_current_reference_points(pts);
+				viewer.data().add_points(pts,red);
+				
+
+
+
+				viewer.selected_data_index = id;
+			}
             ImGui::SameLine();
 			if (ImGui::Button("MeshUnitScale", ImVec2(ImGui::GetWindowSize().x * 0.23f, 0.0f)))
 			{
