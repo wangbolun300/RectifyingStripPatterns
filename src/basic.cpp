@@ -589,25 +589,32 @@ void lsTools::show_vertex_normal(Eigen::MatrixXd &E0, Eigen::MatrixXd &E1, doubl
 void lsTools::get_all_the_derivate_matrices()
 {
 
-    int vsize=V.rows();
+    int vsize = V.rows();
     igl::cotmatrix(V, F, Dlps);
-    spMat fx_diag, fy_diag, fz_diag;// diagnal matrices with gradeint values as matrices
-    Eigen::VectorXd fxvec,fyvec,fzvec;// gradient values, fx, fy, fz
-    fxvec= gvvalue.col(0);
-    fyvec= gvvalue.col(1);
-    fzvec= gvvalue.col(2);
-    fx_diag=fxvec.asDiagonal();
-    fy_diag=fyvec.asDiagonal();
-    fz_diag=fzvec.asDiagonal();
-    Eigen::VectorXd grad_norm_diag=gvvalue.rowwise().norm();// take 1/||gradV(i)|| as ith diagnal element
-    // invert grad_norm_diag
-    for(int i=0;i<vsize;i++){
-        if(grad_norm_diag(i)>0){
-            grad_norm_diag(i)=1./grad_norm_diag(i);
+    spMat fx_diag, fy_diag, fz_diag;     // diagnal matrices with gradeint values as matrices
+    Eigen::VectorXd fxvec, fyvec, fzvec; // gradient values, fx, fy, fz
+    fxvec = gvvalue.col(0);
+    fyvec = gvvalue.col(1);
+    fzvec = gvvalue.col(2);
+    
+    fx_diag = fxvec.asDiagonal();
+    fy_diag = fyvec.asDiagonal();
+    fz_diag = fzvec.asDiagonal();
+    
+    Eigen::VectorXd grad_norm = gvvalue.rowwise().norm(); // take 1/||gradV(i)|| as ith diagnal element
+    // invert grad_norm
+    for (int i = 0; i < vsize; i++)
+    {
+        if (grad_norm(i) > 0)
+        {
+            grad_norm(i) = 1. / grad_norm(i);
         }
     }
+    Eigen::MatrixXd grad_norm_mat(vsize,1);
+    grad_norm_mat.col(0)=grad_norm;
+    Eigen::DiagonalMatrix<double, Eigen::Dynamic, Eigen::Dynamic> grad_norm_diag=grad_norm_mat.asDiagonal();
     // each row of Dgrad_norm is the jacobian of ||gradV(i)||
-    Dgrad_norm=grad_norm_diag*(fx_diag*gradV[0]+fy_diag*gradV[1]+fz_diag*gradV[2]);
+    Dgrad_norm = grad_norm_diag * (fx_diag * gradV[0] + fy_diag * gradV[1] + fz_diag * gradV[2]);
     derivates_calculated = true;
 }
 
@@ -634,7 +641,7 @@ void lsTools::assemble_solver_strip_width_part(spMat &H, Efunc &B)
     Eigen::VectorXd f = gvvalue.rowwise().norm(); // f=||gradient{i}||-strip_width
     for (int i = 0; i < vsize; i++)
     {
-        f(i) - strip_width;
+        f(i) -= strip_width;
     }
     spMat JTJ = Dgrad_norm.transpose() * mass * Dgrad_norm;
     Eigen::VectorXd mJTF_dense = -Dgrad_norm.transpose() * mass * f;
@@ -728,9 +735,17 @@ void lsTools::initialize_and_optimize_strip_width(){
     assert(solver.info() == Eigen::Success);
 
     Eigen::VectorXd dx = solver.solve(B).eval();
-    // std::cout << "step length " << dx.norm() << std::endl;
     level_set_step_length = dx.norm();
     fvalues += dx;
+    // next check if the energy is getting lower
+    Eigen::VectorXd gnorms = gvvalue.rowwise().norm();
+    double energy = 0;
+    for (int i = 0; i < vnbr; i++)
+    {
+        gnorms(i) -= strip_width;
+        energy += mass.coeffRef(i, i) * gnorms(i) * gnorms(i);
+    }
+    std::cout<<"energy:: "<<energy<<std::endl;
 }
 
 std::vector<Trip> to_triplets(spMat &M)

@@ -534,6 +534,7 @@ int main(int argc, char* argv[])
 				lscif::tools.assign_value[0]=lscif::assign_value0;
 				lscif::tools.assign_value[1]=lscif::assign_value1;
 				lscif::tools.assign_value[2]=lscif::assign_value2;
+				lscif::tools.strip_width=1;
 				for(int i=0;i<lscif::OpIter;i++){
 					lscif::tools.initialize_and_smooth_level_set_by_laplacian();
 					std::cout<<"step length "<<lscif::tools.level_set_step_length<<std::endl;
