@@ -293,6 +293,41 @@ void lsTools::gradient_f2v(spMat &output)
     ASI.setFromTriplets(triplets_as.begin(), triplets_as.end());
     output = ASI * output;
 }
+void lsTools::get_bnd_and_bnd_one_ring()
+{
+    int vnbr=V.rows();
+    int fnbr=F.rows();
+    std::vector<Trip> triplets;
+    triplets.reserve(vnbr);
+    Eigen::VectorXd flags=Eigen::VectorXd::Ones(vnbr);// first by default set all vertices as non-boundary vertices
+    for (CGMesh::VertexIter v_it = lsmesh.vertices_begin(); v_it != (lsmesh.vertices_end()); ++v_it)
+    {
+        if(lsmesh.is_boundary(v_it.handle())){// find all the boundary vertices
+            int vid=v_it.handle().idx();
+            flags(vid)=0;
+        }
+        else// find all the vertices whose one-ring vertices contains boundary.
+        {
+            for (CGMesh::VertexVertexIter vv_it = lsmesh.vv_begin(v_it.handle()); vv_it != lsmesh.vv_end(v_it.handle()); ++vv_it)
+            {
+                if (lsmesh.is_boundary(vv_it))
+                {
+                    int vid=v_it.handle().idx();
+                    flags(vid)=0;
+                    break;
+                }
+            }
+        }
+    }
+    ORB=flags.asDiagonal();
+    // for(int i=0;i<vnbr;i++){
+    //     if(flags(i)>0){
+    //         triplets.push_back(Trip(i,i,1.));
+    //     }
+    // }
+
+    // ORB.setFromTriplets(triplets.begin(),triplets.end());
+}
 void lsTools::get_function_gradient_vertex()
 {
 
@@ -643,8 +678,13 @@ void lsTools::assemble_solver_strip_width_part(spMat &H, Efunc &B)
     {
         f(i) -= strip_width;
     }
-    spMat JTJ = Dgrad_norm.transpose() * mass * Dgrad_norm;
-    Eigen::VectorXd mJTF_dense = -Dgrad_norm.transpose() * mass * f;
+    spMat J=Dgrad_norm;
+    // now only consider about the interior vertices but not the boundaries and one ring from them
+    J = ORB * J;
+    f = ORB * f;
+    // end of interior part
+    spMat JTJ = J.transpose() * mass * J;
+    Eigen::VectorXd mJTF_dense = -J.transpose() * mass * f;
     H = JTJ;
     B = dense_vec_to_sparse_vec(mJTF_dense);
 }
@@ -738,11 +778,15 @@ void lsTools::initialize_and_optimize_strip_width(){
     level_set_step_length = dx.norm();
     fvalues += dx;
     // next check if the energy is getting lower
-    Eigen::VectorXd gnorms = gvvalue.rowwise().norm();
+    Eigen::VectorXd gnorms =  gvvalue.rowwise().norm();
     double energy = 0;
     for (int i = 0; i < vnbr; i++)
     {
         gnorms(i) -= strip_width;
+    }
+    gnorms=ORB*gnorms;// check only the interior points
+    for (int i = 0; i < vnbr; i++)
+    {
         energy += mass.coeffRef(i, i) * gnorms(i) * gnorms(i);
     }
     std::cout<<"energy:: "<<energy<<std::endl;
@@ -815,3 +859,13 @@ void mat_col_to_triplets(const spMat &mat, const int col, const int ref, const b
         }
     }
 }
+void lsTools::debug_tool(int id, double value)
+    {
+        int vnbr=V.rows();
+        refids.clear();
+        for(int i=0;i<vnbr;i++){
+            if(ORB.coeffRef(i,i)>0){
+                refids.push_back(i);
+            }
+        }
+    }

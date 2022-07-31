@@ -91,6 +91,7 @@ private:
     spMat Dgrad_norm;                   // the derivates of the norm of gradients for all the vertices.
     spMat mass;                                      // mass(i,i) is the area of the voronoi cell of vertex vi
     // spMat F2V;                                       // the matrix averaging face values to vertices values, acorrding to the angels
+    spMat ORB;// the matrix where the (i,i) element show if it is a boundary vertex or one-ring vertex of boundary
 
     bool derivates_calculated = false;
     void
@@ -108,16 +109,18 @@ private:
     // get the gradients and hessians on each vertices using the assigned level-set function values
     // CAUTION: assign function values before call this function.
     void get_gradient_hessian_values();
-    void make_sphere_ls_example(int rowid);
+    
     void get_vertex_rotation_matices();
 
     void get_I_and_II_locally();
 
     // CAUTION: please call this after you initialize the function values.
     void get_all_the_derivate_matrices();
+    // get the boundary vertices and one ring vertices from them
+    void get_bnd_and_bnd_one_ring();
     void assemble_solver_laplacian_part(spMat &H, Efunc &B);
     void assemble_solver_strip_width_part(spMat &H, Efunc& B);
-
+    
 public:
     // parametrization and find the boundary loop
     lsTools(CGMesh &mesh);
@@ -169,25 +172,25 @@ public:
         // 9
         get_I_and_II_locally();
         get_vertex_rotation_matices();
+        get_bnd_and_bnd_one_ring();
     }
     void show_level_set(Eigen::VectorXd &val);
     // convert the parameters into a mesh, for visulization purpose
     void convert_paras_as_meshes(CGMesh &output);
+
     void show_gradients(Eigen::MatrixXd &E0, Eigen::MatrixXd &E1, double ratio);
     void show_hessian(Eigen::MatrixXd &E0, Eigen::MatrixXd &E1, double ratio, int which);
-    void show_gradient_scalar(Eigen::VectorXd& values, int which);
+    void show_gradient_scalar(Eigen::VectorXd &values, int which);
     void show_face_gradients(Eigen::MatrixXd &E0, Eigen::MatrixXd &E1, double ratio);
     void show_current_reference_points(Eigen::MatrixXd &pts);
     void show_1_order_derivate(Eigen::MatrixXd &E0, Eigen::MatrixXd &E1, Eigen::MatrixXd &E2, Eigen::MatrixXd &E3, double ratio);
     void show_face_1_order_derivate(Eigen::MatrixXd &E0, Eigen::MatrixXd &E1, Eigen::MatrixXd &E2, Eigen::MatrixXd &E3, double ratio);
     void show_vertex_normal(Eigen::MatrixXd &E0, Eigen::MatrixXd &E1, double ratio);
+
     void initialize_and_smooth_level_set_by_laplacian();
     void initialize_and_optimize_strip_width();
-    void debug_tool(int id = 0, double value = 0)
-    {
-        // sphere_example(5, 80.0/180*3.1415926, 1.8, 17, 20);
-        make_sphere_ls_example(id);
-    }
+    void debug_tool(int id = 0, double value = 0);
+    void make_sphere_ls_example(int rowid);
 };
 
 std::vector<Trip> to_triplets(spMat &M);

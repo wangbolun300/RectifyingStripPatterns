@@ -48,6 +48,7 @@ double assign_value2=2;
 int dbg_int;
 double dbg_dbl;
 double vector_scaling=1;
+double strip_width_ratio=1.;
 
 std::vector<int> fixedVertices;
 
@@ -437,7 +438,8 @@ int main(int argc, char* argv[])
 			ImGui::InputDouble("assign face value 0", &lscif::assign_value0, 0, 0, "%.4f");
 			ImGui::InputDouble("assign face value 1", &lscif::assign_value1, 0, 0, "%.4f");
 			ImGui::InputDouble("assign face value 2", &lscif::assign_value2, 0, 0, "%.4f");
-			ImGui::InputDouble("Average Edge length", &lscif::refer_AveEL, 0, 0, "%.4f");
+			// ImGui::InputDouble("Average Edge length", &lscif::refer_AveEL, 0, 0, "%.4f");
+			ImGui::InputDouble("Strip Width Ratio", &lscif::strip_width_ratio, 0, 0, "%.4f");
 
 
 			// ImGui::Checkbox("Fix Corners", &lscif::fixCorner_checkbox);
@@ -457,19 +459,28 @@ int main(int argc, char* argv[])
                 ImGui::InputDouble("double", &lscif::dbg_dbl, 0, 0, "%.4f");
 				ImGui::InputDouble("vector_scaling", &lscif::vector_scaling, 0, 0, "%.4f");
             }
-            if (ImGui::Button("Parametrization", ImVec2(ImGui::GetWindowSize().x * 0.23f, 0.0f)))
+            if (ImGui::Button("debug", ImVec2(ImGui::GetWindowSize().x * 0.23f, 0.0f)))
             {
 
 				int id = viewer.selected_data_index;
 				CGMesh updatedMesh;
 				CGMesh inputMesh = lscif::Meshes[id];
-                lsTools lst(inputMesh);
-                lst.convert_paras_as_meshes(updatedMesh);
-				lscif::updateMeshViewer(viewer, updatedMesh);
-				lscif::meshFileName.push_back("paras_" + lscif::meshFileName[id]);
-				lscif::Meshes.push_back(updatedMesh);
+				lscif::tools.init(inputMesh);
+                lscif::tools.initialize_mesh_properties();
+				lscif::tools.debug_tool(lscif::dbg_int,lscif::dbg_dbl);
+				lscif::updateMeshViewer(viewer, inputMesh);
+				lscif::meshFileName.push_back("dbg_" + lscif::meshFileName[id]);
+				lscif::Meshes.push_back(inputMesh);
+				Eigen::MatrixXd E0, E1;
+				// lscif::tools.show_gradients(E0,E1, lscif::vector_scaling);
+				const Eigen::RowVector3d red(0.8, 0.2, 0.2);
+				const Eigen::RowVector3d blue(0.2, 0.2, 0.8);
+				Eigen::MatrixXd RGB = Eigen::MatrixXd::Identity(3, 3);
+				Eigen::MatrixXd E2, E3, Ea0, Ea1;
+				Eigen::MatrixXd pts;
+				lscif::tools.show_current_reference_points(pts);
+				viewer.data().add_points(pts, red);
 				viewer.selected_data_index = id;
-
 			}
             ImGui::SameLine();
 			if (ImGui::Button("sphere example", ImVec2(ImGui::GetWindowSize().x * 0.23f, 0.0f)))
@@ -479,7 +490,7 @@ int main(int argc, char* argv[])
 				CGMesh inputMesh = lscif::Meshes[id];
                 lscif::tools.init(inputMesh);
                 lscif::tools.initialize_mesh_properties();
-                lscif::tools.debug_tool(lscif::dbg_int,lscif::dbg_dbl);
+                lscif::tools.make_sphere_ls_example(lscif::dbg_int);
 				// lscif::MP.MeshUnitScale(inputMesh, updatedMesh);
 				lscif::updateMeshViewer(viewer, inputMesh);
 				lscif::meshFileName.push_back("dbg_" + lscif::meshFileName[id]);
@@ -534,7 +545,7 @@ int main(int argc, char* argv[])
 				lscif::tools.assign_value[0]=lscif::assign_value0;
 				lscif::tools.assign_value[1]=lscif::assign_value1;
 				lscif::tools.assign_value[2]=lscif::assign_value2;
-				lscif::tools.strip_width=1;
+				
 				for(int i=0;i<lscif::OpIter;i++){
 					lscif::tools.initialize_and_smooth_level_set_by_laplacian();
 					std::cout<<"step length "<<lscif::tools.level_set_step_length<<std::endl;
@@ -579,6 +590,7 @@ int main(int argc, char* argv[])
 				lscif::tools.assign_value[0]=lscif::assign_value0;
 				lscif::tools.assign_value[1]=lscif::assign_value1;
 				lscif::tools.assign_value[2]=lscif::assign_value2;
+				lscif::tools.strip_width=lscif::strip_width_ratio;
 				for(int i=0;i<lscif::OpIter;i++){
 					lscif::tools.initialize_and_optimize_strip_width();
 					std::cout<<"step length "<<lscif::tools.level_set_step_length<<std::endl;
