@@ -680,8 +680,8 @@ void lsTools::assemble_solver_strip_width_part(spMat &H, Efunc &B)
     }
     spMat J=Dgrad_norm;
     // now only consider about the interior vertices but not the boundaries and one ring from them
-    J = ORB * J;
-    f = ORB * f;
+    J =  J;
+    f =  f;
     // end of interior part
     spMat JTJ = J.transpose() * mass * J;
     Eigen::VectorXd mJTF_dense = -J.transpose() * mass * f;
@@ -784,7 +784,7 @@ void lsTools::initialize_and_optimize_strip_width(){
     {
         gnorms(i) -= strip_width;
     }
-    gnorms=ORB*gnorms;// check only the interior points
+    gnorms=gnorms;// check only the interior points
     for (int i = 0; i < vnbr; i++)
     {
         energy += mass.coeffRef(i, i) * gnorms(i) * gnorms(i);
