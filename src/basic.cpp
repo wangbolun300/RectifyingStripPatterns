@@ -525,6 +525,7 @@ void lsTools::make_sphere_ls_example(int rowid)
         std::cout << "qnorm calculated and norm " << gradient.norm() * ru.norm() * rv.norm() * sqrt(sin2) << " " << q.norm() << std::endl;
         double ang = atan(kg / kn) * 180 / 3.1415926;
         std::cout << "angle is " << ang << std::endl;
+        std::cout<<"angle calculated is "<<atan(b) * 180 / 3.1415926<<std::endl;
         if (writefile)
         {
             fout << ang << "," << up / down << "," << kg << "\n";
@@ -689,6 +690,57 @@ void lsTools::assemble_solver_strip_width_part(spMat &H, Efunc &B)
     B = dense_vec_to_sparse_vec(mJTF_dense);
 }
 
+// we summarize the problem as:
+// grad(F).transpose()*grad(F).norm()*R*grad(F)-grad(F).transpose()*D.transpose()*hess(F)*D*grad(F).
+void lsTools::assemble_solver_pseudo_geodesic_part(spMat &H, Efunc& B){
+    
+    int vnbr=V.rows();
+    int fnbr=F.rows();
+    std::vector<Eigen::MatrixXd> Rlist(vnbr);
+    std::vector<Eigen::MatrixXd> Dlist(vnbr);
+    std::vector<Eigen::MatrixXd> Glist(vnbr);
+    for (int i = 0; i < vnbr; i++)
+    {
+        Eigen::MatrixXd rvru(3, 2);
+        rvru.col(0) = Deriv1[1].row(i);
+        rvru.col(1) = Deriv1[0].row(i);
+        Eigen::Matrix<double, 3, 2> rurv;
+        rurv.col(0) = Deriv1[0].row(vid);
+        rurv.col(1) = Deriv1[1].row(vid);
+        Eigen::Matrix<double, 3, 2> mrvru; // [-rv, ru]
+        mrvru.col(0) = -1 * Deriv1[1].row(vid);
+        mrvru.col(1) = Deriv1[0].row(vid);
+        Eigen::Matrix2d LmMN;
+        LmMN << II_L[i], -II_M[i],
+            -II_M[i], II_N[i];
+        Eigen::MatrixXd R=pseudo_geodesic_ratio*rvru*LmMN*rvru.transpose();
+        Rlist[i]=R;
+        Eigen::MatrixXd D=rurv*mrvru.transpose();
+        Dlist[i]=D;
+        Eigen::MatirxXd gf(3,1);
+        gf.col(0)=gvvalue.row(i);
+        Glist[i]=gf;
+    }
+    // solve the first part: derivate(grad(F)).transpose()*grad(F).norm()*R*grad(F)
+    Eigen::VectorXd grad_norm = gvvalue.rowwise().norm(); // take 1/||gradV(i)|| as ith diagnal element
+    spMat diag_grad_norm_trip=grad_norm.replicate(3,1).asDiagonal();
+    spMat diag_Rs, diag_Grad;
+    spMat Jgrad;
+    diag_Rs.resize(3*vnbr,3*vnbr);
+    diag_Rs.array()*=0;
+    diag_Grad.resize(3*vnbr,vnbr);
+    Jgrad.resize(3*vnbr,vnbr);
+    assert(diag_grad_norm_trip.rows()==3*vnbr);
+    for(int i=0;i<vnbr;i++){
+        diag_Rs.block(i*3,i*3,3,3)=Rlist[i].sparseView();
+        diag_Grad.block(i*3,i,3,1)=Glist[i].sparseView();
+        Jgrad.block(3*i,0,1,vnbr)=gradV[0].block(i,0,1,vnbr);
+        Jgrad.block(3*i+1,0,1,vnbr)=
+        Jgrad.block(3*i+2,0,1,vnbr)=
+    }
+    
+
+}
 // min()
 void lsTools::initialize_and_smooth_level_set_by_laplacian()
 {

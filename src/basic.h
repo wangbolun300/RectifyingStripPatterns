@@ -9,52 +9,6 @@ typedef Eigen::SparseVector<double> Efunc;
 // typedef Eigen::SparseMatrix<double> spMat;
 typedef Eigen::Triplet<double> Trip;
 #define SCALAR_ZERO 1e-8
-// class Vectorlf
-// {
-// private:
-//     std::vector<Efunc> mat; // the vector of LCF, for each vertex there is a LCF
-
-// public:
-//     Vectorlf(){};
-//     // int size() const
-//     // {
-
-//     //     return mat.size();
-//     // }
-//     // int size()
-//     // {
-
-//     //     return mat.size();
-//     // }
-
-//     // void resize(int sz)
-//     // {
-//     //     mat.resize(sz);
-//     // }
-//     // void resize(int sz1, int sz2)
-//     // {
-//     //     mat.resize(sz1);
-//     //     for (int i = 0; i < sz1; i++)
-//     //     {
-//     //         mat[i].resize(sz2);
-//     //     }
-//     // }
-//     // void clear()
-//     // {
-//     //     mat.clear();
-//     // }
-
-//     // Efunc operator()(int id) const
-//     // {
-//     //     assert(id >= 0 && id < mat.size());
-//     //     return mat[id];
-//     // }
-//     // Efunc &operator()(int id)
-//     // {
-//     //     assert(id >= 0 && id < mat.size());
-//     //     return mat[id];
-//     // }
-// };
 
 // The basic tool of LSC. Please initialize it with a mesh
 class lsTools
@@ -120,6 +74,7 @@ private:
     void get_bnd_and_bnd_one_ring();
     void assemble_solver_laplacian_part(spMat &H, Efunc &B);
     void assemble_solver_strip_width_part(spMat &H, Efunc& B);
+    void assemble_solver_pseudo_geodesic_part(spMat &H, Efunc& B);
     
 public:
     // parametrization and find the boundary loop
@@ -138,6 +93,7 @@ public:
     int assign_face_id;              // the face id of which we will assign value to
     double assign_value[3];
     double strip_width=0; // strip width, defined as h/w.
+    double pseudo_geodesic_ratio;// k_g/k_n of the pseudo geodesic
     // this function should be calculated first once the class get constructed
     //  1. get face normals;
     //  2. get all the angles;
@@ -189,6 +145,7 @@ public:
 
     void initialize_and_smooth_level_set_by_laplacian();
     void initialize_and_optimize_strip_width();
+    void initialize_and_optimize_pseudo_geodesic();
     void debug_tool(int id = 0, double value = 0);
     void make_sphere_ls_example(int rowid);
 };
