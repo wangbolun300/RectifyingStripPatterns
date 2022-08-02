@@ -696,7 +696,7 @@ void lsTools::assemble_solver_pseudo_geodesic_part(spMat &H, Efunc& B){
     
     int vnbr=V.rows();
     int fnbr=F.rows();
-    std::vector<Eigen::MatrixXd> Rlist(vnbr);
+    std::vector<Eigen::MatrixXd> Rlist(vnbr);// contains pseudo_geodesic_ratio
     std::vector<Eigen::MatrixXd> Dlist(vnbr);
     std::vector<Eigen::MatrixXd> Glist(vnbr);
     for (int i = 0; i < vnbr; i++)
@@ -705,11 +705,11 @@ void lsTools::assemble_solver_pseudo_geodesic_part(spMat &H, Efunc& B){
         rvru.col(0) = Deriv1[1].row(i);
         rvru.col(1) = Deriv1[0].row(i);
         Eigen::Matrix<double, 3, 2> rurv;
-        rurv.col(0) = Deriv1[0].row(vid);
-        rurv.col(1) = Deriv1[1].row(vid);
+        rurv.col(0) = Deriv1[0].row(i);
+        rurv.col(1) = Deriv1[1].row(i);
         Eigen::Matrix<double, 3, 2> mrvru; // [-rv, ru]
-        mrvru.col(0) = -1 * Deriv1[1].row(vid);
-        mrvru.col(1) = Deriv1[0].row(vid);
+        mrvru.col(0) = -1 * Deriv1[1].row(i);
+        mrvru.col(1) = Deriv1[0].row(i);
         Eigen::Matrix2d LmMN;
         LmMN << II_L[i], -II_M[i],
             -II_M[i], II_N[i];
@@ -727,17 +727,17 @@ void lsTools::assemble_solver_pseudo_geodesic_part(spMat &H, Efunc& B){
     spMat diag_Rs, diag_Grad;
     spMat Jgrad;
     diag_Rs.resize(3*vnbr,3*vnbr);
-    diag_Rs.array()*=0;
     diag_Grad.resize(3*vnbr,vnbr);
     Jgrad.resize(3*vnbr,vnbr);
     assert(diag_grad_norm_trip.rows()==3*vnbr);
     for(int i=0;i<vnbr;i++){
         diag_Rs.block(i*3,i*3,3,3)=Rlist[i].sparseView();
         diag_Grad.block(i*3,i,3,1)=Glist[i].sparseView();
-        Jgrad.block(3*i,0,1,vnbr)=gradV[0].block(i,0,1,vnbr);
-        Jgrad.block(3*i+1,0,1,vnbr)=
-        Jgrad.block(3*i+2,0,1,vnbr)=
+        Jgrad.block(3 * i, 0, 1, vnbr) = gradV[0].block(i, 0, 1, vnbr);
+        Jgrad.block(3 * i + 1, 0, 1, vnbr) = gradV[1].block(i, 0, 1, vnbr);
+        Jgrad.block(3 * i + 2, 0, 1, vnbr) = gradV[2].block(i, 0, 1, vnbr);
     }
+    spMat JFirst=Jgrad.transpose()*diag_grad_norm_trip*diag_Rs*diag_Grad;
     
 
 }
