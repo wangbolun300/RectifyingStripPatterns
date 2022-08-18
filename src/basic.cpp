@@ -690,57 +690,58 @@ void lsTools::assemble_solver_strip_width_part(spMat &H, Efunc &B)
     B = dense_vec_to_sparse_vec(mJTF_dense);
 }
 
-// we summarize the problem as:
-// grad(F).transpose()*grad(F).norm()*R*grad(F)-grad(F).transpose()*D.transpose()*hess(F)*D*grad(F).
-void lsTools::assemble_solver_pseudo_geodesic_part(spMat &H, Efunc& B){
+// // we summarize the problem as:
+// // grad(F).transpose()*grad(F).norm()*R*grad(F)-grad(F).transpose()*D.transpose()*hess(F)*D*grad(F).
+// void lsTools::assemble_solver_pseudo_geodesic_part(spMat &H, Efunc& B){
     
-    int vnbr=V.rows();
-    int fnbr=F.rows();
-    std::vector<Eigen::MatrixXd> Rlist(vnbr);// contains pseudo_geodesic_ratio
-    std::vector<Eigen::MatrixXd> Dlist(vnbr);
-    std::vector<Eigen::MatrixXd> Glist(vnbr);
-    for (int i = 0; i < vnbr; i++)
-    {
-        Eigen::MatrixXd rvru(3, 2);
-        rvru.col(0) = Deriv1[1].row(i);
-        rvru.col(1) = Deriv1[0].row(i);
-        Eigen::Matrix<double, 3, 2> rurv;
-        rurv.col(0) = Deriv1[0].row(i);
-        rurv.col(1) = Deriv1[1].row(i);
-        Eigen::Matrix<double, 3, 2> mrvru; // [-rv, ru]
-        mrvru.col(0) = -1 * Deriv1[1].row(i);
-        mrvru.col(1) = Deriv1[0].row(i);
-        Eigen::Matrix2d LmMN;
-        LmMN << II_L[i], -II_M[i],
-            -II_M[i], II_N[i];
-        Eigen::MatrixXd R=pseudo_geodesic_ratio*rvru*LmMN*rvru.transpose();
-        Rlist[i]=R;
-        Eigen::MatrixXd D=rurv*mrvru.transpose();
-        Dlist[i]=D;
-        Eigen::MatirxXd gf(3,1);
-        gf.col(0)=gvvalue.row(i);
-        Glist[i]=gf;
-    }
-    // solve the first part: derivate(grad(F)).transpose()*grad(F).norm()*R*grad(F)
-    Eigen::VectorXd grad_norm = gvvalue.rowwise().norm(); // take 1/||gradV(i)|| as ith diagnal element
-    spMat diag_grad_norm_trip=grad_norm.replicate(3,1).asDiagonal();
-    spMat diag_Rs, diag_Grad;
-    spMat Jgrad;
-    diag_Rs.resize(3*vnbr,3*vnbr);
-    diag_Grad.resize(3*vnbr,vnbr);
-    Jgrad.resize(3*vnbr,vnbr);
-    assert(diag_grad_norm_trip.rows()==3*vnbr);
-    for(int i=0;i<vnbr;i++){
-        diag_Rs.block(i*3,i*3,3,3)=Rlist[i].sparseView();
-        diag_Grad.block(i*3,i,3,1)=Glist[i].sparseView();
-        Jgrad.block(3 * i, 0, 1, vnbr) = gradV[0].block(i, 0, 1, vnbr);
-        Jgrad.block(3 * i + 1, 0, 1, vnbr) = gradV[1].block(i, 0, 1, vnbr);
-        Jgrad.block(3 * i + 2, 0, 1, vnbr) = gradV[2].block(i, 0, 1, vnbr);
-    }
-    spMat JFirst=Jgrad.transpose()*diag_grad_norm_trip*diag_Rs*diag_Grad;
+//     int vnbr=V.rows();
+//     int fnbr=F.rows();
+//     std::vector<Eigen::MatrixXd> Rlist(vnbr);// contains pseudo_geodesic_ratio
+//     std::vector<Eigen::MatrixXd> Dlist(vnbr);
+//     std::vector<Eigen::MatrixXd> Glist(vnbr);
+//     for (int i = 0; i < vnbr; i++)
+//     {
+//         Eigen::MatrixXd rvru(3, 2);
+//         rvru.col(0) = Deriv1[1].row(i);
+//         rvru.col(1) = Deriv1[0].row(i);
+//         Eigen::Matrix<double, 3, 2> rurv;
+//         rurv.col(0) = Deriv1[0].row(i);
+//         rurv.col(1) = Deriv1[1].row(i);
+//         Eigen::Matrix<double, 3, 2> mrvru; // [-rv, ru]
+//         mrvru.col(0) = -1 * Deriv1[1].row(i);
+//         mrvru.col(1) = Deriv1[0].row(i);
+//         Eigen::Matrix2d LmMN;
+//         LmMN << II_L[i], -II_M[i],
+//             -II_M[i], II_N[i];
+//         Eigen::MatrixXd R=pseudo_geodesic_ratio*rvru*LmMN*rvru.transpose();
+//         Rlist[i]=R;
+//         Eigen::MatrixXd D=rurv*mrvru.transpose();
+//         Dlist[i]=D;
+//         Eigen::MatirxXd gf(3,1);
+//         gf.col(0)=gvvalue.row(i);
+//         Glist[i]=gf;
+//     }
+//     // solve the first part: derivate(grad(F)).transpose()*grad(F).norm()*R*grad(F)
+//     Eigen::VectorXd grad_norm = gvvalue.rowwise().norm(); // take 1/||gradV(i)|| as ith diagnal element
+//     spMat diag_grad_norm_trip=grad_norm.replicate(3,1).asDiagonal();
+//     spMat diag_Rs, diag_Grad;
+//     spMat Jgrad;
+//     diag_Rs.resize(3*vnbr,3*vnbr);
+//     diag_Grad.resize(3*vnbr,vnbr);
+//     Jgrad.resize(3*vnbr,vnbr);
+//     assert(diag_grad_norm_trip.rows()==3*vnbr);
+//     diag_Rs= dense_mat_list_as_sparse_diagnal(Rlist);
+//     diag_Grad= dense_mat_list_as_sparse_diagnal(Glist);
+//     for(int i=0;i<vnbr;i++){
+        
+//         Jgrad.block(3 * i, 0, 1, vnbr) = gradV[0].block(i, 0, 1, vnbr);
+//         Jgrad.block(3 * i + 1, 0, 1, vnbr) = gradV[1].block(i, 0, 1, vnbr);
+//         Jgrad.block(3 * i + 2, 0, 1, vnbr) = gradV[2].block(i, 0, 1, vnbr);
+//     }
+//     spMat JFirst=Jgrad.transpose()*diag_grad_norm_trip*diag_Rs*diag_Grad;
     
 
-}
+// }
 // min()
 void lsTools::initialize_and_smooth_level_set_by_laplacian()
 {
@@ -875,6 +876,7 @@ Efunc sparse_mat_col_to_sparse_vec(const spMat &mat, const int col)
 {
     Efunc vec;
     vec.resize(mat.rows());
+    assert(!mat.IsRowMajor);
     for (spMat::InnerIterator it(mat, col); it; ++it)
     {
         vec.coeffRef(it.index()) = it.value();
@@ -896,6 +898,7 @@ Efunc dense_vec_to_sparse_vec(const Eigen::VectorXd &vec)
 }
 void mat_col_to_triplets(const spMat &mat, const int col, const int ref, const bool inverse, std::vector<Trip> &triplets)
 {
+    assert(!mat.IsRowMajor);
 
     for (spMat::InnerIterator it(mat, col); it; ++it)
     {
@@ -921,3 +924,38 @@ void lsTools::debug_tool(int id, double value)
             }
         }
     }
+void extend_triplets_offset(std::vector<Trip>& triplets, const spMat& mat, int offrow, int offcol){
+    for (int i = 0; i < mat.outerSize(); i++)
+    {
+        for (spMat::InnerIterator it(mat, i); it; ++it)
+        {
+            triplets.push_back(Trip(it.row()+offrow, it.col()+offcol, it.value()));
+        }
+    }
+}
+spMat dense_mat_list_as_sparse_diagnal(const std::vector<Eigen::MatrixXd>& mlist){
+    spMat result;
+    int outer=mlist.size();
+    int inner_rows=mlist[0].rows();
+    int inner_cols=mlist[0].cols();
+    result.resize(outer*inner_rows,outer*inner_cols);
+    std::vector<Trip> triplets;
+    triplets.reserve(inner_cols*inner_rows*outer);
+    for(int i=0;i<outer;i++){
+        extend_triplets_offset(triplets,mlist[i].sparseView(),i*inner_rows,i*inner_cols);
+    }
+    result.setFromTriplets(triplets.begin(),triplets.end());
+    return result;
+}
+spMat rib_method_arrange_matrices_rows(const std::vector<spMat>& mats){
+    int nvec=mats.size();
+    int inner_rows=mats[0].rows();
+    int inner_cols=mats[0].cols();
+    spMat result;
+    result.resize(nvec*inner_rows,inner_cols);// the rows get more, the column number remain the same.
+    std::vector<Trip> triplets;
+    triplets.reserve(inner_cols*inner_rows*nvec);
+    for(int i=0;i<nvec;i++){
+        //TODO
+    }
+}
