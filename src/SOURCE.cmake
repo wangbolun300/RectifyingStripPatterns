@@ -7,6 +7,7 @@ src/OptimizerCheckboard.h
 src/basic.h
 src/basic.cpp
 src/igl_tool.cpp
+src/tools.cpp
 )
 ################################################################################
 # Subfolders

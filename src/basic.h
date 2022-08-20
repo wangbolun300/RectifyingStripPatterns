@@ -9,7 +9,18 @@ typedef Eigen::SparseVector<double> Efunc;
 // typedef Eigen::SparseMatrix<double> spMat;
 typedef Eigen::Triplet<double> Trip;
 #define SCALAR_ZERO 1e-8
+class TracCurve{
+public:
+TracCurve(){};
 
+    std::vector<int> face_ids;
+    std::vector<Eigen::Vector3d> dirc; // the directions of the tracing curve
+    std::vector<int> edge_ids;//ids of the corresponding edges;
+    std::vector<Eigen::Vector3d> edge_points;// intersection points on edges.
+    bool size_correct();
+
+
+};
 // The basic tool of LSC. Please initialize it with a mesh
 class lsTools
 {
@@ -22,7 +33,7 @@ private:
     Eigen::VectorXd areaF;                // the area of each face.
     Eigen::VectorXd areaPF;               // the area of each face in parametric domain;
     std::vector<Eigen::Matrix3d> Rotate;  // the 90 degree rotation matrices for each face.
-    std::vector<Eigen::Matrix3d> RotateV; // on vertices
+    std::vector<Eigen::Matrix3d> RotateV; // the 90 degree rotation matrices on vertices
     // the rotated 3 half edges for each face, in the plane of this face
     // the order of the 3 directions are: v0-v2, v1-v0, v2-v1
     std::vector<std::array<Eigen::Vector3d, 3>> Erotate;
@@ -46,6 +57,9 @@ private:
     spMat mass;                                      // mass(i,i) is the area of the voronoi cell of vertex vi
     // spMat F2V;                                       // the matrix averaging face values to vertices values, acorrding to the angels
     spMat ORB;// the matrix where the (i,i) element show if it is a boundary vertex or one-ring vertex of boundary
+    Eigen::MatrixXd norm_e;// normal directions on each edge
+    std::vector<TracCurve> trace;
+    
 
     bool derivates_calculated = false;
     void
@@ -72,9 +86,16 @@ private:
     void get_all_the_derivate_matrices();
     // get the boundary vertices and one ring vertices from them
     void get_bnd_and_bnd_one_ring();
+    void get_all_the_edge_normals();
     void assemble_solver_laplacian_part(spMat &H, Efunc &B);
     void assemble_solver_strip_width_part(spMat &H, Efunc& B);
-    void assemble_solver_pseudo_geodesic_part(spMat &H, Efunc& B);
+    //void assemble_solver_pseudo_geodesic_part(spMat &H, Efunc& B);
+    void get_pseudo_vertex_and_trace_forward(
+ const Eigen::Vector3d& last_seg0, const Eigen::Vector3d& last_seg1, const double angle,
+ const CGMesh::HalfedgeHandle& edge_in, const CGMesh::HalfedgeHandle& edge_middle, 
+ const Eigen::Vector3d& point_in, const Eigen::Vector3d& point_middle, CGMesh::HalfedgeHandle& edge_out,
+ const Eigen::Vector3d& point_out);
+    void trace_single_pseudo_geodesic_curve(const double angle);
     
 public:
     // parametrization and find the boundary loop

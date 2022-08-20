@@ -193,6 +193,9 @@ public:
   // get the derivates, get the second fundamental form, and get the corresponding normals
   IGL_INLINE void get_I_and_II(Eigen::MatrixXd& ru, Eigen::MatrixXd& rv, Eigen::MatrixXd& ruu, Eigen::MatrixXd& ruv,
 Eigen::MatrixXd& rvv, std::vector<double>& L_list,std::vector<double>& M_list, std::vector<double> &N_list,Eigen::MatrixXd &normals);
+  IGL_INLINE void get_pseudo_vertex_on_edge(
+    const int center_id,
+    const Eigen::Vector3d &epoint, const Eigen::Vector3d &pnormal,Eigen::Vector3d &pvertex);
   IGL_INLINE void printCurvature(const std::string& outpath);
   IGL_INLINE double getAverageEdge();
 
@@ -778,7 +781,6 @@ normals.resize(vertices_count,3);
     vvtmp.clear();
     Eigen::Vector3d me=vertices.row(i);
     getKRing(i,kRing,vv);
-
     if (vv.size()<6)
     {
       std::cerr << "Could not compute I and II using libigl, because too few neighbouring vertices " << std::endl;
@@ -856,6 +858,63 @@ normals.row(i)=ref[0]*n[0]+ref[1]*n[1]+ref[2]*n[2];
   lastRadius=sphereRadius;
 }
 
+// takes edge point and pseudo-normal as inputs, output the
+IGL_INLINE void CurvatureCalculator::get_pseudo_vertex_on_edge(
+    const int center_id,
+    const Eigen::Vector3d &epoint, const Eigen::Vector3d &pnormal,Eigen::Vector3d &pvertex)
+{
+  // CHECK che esista la mesh
+  const size_t vertices_count = vertices.rows();
+
+  if (vertices_count == 0)
+    return;
+
+  std::vector<int> vv;
+  std::vector<int> vvtmp;
+  vv.clear();
+  vvtmp.clear();
+  Eigen::Vector3d me = vertices.row(center_id);
+  getKRing(center_id, kRing, vv);
+  if (vv.size() < 6)
+  {
+    std::cerr << "Error in calculating pseudo-vertices, because too few neighbouring vertices " << std::endl;
+    return;
+  }
+  if (projectionPlaneCheck)
+  {
+    vvtmp.reserve(vv.size());
+    applyProjOnPlane(pnormal, vv, vvtmp);
+    if (vvtmp.size() >= 6 && vvtmp.size() < vv.size())
+      vv = vvtmp;
+  }
+  if (vv.size() < 6)
+  {
+    std::cerr << "Error in calculating pseudo-vertices, because too few neighbouring vertices " << std::endl;
+    return;
+  }
+
+  std::vector<Eigen::Vector3d> ref(3);
+  computeReferenceFrame(center_id, pnormal, ref);
+  Quadric q;
+  fitQuadric(me, ref, vv, &q);
+  const double a = q.a();
+  const double b = q.b();
+  const double c = q.c();
+  const double d = q.d();
+  const double e = q.e();
+  // the surface is a*x*x+b*x*y+c*y*y+d*x*e*y
+  // (ep_x, ep_y, ep_z) is the local position of the pseudo-vertex
+  double ep_x;
+  double ep_y;
+  double ep_z;
+  Eigen::Vector3d relative = epoint - me;
+  ep_x = relative.dot(ref[0]);
+  ep_y = relative.dot(ref[1]);
+  ep_z = a * ep_x * ep_x + b * ep_x * ep_y + c * ep_y * ep_y + d * ep_x + e * ep_y;
+  Eigen::Vector3d global_vec= ref[0] * ep_x + ref[1] * ep_y + ref[2] * ep_z;
+  pvertex=me+global_vec;
+}
+
 IGL_INLINE void CurvatureCalculator::printCurvature(const std::string& outpath)
 {
   using namespace std;
@@ -891,7 +950,6 @@ void lsTools::get_I_and_II_locally(){
   // Precomputation
  CurvatureCalculator cc;
  cc.init(V, F);
- cc.sphereRadius = 2;
 
  cc.kRing = radius;
  cc.st = K_RING_SEARCH;
@@ -899,4 +957,22 @@ void lsTools::get_I_and_II_locally(){
  // Compute
  cc.get_I_and_II(Deriv1[0],Deriv1[1],Deriv2[0],Deriv2[1],Deriv2[3],II_L,II_M, II_N, norm_v);
  Deriv2[2]=Deriv2[1];//now r_uv = r_vu
+}
+
+void lsTools::get_pseudo_vertex_and_trace_forward(
+
+    const Eigen::Vector3d &last_seg0, const Eigen::Vector3d &last_seg1, const double angle,
+    const CGMesh::HalfedgeHandle &edge_in, const CGMesh::HalfedgeHandle &edge_middle,
+    const Eigen::Vector3d &point_in, const Eigen::Vector3d &point_middle, CGMesh::HalfedgeHandle &edge_out,
+    const Eigen::Vector3d &point_out)
+{
+  unsigned radius = 2;
+
+  // Precomputation
+  CurvatureCalculator cc;
+  cc.init(V, F);// TODO move init out of this function
+
+  cc.kRing = radius;
+  cc.st = K_RING_SEARCH;
+  cc.get_pseudo_vertex_on_edge()
 }
