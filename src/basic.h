@@ -1,5 +1,6 @@
 #pragma once
 #include <lsc/MeshProcessing.h>
+#include <lsc/igl_tool.h>
 // theta <= pi/2, phi<=pi
 void sphere_example(double radius, double theta, double phi, int nt, int np);
 // Efunc represent a elementary value, which is the linear combination of
@@ -9,6 +10,7 @@ typedef Eigen::SparseVector<double> Efunc;
 // typedef Eigen::SparseMatrix<double> spMat;
 typedef Eigen::Triplet<double> Trip;
 #define SCALAR_ZERO 1e-8
+#define MERGE_VERTEX_RATIO 0.01
 class TracCurve{
 public:
 TracCurve(){};
@@ -90,7 +92,8 @@ private:
     void assemble_solver_laplacian_part(spMat &H, Efunc &B);
     void assemble_solver_strip_width_part(spMat &H, Efunc& B);
     //void assemble_solver_pseudo_geodesic_part(spMat &H, Efunc& B);
-    void get_pseudo_vertex_and_trace_forward(
+    bool get_pseudo_vertex_and_trace_forward(
+        QuadricCalculator &cc,
  const Eigen::Vector3d& last_seg0, const Eigen::Vector3d& last_seg1, const double angle,
  const CGMesh::HalfedgeHandle& edge_in, const CGMesh::HalfedgeHandle& edge_middle, 
  const Eigen::Vector3d& point_in, const Eigen::Vector3d& point_middle, CGMesh::HalfedgeHandle& edge_out,
