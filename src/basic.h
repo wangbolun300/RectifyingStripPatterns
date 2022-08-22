@@ -1,6 +1,7 @@
 #pragma once
 #include <lsc/MeshProcessing.h>
 #include <lsc/igl_tool.h>
+#include<lsc/basic.h>
 // theta <= pi/2, phi<=pi
 void sphere_example(double radius, double theta, double phi, int nt, int np);
 // Efunc represent a elementary value, which is the linear combination of
@@ -174,13 +175,7 @@ public:
     void make_sphere_ls_example(int rowid);
 };
 
-std::vector<Trip> to_triplets(spMat &M);
-// convert a vector to a matrix with size 1*n
-spMat sparse_vec_to_sparse_maxrix(Efunc &vec);
-Efunc sparse_mat_col_to_sparse_vec(const spMat &mat, const int col);
-Efunc dense_vec_to_sparse_vec(const Eigen::VectorXd& vec);
-void mat_col_to_triplets(const spMat &mat, const int col, const int ref, const bool inverse, std::vector<Trip> &triplets);
-spMat dense_mat_list_as_sparse_diagnal(const std::vector<Eigen::MatrixXd>& mlist);
+
 // // partial derivate tools, regard level set function as variates.
 // class PDtools{
 //     PDtools(){};

@@ -114,3 +114,84 @@ spMat rib_method_arrange_matrices_rows(const std::vector<spMat>& mats){
         //TODO
     }
 }
+
+std::vector<double> polynomial_simplify(const std::vector<double>& poly) {
+	std::vector<double> result = poly;
+	int size = poly.size();
+	for (int i = 0; i < size - 1; i++) {
+		if (result[size - i - 1] == 0) {
+			result.pop_back();
+		}
+		else {
+			break;
+		}
+	}
+	return result;
+}
+
+std::vector<double> polynomial_add(const std::vector<double>& poly1, const std::vector<double>& poly2) {
+	int size = std::max(poly1.size(), poly2.size());
+	std::vector<double> result(size);
+	for (int i = 0; i < size; i++) {
+		bool flag1 = i < poly1.size();
+		bool flag2 = i < poly2.size();
+		if (flag1 && flag2) {
+			result[i] = poly1[i] + poly2[i];
+		}
+		else if (flag1) {
+			result[i] = poly1[i];
+		}
+		else {
+			result[i] = poly2[i];
+		}
+	}
+	return polynomial_simplify(result);
+}
+std::vector<double> polynomial_times(const std::vector<double>& poly1, const std::vector<double>& poly2) {
+	int size = poly1.size() + poly2.size() - 1;
+	std::vector<double> result(size);
+	for (int i = 0; i < size; i++) {// initialize the result
+		result[i] = 0;
+	}
+
+	for (int i = 0; i < poly1.size(); i++) {
+		for (int j = 0; j < poly2.size(); j++) {
+			result[i + j] += poly1[i] * poly2[j];
+		}
+	}
+	return polynomial_simplify(result);
+}
+std::vector<double> polynomial_times(const std::vector<double>& poly1, const double& nbr) {
+	std::vector<double> result;
+	if (nbr == 0) {
+		result.resize(1);
+		result[0] = 0;
+		return result;
+	}
+	result = poly1;
+	for (int i = 0; i < result.size(); i++) {
+		result[i] *= nbr;
+	}
+
+	return polynomial_simplify(result);
+}
+double polynomial_value(const std::vector<double>& poly, const double para) {
+	double result = 0;
+	for (int i = 0; i < poly.size(); i++) {
+		result += poly[i] * std::pow(para, i);
+	}
+	return result;
+}
+std::vector<double> polynomial_integration(const std::vector<double>& poly) {
+	std::vector<double> result(poly.size() + 1);
+	result[0] = 0;
+	for (int i = 1; i < result.size(); i++) {
+		result[i] = poly[i - 1] / i;
+	}
+	return polynomial_simplify(result);
+}
+double polynomial_integration(const std::vector<double>& poly, const double lower, const double upper) {
+	double up = polynomial_value(polynomial_integration(poly), upper);
+	double lw = polynomial_value(polynomial_integration(poly), lower);
+	return up - lw;
+}

@@ -17,7 +17,7 @@
 #include <igl/per_vertex_normals.h>
 #include <igl/avg_edge_length.h>
 #include <igl/vertex_triangle_adjacency.h>
-#include<lsc/basic.h>
+
 
 typedef enum
 {

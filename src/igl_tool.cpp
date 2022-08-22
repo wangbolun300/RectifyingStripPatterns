@@ -9,6 +9,8 @@
 // v. 2.0. If a copy of the MPL was not distributed with this file, You can
 // obtain one at http://mozilla.org/MPL/2.0/.
 #include<lsc/igl_tool.h>
+#include<lsc/basic.h>
+#include <tools.h>
 
 
 class comparer
@@ -668,9 +670,66 @@ void lsTools::get_I_and_II_locally(){
  cc.get_I_and_II(Deriv1[0],Deriv1[1],Deriv2[0],Deriv2[1],Deriv2[3],II_L,II_M, II_N, norm_v);
  Deriv2[2]=Deriv2[1];//now r_uv = r_vu
 }
-// this function is 
-bool find_osculating_plane_intersection(const Eigen::Vector3d &p_start, const Eigen::Vector3d & p_middle, 
-CGMesh::HalfedgeHandle& eh, const double angle, Eigen::Vector3d& p_end){
+
+bool quadratic_solver(const std::vector<double>& func, std::array<double,2>& roots){
+  assert(func.size()<=3);
+  if(func.size()<2){
+    // std::cout<<"failed in quadratic solver: no roots"<<std::endl;
+    return false;
+  }
+  if(func.size()==2){
+    // the function is f1*x+f0=0
+    double f1=func[1];
+    double f0=func[0];
+    double result=-1.*f0/f1;
+    roots[0]=result;
+    roots[1]=result;
+    return true;
+  }
+  double a = func[2], b=func[1], c=func[0];
+  double lambda=b*b-4*a*c;
+  if(lambda<0){
+    return false;
+  }
+  roots[0]=(-1.*b+sqrt(lambda))/(2*a);
+  roots[1]=(-1.*b-sqrt(lambda))/(2*a);
+  return true;
+}
+
+// the first segment is p0, p1. the edge we search on is vs, ve.
+// to find all the vertices on all edges that form the osculating plane with a specific angle
+bool find_osculating_plane_intersection(const Eigen::Vector3d &p0, const Eigen::Vector3d & p1, 
+const Eigen::Vector3d &vs, const Eigen::Vector3d & ve, const Eigen::Vector3d &pnorm, const double angle, Eigen::Vector3d& p_end){
+  Eigen::Vector3d ves=ve-vs;
+  Eigen::Vector3d vs1=vs-p1;
+  Eigen::Vector3d v01=p0-p1;
+
+  // normal director of the plane is norm_degree1*t+norm_degree0
+  Eigen::Vector3d norm_degree1=ves.cross(v01);
+  Eigen::Vector3d norm_degree0=vs1.cross(v01);
+
+  double cos_angle=cos(angle);
+  std::vector<double> poly_norm_x(2),poly_norm_y(2), poly_norm_z(2);
+  poly_norm_x[0]=norm_degree0[0];poly_norm_y[0]=norm_degree0[1];poly_norm_z[0]=norm_degree0[2];
+  poly_norm_x[1]=norm_degree1[0];poly_norm_y[1]=norm_degree1[1];poly_norm_z[1]=norm_degree1[2];
+  
+  // left = norm.dot(pnorm), right=|norm|*|pnorm|*cos_angle.
+  // left^2= right^2
+  std::vector<double> left;
+  left=polynomial_times(poly_norm_x, pnorm[0]);
+  left=polynomial_add(left,polynomial_times(poly_norm_y, pnorm[1]));
+  left=polynomial_add(left,polynomial_times(poly_norm_z, pnorm[2]));
+  left=polynomial_times(left, left);
+  std::vector<double> right;
+  right=polynomial_times(poly_norm_x,poly_norm_x);
+  right=polynomial_add(right,polynomial_times(poly_norm_y, poly_norm_y));
+  right=polynomial_add(right,polynomial_times(poly_norm_z, poly_norm_z));
+  double pnorm_square=pnorm.norm();
+  pnorm_square=pnorm_square*pnorm_square;
+  right=polynomial_times(right, pnorm_square*cos_angle*cos_angle);
+  std::vector<double> right_inverse=polynomial_times(right, -1.);
+  std::vector<double> equation=polynomial_add(left, right_inverse);
+  assert(equation.size()<=3);// at most a quadratic function.
   
 }
 

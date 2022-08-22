@@ -1,4 +1,5 @@
 #include <lsc/basic.h>
+#include <lsc/tools.h>
 #include <igl/lscm.h>
 #include <igl/harmonic.h>
 #include <igl/boundary_loop.h>
@@ -187,7 +188,7 @@ void lsTools::get_rotated_edges_for_each_face()
                 auto opposite=lsmesh.opposite_face_handle(heh);
                 if( lsmesh.is_boundary(lsmesh.from_vertex_handle(heh))&&lsmesh.is_boundary(lsmesh.to_vertex_handle(heh))){
                     std::cout<<"it is already boundary"<<std::endl;
-                    
+
                 }
                 else{
                     std::cout<<"opposite is "<<opposite.idx();
