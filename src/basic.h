@@ -12,6 +12,7 @@ typedef Eigen::SparseVector<double> Efunc;
 typedef Eigen::Triplet<double> Trip;
 #define SCALAR_ZERO 1e-8
 #define MERGE_VERTEX_RATIO 0.01
+#define PI 3.14159265
 class TracCurve{
 public:
 TracCurve(){};
@@ -92,15 +93,13 @@ private:
     void get_all_the_edge_normals();
     void assemble_solver_laplacian_part(spMat &H, Efunc &B);
     void assemble_solver_strip_width_part(spMat &H, Efunc& B);
-    //void assemble_solver_pseudo_geodesic_part(spMat &H, Efunc& B);
-    bool get_pseudo_vertex_and_trace_forward(
-        QuadricCalculator &cc,
- const Eigen::Vector3d& last_seg0, const Eigen::Vector3d& last_seg1, const double angle,
- const CGMesh::HalfedgeHandle& edge_in, const CGMesh::HalfedgeHandle& edge_middle, 
- const Eigen::Vector3d& point_in, const Eigen::Vector3d& point_middle, CGMesh::HalfedgeHandle& edge_out,
- const Eigen::Vector3d& point_out);
+    // void assemble_solver_pseudo_geodesic_part(spMat &H, Efunc& B);
+    void find_geodesic_intersection_p1_is_NOT_ver(const Eigen::Vector3d &p0, const Eigen::Vector3d & p1,
+ const CGMesh::HalfedgeHandle &edge_middle,CGMesh::HalfedgeHandle &edge_out, Eigen::Vector3d& p_end);
+        bool get_pseudo_vertex_and_trace_forward(QuadricCalculator &cc,
+                                             const Eigen::Vector3d &point_out);
     void trace_single_pseudo_geodesic_curve(const double angle);
-    
+
 public:
     // parametrization and find the boundary loop
     lsTools(CGMesh &mesh);
