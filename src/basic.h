@@ -1,7 +1,7 @@
 #pragma once
 #include <lsc/MeshProcessing.h>
 #include <lsc/igl_tool.h>
-#include<lsc/basic.h>
+#include <lsc/basic.h>
 // theta <= pi/2, phi<=pi
 void sphere_example(double radius, double theta, double phi, int nt, int np);
 // Efunc represent a elementary value, which is the linear combination of
@@ -13,17 +13,17 @@ typedef Eigen::Triplet<double> Trip;
 #define SCALAR_ZERO 1e-8
 #define MERGE_VERTEX_RATIO 0.01
 #define PI 3.14159265
-class TracCurve{
+#define ANGLE_TOLERANCE 2.
+class TracCurve
+{
 public:
-TracCurve(){};
+    TracCurve(){};
 
     std::vector<int> face_ids;
-    std::vector<Eigen::Vector3d> dirc; // the directions of the tracing curve
-    std::vector<int> edge_ids;//ids of the corresponding edges;
-    std::vector<Eigen::Vector3d> edge_points;// intersection points on edges.
+    std::vector<Eigen::Vector3d> dirc;        // the directions of the tracing curve
+    std::vector<int> edge_ids;                // ids of the corresponding edges;
+    std::vector<Eigen::Vector3d> edge_points; // intersection points on edges.
     bool size_correct();
-
-
 };
 // The basic tool of LSC. Please initialize it with a mesh
 class lsTools
@@ -46,24 +46,23 @@ private:
     std::array<spMat, 3> gradVF;                  // gradient of function in each face
     std::array<spMat, 3> gradV;                   // gradient of function in each vertex
     std::array<std::array<spMat, 3>, 3> HessianV; // Hessian (2 order deriavate) of function in each vertex
-    std::array<Eigen::MatrixXd, 2> Deriv1;           // the 1 order derivates for each vertex;
-    std::array<Eigen::MatrixXd, 4> Deriv2;           // the 2 order derivates for each vertex;
-    std::vector<double> II_L;                        // second fundamental form: L
-    std::vector<double> II_M;                        // second fundamental form: M
-    std::vector<double> II_N;                        // second fundamental form: N
-    Eigen::MatrixXd gvvalue;                         // the calculated gradient values of f for each vertex.
-    Eigen::MatrixXd gfvalue;                         // the calculated gradient values of f for each face.
-    std::vector<Eigen::Matrix3d> hfvalue;            // the calculated Hessian values of f for each vertex
-    std::vector<int> refids;                         // output the ids of current dealing points. just for debug purpose
+    std::array<Eigen::MatrixXd, 2> Deriv1;        // the 1 order derivates for each vertex;
+    std::array<Eigen::MatrixXd, 4> Deriv2;        // the 2 order derivates for each vertex;
+    std::vector<double> II_L;                     // second fundamental form: L
+    std::vector<double> II_M;                     // second fundamental form: M
+    std::vector<double> II_N;                     // second fundamental form: N
+    Eigen::MatrixXd gvvalue;                      // the calculated gradient values of f for each vertex.
+    Eigen::MatrixXd gfvalue;                      // the calculated gradient values of f for each face.
+    std::vector<Eigen::Matrix3d> hfvalue;         // the calculated Hessian values of f for each vertex
+    std::vector<int> refids;                      // output the ids of current dealing points. just for debug purpose
     // spMat Dlpsqr;                       // the derivates of ||laplacian F||^2 for all the vertices.
-    spMat Dlps;                         // the derivates of laplacian F for all the vertices.
-    spMat Dgrad_norm;                   // the derivates of the norm of gradients for all the vertices.
-    spMat mass;                                      // mass(i,i) is the area of the voronoi cell of vertex vi
+    spMat Dlps;       // the derivates of laplacian F for all the vertices.
+    spMat Dgrad_norm; // the derivates of the norm of gradients for all the vertices.
+    spMat mass;       // mass(i,i) is the area of the voronoi cell of vertex vi
     // spMat F2V;                                       // the matrix averaging face values to vertices values, acorrding to the angels
-    spMat ORB;// the matrix where the (i,i) element show if it is a boundary vertex or one-ring vertex of boundary
-    Eigen::MatrixXd norm_e;// normal directions on each edge
+    spMat ORB;              // the matrix where the (i,i) element show if it is a boundary vertex or one-ring vertex of boundary
+    Eigen::MatrixXd norm_e; // normal directions on each edge
     std::vector<TracCurve> trace;
-    
 
     bool derivates_calculated = false;
     void
@@ -74,14 +73,14 @@ private:
     // each triangle face. It can be used to calculate gradients.
     void get_face_rotation_matices();
     void get_rotated_edges_for_each_face();
-    void gradient_v2f(std::array<spMat, 3> &output);                // calculate gradient in each face from vertex values
-    void gradient_f2v(spMat& output); // calculate gradient in each vertex by averging face values
-    void get_function_gradient_vertex(); // get the gradient of f on vertices
-    void get_function_hessian_vertex();  // get the hessian matrix of f on vertices
+    void gradient_v2f(std::array<spMat, 3> &output); // calculate gradient in each face from vertex values
+    void gradient_f2v(spMat &output);                // calculate gradient in each vertex by averging face values
+    void get_function_gradient_vertex();             // get the gradient of f on vertices
+    void get_function_hessian_vertex();              // get the hessian matrix of f on vertices
     // get the gradients and hessians on each vertices using the assigned level-set function values
     // CAUTION: assign function values before call this function.
     void get_gradient_hessian_values();
-    
+
     void get_vertex_rotation_matices();
 
     void get_I_and_II_locally();
@@ -92,11 +91,13 @@ private:
     void get_bnd_and_bnd_one_ring();
     void get_all_the_edge_normals();
     void assemble_solver_laplacian_part(spMat &H, Efunc &B);
-    void assemble_solver_strip_width_part(spMat &H, Efunc& B);
+    void assemble_solver_strip_width_part(spMat &H, Efunc &B);
     // void assemble_solver_pseudo_geodesic_part(spMat &H, Efunc& B);
-    void find_geodesic_intersection_p1_is_NOT_ver(const Eigen::Vector3d &p0, const Eigen::Vector3d & p1,
- const CGMesh::HalfedgeHandle &edge_middle,CGMesh::HalfedgeHandle &edge_out, Eigen::Vector3d& p_end);
-        bool get_pseudo_vertex_and_trace_forward(QuadricCalculator &cc,
+    bool find_geodesic_intersection_p1_is_NOT_ver(const Eigen::Vector3d &p0, const Eigen::Vector3d &p1,
+                                                  const CGMesh::HalfedgeHandle &edge_middle, const Eigen::Vector3d &pnorm, CGMesh::HalfedgeHandle &edge_out, Eigen::Vector3d &p_end);
+    bool find_osculating_plane_intersection_not_geodesic_p1_is_not_ver(const Eigen::Vector3d &p0, const Eigen::Vector3d &p1,
+                                                                       const CGMesh::HalfedgeHandle &edge_middle, const Eigen::Vector3d &pnorm, const double angle, std::vector<CGMesh::HalfedgeHandle> &edge_out, std::vector<Eigen::Vector3d> &p_end);
+    bool get_pseudo_vertex_and_trace_forward(QuadricCalculator &cc,
                                              const Eigen::Vector3d &point_out);
     void trace_single_pseudo_geodesic_curve(const double angle);
 
@@ -116,8 +117,8 @@ public:
     double weight_mass;              // weight of the mass function to
     int assign_face_id;              // the face id of which we will assign value to
     double assign_value[3];
-    double strip_width=0; // strip width, defined as h/w.
-    double pseudo_geodesic_ratio;// k_g/k_n of the pseudo geodesic
+    double strip_width = 0;       // strip width, defined as h/w.
+    double pseudo_geodesic_ratio; // k_g/k_n of the pseudo geodesic
     // this function should be calculated first once the class get constructed
     //  1. get face normals;
     //  2. get all the angles;
@@ -138,15 +139,15 @@ public:
         // get_mesh_normals_per_ver();
         // 4
         get_face_rotation_matices();
-        
+
         // 5
         get_rotated_edges_for_each_face();
         // 6
         get_function_gradient_vertex();
-        
+
         // 7
         get_function_hessian_vertex();
-        
+
         // 8
         // get_rotated_parameter_edges();
         // 9
@@ -173,7 +174,6 @@ public:
     void debug_tool(int id = 0, double value = 0);
     void make_sphere_ls_example(int rowid);
 };
-
 
 // // partial derivate tools, regard level set function as variates.
 // class PDtools{

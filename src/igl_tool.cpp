@@ -735,8 +735,8 @@ bool find_geodesic_intersection_p1_is_ver(const Eigen::Vector3d &p0, const Eigen
 
 // p0 p1 is the first segment, vs ve is the middle edge, vf, vt is the searching edge
 bool solve_next_geodesic_point(const Eigen::Vector3d &p0, const Eigen::Vector3d &p1,
-                               const Eigen::Vector3d &vs, const Eigen::Vector3d &ve, const Eigen::Vector3d &vf, const Eigen::Vector3d &vt,
-                               const Eigen::Vector3d &pnorm, Eigen::Vector3d &p_end)
+                              const Eigen::Vector3d &vf, const Eigen::Vector3d &vt,
+                              const Eigen::Vector3d &pnorm, Eigen::Vector3d &p_end)
 {
   Eigen::Vector3d vtf = vt - vf;
   Eigen::Vector3d p01 = p0 - p1;
@@ -770,12 +770,13 @@ bool solve_next_geodesic_point(const Eigen::Vector3d &p0, const Eigen::Vector3d 
 
 // caution: this function does not check if the middle edge is the boundary. this should be done before calling this function
 bool lsTools::find_geodesic_intersection_p1_is_NOT_ver(const Eigen::Vector3d &p0, const Eigen::Vector3d &p1,
-                                                       const CGMesh::HalfedgeHandle &edge_middle, const Eigen::Vector3d &pnorm, CGMesh::HalfedgeHandle &edge_out, Eigen::Vector3d &p_end)
+                                                       const CGMesh::HalfedgeHandle &edge_middle, const Eigen::Vector3d &pnorm, 
+                                                       CGMesh::HalfedgeHandle &edge_out, Eigen::Vector3d &p_end)
 {
   CGMesh::HalfedgeHandle ophe = lsmesh.opposite_halfedge_handle(edge_middle);
   // vs ve is the middle edge
-  Eigen::Vector3d vs = V.row(lsmesh.from_vertex_handle(edge_middle).idx());
-  Eigen::Vector3d ve = V.row(lsmesh.to_vertex_handle(edge_middle).idx());
+  // Eigen::Vector3d vs = V.row(lsmesh.from_vertex_handle(edge_middle).idx());
+  // Eigen::Vector3d ve = V.row(lsmesh.to_vertex_handle(edge_middle).idx());
   // check next halfedge
   CGMesh::HalfedgeHandle checking_he = lsmesh.next_halfedge_handle(ophe);
   Eigen::Vector3d vf;
@@ -784,9 +785,10 @@ bool lsTools::find_geodesic_intersection_p1_is_NOT_ver(const Eigen::Vector3d &p0
   assert(lsmesh.face_handle(ophe).idx() == lsmesh.face_handle(checking_he).idx());
   vf = V.row(lsmesh.from_vertex_handle(checking_he).idx());
   vt = V.row(lsmesh.to_vertex_handle(checking_he).idx());
-  bool found = solve_next_geodesic_point(p0, p1, vs, ve, vf, vt, pnorm, p_end);
+  bool found = solve_next_geodesic_point(p0, p1, vf, vt, pnorm, p_end);
   if (found)
   {
+    edge_out=checking_he;
     return true;
   }
   // check the previous halfedge
@@ -795,9 +797,10 @@ bool lsTools::find_geodesic_intersection_p1_is_NOT_ver(const Eigen::Vector3d &p0
   assert(lsmesh.face_handle(ophe).idx() == lsmesh.face_handle(checking_he).idx());
   vf = V.row(lsmesh.from_vertex_handle(checking_he).idx());
   vt = V.row(lsmesh.to_vertex_handle(checking_he).idx());
-  found = solve_next_geodesic_point(p0, p1, vs, ve, vf, vt, pnorm, p_end);
+  found = solve_next_geodesic_point(p0, p1, vf, vt, pnorm, p_end);
   if (found)
   {
+    edge_out=checking_he;
     return true;
   }
   return false;
@@ -808,7 +811,8 @@ bool lsTools::find_geodesic_intersection_p1_is_NOT_ver(const Eigen::Vector3d &p0
 // but this function does not solve geodesic cases.
 // the input angle should be in radian, angle is degree*PI/180
 bool find_osculating_plane_intersection_not_geodesic_p1_is_ver(const Eigen::Vector3d &p0, const Eigen::Vector3d &p1,
-                                        const Eigen::Vector3d &vs, const Eigen::Vector3d &ve, const Eigen::Vector3d &pnorm, const double angle, std::vector<Eigen::Vector3d> &p_end)
+                                        const Eigen::Vector3d &vs, const Eigen::Vector3d &ve, const Eigen::Vector3d &pnorm, 
+                                        const double angle, std::vector<Eigen::Vector3d> &p_end)
 {
   p_end.clear();
   Eigen::Vector3d ves = ve - vs;
@@ -874,84 +878,78 @@ bool find_osculating_plane_intersection_not_geodesic_p1_is_ver(const Eigen::Vect
   return p_end.size();
 }
 
-TODO
-bool find_osculating_plane_intersection_not_geodesic_p1_is_not_ver(const Eigen::Vector3d &p0, const Eigen::Vector3d &p1,
-                                        const Eigen::Vector3d &vs, const Eigen::Vector3d &ve, const Eigen::Vector3d &pnorm, const double angle, std::vector<Eigen::Vector3d> &p_end)
+
+bool lsTools::find_osculating_plane_intersection_not_geodesic_p1_is_not_ver(const Eigen::Vector3d &p0, const Eigen::Vector3d &p1,
+const CGMesh::HalfedgeHandle &edge_middle, const Eigen::Vector3d &pnorm, const double angle, 
+std::vector<CGMesh::HalfedgeHandle> &edge_out, std::vector<Eigen::Vector3d> &p_end)
 {
+  edge_out.clear();
   p_end.clear();
-  Eigen::Vector3d ves = ve - vs;
-  Eigen::Vector3d vs1 = vs - p1;
-  Eigen::Vector3d v01 = p0 - p1;
-
-  // normal director of the plane is norm_degree1*t+norm_degree0
-  Eigen::Vector3d norm_degree1 = ves.cross(v01);
-  Eigen::Vector3d norm_degree0 = vs1.cross(v01);
-
-  double cos_angle = cos(angle);
-  std::vector<double> poly_norm_x(2), poly_norm_y(2), poly_norm_z(2);
-  poly_norm_x[0] = norm_degree0[0];
-  poly_norm_y[0] = norm_degree0[1];
-  poly_norm_z[0] = norm_degree0[2];
-  poly_norm_x[1] = norm_degree1[0];
-  poly_norm_y[1] = norm_degree1[1];
-  poly_norm_z[1] = norm_degree1[2];
-  // TODO we can get the function left easily by cross products and dot products. we leave this to fucture.
-  // left = norm.dot(pnorm), right=|norm|*|pnorm|*cos_angle.
-  // left^2= right^2
-  std::vector<double> left;
-  left = polynomial_times(poly_norm_x, pnorm[0]);
-  left = polynomial_add(left, polynomial_times(poly_norm_y, pnorm[1]));
-  left = polynomial_add(left, polynomial_times(poly_norm_z, pnorm[2]));
-  left = polynomial_times(left, left);
-  std::vector<double> right;
-  right = polynomial_times(poly_norm_x, poly_norm_x);
-  right = polynomial_add(right, polynomial_times(poly_norm_y, poly_norm_y));
-  right = polynomial_add(right, polynomial_times(poly_norm_z, poly_norm_z));
-  double pnorm_square = pnorm.norm();
-  pnorm_square = pnorm_square * pnorm_square;
-  right = polynomial_times(right, pnorm_square * cos_angle * cos_angle);
-  std::vector<double> right_inverse = polynomial_times(right, -1.);
-  std::vector<double> equation = polynomial_add(left, right_inverse);
-  assert(equation.size() <= 3); // at most a quadratic function.
-  std::array<double, 2> roots;
-  bool solved = quadratic_solver(equation, roots);
-  if (!solved)
+  CGMesh::HalfedgeHandle ophe = lsmesh.opposite_halfedge_handle(edge_middle);
+  // check next halfedge
+  CGMesh::HalfedgeHandle checking_he = lsmesh.next_halfedge_handle(ophe);
+  Eigen::Vector3d vs;
+  Eigen::Vector3d ve;
+  assert(lsmesh.face_handle(edge_middle).idx() != lsmesh.face_handle(ophe).idx());
+  assert(lsmesh.face_handle(ophe).idx() == lsmesh.face_handle(checking_he).idx());
+  vs = V.row(lsmesh.from_vertex_handle(checking_he).idx());
+  ve = V.row(lsmesh.to_vertex_handle(checking_he).idx());
+  std::vector<Eigen::Vector3d> temp_pend;
+  bool found = find_osculating_plane_intersection_not_geodesic_p1_is_ver(p0, p1, vs, ve, pnorm, angle, temp_pend);
+  if (found)
   {
-    return false; // did not find such a plane
+    for(int i=0;i<temp_pend.size();i++){
+      edge_out.push_back(checking_he);
+      p_end.push_back(temp_pend[i]);
+    }
   }
-  for (int i = 0; i < 2; i++)
+  // check the previous halfedge
+  checking_he = lsmesh.prev_halfedge_handle(ophe);
+  assert(lsmesh.face_handle(edge_middle).idx() != lsmesh.face_handle(ophe).idx());
+  assert(lsmesh.face_handle(ophe).idx() == lsmesh.face_handle(checking_he).idx());
+  vs = V.row(lsmesh.from_vertex_handle(checking_he).idx());
+  ve = V.row(lsmesh.to_vertex_handle(checking_he).idx());
+  found = find_osculating_plane_intersection_not_geodesic_p1_is_ver(p0, p1, vs, ve, pnorm, angle, temp_pend);
+  if (found)
   {
-    double t = roots[i];
-    if (t < -MERGE_VERTEX_RATIO || t > 1 + MERGE_VERTEX_RATIO)
-    {
-      continue;
-    }
-    if (t >= -MERGE_VERTEX_RATIO && t < 0)
-    {
-      t = 0;
-    }
-    if (t > 1 && t <= 1 + MERGE_VERTEX_RATIO)
-    {
-      t = 1;
-    }
-    if (t >= 0 && t <= 1)
-    {
-      p_end.push_back(vs + t * ves);
+    for(int i=0;i<temp_pend.size();i++){
+      edge_out.push_back(checking_he);
+      p_end.push_back(temp_pend[i]);
     }
   }
   return p_end.size();
 }
-
+template<typename Tp>
+void extend_vector(const Tp& first, const Tp& second, Tp& result){
+  result=first.insert(first.end(),second.begin(),second.end());
+}
+template<typename Tp>
+void vector_duplicate(const Tp& input, const int size, std::vector<Tp>& result){
+  result.resize(size);
+  for(int i=0;i<size;i++){
+    result[i]=input;
+  }
+}
 // please initialize quadricCalculator before tracing a single step
+// the idea is to first check if point_middle is a vertex. 
+// if yes, then search in the one-ring edges to find the candidate intersections;
+// otherwise, search the other two edges of the neighbouring face.
+// after finding all the candidates, find the best point, which satisfies:
+// 1. form an obtuse angle with the previous segment; 2. choose the one that form the angle most similar with the previous segment
+// TODO should also consider about the inner product between the binormal and normal
+// angle is in degree, when degree is 90, is a geodesic.
 bool lsTools::get_pseudo_vertex_and_trace_forward(
     QuadricCalculator &cc,
-    const Eigen::Vector3d &last_seg0, const Eigen::Vector3d &last_seg1, const double angle,
+    const std::vector<Eigen::Vector3d>& curve, const double angle_degree,
     const CGMesh::HalfedgeHandle &edge_in, const CGMesh::HalfedgeHandle &edge_middle,
     const Eigen::Vector3d &point_in, const Eigen::Vector3d &point_middle, CGMesh::HalfedgeHandle &edge_out,
-    const Eigen::Vector3d &point_out)
+    Eigen::Vector3d &point_out)
 {
   unsigned radius = 2;
-
+  bool is_geodesic=false;
+  double angle = angle_degree * PI / 180.; // the angle in radian
+  // std::vector<CGMesh::halfedge_handle> 
+  std::vector<Eigen::Vector3d> candidate_pts;
   // Precomputation
   // cc.init(V, F);// TODO move init out of this function
 
@@ -976,8 +974,10 @@ bool lsTools::get_pseudo_vertex_and_trace_forward(
   double dist_total = dist_from + dist_to;
   double from_ratio = dist_from / dist_total;
   double to_ratio = dist_to / dist_total;
-
-  if (from_ratio <= MERGE_VERTEX_RATIO || to_ratio <= MERGE_VERTEX_RATIO)
+  if(angle_degree>90-ANGLE_TOLERANCE||angle_degree<90+ANGLE_TOLERANCE){// it means it is a geodesic
+        is_geodesic=true;
+  }
+  if (from_ratio <= MERGE_VERTEX_RATIO || to_ratio <= MERGE_VERTEX_RATIO)// the point_middle is a vertex
   {
     CGMesh::VertexHandle center_handle;
     if (from_ratio <= MERGE_VERTEX_RATIO)
@@ -995,8 +995,27 @@ bool lsTools::get_pseudo_vertex_and_trace_forward(
       CGMesh::HalfedgeHandle edge_to_check = lsmesh.next_halfedge_handle(heh);
       assert(lsmesh.from_vertex_handle(edge_to_check).idx() != center_handle.idx());
       assert(lsmesh.to_vertex_handle(edge_to_check).idx() != center_handle.idx());
-      TODO
-    }
+      Eigen::Vector3d vs=V.row(lsmesh.from_vertex_handle(edge_to_check).idx());
+      Eigen::Vector3d ve=V.row(lsmesh.to_vertex_handle(edge_to_check).idx());
+      Eigen::Vector3d pnorm=norm_v.row(center_handle.idx());
+      if(is_geodesic){// it means it is a geodesic
+        bool found=find_geodesic_intersection_p1_is_ver(point_in,point_middle,vs,ve,pnorm,point_out);
+        if(found){
+          edge_out=edge_to_check;
+          return true;
+        }
+      }// geodesic end
+      else{
+        std::vector<Eigen::Vector3d> tmp_candidates;
+        std::vector<CGMesh::HalfedgeHandle> tmp_hehs;
+        bool found = find_osculating_plane_intersection_not_geodesic_p1_is_ver(point_in,point_middle,vs,ve,pnorm,angle,tmp_candidates);
+        if(found){
+          extend_vector
+          candidate_pts
+        }
+      }
+    }// end of searching all the one-ring edges
+    return false;
   }
 
   int fid2 = lsmesh.opposite_face_handle(edge_middle).idx();
