@@ -12,7 +12,7 @@ typedef Eigen::SparseVector<double> Efunc;
 typedef Eigen::Triplet<double> Trip;
 #define SCALAR_ZERO 1e-8
 #define MERGE_VERTEX_RATIO 0.01
-#define PI 3.14159265
+#define LSC_PI 3.14159265
 #define ANGLE_TOLERANCE 2.
 class TracCurve
 {
@@ -97,8 +97,12 @@ private:
                                                   const CGMesh::HalfedgeHandle &edge_middle, const Eigen::Vector3d &pnorm, CGMesh::HalfedgeHandle &edge_out, Eigen::Vector3d &p_end);
     bool find_osculating_plane_intersection_not_geodesic_p1_is_not_ver(const Eigen::Vector3d &p0, const Eigen::Vector3d &p1,
                                                                        const CGMesh::HalfedgeHandle &edge_middle, const Eigen::Vector3d &pnorm, const double angle, std::vector<CGMesh::HalfedgeHandle> &edge_out, std::vector<Eigen::Vector3d> &p_end);
-    bool get_pseudo_vertex_and_trace_forward(QuadricCalculator &cc,
-                                             const Eigen::Vector3d &point_out);
+    bool get_pseudo_vertex_and_trace_forward(
+        QuadricCalculator &cc,
+        const std::vector<Eigen::Vector3d> &curve, const double angle_degree,
+        const CGMesh::HalfedgeHandle &edge_middle,
+        const Eigen::Vector3d &point_in, const Eigen::Vector3d &point_middle, CGMesh::HalfedgeHandle &edge_out,
+        Eigen::Vector3d &point_out, bool &generate_pseudo_vertex, Eigen::Vector3d &pseudo_vertex_out);
     void trace_single_pseudo_geodesic_curve(const double angle);
 
 public:
