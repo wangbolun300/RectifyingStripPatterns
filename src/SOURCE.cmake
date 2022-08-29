@@ -10,6 +10,7 @@ src/igl_tool.cpp
 src/igl_tool.h
 src/tools.cpp
 src/tools.h
+src/tracing.cpp
 )
 ################################################################################
 # Subfolders
