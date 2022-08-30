@@ -104,6 +104,9 @@ private:
         const CGMesh::HalfedgeHandle &edge_middle,
         const Eigen::Vector3d &point_in, const Eigen::Vector3d &point_middle, CGMesh::HalfedgeHandle &edge_out,
         Eigen::Vector3d &point_out, bool &generate_pseudo_vertex, Eigen::Vector3d &pseudo_vertex_out);
+    bool init_pseudo_geodesic_first_segment(const double target_angle,
+                                                 const CGMesh::HalfedgeHandle &start_boundary_edge, const double &start_point_para,
+                                        const double start_boundary_angle_degree,const Eigen::Vector3d &normal);
     // start_point_para is the parameter t, start_point=from+t*(to-from).
     // start_angle_degree is the angle between the initial direction and the direction from->to
     bool trace_single_pseudo_geodesic_curve(const double target_angle,

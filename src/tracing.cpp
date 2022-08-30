@@ -394,6 +394,38 @@ void pseudo_geodesic_intersection_filter_by_closeness(
     id = closest_id;
     return;
 }
+void initial_segment_intersection_filter_by_closeness(
+     const double angle_degree,
+    const Eigen::Vector3d &start_point,
+    const Eigen::Vector3d& reference_direction,
+    const std::vector<Eigen::Vector3d> &candi_points, int &id)
+{
+    double angle_radian = angle_degree * LSC_PI / 180;
+    assert(candi_points.size() > 0);
+    if (candi_points.size() == 1)
+    {
+        id = 0;
+        return;
+    }
+    int closest_id = -1;
+    double closest_angle_diff_radian = 370. * LSC_PI / 180.;
+
+    for (int i = 0; i < candi_points.size(); i++)
+    {
+        Eigen::Vector3d direction=(candi_points[i]-start_point).normalized();
+        double inner_product = direction.dot(reference_direction);
+        double angle_tmp_radian = acos(inner_product);
+        double angle_diff = std::min(fabs(angle_tmp_radian - angle_radian), fabs(2 * LSC_PI - angle_tmp_radian - angle_radian));
+        if (angle_diff < closest_angle_diff_radian)
+        {
+            closest_angle_diff_radian = angle_diff;
+            closest_id = i;
+        }
+    }
+    // already found the vertex that forms the angle most close to the given one
+    id = closest_id;
+    return;
+}
 
 // please initialize quadricCalculator before tracing a single step
 // the idea is to first check if point_middle is a vertex.
@@ -680,16 +712,88 @@ std::vector<Eigen::Vector3d>& point_out){
     }
     return true;
 }
-void lsTools::init_pseudo_geodesic_first_segment(const double target_angle,
-                                                 const CGMesh::HalfedgeHandle &start_boundary_edge, const double &start_point_para,
-                                                 const double start_boundary_angle_degree){
-
-}
-
-bool lsTools::trace_single_pseudo_geodesic_curve(const double target_angle,
-                                                 const CGMesh::HalfedgeHandle &start_boundary_edge, const double &start_point_para,
-                                                 const double start_boundary_angle_degree,const Eigen::Vector3d &normal,
-                                                 std::vector<Eigen::Vector3d> &curve)
+bool lsTools::init_pseudo_geodesic_first_segment(
+                                                 const CGMesh::HalfedgeHandle &start_boundary_edge_pre, const double &start_point_para,
+                                                 const double start_boundary_angle_degree,
+                                                 CGMesh::HalfedgeHandle& intersected_handle,
+                                                 Eigen::Vector3d& intersected_point)
 {
-    return false;
+    CGMesh::HalfedgeHandle start_boundary_edge;
+    if (lsmesh.face_handle(start_boundary_edge_pre).idx() < 0)
+    {
+        start_boundary_edge = lsmesh.opposite_halfedge_handle(start_boundary_edge_pre);
+    }
+    else
+    {
+        start_boundary_edge = start_boundary_edge_pre;
+    }
+    Eigen::Vector3d vf = V.row(lsmesh.from_vertex_handle(start_boundary_edge).idx());
+    Eigen::Vector3d vt = V.row(lsmesh.to_vertex_handle(start_boundary_edge).idx());
+    Eigen::Vector3d start_point = vf + start_point_para * (vt - vf);
+    Eigen::Vector3d reference_direction = (vt - vf).normalized();
+    std::vector<CGMesh::HalfedgeHandle> handle_out, handle_out2;
+    std::vector<Eigen::Vector3d> point_out, point_out2;
+    
+    if (start_point_para == 0||start_point_para==1){
+        CGMesh::VertexHandle center_handle;
+        if(start_point_para==0){
+            center_handle = lsmesh.from_vertex_handle(start_boundary_edge);
+        }
+        else{
+            center_handle = lsmesh.to_vertex_handle(start_boundary_edge);
+        }
+        Eigen::Vector3d normal = V.row(center_handle.idx());
+        for (CGMesh::VertexOHalfedgeIter voh_itr = lsmesh.voh_begin(center_handle);
+             voh_itr != lsmesh.voh_end(center_handle); ++voh_itr)
+        {
+
+            auto heh = voh_itr.handle();
+            CGMesh::HalfedgeHandle edge_to_check = lsmesh.next_halfedge_handle(heh);
+            assert(lsmesh.from_vertex_handle(edge_to_check).idx() != center_handle.idx());
+            assert(lsmesh.to_vertex_handle(edge_to_check).idx() != center_handle.idx());
+            Eigen::Vector3d vs = V.row(lsmesh.from_vertex_handle(edge_to_check).idx());
+            Eigen::Vector3d ve = V.row(lsmesh.to_vertex_handle(edge_to_check).idx());
+            find_initial_direction_intersection_on_edge(start_point, start_boundary_angle_degree, reference_direction,
+                                                        vs, ve, normal, edge_to_check, handle_out, point_out);
+        }
+    }
+
+    // check next halfedge
+    int fid=lsmesh.face_handle(start_boundary_edge).idx();
+    Eigen::Vector3d normal=norm_f.row(fid);
+    CGMesh::HalfedgeHandle checking_he = lsmesh.next_halfedge_handle(start_boundary_edge);
+    Eigen::Vector3d vs;
+    Eigen::Vector3d ve;
+    assert(lsmesh.face_handle(start_boundary_edge).idx() == lsmesh.face_handle(checking_he).idx());
+    vs = V.row(lsmesh.from_vertex_handle(checking_he).idx());
+    ve = V.row(lsmesh.to_vertex_handle(checking_he).idx());
+    find_initial_direction_intersection_on_edge(start_point, start_boundary_angle_degree, reference_direction,
+                                                        vs, ve, normal, checking_he, handle_out, point_out);
+    // check the previous halfedge
+    checking_he = lsmesh.prev_halfedge_handle(start_boundary_edge);
+    assert(lsmesh.face_handle(start_boundary_edge).idx() == lsmesh.face_handle(checking_he).idx());
+    vs = V.row(lsmesh.from_vertex_handle(checking_he).idx());
+    ve = V.row(lsmesh.to_vertex_handle(checking_he).idx());
+    find_initial_direction_intersection_on_edge(start_point, start_boundary_angle_degree, reference_direction,
+                                                        vs, ve, normal, checking_he, handle_out, point_out);
+    pseudo_geodesic_intersection_satisfy_angle_quadrant(start_boundary_angle_degree,reference_direction,start_point,
+    normal,handle_out,point_out, handle_out2,point_out2);
+    if(point_out2.size()==0){
+        return false;
+    }
+    int result_id=-1;
+    initial_segment_intersection_filter_by_closeness(start_boundary_angle_degree,start_point,
+    reference_direction,point_out2,result_id);
+    intersected_handle=handle_out2[result_id];
+    intersected_point=point_out2[result_id];
+
 }
+
+    bool lsTools::trace_single_pseudo_geodesic_curve(const double target_angle,
+                                                     const CGMesh::HalfedgeHandle &start_boundary_edge, const double &start_point_para,
+                                                     const double start_boundary_angle_degree, const Eigen::Vector3d &normal,
+                                                     std::vector<Eigen::Vector3d> &curve)
+    {
+        init_pseudo_geodesic_first_segment()
+        return false;
+    }
