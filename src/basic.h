@@ -104,14 +104,16 @@ private:
         const CGMesh::HalfedgeHandle &edge_middle,
         const Eigen::Vector3d &point_in, const Eigen::Vector3d &point_middle, CGMesh::HalfedgeHandle &edge_out,
         Eigen::Vector3d &point_out, bool &generate_pseudo_vertex, Eigen::Vector3d &pseudo_vertex_out);
-    bool init_pseudo_geodesic_first_segment(const double target_angle,
-                                                 const CGMesh::HalfedgeHandle &start_boundary_edge, const double &start_point_para,
-                                        const double start_boundary_angle_degree,const Eigen::Vector3d &normal);
+    bool init_pseudo_geodesic_first_segment(
+                                                 const CGMesh::HalfedgeHandle &start_boundary_edge_pre, const double &start_point_para,
+                                                 const double start_boundary_angle_degree,
+                                                 CGMesh::HalfedgeHandle& intersected_handle,
+                                                 Eigen::Vector3d& intersected_point);
     // start_point_para is the parameter t, start_point=from+t*(to-from).
     // start_angle_degree is the angle between the initial direction and the direction from->to
     bool trace_single_pseudo_geodesic_curve(const double target_angle,
                                             const CGMesh::HalfedgeHandle &start_boundary_edge, const double &start_point_para, 
-                                            const double start_angle_degree, const Eigen::Vector3d &normal
+                                            const double start_angle_degree, const Eigen::Vector3d &normal,
                                             std::vector<Eigen::Vector3d> &curve);
 
 public:
@@ -180,6 +182,7 @@ public:
     void show_1_order_derivate(Eigen::MatrixXd &E0, Eigen::MatrixXd &E1, Eigen::MatrixXd &E2, Eigen::MatrixXd &E3, double ratio);
     void show_face_1_order_derivate(Eigen::MatrixXd &E0, Eigen::MatrixXd &E1, Eigen::MatrixXd &E2, Eigen::MatrixXd &E3, double ratio);
     void show_vertex_normal(Eigen::MatrixXd &E0, Eigen::MatrixXd &E1, double ratio);
+    void show_pseudo_geodesic_curve(Eigen::MatrixXd &E0, Eigen::MatrixXd &E1);
 
     void initialize_and_smooth_level_set_by_laplacian();
     void initialize_and_optimize_strip_width();
