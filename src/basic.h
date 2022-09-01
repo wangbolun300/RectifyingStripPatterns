@@ -62,8 +62,10 @@ private:
     spMat mass;       // mass(i,i) is the area of the voronoi cell of vertex vi
     // spMat F2V;                                       // the matrix averaging face values to vertices values, acorrding to the angels
     spMat ORB;              // the matrix where the (i,i) element show if it is a boundary vertex or one-ring vertex of boundary
+    std::vector<CGMesh::HalfedgeHandle> Boundary_Edges;
     Eigen::MatrixXd norm_e; // normal directions on each edge
     std::vector<TracCurve> trace;
+    std::vector<Eigen::Vector3d> trace_vers;
 
     bool derivates_calculated = false;
     void
@@ -113,7 +115,7 @@ private:
     // start_angle_degree is the angle between the initial direction and the direction from->to
     bool trace_single_pseudo_geodesic_curve(const double target_angle,
                                             const CGMesh::HalfedgeHandle &start_boundary_edge, const double &start_point_para, 
-                                            const double start_angle_degree, const Eigen::Vector3d &normal,
+                                            const double start_angle_degree, 
                                             std::vector<Eigen::Vector3d> &curve);
 
 public:
@@ -182,7 +184,7 @@ public:
     void show_1_order_derivate(Eigen::MatrixXd &E0, Eigen::MatrixXd &E1, Eigen::MatrixXd &E2, Eigen::MatrixXd &E3, double ratio);
     void show_face_1_order_derivate(Eigen::MatrixXd &E0, Eigen::MatrixXd &E1, Eigen::MatrixXd &E2, Eigen::MatrixXd &E3, double ratio);
     void show_vertex_normal(Eigen::MatrixXd &E0, Eigen::MatrixXd &E1, double ratio);
-    void show_pseudo_geodesic_curve(Eigen::MatrixXd &E0, Eigen::MatrixXd &E1);
+    void show_pseudo_geodesic_curve(Eigen::MatrixXd &E0, Eigen::MatrixXd &E1, Eigen::MatrixXd &vers);
 
     void initialize_and_smooth_level_set_by_laplacian();
     void initialize_and_optimize_strip_width();

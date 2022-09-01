@@ -467,6 +467,7 @@ int main(int argc, char* argv[])
 				CGMesh inputMesh = lscif::Meshes[id];
 				lscif::tools.init(inputMesh);
                 lscif::tools.initialize_mesh_properties();
+				// calculate the pseudo-geodesic
 				lscif::tools.debug_tool(lscif::dbg_int,lscif::dbg_dbl);
 				lscif::updateMeshViewer(viewer, inputMesh);
 				lscif::meshFileName.push_back("dbg_" + lscif::meshFileName[id]);
@@ -478,8 +479,17 @@ int main(int argc, char* argv[])
 				Eigen::MatrixXd RGB = Eigen::MatrixXd::Identity(3, 3);
 				Eigen::MatrixXd E2, E3, Ea0, Ea1;
 				Eigen::MatrixXd pts;
-				lscif::tools.show_current_reference_points(pts);
-				viewer.data().add_points(pts, red);
+				lscif::tools.show_pseudo_geodesic_curve(E0,E1, pts);
+				viewer.data().add_edges(E0,E1,red);
+				if(0){
+					lscif::tools.show_current_reference_points(pts);
+					viewer.data().add_points(pts, red);
+				}
+				if(1){
+					viewer.data().add_points(pts, red);
+				}
+				
+				
 				viewer.selected_data_index = id;
 			}
             ImGui::SameLine();

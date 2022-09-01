@@ -184,15 +184,15 @@ void lsTools::get_rotated_edges_for_each_face()
             if(debug_counter<100){// debug tool
                 debug_counter++;
                 assert(lsmesh.face_handle(heh).idx()==fid);
-                std::cout<<"the face id is "<<fid<<", the corresponding edge is "<<vid1<<" "<<vid2<<std::endl;
+                // std::cout<<"the face id is "<<fid<<", the corresponding edge is "<<vid1<<" "<<vid2<<std::endl;
                 auto opposite=lsmesh.opposite_face_handle(heh);
                 if( lsmesh.is_boundary(lsmesh.from_vertex_handle(heh))&&lsmesh.is_boundary(lsmesh.to_vertex_handle(heh))){
-                    std::cout<<"it is already boundary"<<std::endl;
+                    // std::cout<<"it is already boundary"<<std::endl;
 
                 }
                 else{
-                    std::cout<<"opposite is "<<opposite.idx();
-                    std::cout<<", the corresponding edges are "<<F.row(opposite.idx())<<std::endl<<std::endl;
+                    // std::cout<<"opposite is "<<opposite.idx();
+                    // std::cout<<", the corresponding edges are "<<F.row(opposite.idx())<<std::endl<<std::endl;
                 }
                 
             }
@@ -338,13 +338,21 @@ void lsTools::get_bnd_and_bnd_one_ring()
         }
     }
     ORB=flags.asDiagonal();
-    // for(int i=0;i<vnbr;i++){
-    //     if(flags(i)>0){
-    //         triplets.push_back(Trip(i,i,1.));
-    //     }
-    // }
+    // get all the boundary halfedges
+    std::vector<CGMesh::HalfedgeHandle> hdls;
+    for (CGMesh::EdgeIter e_it = lsmesh.edges_begin(); e_it != lsmesh.edges_end(); ++e_it)
+	 {
+		 OpenMesh::HalfedgeHandle hh = lsmesh.halfedge_handle(e_it, 0);
+		 if (!hh.is_valid()) hh = lsmesh.halfedge_handle(e_it, 1);
+		 CGMesh::VertexHandle vfrom=lsmesh.from_vertex_handle(hh);
+         CGMesh::VertexHandle vto=lsmesh.to_vertex_handle(hh);
+        if(lsmesh.is_boundary(vfrom)&&lsmesh.is_boundary(vto)){
+            // this is a boundary halfedge.
+            hdls.push_back(hh);
+        }
+	 }
+     Boundary_Edges=hdls;
 
-    // ORB.setFromTriplets(triplets.begin(),triplets.end());
 }
 void lsTools::get_function_gradient_vertex()
 {

@@ -71,13 +71,16 @@ void mat_col_to_triplets(const spMat &mat, const int col, const int ref, const b
 }
 void lsTools::debug_tool(int id, double value)
     {
-        int vnbr=V.rows();
-        refids.clear();
-        for(int i=0;i<vnbr;i++){
-            if(ORB.coeffRef(i,i)>0){
-                refids.push_back(i);
-            }
-        }
+        std::cout<<"checking one pseudo geodesic"<<std::endl;
+        double start_point_para=0.5;
+        double start_angle_degree=60;
+        double target_angle=value;
+        std::vector<Eigen::Vector3d> curve;
+        trace_single_pseudo_geodesic_curve(target_angle,Boundary_Edges[id],start_point_para,start_angle_degree,
+        curve);
+         // TODO temporarily checking one trace line
+        trace_vers=curve;
+        
     }
 void extend_triplets_offset(std::vector<Trip>& triplets, const spMat& mat, int offrow, int offcol){
     for (int i = 0; i < mat.outerSize(); i++)

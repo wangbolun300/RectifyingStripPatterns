@@ -436,7 +436,7 @@ void initial_segment_intersection_filter_by_closeness(
 // TODO should also consider about the inner product between the binormal and normal
 // TODO maybe we consider the start point of each step as the pseudo-vertex of the last step?
 // TODO since the intersections cannot be found only when tracing asymptotics, we can set a tolerance for enable pseudo-vertices.
-// angle is in degree, when degree is 90, is a geodesic.
+// angle is in degree, when degree is 0, is a geodesic. when degree is 90, it is an asymptotic
 bool lsTools::get_pseudo_vertex_and_trace_forward(
     QuadricCalculator &cc,
     const std::vector<Eigen::Vector3d> &curve, const double angle_degree,
@@ -476,9 +476,10 @@ bool lsTools::get_pseudo_vertex_and_trace_forward(
     double dist_total = dist_from + dist_to;
     double from_ratio = dist_from / dist_total;
     double to_ratio = dist_to / dist_total;
-    if (angle_degree > 90 - ANGLE_TOLERANCE || angle_degree < 90 + ANGLE_TOLERANCE)
+    if (angle_degree > 90 - ANGLE_TOLERANCE && angle_degree < 90 + ANGLE_TOLERANCE)
     { // it means it is a geodesic
         is_geodesic = true;
+        std::cout<<"**tracing a geodesic"<<std::endl;
     }
     if (from_ratio <= MERGE_VERTEX_RATIO || to_ratio <= MERGE_VERTEX_RATIO) // the point_middle is a vertex
     {
@@ -780,6 +781,7 @@ bool lsTools::init_pseudo_geodesic_first_segment(
     pseudo_geodesic_intersection_satisfy_angle_quadrant(start_boundary_angle_degree,reference_direction,start_point,
     normal,handle_out,point_out, handle_out2,point_out2);
     if(point_out2.size()==0){
+        std::cout<<"ERROR: no point satisfies the angle quadrant in initialization"<<std::endl;
         return false;
     }
     int result_id=-1;
@@ -787,6 +789,7 @@ bool lsTools::init_pseudo_geodesic_first_segment(
     reference_direction,point_out2,result_id);
     intersected_handle=handle_out2[result_id];
     intersected_point=point_out2[result_id];
+    return true;
 
 }
 void update_tracing_list(const Eigen::Vector3d& ver, const Eigen::Vector3d& pver, const CGMesh::HalfedgeHandle& handle,
@@ -800,9 +803,10 @@ Eigen::Vector3d the_first_point(const Eigen::Vector3d& vs, const Eigen::Vector3d
 }
     bool lsTools::trace_single_pseudo_geodesic_curve(const double target_angle_degree,
                                                      const CGMesh::HalfedgeHandle &start_boundary_edge, const double &start_point_para,
-                                                     const double start_boundary_angle_degree, const Eigen::Vector3d &normal,
+                                                     const double start_boundary_angle_degree,
                                                      std::vector<Eigen::Vector3d> &curve)
-    {   CGMesh::HalfedgeHandle intersected_handle_tmp;
+    {   curve.clear();
+        CGMesh::HalfedgeHandle intersected_handle_tmp;
         Eigen::Vector3d intersected_point_tmp;
         bool found=init_pseudo_geodesic_first_segment(start_boundary_edge,start_point_para,start_boundary_angle_degree,
         intersected_handle_tmp,intersected_point_tmp);
@@ -811,7 +815,7 @@ Eigen::Vector3d the_first_point(const Eigen::Vector3d& vs, const Eigen::Vector3d
             return false;
         }
         QuadricCalculator cc;
-        std::vector<Eigen::Vector3d> curve, pcurve;
+        std::vector<Eigen::Vector3d> pcurve;
         std::vector<CGMesh::HalfedgeHandle> handles;
         Eigen::Vector3d first_point=the_first_point(
             V.row(lsmesh.from_vertex_handle(start_boundary_edge).idx()),
@@ -822,11 +826,13 @@ Eigen::Vector3d the_first_point(const Eigen::Vector3d& vs, const Eigen::Vector3d
         curve.push_back(intersected_point_tmp);
         handles.push_back(intersected_handle_tmp);
         cc.init(V,F);// TODO move this out of this function
+        std::cout<<"target angle "<<target_angle_degree<<std::endl;
         for(int i=0;;i++){
             CGMesh::HalfedgeHandle edge_out;
-            Eigen::Vector3d point_out;
+            Eigen::Vector3d point_out,pseudo_vertex_out;
             bool generate_pseudo_vertex;
             found= get_pseudo_vertex_and_trace_forward(cc,curve,target_angle_degree,intersected_handle_tmp,first_point,
+            
             intersected_point_tmp,edge_out,point_out,generate_pseudo_vertex,pseudo_vertex_out);
             if(found){
 
@@ -839,12 +845,23 @@ Eigen::Vector3d the_first_point(const Eigen::Vector3d& vs, const Eigen::Vector3d
             else{
                 // the last pseudo point is the middle point of this step, aka the out point of last step
                 pcurve.push_back(intersected_point_tmp);
+                break;
             }
         }
-
-        
+        assert(pcurve.size()==curve.size());
         return true;
     }
-    void lsTools::show_pseudo_geodesic_curve(Eigen::MatrixXd &E0, Eigen::MatrixXd &E1){
-_LIBCPP_ALLOCATOR_TRAITS_HAS_XXX
+    void lsTools::show_pseudo_geodesic_curve(Eigen::MatrixXd &E0, Eigen::MatrixXd &E1, Eigen::MatrixXd& vers){
+        
+        int vsize=trace_vers.size();
+        E0.resize(vsize-1,3);
+        E1.resize(vsize-1,3);
+        for(int i=0;i<vsize-1;i++){
+            E0.row(i)=trace_vers[i];
+            E1.row(i)=trace_vers[i+1];
+        }
+        vers.resize(vsize,3);
+        for(int i=0;i<vsize;i++){
+            vers.row(i)=trace_vers[i];
+        }
     }
