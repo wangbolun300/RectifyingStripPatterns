@@ -460,6 +460,7 @@ int main(int argc, char *argv[])
 				const Eigen::RowVector3d red(0.8, 0.2, 0.2);
 				const Eigen::RowVector3d blue(0.2, 0.2, 0.8);
 				const Eigen::RowVector3d black(0, 0, 0);
+				const Eigen::RowVector3d green(0.2, 0.8, 0.2);
 				Eigen::MatrixXd RGB = Eigen::MatrixXd::Identity(3, 3);
 				Eigen::MatrixXd E2, E3, Ea0, Ea1;
 				Eigen::MatrixXd pts;
@@ -483,7 +484,10 @@ int main(int argc, char *argv[])
 				}
 				std::cout << "checking query size " << lscif::tools.ver_dbg1.rows() << std::endl;
 				std::cout << "checking result size " << lscif::tools.ver_dbg.rows() << std::endl;
-
+				Eigen::MatrixXd Edge1_dbg=lscif::tools.E0_dbg+lscif::tools.direction_dbg*lscif::vector_scaling;
+				viewer.data().add_edges(lscif::tools.E0_dbg,Edge1_dbg,green);
+				Eigen::MatrixXd Edge2_dbg=lscif::tools.E0_dbg+lscif::tools.pnorm_dbg*lscif::vector_scaling;
+				viewer.data().add_edges(lscif::tools.E0_dbg,Edge2_dbg,black);
 				viewer.selected_data_index = id;
 			}
 			ImGui::SameLine();

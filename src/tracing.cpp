@@ -276,8 +276,21 @@ bool find_osculating_plane_intersection_not_geodesic_p1_is_ver(const Eigen::Vect
         if (t >= 0 && t <= 1)
         {
             p_end.push_back(vs + t * ves);
+            // this is just for debug
+            Eigen::Vector3d direction0=(p1-p0).normalized();
+            Eigen::Vector3d direction1=(vs + t * ves-p1).normalized();
+            Eigen::Vector3d pseudo_norm=direction0.cross(direction1).normalized();
+            double dot_product=pseudo_norm.dot(pnorm);
+            double cos_sqr=dot_product*dot_product;
+
+            
+            std::cout << "**INSIDE, cosin^2 = "<<cos_sqr<<std::endl;
+            std::cout<<"the pseudo_norm "<<pseudo_norm.transpose()<<std::endl;
+            std::cout<<"the pnorm "<<pnorm.transpose()<<std::endl;
         }
     }
+
+    // debug end
     return p_end.size();
 }
 
@@ -445,7 +458,7 @@ bool lsTools::get_pseudo_vertex_and_trace_forward(
     const Eigen::Vector3d &point_in, const Eigen::Vector3d &point_middle, CGMesh::HalfedgeHandle &edge_out,
     Eigen::Vector3d &point_out, bool &generate_pseudo_vertex, Eigen::Vector3d &pseudo_vertex_out)
 {
-    // std::cout<<"inside trace forward"<<std::endl;
+    std::cout<<"inside trace forward, curve size = "<<curve.size()<<std::endl;
     unsigned radius = 2;
     bool is_geodesic = false;
     pseudo_vertex_out = point_middle; // by default the pseudo vertex is the point middle
@@ -495,6 +508,7 @@ bool lsTools::get_pseudo_vertex_and_trace_forward(
             center_handle = lsmesh.to_vertex_handle(edge_middle);
         }
         Eigen::Vector3d pnorm = norm_v.row(center_handle.idx());
+        pnorm_list_dbg.push_back(pnorm);
         for (CGMesh::VertexOHalfedgeIter voh_itr = lsmesh.voh_begin(center_handle);
              voh_itr != lsmesh.voh_end(center_handle); ++voh_itr)
         {
@@ -553,6 +567,7 @@ bool lsTools::get_pseudo_vertex_and_trace_forward(
                     flag_dbg = false;
                 }
             }
+            
             pseudo_geodesic_intersection_filter_by_closeness(curve, angle_degree, pnorm, candidate_pts, id);
             edge_out = candidate_handles[id];
             point_out = candidate_pts[id];
@@ -567,6 +582,7 @@ bool lsTools::get_pseudo_vertex_and_trace_forward(
     Eigen::Vector3d norm1 = norm_f.row(fid1);
     Eigen::Vector3d norm2 = norm_f.row(fid2);
     Eigen::Vector3d pnorm = (norm1 + norm2).normalized(); // the normal of the pseudo-vertex
+    pnorm_list_dbg.push_back(pnorm);
     Eigen::Vector3d pver;
     cc.get_pseudo_vertex_on_edge(cent_id, point_middle, pnorm, pver);
     generate_pseudo_vertex = true; // TODO add tolerance

@@ -1,4 +1,5 @@
 #include <lsc/basic.h>
+#include <lsc/tools.h>
 
 std::vector<Trip> to_triplets(spMat &M)
 {
@@ -78,9 +79,30 @@ void lsTools::debug_tool(int id, int id2, double value)
     std::vector<Eigen::Vector3d> curve;
     flag_dbg = true;
     id_dbg = id2;
+
     trace_single_pseudo_geodesic_curve(target_angle, Boundary_Edges[id], start_point_para, start_angle_degree,
                                        curve);
     flag_dbg = false;
+    int nbr_midpts = curve.size() - 2;
+    E0_dbg.resize(nbr_midpts, 3);
+    direction_dbg.resize(nbr_midpts, 3);
+    for (int i = 0; i < nbr_midpts; i++)
+    {
+        E0_dbg.row(i) = curve[i + 1];
+        Eigen::Vector3d vec0 = (curve[i + 1] - curve[i]).normalized();
+        Eigen::Vector3d vec1 = (curve[i + 2] - curve[i + 1]).normalized();
+        direction_dbg.row(i) = vec0.cross(vec1).normalized();// pseudo normal
+    }
+    assert(pnorm_list_dbg.size() == nbr_midpts);
+    pnorm_dbg=vec_list_to_matrix(pnorm_list_dbg);
+    // check the abs(consin)
+    for (int i = 0; i < nbr_midpts; i++){
+        Eigen::Vector3d tmp_dir1=direction_dbg.row(i);
+        Eigen::Vector3d tmp_dir2=pnorm_list_dbg[i];
+        double cosin=tmp_dir1.dot(tmp_dir2);
+        std::cout<<i<<"th cosin "<<cosin<<std::endl;
+    }
+
     // TODO temporarily checking one trace line
     trace_vers = curve;
 }

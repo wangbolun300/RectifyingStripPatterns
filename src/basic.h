@@ -140,6 +140,11 @@ public:
     Eigen::MatrixXd ver_dbg1;
     bool flag_dbg = false;
     int id_dbg;
+    Eigen::MatrixXd E0_dbg;
+    Eigen::MatrixXd direction_dbg;
+    Eigen::MatrixXd pnorm_dbg;
+    std::vector<Eigen::Vector3d> pnorm_list_dbg;
+
 
     // this function should be calculated first once the class get constructed
     //  1. get face normals;
