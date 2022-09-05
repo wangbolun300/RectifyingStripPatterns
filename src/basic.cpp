@@ -168,7 +168,7 @@ void lsTools::get_vertex_rotation_matices()
 void lsTools::get_rotated_edges_for_each_face()
 {
     Erotate.resize(F.rows());
-    int debug_counter=0;
+    int debug_counter = 0;
     // the 3 edges are in the order of the openmesh face-edge iterator provides us
     for (CGMesh::FaceIter f_it = lsmesh.faces_begin(); f_it != (lsmesh.faces_end()); ++f_it)
     {
@@ -176,25 +176,25 @@ void lsTools::get_rotated_edges_for_each_face()
         int ecounter = 0;
         for (CGMesh::FaceHalfedgeIter fh_it = lsmesh.fh_begin(f_it); fh_it != (lsmesh.fh_end(f_it)); ++fh_it)
         {
-            
-            
+
             CGMesh::HalfedgeHandle heh = fh_it.current_halfedge_handle();
             int vid1 = lsmesh.from_vertex_handle(heh).idx();
             int vid2 = lsmesh.to_vertex_handle(heh).idx();
-            if(debug_counter<100){// debug tool
+            if (debug_counter < 100)
+            { // debug tool
                 debug_counter++;
-                assert(lsmesh.face_handle(heh).idx()==fid);
+                assert(lsmesh.face_handle(heh).idx() == fid);
                 // std::cout<<"the face id is "<<fid<<", the corresponding edge is "<<vid1<<" "<<vid2<<std::endl;
-                auto opposite=lsmesh.opposite_face_handle(heh);
-                if( lsmesh.is_boundary(lsmesh.from_vertex_handle(heh))&&lsmesh.is_boundary(lsmesh.to_vertex_handle(heh))){
+                auto opposite = lsmesh.opposite_face_handle(heh);
+                if (lsmesh.is_boundary(lsmesh.from_vertex_handle(heh)) && lsmesh.is_boundary(lsmesh.to_vertex_handle(heh)))
+                {
                     // std::cout<<"it is already boundary"<<std::endl;
-
                 }
-                else{
+                else
+                {
                     // std::cout<<"opposite is "<<opposite.idx();
                     // std::cout<<", the corresponding edges are "<<F.row(opposite.idx())<<std::endl<<std::endl;
                 }
-                
             }
             // if(1)
             // //if(!(vid1==F(fid,0)||vid1==F(fid,1)||vid1==F(fid,2))||!(vid2==F(fid,0)||vid2==F(fid,1)||vid2==F(fid,2)))
@@ -313,46 +313,48 @@ void lsTools::gradient_f2v(spMat &output)
 }
 void lsTools::get_bnd_and_bnd_one_ring()
 {
-    int vnbr=V.rows();
-    int fnbr=F.rows();
+    int vnbr = V.rows();
+    int fnbr = F.rows();
     std::vector<Trip> triplets;
     triplets.reserve(vnbr);
-    Eigen::VectorXd flags=Eigen::VectorXd::Ones(vnbr);// first by default set all vertices as non-boundary vertices
+    Eigen::VectorXd flags = Eigen::VectorXd::Ones(vnbr); // first by default set all vertices as non-boundary vertices
     for (CGMesh::VertexIter v_it = lsmesh.vertices_begin(); v_it != (lsmesh.vertices_end()); ++v_it)
     {
-        if(lsmesh.is_boundary(v_it.handle())){// find all the boundary vertices
-            int vid=v_it.handle().idx();
-            flags(vid)=0;
+        if (lsmesh.is_boundary(v_it.handle()))
+        { // find all the boundary vertices
+            int vid = v_it.handle().idx();
+            flags(vid) = 0;
         }
-        else// find all the vertices whose one-ring vertices contains boundary.
+        else // find all the vertices whose one-ring vertices contains boundary.
         {
             for (CGMesh::VertexVertexIter vv_it = lsmesh.vv_begin(v_it.handle()); vv_it != lsmesh.vv_end(v_it.handle()); ++vv_it)
             {
                 if (lsmesh.is_boundary(vv_it))
                 {
-                    int vid=v_it.handle().idx();
-                    flags(vid)=0;
+                    int vid = v_it.handle().idx();
+                    flags(vid) = 0;
                     break;
                 }
             }
         }
     }
-    ORB=flags.asDiagonal();
+    ORB = flags.asDiagonal();
     // get all the boundary halfedges
     std::vector<CGMesh::HalfedgeHandle> hdls;
     for (CGMesh::EdgeIter e_it = lsmesh.edges_begin(); e_it != lsmesh.edges_end(); ++e_it)
-	 {
-		 OpenMesh::HalfedgeHandle hh = lsmesh.halfedge_handle(e_it, 0);
-		 if (!hh.is_valid()) hh = lsmesh.halfedge_handle(e_it, 1);
-		 CGMesh::VertexHandle vfrom=lsmesh.from_vertex_handle(hh);
-         CGMesh::VertexHandle vto=lsmesh.to_vertex_handle(hh);
-        if(lsmesh.is_boundary(vfrom)&&lsmesh.is_boundary(vto)){
+    {
+        OpenMesh::HalfedgeHandle hh = lsmesh.halfedge_handle(e_it, 0);
+        if (!hh.is_valid())
+            hh = lsmesh.halfedge_handle(e_it, 1);
+        CGMesh::VertexHandle vfrom = lsmesh.from_vertex_handle(hh);
+        CGMesh::VertexHandle vto = lsmesh.to_vertex_handle(hh);
+        if (lsmesh.is_boundary(vfrom) && lsmesh.is_boundary(vto))
+        {
             // this is a boundary halfedge.
             hdls.push_back(hh);
         }
-	 }
-     Boundary_Edges=hdls;
-
+    }
+    Boundary_Edges = hdls;
 }
 void lsTools::get_function_gradient_vertex()
 {
@@ -367,12 +369,13 @@ void lsTools::get_function_gradient_vertex()
 
 void lsTools::get_function_hessian_vertex()
 {
-    
 
     // the code below is to use derivate of derivate
-    for(int i=0;i<3;i++){
-        for(int j=0;j<3;j++){
-            HessianV[i][j]=gradV[j]*gradV[i];
+    for (int i = 0; i < 3; i++)
+    {
+        for (int j = 0; j < 3; j++)
+        {
+            HessianV[i][j] = gradV[j] * gradV[i];
         }
     }
 }
@@ -551,7 +554,7 @@ void lsTools::make_sphere_ls_example(int rowid)
         std::cout << "qnorm calculated and norm " << gradient.norm() * ru.norm() * rv.norm() * sqrt(sin2) << " " << q.norm() << std::endl;
         double ang = atan(kg / kn) * 180 / 3.1415926;
         std::cout << "angle is " << ang << std::endl;
-        std::cout<<"angle calculated is "<<atan(b) * 180 / 3.1415926<<std::endl;
+        std::cout << "angle calculated is " << atan(b) * 180 / 3.1415926 << std::endl;
         if (writefile)
         {
             fout << ang << "," << up / down << "," << kg << "\n";
@@ -647,7 +650,6 @@ void lsTools::show_vertex_normal(Eigen::MatrixXd &E0, Eigen::MatrixXd &E1, doubl
     E1 = E0 + norm_v * ratio;
 }
 
-
 void lsTools::get_all_the_derivate_matrices()
 {
 
@@ -658,11 +660,11 @@ void lsTools::get_all_the_derivate_matrices()
     fxvec = gvvalue.col(0);
     fyvec = gvvalue.col(1);
     fzvec = gvvalue.col(2);
-    
+
     fx_diag = fxvec.asDiagonal();
     fy_diag = fyvec.asDiagonal();
     fz_diag = fzvec.asDiagonal();
-    
+
     Eigen::VectorXd grad_norm = gvvalue.rowwise().norm(); // take 1/||gradV(i)|| as ith diagnal element
     // invert grad_norm
     for (int i = 0; i < vsize; i++)
@@ -672,20 +674,18 @@ void lsTools::get_all_the_derivate_matrices()
             grad_norm(i) = 1. / grad_norm(i);
         }
     }
-    Eigen::MatrixXd grad_norm_mat(vsize,1);
-    grad_norm_mat.col(0)=grad_norm;
-    Eigen::DiagonalMatrix<double, Eigen::Dynamic, Eigen::Dynamic> grad_norm_diag=grad_norm_mat.asDiagonal();
+    Eigen::MatrixXd grad_norm_mat(vsize, 1);
+    grad_norm_mat.col(0) = grad_norm;
+    Eigen::DiagonalMatrix<double, Eigen::Dynamic, Eigen::Dynamic> grad_norm_diag = grad_norm_mat.asDiagonal();
     // each row of Dgrad_norm is the jacobian of ||gradV(i)||
     Dgrad_norm = grad_norm_diag * (fx_diag * gradV[0] + fy_diag * gradV[1] + fz_diag * gradV[2]);
     derivates_calculated = true;
 }
 
-
 // this version use libigl
 void lsTools::assemble_solver_laplacian_part(spMat &H, Efunc &B)
 {
     // laplacian matrix
-    
 
     spMat JTJ = Dlps.transpose() * Dlps;
     Efunc mJTF = dense_vec_to_sparse_vec(-JTJ * fvalues);
@@ -705,10 +705,10 @@ void lsTools::assemble_solver_strip_width_part(spMat &H, Efunc &B)
     {
         f(i) -= strip_width;
     }
-    spMat J=Dgrad_norm;
+    spMat J = Dgrad_norm;
     // now only consider about the interior vertices but not the boundaries and one ring from them
-    J =  J;
-    f =  f;
+    J = J;
+    f = f;
     // end of interior part
     spMat JTJ = J.transpose() * mass * J;
     Eigen::VectorXd mJTF_dense = -J.transpose() * mass * f;
@@ -719,7 +719,7 @@ void lsTools::assemble_solver_strip_width_part(spMat &H, Efunc &B)
 // // we summarize the problem as:
 // // grad(F).transpose()*grad(F).norm()*R*grad(F)-grad(F).transpose()*D.transpose()*hess(F)*D*grad(F).
 // void lsTools::assemble_solver_pseudo_geodesic_part(spMat &H, Efunc& B){
-    
+
 //     int vnbr=V.rows();
 //     int fnbr=F.rows();
 //     std::vector<Eigen::MatrixXd> Rlist(vnbr);// contains pseudo_geodesic_ratio
@@ -759,13 +759,12 @@ void lsTools::assemble_solver_strip_width_part(spMat &H, Efunc &B)
 //     diag_Rs= dense_mat_list_as_sparse_diagnal(Rlist);
 //     diag_Grad= dense_mat_list_as_sparse_diagnal(Glist);
 //     for(int i=0;i<vnbr;i++){
-        
+
 //         Jgrad.block(3 * i, 0, 1, vnbr) = gradV[0].block(i, 0, 1, vnbr);
 //         Jgrad.block(3 * i + 1, 0, 1, vnbr) = gradV[1].block(i, 0, 1, vnbr);
 //         Jgrad.block(3 * i + 2, 0, 1, vnbr) = gradV[2].block(i, 0, 1, vnbr);
 //     }
 //     spMat JFirst=Jgrad.transpose()*diag_grad_norm_trip*diag_Rs*diag_Grad;
-    
 
 // }
 // min()
@@ -825,7 +824,8 @@ void lsTools::initialize_and_smooth_level_set_by_laplacian()
     //     fvalues(F(assign_face_id, i)) = assign_value[i];
     // }
 }
-void lsTools::initialize_and_optimize_strip_width(){
+void lsTools::initialize_and_optimize_strip_width()
+{
     int vnbr = V.rows();
     int fnbr = F.rows();
 
@@ -848,7 +848,7 @@ void lsTools::initialize_and_optimize_strip_width(){
     // the matrices
     spMat H;
     Efunc B;
-    assemble_solver_strip_width_part(H,B);
+    assemble_solver_strip_width_part(H, B);
     H += weight_mass * mass;
     Eigen::SimplicialLLT<Eigen::SparseMatrix<double>> solver(H);
     assert(solver.info() == Eigen::Success);
@@ -857,20 +857,21 @@ void lsTools::initialize_and_optimize_strip_width(){
     level_set_step_length = dx.norm();
     fvalues += dx;
     // next check if the energy is getting lower
-    Eigen::VectorXd gnorms =  gvvalue.rowwise().norm();
+    Eigen::VectorXd gnorms = gvvalue.rowwise().norm();
     double energy = 0;
     for (int i = 0; i < vnbr; i++)
     {
         gnorms(i) -= strip_width;
     }
-    gnorms=gnorms;// check only the interior points
+    gnorms = gnorms; // check only the interior points
     for (int i = 0; i < vnbr; i++)
     {
         energy += mass.coeffRef(i, i) * gnorms(i) * gnorms(i);
     }
-    std::cout<<"energy:: "<<energy<<std::endl;
+    std::cout << "energy:: " << energy << std::endl;
 }
-void lsTools::get_all_the_edge_normals(){
+void lsTools::get_all_the_edge_normals()
+{
     // int enbr=lsmesh.n_edges();
     // norm_e.resize(enbr,3);
     // norm_e.

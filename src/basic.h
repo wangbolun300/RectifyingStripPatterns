@@ -61,7 +61,7 @@ private:
     spMat Dgrad_norm; // the derivates of the norm of gradients for all the vertices.
     spMat mass;       // mass(i,i) is the area of the voronoi cell of vertex vi
     // spMat F2V;                                       // the matrix averaging face values to vertices values, acorrding to the angels
-    spMat ORB;              // the matrix where the (i,i) element show if it is a boundary vertex or one-ring vertex of boundary
+    spMat ORB; // the matrix where the (i,i) element show if it is a boundary vertex or one-ring vertex of boundary
     std::vector<CGMesh::HalfedgeHandle> Boundary_Edges;
     Eigen::MatrixXd norm_e; // normal directions on each edge
     std::vector<TracCurve> trace;
@@ -107,15 +107,15 @@ private:
         const Eigen::Vector3d &point_in, const Eigen::Vector3d &point_middle, CGMesh::HalfedgeHandle &edge_out,
         Eigen::Vector3d &point_out, bool &generate_pseudo_vertex, Eigen::Vector3d &pseudo_vertex_out);
     bool init_pseudo_geodesic_first_segment(
-                                                 const CGMesh::HalfedgeHandle &start_boundary_edge_pre, const double &start_point_para,
-                                                 const double start_boundary_angle_degree,
-                                                 CGMesh::HalfedgeHandle& intersected_handle,
-                                                 Eigen::Vector3d& intersected_point);
+        const CGMesh::HalfedgeHandle &start_boundary_edge_pre, const double &start_point_para,
+        const double start_boundary_angle_degree,
+        CGMesh::HalfedgeHandle &intersected_handle,
+        Eigen::Vector3d &intersected_point);
     // start_point_para is the parameter t, start_point=from+t*(to-from).
     // start_angle_degree is the angle between the initial direction and the direction from->to
     bool trace_single_pseudo_geodesic_curve(const double target_angle,
-                                            const CGMesh::HalfedgeHandle &start_boundary_edge, const double &start_point_para, 
-                                            const double start_angle_degree, 
+                                            const CGMesh::HalfedgeHandle &start_boundary_edge, const double &start_point_para,
+                                            const double start_angle_degree,
                                             std::vector<Eigen::Vector3d> &curve);
 
 public:
@@ -136,6 +136,11 @@ public:
     double assign_value[3];
     double strip_width = 0;       // strip width, defined as h/w.
     double pseudo_geodesic_ratio; // k_g/k_n of the pseudo geodesic
+    Eigen::MatrixXd ver_dbg;
+    Eigen::MatrixXd ver_dbg1;
+    bool flag_dbg = false;
+    int id_dbg;
+
     // this function should be calculated first once the class get constructed
     //  1. get face normals;
     //  2. get all the angles;
@@ -189,7 +194,7 @@ public:
     void initialize_and_smooth_level_set_by_laplacian();
     void initialize_and_optimize_strip_width();
     void initialize_and_optimize_pseudo_geodesic();
-    void debug_tool(int id = 0, double value = 0);
+    void debug_tool(int id = 0, int id2 = 0, double value = 0);
     void make_sphere_ls_example(int rowid);
 };
 

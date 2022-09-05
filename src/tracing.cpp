@@ -395,9 +395,9 @@ void pseudo_geodesic_intersection_filter_by_closeness(
     return;
 }
 void initial_segment_intersection_filter_by_closeness(
-     const double angle_degree,
+    const double angle_degree,
     const Eigen::Vector3d &start_point,
-    const Eigen::Vector3d& reference_direction,
+    const Eigen::Vector3d &reference_direction,
     const std::vector<Eigen::Vector3d> &candi_points, int &id)
 {
     double angle_radian = angle_degree * LSC_PI / 180;
@@ -412,7 +412,7 @@ void initial_segment_intersection_filter_by_closeness(
 
     for (int i = 0; i < candi_points.size(); i++)
     {
-        Eigen::Vector3d direction=(candi_points[i]-start_point).normalized();
+        Eigen::Vector3d direction = (candi_points[i] - start_point).normalized();
         double inner_product = direction.dot(reference_direction);
         double angle_tmp_radian = acos(inner_product);
         double angle_diff = std::min(fabs(angle_tmp_radian - angle_radian), fabs(2 * LSC_PI - angle_tmp_radian - angle_radian));
@@ -446,7 +446,7 @@ bool lsTools::get_pseudo_vertex_and_trace_forward(
 {
     unsigned radius = 2;
     bool is_geodesic = false;
-    pseudo_vertex_out=point_middle; // by default the pseudo vertex is the point middle
+    pseudo_vertex_out = point_middle; // by default the pseudo vertex is the point middle
     generate_pseudo_vertex = false;
     double angle_radian = angle_degree * LSC_PI / 180.; // the angle in radian
     // std::vector<CGMesh::halfedge_handle>
@@ -479,7 +479,7 @@ bool lsTools::get_pseudo_vertex_and_trace_forward(
     if (angle_degree > 90 - ANGLE_TOLERANCE && angle_degree < 90 + ANGLE_TOLERANCE)
     { // it means it is a geodesic
         is_geodesic = true;
-        std::cout<<"**tracing a geodesic"<<std::endl;
+        std::cout << "**tracing a geodesic" << std::endl;
     }
     if (from_ratio <= MERGE_VERTEX_RATIO || to_ratio <= MERGE_VERTEX_RATIO) // the point_middle is a vertex
     {
@@ -537,6 +537,18 @@ bool lsTools::get_pseudo_vertex_and_trace_forward(
             }
             // pick the point
             int id;
+            if (flag_dbg)
+            {
+
+                if (curve.size() == id_dbg)
+                {
+                    std::cout << "output debug vertices" << std::endl;
+                    ver_dbg1.resize(1, 3);
+                    ver_dbg1.row(0) = point_middle;
+                    ver_dbg = vec_list_to_matrix(candidate_pts);
+                    flag_dbg = false;
+                }
+            }
             pseudo_geodesic_intersection_filter_by_closeness(curve, angle_degree, pnorm, candidate_pts, id);
             edge_out = candidate_handles[id];
             point_out = candidate_pts[id];
@@ -577,18 +589,21 @@ bool lsTools::get_pseudo_vertex_and_trace_forward(
     }
     return false;
 }
-int conservative_sign(const double input){
-    if(input>QUADRANT_TOLERANCE){
+int conservative_sign(const double input)
+{
+    if (input > QUADRANT_TOLERANCE)
+    {
         return 1;
     }
-    if(input<-QUADRANT_TOLERANCE){
+    if (input < -QUADRANT_TOLERANCE)
+    {
         return -1;
     }
     return 0;
 }
 
 bool angle_satisfy_quadrant(const double angle_degree, const Eigen::Vector3d &reference_direction,
-                     const Eigen::Vector3d &normal, const Eigen::Vector3d &query_direction)
+                            const Eigen::Vector3d &normal, const Eigen::Vector3d &query_direction)
 {
     double angle_radian = angle_degree * LSC_PI / 180.;
     Eigen::Vector3d yframe = normal.cross(reference_direction).normalized();
@@ -642,48 +657,52 @@ bool angle_satisfy_quadrant(const double angle_degree, const Eigen::Vector3d &re
 }
 void pseudo_geodesic_intersection_satisfy_angle_quadrant(
     const double angle_degree, const Eigen::Vector3d &reference_direction,
-    const Eigen::Vector3d& start_point,
+    const Eigen::Vector3d &start_point,
     const Eigen::Vector3d &normal, const std::vector<CGMesh::HalfedgeHandle> &handle_in,
     const std::vector<Eigen::Vector3d> &point_in, std::vector<CGMesh::HalfedgeHandle> &handle_out,
     std::vector<Eigen::Vector3d> &point_out)
 {
-    for(int i=0;i<point_in.size();i++){
+    for (int i = 0; i < point_in.size(); i++)
+    {
         Eigen::Vector3d direction = (point_in[i] - start_point).normalized();
-        if(angle_satisfy_quadrant(angle_degree,reference_direction,normal,direction)){
+        if (angle_satisfy_quadrant(angle_degree, reference_direction, normal, direction))
+        {
             handle_out.push_back(handle_in[i]);
             point_out.push_back(point_in[i]);
         }
     }
-
 }
 // this code extend the candidate point list.
 // after calling this code, filter the points according to the quadrant and closeness.
-bool find_initial_direction_intersection_on_edge(const Eigen::Vector3d& start_point, const double angle_degree, 
-const Eigen::Vector3d& reference_direction, const Eigen::Vector3d& vs, const Eigen::Vector3d& ve, 
-const Eigen::Vector3d& normal, const CGMesh::HalfedgeHandle& handle_in, std::vector<CGMesh::HalfedgeHandle>& handle_out, 
-std::vector<Eigen::Vector3d>& point_out){
+bool find_initial_direction_intersection_on_edge(const Eigen::Vector3d &start_point, const double angle_degree,
+                                                 const Eigen::Vector3d &reference_direction, const Eigen::Vector3d &vs, const Eigen::Vector3d &ve,
+                                                 const Eigen::Vector3d &normal, const CGMesh::HalfedgeHandle &handle_in, std::vector<CGMesh::HalfedgeHandle> &handle_out,
+                                                 std::vector<Eigen::Vector3d> &point_out)
+{
     double angle_radian = angle_degree * LSC_PI / 180.;
-    Eigen::Vector3d ves=ve-vs;
-    Eigen::Vector3d vssp=vs-start_point;
-    double degree1=ves.dot(reference_direction);
-    double degree0=vssp.dot(reference_direction);
-    double left_square_0=degree0*degree0;
-    double left_square_1=2*degree0*degree1;
-    double left_square_2=degree1*degree1;
-    double right_square_0=vssp.dot(vssp);
-    double right_square_1=2*vssp.dot(ves);
-    double right_square_2=ves.dot(ves);
-    double right_cons=cos(angle_degree)*reference_direction.dot(reference_direction);
-    right_square_0*=right_cons;
-    right_square_1*=right_cons;
-    right_square_2*=right_cons;
-    double eq0=left_square_0-right_square_0;
-    double eq1=left_square_1-right_square_1;
-    double eq2=left_square_2-right_square_2;
+    Eigen::Vector3d ves = ve - vs;
+    Eigen::Vector3d vssp = vs - start_point;
+    double degree1 = ves.dot(reference_direction);
+    double degree0 = vssp.dot(reference_direction);
+    double left_square_0 = degree0 * degree0;
+    double left_square_1 = 2 * degree0 * degree1;
+    double left_square_2 = degree1 * degree1;
+    double right_square_0 = vssp.dot(vssp);
+    double right_square_1 = 2 * vssp.dot(ves);
+    double right_square_2 = ves.dot(ves);
+    double right_cons = cos(angle_degree) * reference_direction.dot(reference_direction);
+    right_square_0 *= right_cons;
+    right_square_1 *= right_cons;
+    right_square_2 *= right_cons;
+    double eq0 = left_square_0 - right_square_0;
+    double eq1 = left_square_1 - right_square_1;
+    double eq2 = left_square_2 - right_square_2;
     std::vector<double> equation(3);
-    equation[0]=eq0;equation[1]=eq1;equation[2]=eq2;
-    std::array<double,2> roots;
-    bool found = quadratic_solver(equation,roots);
+    equation[0] = eq0;
+    equation[1] = eq1;
+    equation[2] = eq2;
+    std::array<double, 2> roots;
+    bool found = quadratic_solver(equation, roots);
     std::vector<Eigen::Vector3d> p_end;
     for (int i = 0; i < 2; i++)
     {
@@ -705,20 +724,22 @@ std::vector<Eigen::Vector3d>& point_out){
             p_end.push_back(vs + t * ves);
         }
     }
-    if(p_end.size()==0){
+    if (p_end.size() == 0)
+    {
         return false;
     }
-    for(int i=0;i<p_end.size();i++){
+    for (int i = 0; i < p_end.size(); i++)
+    {
         handle_out.push_back(handle_in);
         point_out.push_back(p_end[i]);
     }
     return true;
 }
 bool lsTools::init_pseudo_geodesic_first_segment(
-                                                 const CGMesh::HalfedgeHandle &start_boundary_edge_pre, const double &start_point_para,
-                                                 const double start_boundary_angle_degree,
-                                                 CGMesh::HalfedgeHandle& intersected_handle,
-                                                 Eigen::Vector3d& intersected_point)
+    const CGMesh::HalfedgeHandle &start_boundary_edge_pre, const double &start_point_para,
+    const double start_boundary_angle_degree,
+    CGMesh::HalfedgeHandle &intersected_handle,
+    Eigen::Vector3d &intersected_point)
 {
     CGMesh::HalfedgeHandle start_boundary_edge;
     if (lsmesh.face_handle(start_boundary_edge_pre).idx() < 0)
@@ -735,13 +756,16 @@ bool lsTools::init_pseudo_geodesic_first_segment(
     Eigen::Vector3d reference_direction = (vt - vf).normalized();
     std::vector<CGMesh::HalfedgeHandle> handle_out, handle_out2;
     std::vector<Eigen::Vector3d> point_out, point_out2;
-    
-    if (start_point_para == 0||start_point_para==1){
+
+    if (start_point_para == 0 || start_point_para == 1)
+    {
         CGMesh::VertexHandle center_handle;
-        if(start_point_para==0){
+        if (start_point_para == 0)
+        {
             center_handle = lsmesh.from_vertex_handle(start_boundary_edge);
         }
-        else{
+        else
+        {
             center_handle = lsmesh.to_vertex_handle(start_boundary_edge);
         }
         Eigen::Vector3d normal = V.row(center_handle.idx());
@@ -761,8 +785,8 @@ bool lsTools::init_pseudo_geodesic_first_segment(
     }
 
     // check next halfedge
-    int fid=lsmesh.face_handle(start_boundary_edge).idx();
-    Eigen::Vector3d normal=norm_f.row(fid);
+    int fid = lsmesh.face_handle(start_boundary_edge).idx();
+    Eigen::Vector3d normal = norm_f.row(fid);
     CGMesh::HalfedgeHandle checking_he = lsmesh.next_halfedge_handle(start_boundary_edge);
     Eigen::Vector3d vs;
     Eigen::Vector3d ve;
@@ -770,98 +794,108 @@ bool lsTools::init_pseudo_geodesic_first_segment(
     vs = V.row(lsmesh.from_vertex_handle(checking_he).idx());
     ve = V.row(lsmesh.to_vertex_handle(checking_he).idx());
     find_initial_direction_intersection_on_edge(start_point, start_boundary_angle_degree, reference_direction,
-                                                        vs, ve, normal, checking_he, handle_out, point_out);
+                                                vs, ve, normal, checking_he, handle_out, point_out);
     // check the previous halfedge
     checking_he = lsmesh.prev_halfedge_handle(start_boundary_edge);
     assert(lsmesh.face_handle(start_boundary_edge).idx() == lsmesh.face_handle(checking_he).idx());
     vs = V.row(lsmesh.from_vertex_handle(checking_he).idx());
     ve = V.row(lsmesh.to_vertex_handle(checking_he).idx());
     find_initial_direction_intersection_on_edge(start_point, start_boundary_angle_degree, reference_direction,
-                                                        vs, ve, normal, checking_he, handle_out, point_out);
-    pseudo_geodesic_intersection_satisfy_angle_quadrant(start_boundary_angle_degree,reference_direction,start_point,
-    normal,handle_out,point_out, handle_out2,point_out2);
-    if(point_out2.size()==0){
-        std::cout<<"ERROR: no point satisfies the angle quadrant in initialization"<<std::endl;
+                                                vs, ve, normal, checking_he, handle_out, point_out);
+    pseudo_geodesic_intersection_satisfy_angle_quadrant(start_boundary_angle_degree, reference_direction, start_point,
+                                                        normal, handle_out, point_out, handle_out2, point_out2);
+    if (point_out2.size() == 0)
+    {
+        std::cout << "ERROR: no point satisfies the angle quadrant in initialization" << std::endl;
         return false;
     }
-    int result_id=-1;
-    initial_segment_intersection_filter_by_closeness(start_boundary_angle_degree,start_point,
-    reference_direction,point_out2,result_id);
-    intersected_handle=handle_out2[result_id];
-    intersected_point=point_out2[result_id];
+    int result_id = -1;
+    initial_segment_intersection_filter_by_closeness(start_boundary_angle_degree, start_point,
+                                                     reference_direction, point_out2, result_id);
+    intersected_handle = handle_out2[result_id];
+    intersected_point = point_out2[result_id];
     return true;
-
 }
-void update_tracing_list(const Eigen::Vector3d& ver, const Eigen::Vector3d& pver, const CGMesh::HalfedgeHandle& handle,
-std::vector<Eigen::Vector3d>& verlist, std::vector<Eigen::Vector3d>& pverlist, std::vector<CGMesh::HalfedgeHandle>& handle_list){
+void update_tracing_list(const Eigen::Vector3d &ver, const Eigen::Vector3d &pver, const CGMesh::HalfedgeHandle &handle,
+                         std::vector<Eigen::Vector3d> &verlist, std::vector<Eigen::Vector3d> &pverlist, std::vector<CGMesh::HalfedgeHandle> &handle_list)
+{
     verlist.push_back(ver);
     pverlist.push_back(pver);
     handle_list.push_back(handle);
 }
-Eigen::Vector3d the_first_point(const Eigen::Vector3d& vs, const Eigen::Vector3d& vt, const double para){
-    return vs+(vt-vs)*para;
+Eigen::Vector3d the_first_point(const Eigen::Vector3d &vs, const Eigen::Vector3d &vt, const double para)
+{
+    return vs + (vt - vs) * para;
 }
-    bool lsTools::trace_single_pseudo_geodesic_curve(const double target_angle_degree,
-                                                     const CGMesh::HalfedgeHandle &start_boundary_edge, const double &start_point_para,
-                                                     const double start_boundary_angle_degree,
-                                                     std::vector<Eigen::Vector3d> &curve)
-    {   curve.clear();
-        CGMesh::HalfedgeHandle intersected_handle_tmp;
-        Eigen::Vector3d intersected_point_tmp;
-        bool found=init_pseudo_geodesic_first_segment(start_boundary_edge,start_point_para,start_boundary_angle_degree,
-        intersected_handle_tmp,intersected_point_tmp);
-        if(!found){
-            std::cout<<"error in initialization the boundary direction"<<std::endl;
-            return false;
-        }
-        QuadricCalculator cc;
-        std::vector<Eigen::Vector3d> pcurve;
-        std::vector<CGMesh::HalfedgeHandle> handles;
-        Eigen::Vector3d first_point=the_first_point(
-            V.row(lsmesh.from_vertex_handle(start_boundary_edge).idx()),
-            V.row(lsmesh.to_vertex_handle(start_boundary_edge).idx()),
-            start_point_para);
-        
-        update_tracing_list(first_point, first_point,start_boundary_edge,curve,pcurve,handles);
-        curve.push_back(intersected_point_tmp);
-        handles.push_back(intersected_handle_tmp);
-        cc.init(V,F);// TODO move this out of this function
-        std::cout<<"target angle "<<target_angle_degree<<std::endl;
-        for(int i=0;;i++){
-            CGMesh::HalfedgeHandle edge_out;
-            Eigen::Vector3d point_out,pseudo_vertex_out;
-            bool generate_pseudo_vertex;
-            found= get_pseudo_vertex_and_trace_forward(cc,curve,target_angle_degree,intersected_handle_tmp,first_point,
-            
-            intersected_point_tmp,edge_out,point_out,generate_pseudo_vertex,pseudo_vertex_out);
-            if(found){
-
-                update_tracing_list(intersected_point_tmp, pseudo_vertex_out, edge_out, curve, pcurve, handles);
-
-                intersected_handle_tmp=edge_out;// middle edge = edge out
-                first_point=pseudo_vertex_out; // first point = pseudo middle point
-                intersected_point_tmp= point_out;// point middle = point out. but may eventually be converted to a pseudo point
-            }
-            else{
-                // the last pseudo point is the middle point of this step, aka the out point of last step
-                pcurve.push_back(intersected_point_tmp);
-                break;
-            }
-        }
-        assert(pcurve.size()==curve.size());
-        return true;
+bool lsTools::trace_single_pseudo_geodesic_curve(const double target_angle_degree,
+                                                 const CGMesh::HalfedgeHandle &start_boundary_edge, const double &start_point_para,
+                                                 const double start_boundary_angle_degree,
+                                                 std::vector<Eigen::Vector3d> &curve)
+{
+    curve.clear();
+    CGMesh::HalfedgeHandle intersected_handle_tmp;
+    Eigen::Vector3d intersected_point_tmp;
+    bool found = init_pseudo_geodesic_first_segment(start_boundary_edge, start_point_para, start_boundary_angle_degree,
+                                                    intersected_handle_tmp, intersected_point_tmp);
+    if (!found)
+    {
+        std::cout << "error in initialization the boundary direction" << std::endl;
+        return false;
     }
-    void lsTools::show_pseudo_geodesic_curve(Eigen::MatrixXd &E0, Eigen::MatrixXd &E1, Eigen::MatrixXd& vers){
-        
-        int vsize=trace_vers.size();
-        E0.resize(vsize-1,3);
-        E1.resize(vsize-1,3);
-        for(int i=0;i<vsize-1;i++){
-            E0.row(i)=trace_vers[i];
-            E1.row(i)=trace_vers[i+1];
+    QuadricCalculator cc;
+    std::vector<Eigen::Vector3d> pcurve;
+    std::vector<CGMesh::HalfedgeHandle> handles;
+    Eigen::Vector3d first_point = the_first_point(
+        V.row(lsmesh.from_vertex_handle(start_boundary_edge).idx()),
+        V.row(lsmesh.to_vertex_handle(start_boundary_edge).idx()),
+        start_point_para);
+
+    update_tracing_list(first_point, first_point, start_boundary_edge, curve, pcurve, handles);
+    curve.push_back(intersected_point_tmp);
+    handles.push_back(intersected_handle_tmp);
+    cc.init(V, F); // TODO move this out of this function
+    std::cout << "target angle " << target_angle_degree << std::endl;
+    for (int i = 0;; i++)
+    {
+        CGMesh::HalfedgeHandle edge_out;
+        Eigen::Vector3d point_out, pseudo_vertex_out;
+        bool generate_pseudo_vertex;
+        found = get_pseudo_vertex_and_trace_forward(cc, curve, target_angle_degree, intersected_handle_tmp, first_point,
+
+                                                    intersected_point_tmp, edge_out, point_out, generate_pseudo_vertex, pseudo_vertex_out);
+        if (found)
+        {
+
+            update_tracing_list(intersected_point_tmp, pseudo_vertex_out, edge_out, curve, pcurve, handles);
+
+            intersected_handle_tmp = edge_out; // middle edge = edge out
+            first_point = pseudo_vertex_out;   // first point = pseudo middle point
+            intersected_point_tmp = point_out; // point middle = point out. but may eventually be converted to a pseudo point
         }
-        vers.resize(vsize,3);
-        for(int i=0;i<vsize;i++){
-            vers.row(i)=trace_vers[i];
+        else
+        {
+            // the last pseudo point is the middle point of this step, aka the out point of last step
+            pcurve.push_back(intersected_point_tmp);
+            break;
         }
     }
+    assert(pcurve.size() == curve.size());
+    return true;
+}
+void lsTools::show_pseudo_geodesic_curve(Eigen::MatrixXd &E0, Eigen::MatrixXd &E1, Eigen::MatrixXd &vers)
+{
+
+    int vsize = trace_vers.size();
+    E0.resize(vsize - 1, 3);
+    E1.resize(vsize - 1, 3);
+    for (int i = 0; i < vsize - 1; i++)
+    {
+        E0.row(i) = trace_vers[i];
+        E1.row(i) = trace_vers[i + 1];
+    }
+    vers.resize(vsize, 3);
+    for (int i = 0; i < vsize; i++)
+    {
+        vers.row(i) = trace_vers[i];
+    }
+}
