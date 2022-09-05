@@ -360,7 +360,7 @@ void pseudo_geodesic_intersection_filter_by_closeness(
     int closest_id = -1;
     // TODO should we consider the angle consistancy? to avoid cases like 5 degree flip to 355 degree?
     // int closest_id_consider_angle=-1;
-    double closest_angle_diff_radian = 370. * LSC_PI / 180.;
+    double closest_angle_diff_radian = -5;
     // double closest_angle_diff_radian_consider_angle = 370. * LSC_PI / 180.;
     // int quadrant; // show which quadrant the normal is in respect to the pnormal
     // if(angle_degree>=0&& angle_degree<=90){
@@ -379,14 +379,15 @@ void pseudo_geodesic_intersection_filter_by_closeness(
     for (int i = 0; i < candi_points.size(); i++)
     {
         Eigen::Vector3d dire2 = (candi_points[i] - curve[size - 1]).normalized();
-        Eigen::Vector3d normal = dire1.cross(dire2).normalized();
-        double normal_pnormal = normal.dot(pnorm);
-        double dire1_normal = dire1.dot(normal);
-        double angle_tmp_radian = acos(normal_pnormal);
-        double angle_diff = std::min(fabs(angle_tmp_radian - angle_radian), fabs(2 * LSC_PI - angle_tmp_radian - angle_radian));
-        if (angle_diff < closest_angle_diff_radian)
+        // Eigen::Vector3d normal = dire1.cross(dire2).normalized();
+        // double normal_pnormal = normal.dot(pnorm);
+        // double dire1_normal = dire1.dot(normal);
+        // double angle_tmp_radian = acos(normal_pnormal);
+        // double angle_diff = std::min(fabs(angle_tmp_radian - angle_radian), fabs(2 * LSC_PI - angle_tmp_radian - angle_radian));
+        double dot_product=dire1.dot(dire2);
+        if (dot_product > closest_angle_diff_radian)// select the most smooth one
         {
-            closest_angle_diff_radian = angle_diff;
+            closest_angle_diff_radian = dot_product;
             closest_id = i;
         }
     }
@@ -444,6 +445,7 @@ bool lsTools::get_pseudo_vertex_and_trace_forward(
     const Eigen::Vector3d &point_in, const Eigen::Vector3d &point_middle, CGMesh::HalfedgeHandle &edge_out,
     Eigen::Vector3d &point_out, bool &generate_pseudo_vertex, Eigen::Vector3d &pseudo_vertex_out)
 {
+    // std::cout<<"inside trace forward"<<std::endl;
     unsigned radius = 2;
     bool is_geodesic = false;
     pseudo_vertex_out = point_middle; // by default the pseudo vertex is the point middle
@@ -479,7 +481,7 @@ bool lsTools::get_pseudo_vertex_and_trace_forward(
     if (angle_degree > 90 - ANGLE_TOLERANCE && angle_degree < 90 + ANGLE_TOLERANCE)
     { // it means it is a geodesic
         is_geodesic = true;
-        std::cout << "**tracing a geodesic" << std::endl;
+        // std::cout << "**tracing a geodesic" << std::endl;
     }
     if (from_ratio <= MERGE_VERTEX_RATIO || to_ratio <= MERGE_VERTEX_RATIO) // the point_middle is a vertex
     {
@@ -533,16 +535,18 @@ bool lsTools::get_pseudo_vertex_and_trace_forward(
         {
             if (candidate_pts.size() == 0)
             {
+                std::cout<<"ERROR did not find any candidate points"<<std::endl;
                 return false;
             }
+            // std::cout<<"before picking the points "<<std::endl;
             // pick the point
             int id;
             if (flag_dbg)
             {
-
+                // std::cout << "we are debugging" << std::endl;
                 if (curve.size() == id_dbg)
                 {
-                    std::cout << "output debug vertices" << std::endl;
+                    // std::cout << "output debug vertices" << std::endl;
                     ver_dbg1.resize(1, 3);
                     ver_dbg1.row(0) = point_middle;
                     ver_dbg = vec_list_to_matrix(candidate_pts);
@@ -582,6 +586,18 @@ bool lsTools::get_pseudo_vertex_and_trace_forward(
         }
         // pick the point
         int id;
+        if (flag_dbg)
+        {
+            // std::cout << "we are debugging" << std::endl;
+            if (curve.size() == id_dbg)
+            {
+                // std::cout << "output debug vertices" << std::endl;
+                ver_dbg1.resize(1, 3);
+                ver_dbg1.row(0) = point_middle;
+                ver_dbg = vec_list_to_matrix(candidate_pts);
+                flag_dbg = false;
+            }
+        }
         pseudo_geodesic_intersection_filter_by_closeness(curve, angle_degree, pnorm, candidate_pts, id);
         edge_out = candidate_handles[id];
         point_out = candidate_pts[id];

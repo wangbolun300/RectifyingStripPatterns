@@ -45,8 +45,8 @@ namespace lscif
 	double assign_value1 = 1;
 	double assign_value2 = 2;
 	int dbg_int;
-	int dbg_int2;
-	double dbg_dbl;
+	int dbg_int2=5;
+	double dbg_dbl=30;
 	double vector_scaling = 1;
 	double strip_width_ratio = 1.;
 
@@ -476,6 +476,11 @@ int main(int argc, char *argv[])
 				}
 				viewer.data().add_points(lscif::tools.ver_dbg1, black);
 				viewer.data().add_points(lscif::tools.ver_dbg, blue);
+				for(int i=0;i<lscif::tools.ver_dbg.rows();i++){
+					Eigen::MatrixXd tmp_ver(1,3);
+					tmp_ver.row(0)=lscif::tools.ver_dbg.row(i);
+					viewer.data().add_edges(lscif::tools.ver_dbg1,tmp_ver,blue);
+				}
 				std::cout << "checking query size " << lscif::tools.ver_dbg1.rows() << std::endl;
 				std::cout << "checking result size " << lscif::tools.ver_dbg.rows() << std::endl;
 
