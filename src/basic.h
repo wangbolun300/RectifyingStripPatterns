@@ -143,6 +143,7 @@ public:
     Eigen::MatrixXd E0_dbg;
     Eigen::MatrixXd direction_dbg;
     Eigen::MatrixXd pnorm_dbg;
+    std::vector<Eigen::Vector3d> pseudo_vers_dbg;
     std::vector<Eigen::Vector3d> pnorm_list_dbg;
 
 

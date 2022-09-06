@@ -214,8 +214,10 @@ bool lsTools::find_geodesic_intersection_p1_is_NOT_ver(const Eigen::Vector3d &p0
 // but this function does not solve geodesic cases.
 // the input angle should be in radian, angle is degree*LSC_PI/180
 bool find_osculating_plane_intersection_not_geodesic_p1_is_ver(const Eigen::Vector3d &p0, const Eigen::Vector3d &p1,
-                                                               const Eigen::Vector3d &vs, const Eigen::Vector3d &ve, const Eigen::Vector3d &pnorm,
-                                                               const double angle, std::vector<Eigen::Vector3d> &p_end)
+                                                               const Eigen::Vector3d &vs, const Eigen::Vector3d &ve,
+                                                                const Eigen::Vector3d &pnorm,
+                                                               const double angle, 
+                                                               std::vector<Eigen::Vector3d> &p_end)
 {
     p_end.clear();
     Eigen::Vector3d ves = ve - vs;
@@ -285,8 +287,20 @@ bool find_osculating_plane_intersection_not_geodesic_p1_is_ver(const Eigen::Vect
 
             
             std::cout << "**INSIDE, cosin^2 = "<<cos_sqr<<std::endl;
-            std::cout<<"the pseudo_norm "<<pseudo_norm.transpose()<<std::endl;
-            std::cout<<"the pnorm "<<pnorm.transpose()<<std::endl;
+            // std::cout<<"the pseudo_norm "<<pseudo_norm.transpose()<<std::endl;
+            // std::cout<<"the pnorm "<<pnorm.transpose()<<std::endl;
+            // std::cout<<"dire0 = "<<direction0.transpose()<<std::endl;
+            // std::cout<<"dire1 = "<<direction1.transpose()<<std::endl;
+            // std::cout<<"t = "<<t<<std::endl;
+            // std::cout<<"p0 "<<p0.transpose()<<std::endl;
+            // std::cout<<"p1 "<<p1.transpose()<<std::endl;
+            // std::cout<<"ve "<<ve.transpose()<<std::endl;
+            // std::cout<<"vs "<<vs.transpose()<<std::endl;
+            // std::cout<<"computed "<<(vs + t * ves-p1).transpose()<<std::endl;
+            // std::cout<<"p1-p0 "<<(p1-p0).transpose()<<std::endl;
+            // std::cout<<"pn-p1 "<<(vs + t * ves-p1).transpose()<<std::endl;
+        
+            std::cout<<std::endl;
         }
     }
 
@@ -333,6 +347,14 @@ bool lsTools::find_osculating_plane_intersection_not_geodesic_p1_is_not_ver(cons
             edge_out.push_back(checking_he);
             p_end.push_back(temp_pend[i]);
         }
+    }
+    std::cout<<"lower level check"<<std::endl;
+    for(int i=0;i<p_end.size();i++){
+        Eigen::Vector3d direc0=(p1-p0).normalized();
+        Eigen::Vector3d direc1=(p_end[i]-p1).normalized();
+        Eigen::Vector3d dddnorm=direc0.cross(direc1).normalized();
+        double cosangle=pnorm.dot(dddnorm);
+        std::cout<<"lower, cos^2 "<<cosangle*cosangle<<std::endl;
     }
     return p_end.size();
 }
@@ -498,6 +520,7 @@ bool lsTools::get_pseudo_vertex_and_trace_forward(
     }
     if (from_ratio <= MERGE_VERTEX_RATIO || to_ratio <= MERGE_VERTEX_RATIO) // the point_middle is a vertex
     {
+        std::cout<<"\nnext middle is ver"<<std::endl;
         CGMesh::VertexHandle center_handle;
         if (from_ratio <= MERGE_VERTEX_RATIO)
         {
@@ -571,6 +594,13 @@ bool lsTools::get_pseudo_vertex_and_trace_forward(
             pseudo_geodesic_intersection_filter_by_closeness(curve, angle_degree, pnorm, candidate_pts, id);
             edge_out = candidate_handles[id];
             point_out = candidate_pts[id];
+            std::cout<<"**Higher level checking"<<std::endl;
+            Eigen::Vector3d direc0=(point_middle-point_in).normalized();
+            Eigen::Vector3d direc1=(point_out-point_middle).normalized();
+            Eigen::Vector3d dddnorm=(direc0.cross(direc1)).normalized();
+            double tmpcos=pnorm.dot(dddnorm);
+            std::cout<<"cos^2 = "<<tmpcos*tmpcos<<std::endl;
+            std::cout<<std::endl;
             return true;
         }
     }
@@ -585,6 +615,7 @@ bool lsTools::get_pseudo_vertex_and_trace_forward(
     pnorm_list_dbg.push_back(pnorm);
     Eigen::Vector3d pver;
     cc.get_pseudo_vertex_on_edge(cent_id, point_middle, pnorm, pver);
+    std::cout<<"    pseudo vertex diff "<<(point_middle-pver).norm()<<std::endl;
     generate_pseudo_vertex = true; // TODO add tolerance
     pseudo_vertex_out = pver;
     if (is_geodesic)
@@ -617,6 +648,13 @@ bool lsTools::get_pseudo_vertex_and_trace_forward(
         pseudo_geodesic_intersection_filter_by_closeness(curve, angle_degree, pnorm, candidate_pts, id);
         edge_out = candidate_handles[id];
         point_out = candidate_pts[id];
+       std::cout<<"**Higher level checking"<<std::endl;
+            Eigen::Vector3d direc0=(pver-point_in).normalized();
+            Eigen::Vector3d direc1=(point_out-pver).normalized();
+            Eigen::Vector3d dddnorm=(direc0.cross(direc1)).normalized();
+            double tmpcos=pnorm.dot(dddnorm);
+            std::cout<<"cos^2 = "<<tmpcos*tmpcos<<std::endl;
+            std::cout<<std::endl;
         return true;
     }
     return false;
@@ -869,6 +907,7 @@ bool lsTools::trace_single_pseudo_geodesic_curve(const double target_angle_degre
     Eigen::Vector3d intersected_point_tmp;
     bool found = init_pseudo_geodesic_first_segment(start_boundary_edge, start_point_para, start_boundary_angle_degree,
                                                     intersected_handle_tmp, intersected_point_tmp);
+    std::cout<<"INITIALIZARION DONE!!!"<<std::endl;
     if (!found)
     {
         std::cout << "error in initialization the boundary direction" << std::endl;
@@ -892,13 +931,14 @@ bool lsTools::trace_single_pseudo_geodesic_curve(const double target_angle_degre
         CGMesh::HalfedgeHandle edge_out;
         Eigen::Vector3d point_out, pseudo_vertex_out;
         bool generate_pseudo_vertex;
-        found = get_pseudo_vertex_and_trace_forward(cc, curve, target_angle_degree, intersected_handle_tmp, first_point,
-
-                                                    intersected_point_tmp, edge_out, point_out, generate_pseudo_vertex, pseudo_vertex_out);
+        found = get_pseudo_vertex_and_trace_forward(cc, curve, target_angle_degree, intersected_handle_tmp,
+                                                    first_point,
+                                                    intersected_point_tmp, edge_out, point_out,
+                                                    generate_pseudo_vertex, pseudo_vertex_out);
         if (found)
         {
 
-            update_tracing_list(intersected_point_tmp, pseudo_vertex_out, edge_out, curve, pcurve, handles);
+            update_tracing_list(point_out, pseudo_vertex_out, edge_out, curve, pcurve, handles);
 
             intersected_handle_tmp = edge_out; // middle edge = edge out
             first_point = pseudo_vertex_out;   // first point = pseudo middle point
@@ -911,6 +951,7 @@ bool lsTools::trace_single_pseudo_geodesic_curve(const double target_angle_degre
             break;
         }
     }
+    pseudo_vers_dbg=pcurve;
     assert(pcurve.size() == curve.size());
     return true;
 }

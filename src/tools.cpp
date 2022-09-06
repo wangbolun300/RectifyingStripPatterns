@@ -73,6 +73,15 @@ void mat_col_to_triplets(const spMat &mat, const int col, const int ref, const b
 void lsTools::debug_tool(int id, int id2, double value)
 {
     std::cout << "checking one pseudo geodesic" << std::endl;
+    // debug init
+    ver_dbg.resize(0,0);
+    ver_dbg1.resize(0,0);
+    flag_dbg = false;
+    E0_dbg.resize(0,0);
+    direction_dbg.resize(0,0);
+    pnorm_dbg.resize(0,0);
+    pnorm_list_dbg.clear();
+    // debug init end
     double start_point_para = 0.5;
     double start_angle_degree = 60;
     double target_angle = value;
@@ -89,8 +98,8 @@ void lsTools::debug_tool(int id, int id2, double value)
     for (int i = 0; i < nbr_midpts; i++)
     {
         E0_dbg.row(i) = curve[i + 1];
-        Eigen::Vector3d vec0 = (curve[i + 1] - curve[i]).normalized();
-        Eigen::Vector3d vec1 = (curve[i + 2] - curve[i + 1]).normalized();
+        Eigen::Vector3d vec0 = (pseudo_vers_dbg[i + 1] - pseudo_vers_dbg[i]).normalized();
+        Eigen::Vector3d vec1 = (curve[i + 2] - pseudo_vers_dbg[i + 1]).normalized();
         direction_dbg.row(i) = vec0.cross(vec1).normalized();// pseudo normal
     }
     assert(pnorm_list_dbg.size() == nbr_midpts);
@@ -98,9 +107,9 @@ void lsTools::debug_tool(int id, int id2, double value)
     // check the abs(consin)
     for (int i = 0; i < nbr_midpts; i++){
         Eigen::Vector3d tmp_dir1=direction_dbg.row(i);
-        Eigen::Vector3d tmp_dir2=pnorm_list_dbg[i];
+        Eigen::Vector3d tmp_dir2=pnorm_list_dbg[i].normalized();
         double cosin=tmp_dir1.dot(tmp_dir2);
-        std::cout<<i<<"th cosin "<<cosin<<std::endl;
+        std::cout<<i<<"th cosin^2 "<<cosin*cosin<<std::endl;
     }
 
     // TODO temporarily checking one trace line
