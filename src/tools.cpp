@@ -98,9 +98,12 @@ void lsTools::debug_tool(int id, int id2, double value)
     for (int i = 0; i < nbr_midpts; i++)
     {
         E0_dbg.row(i) = curve[i + 1];
-        Eigen::Vector3d vec0 = (pseudo_vers_dbg[i + 1] - pseudo_vers_dbg[i]).normalized();
-        Eigen::Vector3d vec1 = (curve[i + 2] - pseudo_vers_dbg[i + 1]).normalized();
+        Eigen::Vector3d vec0 = (curve[i + 1] - curve[i]).normalized();
+        Eigen::Vector3d vec1 = (curve[i + 2] - curve[i + 1]).normalized();
         direction_dbg.row(i) = vec0.cross(vec1).normalized();// pseudo normal
+    }
+    if(pnorm_list_dbg.size() != nbr_midpts){
+        std::cout<<"dangerous size! "<<pnorm_list_dbg.size()<<", "<<nbr_midpts<<std::endl;
     }
     assert(pnorm_list_dbg.size() == nbr_midpts);
     pnorm_dbg=vec_list_to_matrix(pnorm_list_dbg);

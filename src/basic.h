@@ -136,6 +136,7 @@ public:
     double assign_value[3];
     double strip_width = 0;       // strip width, defined as h/w.
     double pseudo_geodesic_ratio; // k_g/k_n of the pseudo geodesic
+    bool enable_pseudo_vertex=false;
     Eigen::MatrixXd ver_dbg;
     Eigen::MatrixXd ver_dbg1;
     bool flag_dbg = false;
