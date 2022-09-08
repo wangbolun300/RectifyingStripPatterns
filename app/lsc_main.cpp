@@ -484,6 +484,7 @@ int main(int argc, char *argv[])
 				}
 				std::cout << "checking query size " << lscif::tools.ver_dbg1.rows() << std::endl;
 				std::cout << "checking result size " << lscif::tools.ver_dbg.rows() << std::endl;
+				std::cout << "checking results " << lscif::tools.ver_dbg<<std::endl;
 				Eigen::MatrixXd Edge1_dbg=lscif::tools.E0_dbg+lscif::tools.direction_dbg*lscif::vector_scaling;
 				viewer.data().add_edges(lscif::tools.E0_dbg,Edge1_dbg,green);
 				Eigen::MatrixXd Edge2_dbg=lscif::tools.E0_dbg+lscif::tools.pnorm_dbg*lscif::vector_scaling;

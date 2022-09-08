@@ -297,14 +297,19 @@ bool find_osculating_plane_intersection_not_geodesic_p1_is_ver(const Eigen::Vect
             std::cout<<"t = "<<t<<std::endl;
             std::cout<<"poly value, "<<polynomial_value(equation,t)<<std::endl;
             std::cout<<"real angle is "<<real_angle<<std::endl;
-            // std::cout<<"p0 "<<p0.transpose()<<std::endl;
-            // std::cout<<"p1 "<<p1.transpose()<<std::endl;
-            // std::cout<<"ve "<<ve.transpose()<<std::endl;
-            // std::cout<<"vs "<<vs.transpose()<<std::endl;
+            std::cout<<"p0 "<<p0.transpose()<<std::endl;
+            std::cout<<"p1 "<<p1.transpose()<<std::endl;
+            std::cout<<"ve "<<ve.transpose()<<std::endl;
+            std::cout<<"vs "<<vs.transpose()<<std::endl;
             // std::cout<<"computed "<<(vs + t * ves-p1).transpose()<<std::endl;
             std::cout<<"p1-p0 "<<(p1-p0).transpose()<<std::endl;
             std::cout<<"pn-p1 "<<(vs + t * ves-p1).transpose()<<std::endl;
+            std::cout<<"ve-vs "<<ves.transpose()<<std::endl;
+            std::cout<<"p1p0, vevs relation cos "<<(p1-p0).normalized().dot(ves.normalized())<<std::endl;
+            std::cout<<"** p1p0, pnp1 cross "<<(p1-p0).cross(vs + t * ves-p1).transpose()<<std::endl;
+            
             std::cout<<"poly "<<poly0<<" "<<poly1<<" "<<poly2<<std::endl;
+            std::cout<<"b^2-4ac "<<poly1*poly1-4*poly0*poly2<<std::endl;
         
             std::cout<<std::endl;
         }
@@ -382,15 +387,32 @@ void vector_duplicate(const Tp &input, const int size, std::vector<Tp> &result)
         result[i] = input;
     }
 }
+bool angles_match(const double angle_degree1, const double angle_degree2){
+    double uniformed=angle_degree1;
+    if(angle_degree1>180){
+        uniformed-=180;
+    }
+    if(angle_degree1<0){
+        uniformed+=180;
+    }
+    if(fabs(uniformed-angle_degree2)<ANGLE_TOLERANCE){
+        return true;
+    }
+    return false;
+}
 
 // caution: this is not an initialization to find the first and second point
+// TODO here is the bug: We should not take curve, but take pseudo-curve
 void pseudo_geodesic_intersection_filter_by_closeness(
     const std::vector<Eigen::Vector3d> &curve, const double angle_degree,
     const std::vector<Eigen::Vector3d> &pnorm_list, const Eigen::Vector3d &pnorm,
     const std::vector<Eigen::Vector3d> &candi_points, int &id)
 {
     assert(curve.size() >= 2); // take previous points to find the next one
-    assert(candi_points.size() > 0);
+    // assert(candi_points.size() > 0);
+    if(candi_points.size()==0){
+        id=-1;
+    }
     if (candi_points.size() == 1)
     {
         id = 0;
@@ -413,9 +435,16 @@ void pseudo_geodesic_intersection_filter_by_closeness(
         for (int i = 0; i < candi_size; i++)
         {
             Eigen::Vector3d dire2 = (candi_points[i] - curve[size - 1]).normalized();
-            Eigen::Vector3d osnormal1 = dire1.cross(dire2);
+            Eigen::Vector3d osnormal1 = dire1.cross(dire2).normalized();
             double dot_product1 = pnorm.dot(osnormal1);
-            flag_right[i] = dot_product0 * dot_product1 > 0; // check if the signs are the same. if so, set as true;
+            bool correct_normal = dot_product0 * dot_product1 > 0; // remove negative normals
+            double real_angle = acos(dot_product1) * 180 / LSC_PI;
+            bool correct_angle = angles_match(real_angle, angle_degree); // remove planar segments
+            flag_right[i] = correct_normal && correct_angle;             // check if the signs are the same. if so, set as true;
+            std::cout<<"correct normal "<<correct_normal<<std::endl;
+            std::cout<<"correct angle "<<correct_angle<<std::endl;
+            std::cout<<"real angle, "<<real_angle<<", angle_degree, "<<angle_degree<<std::endl;
+            std::cout<<"dot_product1, "<<dot_product1<<std::endl;
         }
     }
 
@@ -506,7 +535,8 @@ bool lsTools::get_pseudo_vertex_and_trace_forward(
     QuadricCalculator &cc,
     const std::vector<Eigen::Vector3d> &curve, const double angle_degree,
     const CGMesh::HalfedgeHandle &edge_middle,
-    const Eigen::Vector3d &point_in, const Eigen::Vector3d &point_middle, CGMesh::HalfedgeHandle &edge_out,
+    const Eigen::Vector3d &point_in, const Eigen::Vector3d &point_middle, 
+    const bool calculate_pseudo_vertex, CGMesh::HalfedgeHandle &edge_out,
     Eigen::Vector3d &point_out, bool &generate_pseudo_vertex, Eigen::Vector3d &pseudo_vertex_out)
 {
     std::cout<<"inside trace forward, curve size = "<<curve.size()<<std::endl;
@@ -599,39 +629,53 @@ bool lsTools::get_pseudo_vertex_and_trace_forward(
         }
         else
         {
-            pnorm_list_dbg.push_back(pnorm);
-            if (candidate_pts.size() == 0)
-            {
-                std::cout<<"ERROR did not find any candidate points"<<std::endl;
-                return false;
-            }
+            
             // std::cout<<"before picking the points "<<std::endl;
             // pick the point
             int id;
             if (flag_dbg)
             {
                 // std::cout << "we are debugging" << std::endl;
-                if (curve.size() == id_dbg)
+                if (curve.size()-1 == id_dbg)
                 {
+                    std::cout << "+++++++++++++++++++++++++++++++++++\nCHECKING START vertex" << std::endl;
                     // std::cout << "output debug vertices" << std::endl;
                     ver_dbg1.resize(1, 3);
                     ver_dbg1.row(0) = point_middle;
                     ver_dbg = vec_list_to_matrix(candidate_pts);
                     flag_dbg = false;
+                    std::cout << "+++++++++++++++++++++++++++++++++++\nCHECKING END" << std::endl;
                 }
             }
-            
-            pseudo_geodesic_intersection_filter_by_closeness(curve, angle_degree,pnorm_list_dbg, pnorm, candidate_pts, id);
-            if(id<0) return false;
+            std::cout<<"before filtering, size "<<candidate_pts.size()<<std::endl;
+            pseudo_geodesic_intersection_filter_by_closeness(curve, angle_degree, pnorm_list_dbg, pnorm, candidate_pts, id);
+            if (id < 0){
+                if(calculate_pseudo_vertex){
+                    std::cout<<"TTTTT after computing pseudo vertex, still no result "<<std::endl;
+                    return false;
+                }
+                else{
+                    bool recalculate_result = get_pseudo_vertex_and_trace_forward(
+                        cc,
+                        curve, angle_degree,
+                        edge_middle,
+                        point_in, point_middle,
+                        true, edge_out,
+                        point_out, generate_pseudo_vertex, pseudo_vertex_out);
+                    return recalculate_result;
+                }
+            }
+                
+            pnorm_list_dbg.push_back(pnorm);
             edge_out = candidate_handles[id];
             point_out = candidate_pts[id];
-            std::cout<<"**Higher level checking"<<std::endl;
-            Eigen::Vector3d direc0=(point_middle-point_in).normalized();
-            Eigen::Vector3d direc1=(point_out-point_middle).normalized();
-            Eigen::Vector3d dddnorm=(direc0.cross(direc1)).normalized();
-            double tmpcos=pnorm.dot(dddnorm);
-            std::cout<<"cos^2 = "<<tmpcos*tmpcos<<std::endl;
-            std::cout<<std::endl;
+            std::cout << "**Higher level checking" << std::endl;
+            Eigen::Vector3d direc0 = (point_middle - point_in).normalized();
+            Eigen::Vector3d direc1 = (point_out - point_middle).normalized();
+            Eigen::Vector3d dddnorm = (direc0.cross(direc1)).normalized();
+            double tmpcos = pnorm.dot(dddnorm);
+            std::cout << "cos^2 = " << tmpcos * tmpcos << std::endl;
+            std::cout << std::endl;
             return true;
         }
     }
@@ -645,7 +689,8 @@ bool lsTools::get_pseudo_vertex_and_trace_forward(
     Eigen::Vector3d pnorm = (norm1 + norm2).normalized(); // the normal of the pseudo-vertex
     
     Eigen::Vector3d pver;
-    if(enable_pseudo_vertex){
+    if(calculate_pseudo_vertex){
+        std::cout<<"TTTTT getting pseudo vertex "<<std::endl;
         cc.get_pseudo_vertex_on_edge(cent_id, point_middle, pnorm, pver);
     }
     else{
@@ -664,27 +709,45 @@ bool lsTools::get_pseudo_vertex_and_trace_forward(
     {
         bool found = find_osculating_plane_intersection_not_geodesic_p1_is_not_ver(point_in, pver, edge_middle, pnorm,
                                                                                    angle_radian, candidate_handles, candidate_pts);
-        if (candidate_pts.size() == 0)
-        {
-            return false;
-        }
-        pnorm_list_dbg.push_back(pnorm);
+        
+        
         // pick the point
         int id;
         if (flag_dbg)
         {
             // std::cout << "we are debugging" << std::endl;
-            if (curve.size() == id_dbg)
+            if (curve.size()-1 == id_dbg)
             {
-                // std::cout << "output debug vertices" << std::endl;
+                std::cout << "+++++++++++++++++++++++++++++++++++\nCHECKING START" << std::endl;
                 ver_dbg1.resize(1, 3);
                 ver_dbg1.row(0) = point_middle;
                 ver_dbg = vec_list_to_matrix(candidate_pts);
-                flag_dbg = false;
+                // flag_dbg = false;
+                std::cout << "+++++++++++++++++++++++++++++++++++\nCHECKING END" << std::endl;
             }
         }
+        std::cout<<"before filtering, size "<<candidate_pts.size()<<std::endl;
         pseudo_geodesic_intersection_filter_by_closeness(curve, angle_degree,pnorm_list_dbg, pnorm, candidate_pts, id);
-        if(id<0) return false;
+        if (id < 0)
+        {
+            if (calculate_pseudo_vertex)
+            {
+                std::cout<<"TTTTT after computing pseudo vertex, still no result "<<std::endl;
+                return false;
+            }
+            else
+            {
+                bool recalculate_result = get_pseudo_vertex_and_trace_forward(
+                    cc,
+                    curve, angle_degree,
+                    edge_middle,
+                    point_in, point_middle,
+                    true, edge_out,
+                    point_out, generate_pseudo_vertex, pseudo_vertex_out);
+                return recalculate_result;
+            }
+        }
+        pnorm_list_dbg.push_back(pnorm);
         edge_out = candidate_handles[id];
         point_out = candidate_pts[id];
        std::cout<<"**Higher level checking"<<std::endl;
@@ -974,7 +1037,7 @@ bool lsTools::trace_single_pseudo_geodesic_curve(const double target_angle_degre
         bool generate_pseudo_vertex;
         found = get_pseudo_vertex_and_trace_forward(cc, curve, target_angle_degree, intersected_handle_tmp,
                                                     first_point,
-                                                    intersected_point_tmp, edge_out, point_out,
+                                                    intersected_point_tmp, false, edge_out, point_out,
                                                     generate_pseudo_vertex, pseudo_vertex_out);
         if (found)
         {

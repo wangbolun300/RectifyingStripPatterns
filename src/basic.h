@@ -104,7 +104,8 @@ private:
         QuadricCalculator &cc,
         const std::vector<Eigen::Vector3d> &curve, const double angle_degree,
         const CGMesh::HalfedgeHandle &edge_middle,
-        const Eigen::Vector3d &point_in, const Eigen::Vector3d &point_middle, CGMesh::HalfedgeHandle &edge_out,
+        const Eigen::Vector3d &point_in, const Eigen::Vector3d &point_middle, 
+        const bool calculate_pseudo_vertex, CGMesh::HalfedgeHandle &edge_out,
         Eigen::Vector3d &point_out, bool &generate_pseudo_vertex, Eigen::Vector3d &pseudo_vertex_out);
     bool init_pseudo_geodesic_first_segment(
         const CGMesh::HalfedgeHandle &start_boundary_edge_pre, const double &start_point_para,
@@ -136,7 +137,7 @@ public:
     double assign_value[3];
     double strip_width = 0;       // strip width, defined as h/w.
     double pseudo_geodesic_ratio; // k_g/k_n of the pseudo geodesic
-    bool enable_pseudo_vertex=false;
+    // bool enable_pseudo_vertex=false;
     Eigen::MatrixXd ver_dbg;
     Eigen::MatrixXd ver_dbg1;
     bool flag_dbg = false;
