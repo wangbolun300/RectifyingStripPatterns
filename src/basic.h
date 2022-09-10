@@ -102,7 +102,7 @@ private:
                                                                        const CGMesh::HalfedgeHandle &edge_middle, const Eigen::Vector3d &pnorm, const double angle, std::vector<CGMesh::HalfedgeHandle> &edge_out, std::vector<Eigen::Vector3d> &p_end);
     bool get_pseudo_vertex_and_trace_forward(
         QuadricCalculator &cc,
-        const std::vector<Eigen::Vector3d> &curve, const double angle_degree,
+        const std::vector<Eigen::Vector3d> &curve,  std::array<Eigen::Vector3d,3>& pcurve_local, const double angle_degree,
         const CGMesh::HalfedgeHandle &edge_middle,
         const Eigen::Vector3d &point_in, const Eigen::Vector3d &point_middle, 
         const bool calculate_pseudo_vertex, CGMesh::HalfedgeHandle &edge_out,
