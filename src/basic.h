@@ -96,10 +96,7 @@ private:
     void assemble_solver_laplacian_part(spMat &H, Efunc &B);
     void assemble_solver_strip_width_part(spMat &H, Efunc &B);
     // void assemble_solver_pseudo_geodesic_part(spMat &H, Efunc& B);
-    bool find_geodesic_intersection_p1_is_NOT_ver(const Eigen::Vector3d &p0, const Eigen::Vector3d &p1,
-                                                  const CGMesh::HalfedgeHandle &edge_middle, const Eigen::Vector3d &pnorm, CGMesh::HalfedgeHandle &edge_out, Eigen::Vector3d &p_end);
-    bool find_osculating_plane_intersection_not_geodesic_p1_is_not_ver(const Eigen::Vector3d &p0, const Eigen::Vector3d &p1,
-                                                                       const CGMesh::HalfedgeHandle &edge_middle, const Eigen::Vector3d &pnorm, const double angle, std::vector<CGMesh::HalfedgeHandle> &edge_out, std::vector<Eigen::Vector3d> &p_end);
+    
     bool get_pseudo_vertex_and_trace_forward(
         QuadricCalculator &cc,
         const std::vector<Eigen::Vector3d> &curve,  std::array<Eigen::Vector3d,3>& pcurve_local, const double angle_degree,
