@@ -318,20 +318,12 @@ bool find_osculating_plane_intersection_not_geodesic_p1_is_ver(const Eigen::Vect
     // debug end
     return p_end.size();
 }
-
-bool lsTools::find_osculating_plane_intersection_not_geodesic_p1_is_not_ver(const Eigen::Vector3d &p0, const Eigen::Vector3d &p1,
-                                                                            const CGMesh::HalfedgeHandle &edge_middle, const Eigen::Vector3d &pnorm, const double angle,
-                                                                            std::vector<CGMesh::HalfedgeHandle> &edge_out, std::vector<Eigen::Vector3d> &p_end)
-{
-    edge_out.clear();
-    p_end.clear();
-    CGMesh::HalfedgeHandle ophe = lsmesh.opposite_halfedge_handle(edge_middle);
-    // check next halfedge
-    CGMesh::HalfedgeHandle checking_he = lsmesh.next_halfedge_handle(ophe);
+// not geodesic
+void find_intersection_on_halfedge(const CGMesh& lsmesh, const Eigen::MatrixXd& V, CGMesh::HalfedgeHandle& checking_he, 
+const Eigen::Vector3d &p0, const Eigen::Vector3d &p1, const Eigen::Vector3d &pnorm, const double angle,
+std::vector<CGMesh::HalfedgeHandle> &edge_out, std::vector<Eigen::Vector3d> &p_end){
     Eigen::Vector3d vs;
     Eigen::Vector3d ve;
-    assert(lsmesh.face_handle(edge_middle).idx() != lsmesh.face_handle(ophe).idx());
-    assert(lsmesh.face_handle(ophe).idx() == lsmesh.face_handle(checking_he).idx());
     vs = V.row(lsmesh.from_vertex_handle(checking_he).idx());
     ve = V.row(lsmesh.to_vertex_handle(checking_he).idx());
     std::vector<Eigen::Vector3d> temp_pend;
@@ -344,21 +336,31 @@ bool lsTools::find_osculating_plane_intersection_not_geodesic_p1_is_not_ver(cons
             p_end.push_back(temp_pend[i]);
         }
     }
+}
+
+bool lsTools::find_osculating_plane_intersection_not_geodesic_p1_is_not_ver(const Eigen::Vector3d &p0, const Eigen::Vector3d &p1,
+                                                                            const CGMesh::HalfedgeHandle &edge_middle, const Eigen::Vector3d &pnorm, const double angle,
+                                                                            std::vector<CGMesh::HalfedgeHandle> &edge_out, std::vector<Eigen::Vector3d> &p_end)
+{
+    edge_out.clear();
+    p_end.clear();
+    CGMesh::HalfedgeHandle ophe = lsmesh.opposite_halfedge_handle(edge_middle);
+    // check next halfedge
+    CGMesh::HalfedgeHandle checking_he = lsmesh.next_halfedge_handle(ophe);
+    assert(lsmesh.face_handle(edge_middle).idx() != lsmesh.face_handle(ophe).idx());
+    assert(lsmesh.face_handle(ophe).idx() == lsmesh.face_handle(checking_he).idx());
+    find_intersection_on_halfedge(lsmesh,V, checking_he,p0,p1,pnorm,angle,edge_out,p_end);
     // check the previous halfedge
     checking_he = lsmesh.prev_halfedge_handle(ophe);
     assert(lsmesh.face_handle(edge_middle).idx() != lsmesh.face_handle(ophe).idx());
     assert(lsmesh.face_handle(ophe).idx() == lsmesh.face_handle(checking_he).idx());
-    vs = V.row(lsmesh.from_vertex_handle(checking_he).idx());
-    ve = V.row(lsmesh.to_vertex_handle(checking_he).idx());
-    found = find_osculating_plane_intersection_not_geodesic_p1_is_ver(p0, p1, vs, ve, pnorm, angle, temp_pend);
-    if (found)
-    {
-        for (int i = 0; i < temp_pend.size(); i++)
-        {
-            edge_out.push_back(checking_he);
-            p_end.push_back(temp_pend[i]);
-        }
-    }
+    find_intersection_on_halfedge(lsmesh,V, checking_he,p0,p1,pnorm,angle,edge_out,p_end);
+    // the next parts are for the cases the edge_middle is tangent to the curve
+    checking_he = lsmesh.next_halfedge_handle(edge_middle);
+    find_intersection_on_halfedge(lsmesh,V, checking_he,p0,p1,pnorm,angle,edge_out,p_end);
+    checking_he = lsmesh.prev_halfedge_handle(edge_middle);
+    find_intersection_on_halfedge(lsmesh,V, checking_he,p0,p1,pnorm,angle,edge_out,p_end);
+
     std::cout << "lower level check" << std::endl;
     for (int i = 0; i < p_end.size(); i++)
     {
@@ -368,7 +370,6 @@ bool lsTools::find_osculating_plane_intersection_not_geodesic_p1_is_not_ver(cons
         double cosangle = pnorm.dot(dddnorm);
         std::cout << "lower, cos^2 " << cosangle * cosangle << std::endl;
     }
-    return p_end.size();
 }
 
 void extend_vector(std::vector<Eigen::Vector3d> &first, std::vector<Eigen::Vector3d> &second)
@@ -408,6 +409,9 @@ bool angles_match(const double angle_degree1, const double angle_degree2)
 
 // caution: this is not an initialization to find the first and second point
 // TODO here is the bug: We should not take curve, but take pseudo-curve
+// 1. the bi-normal should not change much. PARAMETER [correct_normal]
+// 2. the angle should not be too far away from the target angle (due to the numerical error) PARAMETER [correct_angle]
+// 3. the curve should be smooth. No sharp turns
 void pseudo_geodesic_intersection_filter_by_closeness(
     const std::vector<Eigen::Vector3d> &curve, const std::array<Eigen::Vector3d,3>& pcurve_local, const double angle_degree,
     const std::vector<Eigen::Vector3d> &pnorm_list, const Eigen::Vector3d &pnorm,
@@ -478,12 +482,11 @@ void pseudo_geodesic_intersection_filter_by_closeness(
         if (!flag_right[i])
             continue;
         Eigen::Vector3d dire2 = (candi_points[i] - pcurve_local[2]).normalized();
-        // Eigen::Vector3d normal = dire1.cross(dire2).normalized();
-        // double normal_pnormal = normal.dot(pnorm);
-        // double dire1_normal = dire1.dot(normal);
-        // double angle_tmp_radian = acos(normal_pnormal);
-        // double angle_diff = std::min(fabs(angle_tmp_radian - angle_radian), fabs(2 * LSC_PI - angle_tmp_radian - angle_radian));
+        
         double dot_product = dire1.dot(dire2);
+        if(dot_product<0){// avoid sharp turn
+            continue;
+        }
         if (dot_product > closest_angle_diff_radian) // select the most smooth one
         {
             closest_angle_diff_radian = dot_product;
@@ -736,7 +739,7 @@ bool lsTools::get_pseudo_vertex_and_trace_forward(
                 ver_dbg1.resize(1, 3);
                 ver_dbg1.row(0) = point_middle;
                 ver_dbg = vec_list_to_matrix(candidate_pts);
-                // flag_dbg = false;
+                flag_dbg = false;
                 std::cout << "+++++++++++++++++++++++++++++++++++\nCHECKING END" << std::endl;
             }
         }
@@ -1056,9 +1059,10 @@ bool lsTools::trace_single_pseudo_geodesic_curve(const double target_angle_degre
         if(curve.size()>=3){
             pcurve_local[0]=pcurve[curve.size()-3];
         }
+        bool calculate_pseudo_vertex_default=true;
         found = get_pseudo_vertex_and_trace_forward(cc, curve, pcurve_local, target_angle_degree, intersected_handle_tmp,
                                                     first_point,
-                                                    intersected_point_tmp, false, edge_out, point_out,
+                                                    intersected_point_tmp, calculate_pseudo_vertex_default, edge_out, point_out,
                                                     generate_pseudo_vertex, pseudo_vertex_out);
         if (found)
         {
