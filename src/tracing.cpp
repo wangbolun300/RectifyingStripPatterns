@@ -487,6 +487,14 @@ void pseudo_geodesic_intersection_filter_by_closeness(
         if(dot_product<0){// avoid sharp turn
             continue;
         }
+        // TODO move all the correct_angle part here, now still have some remaining above
+        Eigen::Vector3d osnormal1 = dire1.cross(dire2).normalized();
+        double dot_product1 = pnorm.dot(osnormal1);
+        double real_angle = acos(dot_product1) * 180 / LSC_PI;
+        bool correct_angle = angles_match(real_angle, angle_degree); 
+        if(!correct_angle){
+            continue;
+        }
         if (dot_product > closest_angle_diff_radian) // select the most smooth one
         {
             closest_angle_diff_radian = dot_product;
