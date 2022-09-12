@@ -106,14 +106,21 @@ void lsTools::debug_tool(int id, int id2, double value)
     if(pnorm_list_dbg.size() != nbr_midpts){
         std::cout<<"dangerous size! "<<pnorm_list_dbg.size()<<", "<<nbr_midpts<<std::endl;
     }
-    assert(pnorm_list_dbg.size() == nbr_midpts);
-    pnorm_dbg=vec_list_to_matrix(pnorm_list_dbg);
-    // check the abs(consin)
-    for (int i = 0; i < nbr_midpts; i++){
-        Eigen::Vector3d tmp_dir1=direction_dbg.row(i);
-        Eigen::Vector3d tmp_dir2=pnorm_list_dbg[i].normalized();
-        double cosin=tmp_dir1.dot(tmp_dir2);
-        std::cout<<i<<"th cosin^2 "<<cosin*cosin<<std::endl;
+    if (target_angle > 90 - ANGLE_TOLERANCE && target_angle < 90 + ANGLE_TOLERANCE){
+        std::cout<<"Traced geodesic"<<std::endl;
+    }
+    else
+    {
+        assert(pnorm_list_dbg.size() == nbr_midpts);
+        pnorm_dbg = vec_list_to_matrix(pnorm_list_dbg);
+        // check the abs(consin)
+        for (int i = 0; i < nbr_midpts; i++)
+        {
+            Eigen::Vector3d tmp_dir1 = direction_dbg.row(i);
+            Eigen::Vector3d tmp_dir2 = pnorm_list_dbg[i].normalized();
+            double cosin = tmp_dir1.dot(tmp_dir2);
+            std::cout << i << "th cosin^2 " << cosin * cosin << std::endl;
+        }
     }
 
     // TODO temporarily checking one trace line

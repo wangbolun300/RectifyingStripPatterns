@@ -492,8 +492,12 @@ int main(int argc, char *argv[])
 				std::cout << "checking results " << lscif::tools.ver_dbg<<std::endl;
 				Eigen::MatrixXd Edge1_dbg=lscif::tools.E0_dbg+lscif::tools.direction_dbg*lscif::vector_scaling;
 				viewer.data().add_edges(lscif::tools.E0_dbg,Edge1_dbg,green);
-				Eigen::MatrixXd Edge2_dbg=lscif::tools.E0_dbg+lscif::tools.pnorm_dbg*lscif::vector_scaling;
-				viewer.data().add_edges(lscif::tools.E0_dbg,Edge2_dbg,black);
+				if (lscif::tools.pnorm_dbg.rows() == lscif::tools.E0_dbg.rows())
+				{
+					Eigen::MatrixXd Edge2_dbg = lscif::tools.E0_dbg + lscif::tools.pnorm_dbg * lscif::vector_scaling;
+					viewer.data().add_edges(lscif::tools.E0_dbg, Edge2_dbg, black);
+				}
+
 				viewer.selected_data_index = id;
 			}
 			ImGui::SameLine();
