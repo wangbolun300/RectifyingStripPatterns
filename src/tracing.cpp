@@ -475,6 +475,12 @@ void pseudo_geodesic_intersection_filter_by_closeness(
     double closest_angle_diff_radian = -5;
     
     double angle_radian = angle_degree * LSC_PI / 180;
+    std::cout<<"flags, ";
+    for(int i=0;i<flag_right.size();i++){
+        std::cout<<flag_right[i]<<", ";
+    }
+    std::cout<<"\n";
+    
     for (int i = 0; i < candi_points.size(); i++)
     {
         if (!flag_right[i])
@@ -487,7 +493,7 @@ void pseudo_geodesic_intersection_filter_by_closeness(
         // double angle_diff = std::min(fabs(angle_tmp_radian - angle_radian), fabs(2 * LSC_PI - angle_tmp_radian - angle_radian));
         double dot_product = dire1.dot(dire2);
         if(dot_product<0){// avoid sharp turn
-        std::cout<<"<> sharp turn, dot_product"<<std::endl;
+        std::cout<<i<<"th <> sharp turn, dot_product "<<dot_product<<std::endl;
             continue;
         }
         if (dot_product > closest_angle_diff_radian) // select the most smooth one
@@ -550,7 +556,7 @@ bool lsTools::get_pseudo_vertex_and_trace_forward(
     const bool calculate_pseudo_vertex, CGMesh::HalfedgeHandle &edge_out,
     Eigen::Vector3d &point_out, bool &generate_pseudo_vertex, Eigen::Vector3d &pseudo_vertex_out, int & is_ver)
 {
-    std::cout << "inside trace forward, curve size = " << curve.size() << std::endl;
+    std::cout << "inside trace forward, curve size = " << curve.size()<<"point_m_is_ver "<< point_middle_is_ver<< std::endl;
     is_ver=-1;
     unsigned radius = 2;
     bool is_geodesic = false;
@@ -579,11 +585,6 @@ bool lsTools::get_pseudo_vertex_and_trace_forward(
     Eigen::Vector3d ver_from = V.row(ver_from_id);
     Eigen::Vector3d ver_to = V.row(ver_to_id);
 
-    double dist_from = (point_middle - ver_from).norm();
-    double dist_to = (point_middle - ver_to).norm();
-    double dist_total = dist_from + dist_to;
-    double from_ratio = dist_from / dist_total;
-    double to_ratio = dist_to / dist_total;
     if (angle_degree > 90 - ANGLE_TOLERANCE && angle_degree < 90 + ANGLE_TOLERANCE)
     { // it means it is a geodesic
         is_geodesic = true;
@@ -791,10 +792,12 @@ bool lsTools::get_pseudo_vertex_and_trace_forward(
 
         if (t >= -MERGE_VERTEX_RATIO && t < MERGE_VERTEX_RATIO)
         {
+            std::cout<<"\nNEXT is VER!!!"<<std::endl;
             is_ver = 0;
         }
         if (t > 1 - MERGE_VERTEX_RATIO && t <= 1 + MERGE_VERTEX_RATIO)
         {
+            std::cout<<"\nNEXT is VER!!!"<<std::endl;
             is_ver = 1;
         }
 
@@ -804,6 +807,7 @@ bool lsTools::get_pseudo_vertex_and_trace_forward(
         Eigen::Vector3d dddnorm = (direc0.cross(direc1)).normalized();
         double tmpcos = pnorm.dot(dddnorm);
         std::cout << "cos^2 = " << tmpcos * tmpcos << std::endl;
+        
         std::cout << std::endl;
         return true;
     }
