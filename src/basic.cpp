@@ -475,7 +475,63 @@ void sphere_example(double radius, double theta, double phi, int nt, int np)
                              ver, faces);
     std::cout << "sphere mesh file saved " << std::endl;
 }
+void cylinder_example(double radius, double height, int nr, int nh){
+     Eigen::MatrixXd ver;
+    Eigen::MatrixXi faces;
+    ver.resize(nh * nr, 3);
+    faces.resize(2 * (nh - 1) * nr, 3);
+    int verline = 0;
+    double hitv = height/(nh-1);
+    double ritv = 2 * LSC_PI / nr;
+    for (int i = 0; i < nr; i++)
+    {
+        double angle=ritv*i;
+        double x=cos(angle)*radius;
+        double y=sin(angle)*radius;
+        for (int j = 0; j < nh; j++)
+        {
+            double z = j * hitv;
+            ver.row(verline)<<x,y,z;
+            verline++;
+        }
+    }
 
+    int fline = 0;
+    for (int i = 0; i < nr; i++)
+    {
+        if (i < nr - 1)
+        {
+            for (int j = 0; j < nh - 1; j++)
+            {
+                int id0 = nh * i + j;
+                int id1 = nh * (i + 1) + j;
+                int id2 = nh * (i + 1) + j + 1;
+                int id3 = nh * i + j + 1;
+                faces.row(fline) = Eigen::Vector3i(id0, id1, id2);
+                faces.row(fline + 1) = Eigen::Vector3i(id0, id2, id3);
+                fline += 2;
+            }
+        }
+        else{
+            for (int j = 0; j < nh - 1; j++)
+            {
+                int id0 = nh * i + j;
+                int id1 =  j;
+                int id2 =  j + 1;
+                int id3 = nh * i + j + 1;
+                faces.row(fline) = Eigen::Vector3i(id0, id1, id2);
+                faces.row(fline + 1) = Eigen::Vector3i(id0, id2, id3);
+                fline += 2;
+            }
+
+        }
+    }
+    std::string path("/Users/wangb0d/bolun/D/vs/levelset/level-set-curves/data/");
+    igl::write_triangle_mesh(path + "cylinder_" + std::to_string(radius) + "_" + std::to_string(height) + "_" +
+                                 std::to_string(nr) + "_" + std::to_string(nh) + ".obj",
+                             ver, faces);
+    std::cout << "sphere mesh file saved " << std::endl;
+}
 void lsTools::make_sphere_ls_example(int rowid)
 {
     int vsize = V.rows();

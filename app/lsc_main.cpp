@@ -47,6 +47,7 @@ namespace lscif
 	int dbg_int;
 	int dbg_int2=5;
 	double dbg_dbl=30;
+	double dbg_dbl2=60;
 	double vector_scaling = 1;
 	double strip_width_ratio = 1.;
 
@@ -440,6 +441,7 @@ int main(int argc, char *argv[])
 				ImGui::InputInt("int", &lscif::dbg_int, 0, 0);
 				ImGui::InputInt("int2", &lscif::dbg_int2, 0, 0);
 				ImGui::InputDouble("double", &lscif::dbg_dbl, 0, 0, "%.4f");
+				ImGui::InputDouble("double2", &lscif::dbg_dbl2, 0, 0, "%.4f");
 				ImGui::InputDouble("vector_scaling", &lscif::vector_scaling, 0, 0, "%.4f");
 			}
 			if (ImGui::Button("debug", ImVec2(ImGui::GetWindowSize().x * 0.23f, 0.0f)))
@@ -464,7 +466,10 @@ int main(int argc, char *argv[])
 				Eigen::MatrixXd RGB = Eigen::MatrixXd::Identity(3, 3);
 				Eigen::MatrixXd E2, E3, Ea0, Ea1;
 				Eigen::MatrixXd pts;
-				lscif::tools.show_pseudo_geodesic_curve(E0, E1, pts);
+				std::vector<Eigen::MatrixXd> E0list, E1list;
+				lscif::tools.show_pseudo_geodesic_curve(E0list, E1list, pts);
+				E0=E0list[0];
+				E1=E1list[0];
 				viewer.data().add_edges(E0, E1, red);
 				if (0)
 				{
@@ -489,6 +494,70 @@ int main(int argc, char *argv[])
 				viewer.data().add_edges(lscif::tools.E0_dbg,Edge1_dbg,green);
 				Eigen::MatrixXd Edge2_dbg=lscif::tools.E0_dbg+lscif::tools.pnorm_dbg*lscif::vector_scaling;
 				viewer.data().add_edges(lscif::tools.E0_dbg,Edge2_dbg,black);
+				viewer.selected_data_index = id;
+			}
+			ImGui::SameLine();
+			if (ImGui::Button("debug cylinder", ImVec2(ImGui::GetWindowSize().x * 0.23f, 0.0f)))
+			{
+
+				int id = viewer.selected_data_index;
+				CGMesh updatedMesh;
+				CGMesh inputMesh = lscif::Meshes[id];
+				lscif::tools.init(inputMesh);
+				lscif::tools.initialize_mesh_properties();
+				// calculate the pseudo-geodesic
+				std::vector<int> input_int;
+				std::vector<double> input_dbl;
+				input_int.push_back(lscif::dbg_int);
+				input_dbl.push_back(lscif::dbg_dbl);
+				input_dbl.push_back(lscif::dbg_dbl2);
+				lscif::tools.debug_tool_v2(input_int, input_dbl);
+				lscif::updateMeshViewer(viewer, inputMesh);
+				lscif::meshFileName.push_back("dbg_" + lscif::meshFileName[id]);
+				lscif::Meshes.push_back(inputMesh);
+				Eigen::MatrixXd E0, E1;
+				// lscif::tools.show_gradients(E0,E1, lscif::vector_scaling);
+				const Eigen::RowVector3d red(0.8, 0.2, 0.2);
+				const Eigen::RowVector3d blue(0.2, 0.2, 0.8);
+				const Eigen::RowVector3d black(0, 0, 0);
+				const Eigen::RowVector3d green(0.2, 0.8, 0.2);
+				Eigen::MatrixXd RGB = Eigen::MatrixXd::Identity(3, 3);
+				Eigen::MatrixXd E2, E3, Ea0, Ea1;
+				Eigen::MatrixXd pts;
+				std::vector<Eigen::MatrixXd> E0list, E1list;
+				lscif::tools.show_pseudo_geodesic_curve(E0list, E1list, pts);
+				for (int i = 0; i < E0list.size(); i++)
+				{
+					E0 = E0list[i];
+					E1 = E1list[i];
+					viewer.data().add_edges(E0, E1, red);
+					std::cout<<"edge sizes "<<E0.rows()<<std::endl;
+				}
+
+				if (0)
+				{
+					lscif::tools.show_current_reference_points(pts);
+					viewer.data().add_points(pts, red);
+				}
+				if (1)
+				{
+					viewer.data().add_points(pts, red);
+				}
+			
+				// viewer.data().add_points(lscif::tools.ver_dbg1, black);
+				// viewer.data().add_points(lscif::tools.ver_dbg, blue);
+				// for(int i=0;i<lscif::tools.ver_dbg.rows();i++){
+				// 	Eigen::MatrixXd tmp_ver(1,3);
+				// 	tmp_ver.row(0)=lscif::tools.ver_dbg.row(i);
+				// 	viewer.data().add_edges(lscif::tools.ver_dbg1,tmp_ver,blue);
+				// }
+				// std::cout << "checking query size " << lscif::tools.ver_dbg1.rows() << std::endl;
+				// std::cout << "checking result size " << lscif::tools.ver_dbg.rows() << std::endl;
+				// std::cout << "checking results " << lscif::tools.ver_dbg<<std::endl;
+				// Eigen::MatrixXd Edge1_dbg=lscif::tools.E0_dbg+lscif::tools.direction_dbg*lscif::vector_scaling;
+				// viewer.data().add_edges(lscif::tools.E0_dbg,Edge1_dbg,green);
+				// Eigen::MatrixXd Edge2_dbg=lscif::tools.E0_dbg+lscif::tools.pnorm_dbg*lscif::vector_scaling;
+				// viewer.data().add_edges(lscif::tools.E0_dbg,Edge2_dbg,black);
 				viewer.selected_data_index = id;
 			}
 			ImGui::SameLine();

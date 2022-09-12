@@ -1084,20 +1084,31 @@ bool lsTools::trace_single_pseudo_geodesic_curve(const double target_angle_degre
     assert(pcurve.size() == curve.size());
     return true;
 }
-void lsTools::show_pseudo_geodesic_curve(Eigen::MatrixXd &E0, Eigen::MatrixXd &E1, Eigen::MatrixXd &vers)
+void lsTools::show_pseudo_geodesic_curve(std::vector<Eigen::MatrixXd> &E0, std::vector<Eigen::MatrixXd> &E1, Eigen::MatrixXd &vers)
 {
-
-    int vsize = trace_vers.size();
-    E0.resize(vsize - 1, 3);
-    E1.resize(vsize - 1, 3);
-    for (int i = 0; i < vsize - 1; i++)
+    E0.resize(trace_vers.size());
+    E1.resize(trace_vers.size());
+    int pnbr=0;
+    for (int i = 0; i < trace_vers.size(); i++)
     {
-        E0.row(i) = trace_vers[i];
-        E1.row(i) = trace_vers[i + 1];
+        int vsize = trace_vers[i].size();
+        E0[i].resize(vsize - 1, 3);
+        E1[i].resize(vsize - 1, 3);
+        for (int j = 0; j < vsize - 1; j++)
+        {
+            E0[i].row(j) = trace_vers[i][j];
+            E1[i].row(j) = trace_vers[i][j + 1];
+            pnbr++;
+        }
+        pnbr++;
+        
     }
-    vers.resize(vsize, 3);
-    for (int i = 0; i < vsize; i++)
-    {
-        vers.row(i) = trace_vers[i];
+    vers.resize(pnbr,3);
+    pnbr=0;
+    for(int i=0;i<trace_vers.size();i++){
+        for(int j=0;j<trace_vers[i].size();j++){
+            vers.row(pnbr)=trace_vers[i][j];
+            pnbr++;
+        }
     }
 }

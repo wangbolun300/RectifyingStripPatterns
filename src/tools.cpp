@@ -72,6 +72,7 @@ void mat_col_to_triplets(const spMat &mat, const int col, const int ref, const b
 }
 void lsTools::debug_tool(int id, int id2, double value)
 {
+    trace_vers.resize(1);
     std::cout << "checking one pseudo geodesic" << std::endl;
     // debug init
     ver_dbg.resize(0,0);
@@ -116,8 +117,42 @@ void lsTools::debug_tool(int id, int id2, double value)
     }
 
     // TODO temporarily checking one trace line
-    trace_vers = curve;
+    trace_vers[0] = curve;
 }
+void lsTools::debug_tool_v2(const std::vector<int>& ids, const std::vector<double> values){
+    // cylinder_example(5, 10, 50, 30);
+    // exit(0);
+    int nbr_itv= ids[0]; // every nbr_itv boundary edges we shoot one curve
+    double target_angle=values[0];
+    double start_angel=values[1];
+    OpenMesh::HalfedgeHandle init_edge=Boundary_Edges[0];
+    if(lsmesh.face_handle(init_edge).idx()>=0){
+        init_edge=lsmesh.opposite_halfedge_handle(init_edge);
+    }
+    OpenMesh::HalfedgeHandle checking_edge=init_edge;
+    while(1){
+        std::vector<Eigen::Vector3d> curve;
+        trace_single_pseudo_geodesic_curve(target_angle, checking_edge, 0.5, start_angel,
+                                       curve);
+        trace_vers.push_back(curve);
+        bool stop_flag=false;
+        for (int i = 0; i < nbr_itv; i++)
+        {
+            checking_edge = lsmesh.next_halfedge_handle(checking_edge);
+            if (checking_edge == init_edge)
+            {
+                stop_flag=true;
+                break;
+            }
+        }
+        if(stop_flag){
+            break;
+        }
+    }
+    
+
+}
+
 void extend_triplets_offset(std::vector<Trip> &triplets, const spMat &mat, int offrow, int offcol)
 {
     for (int i = 0; i < mat.outerSize(); i++)

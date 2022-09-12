@@ -2,8 +2,7 @@
 #include <lsc/MeshProcessing.h>
 #include <lsc/igl_tool.h>
 #include <lsc/basic.h>
-// theta <= pi/2, phi<=pi
-void sphere_example(double radius, double theta, double phi, int nt, int np);
+
 // Efunc represent a elementary value, which is the linear combination of
 // some function values on their corresponding vertices, of this vertex.
 // i.e. Efunc[0]*f_0+Efunc[1]*f_1+...+Efunc[n]*f_n.
@@ -65,7 +64,7 @@ private:
     std::vector<CGMesh::HalfedgeHandle> Boundary_Edges;
     Eigen::MatrixXd norm_e; // normal directions on each edge
     std::vector<TracCurve> trace;
-    std::vector<Eigen::Vector3d> trace_vers;
+    std::vector<std::vector<Eigen::Vector3d>> trace_vers;
 
     bool derivates_calculated = false;
     void
@@ -197,12 +196,13 @@ public:
     void show_1_order_derivate(Eigen::MatrixXd &E0, Eigen::MatrixXd &E1, Eigen::MatrixXd &E2, Eigen::MatrixXd &E3, double ratio);
     void show_face_1_order_derivate(Eigen::MatrixXd &E0, Eigen::MatrixXd &E1, Eigen::MatrixXd &E2, Eigen::MatrixXd &E3, double ratio);
     void show_vertex_normal(Eigen::MatrixXd &E0, Eigen::MatrixXd &E1, double ratio);
-    void show_pseudo_geodesic_curve(Eigen::MatrixXd &E0, Eigen::MatrixXd &E1, Eigen::MatrixXd &vers);
+    void show_pseudo_geodesic_curve(std::vector<Eigen::MatrixXd> &E0, std::vector<Eigen::MatrixXd> &E1, Eigen::MatrixXd &vers);
 
     void initialize_and_smooth_level_set_by_laplacian();
     void initialize_and_optimize_strip_width();
     void initialize_and_optimize_pseudo_geodesic();
     void debug_tool(int id = 0, int id2 = 0, double value = 0);
+    void debug_tool_v2(const std::vector<int>& ids, const std::vector<double> values);
     void make_sphere_ls_example(int rowid);
 };
 
