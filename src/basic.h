@@ -96,19 +96,22 @@ private:
     void assemble_solver_laplacian_part(spMat &H, Efunc &B);
     void assemble_solver_strip_width_part(spMat &H, Efunc &B);
     // void assemble_solver_pseudo_geodesic_part(spMat &H, Efunc& B);
-    
+    bool find_geodesic_intersection_p1_is_NOT_ver(const Eigen::Vector3d &p0, const Eigen::Vector3d &p1,
+                                                  const CGMesh::HalfedgeHandle &edge_middle, const Eigen::Vector3d &pnorm, CGMesh::HalfedgeHandle &edge_out, Eigen::Vector3d &p_end);
+    bool find_osculating_plane_intersection_not_geodesic_p1_is_not_ver(const Eigen::Vector3d &p0, const Eigen::Vector3d &p1,
+                                                                       const CGMesh::HalfedgeHandle &edge_middle, const Eigen::Vector3d &pnorm, const double angle, std::vector<CGMesh::HalfedgeHandle> &edge_out, std::vector<Eigen::Vector3d> &p_end);
     bool get_pseudo_vertex_and_trace_forward(
-        QuadricCalculator &cc, int point_middle_is_ver,
-    const std::vector<Eigen::Vector3d> &curve, std::array<Eigen::Vector3d,3>& pcurve_local, const double angle_degree,
-    const CGMesh::HalfedgeHandle &edge_middle,
-    const Eigen::Vector3d &point_in, const Eigen::Vector3d &point_middle,
-    const bool calculate_pseudo_vertex, CGMesh::HalfedgeHandle &edge_out,
-    Eigen::Vector3d &point_out, bool &generate_pseudo_vertex, Eigen::Vector3d &pseudo_vertex_out, int & is_ver);
+        QuadricCalculator &cc,
+        const std::vector<Eigen::Vector3d> &curve,  std::array<Eigen::Vector3d,3>& pcurve_local, const double angle_degree,
+        const CGMesh::HalfedgeHandle &edge_middle,
+        const Eigen::Vector3d &point_in, const Eigen::Vector3d &point_middle, 
+        const bool calculate_pseudo_vertex, CGMesh::HalfedgeHandle &edge_out,
+        Eigen::Vector3d &point_out, bool &generate_pseudo_vertex, Eigen::Vector3d &pseudo_vertex_out);
     bool init_pseudo_geodesic_first_segment(
         const CGMesh::HalfedgeHandle &start_boundary_edge_pre, const double &start_point_para,
         const double start_boundary_angle_degree,
         CGMesh::HalfedgeHandle &intersected_handle,
-        Eigen::Vector3d &intersected_point,int &is_ver);
+        Eigen::Vector3d &intersected_point);
     // start_point_para is the parameter t, start_point=from+t*(to-from).
     // start_angle_degree is the angle between the initial direction and the direction from->to
     bool trace_single_pseudo_geodesic_curve(const double target_angle,
