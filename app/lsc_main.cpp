@@ -513,6 +513,7 @@ int main(int argc, char *argv[])
 				std::vector<int> input_int;
 				std::vector<double> input_dbl;
 				input_int.push_back(lscif::dbg_int);
+				input_int.push_back(lscif::dbg_int2);
 				input_dbl.push_back(lscif::dbg_dbl);
 				input_dbl.push_back(lscif::dbg_dbl2);
 				lscif::tools.debug_tool_v2(input_int, input_dbl);

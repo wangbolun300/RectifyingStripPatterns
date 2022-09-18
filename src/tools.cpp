@@ -82,14 +82,15 @@ void lsTools::debug_tool(int id, int id2, double value)
     direction_dbg.resize(0,0);
     pnorm_dbg.resize(0,0);
     pnorm_list_dbg.clear();
+    flag_dbg = true;
+    id_dbg = id2;
+
     // debug init end
     double start_point_para = 0.5;
     double start_angle_degree = 60;
     double target_angle = value;
     std::vector<Eigen::Vector3d> curve;
-    flag_dbg = true;
-    id_dbg = id2;
-
+    
     trace_single_pseudo_geodesic_curve(target_angle, Boundary_Edges[id], start_point_para, start_angle_degree,
                                        curve);
     flag_dbg = false;
@@ -130,6 +131,10 @@ void lsTools::debug_tool_v2(const std::vector<int>& ids, const std::vector<doubl
     // cylinder_example(5, 10, 50, 30);
     // exit(0);
     int nbr_itv= ids[0]; // every nbr_itv boundary edges we shoot one curve
+    if(nbr_itv<1){
+        std::cout<<"Please set up the parameter nbr_itv "<<std::endl;
+        return;
+    }
     double target_angle=values[0];
     double start_angel=values[1];
     OpenMesh::HalfedgeHandle init_edge=Boundary_Edges[0];
@@ -137,12 +142,44 @@ void lsTools::debug_tool_v2(const std::vector<int>& ids, const std::vector<doubl
         init_edge=lsmesh.opposite_halfedge_handle(init_edge);
     }
     OpenMesh::HalfedgeHandle checking_edge=init_edge;
-    while(1){
+    int curve_id = 0;
+    while (1)
+    {
+        ver_dbg.resize(0, 0);
+        ver_dbg1.resize(0, 0);
+        flag_dbg = false;
+        E0_dbg.resize(0, 0);
+        direction_dbg.resize(0, 0);
+        pnorm_dbg.resize(0, 0);
+        pnorm_list_dbg.clear();
+        flag_dbg = true;
+        id_dbg = ids[1];
         std::vector<Eigen::Vector3d> curve;
         trace_single_pseudo_geodesic_curve(target_angle, checking_edge, 0.5, start_angel,
-                                       curve);
+                                           curve);
+        flag_dbg = false;
+        curve_id++;
+        if (curve_id == -1)
+        {
+            bool stop_flag = false;
+
+            for (int i = 0; i < nbr_itv; i++)
+            {
+                checking_edge = lsmesh.next_halfedge_handle(checking_edge);
+                if (checking_edge == init_edge)
+                {
+                    stop_flag = true;
+                    break;
+                }
+            }
+            continue;
+        }
         trace_vers.push_back(curve);
         bool stop_flag=false;
+        
+        if(curve_id==-1){
+            break;
+        }
         for (int i = 0; i < nbr_itv; i++)
         {
             checking_edge = lsmesh.next_halfedge_handle(checking_edge);
@@ -156,8 +193,6 @@ void lsTools::debug_tool_v2(const std::vector<int>& ids, const std::vector<doubl
             break;
         }
     }
-    
-
 }
 
 void extend_triplets_offset(std::vector<Trip> &triplets, const spMat &mat, int offrow, int offcol)
