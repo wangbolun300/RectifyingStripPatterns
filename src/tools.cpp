@@ -1,6 +1,19 @@
 #include <lsc/basic.h>
 #include <lsc/tools.h>
 
+bool triangles_coplanar(const Eigen::Vector3d& t0, const Eigen::Vector3d& t1, const Eigen::Vector3d& t2,
+ const Eigen::Vector3d&p0, const Eigen::Vector3d&p1, const Eigen::Vector3d&p2){
+    Eigen::Vector3d norm1=(t1-t0).cross(t2-t1).normalized();
+    Eigen::Vector3d norm2=(p1-p0).cross(p2-p1).normalized();
+    Eigen::Vector3d cross=norm1.cross(norm2);
+    
+    if(cross.norm()<1e-8){
+        return true;
+    }
+    return false;
+ }
+
+
 std::vector<Trip> to_triplets(spMat &M)
 {
     std::vector<Trip> v;

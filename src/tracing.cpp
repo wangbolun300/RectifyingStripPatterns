@@ -409,7 +409,7 @@ bool angles_match(const double angle_degree1, const double angle_degree2)
 
 // caution: this is not an initialization to find the first and second point
 // TODO here is the bug: We should not take curve, but take pseudo-curve
-// 1. the bi-normal should not change much. PARAMETER [correct_normal]
+// 1. the bi-normal should not change much. PARAMETER [correct_normal] TODO need remove
 // 2. the angle should not be too far away from the target angle (due to the numerical error) PARAMETER [correct_angle]
 // 3. the curve should be smooth. No sharp turns
 void pseudo_geodesic_intersection_filter_by_closeness(
