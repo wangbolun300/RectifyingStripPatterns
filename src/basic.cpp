@@ -928,6 +928,30 @@ void lsTools::initialize_and_optimize_strip_width()
 }
 void lsTools::get_all_the_edge_normals()
 {
+    int ne = lsmesh.n_edges();
+    norm_e.resize(ne,3);
+	 for (CGMesh::EdgeIter e_it = lsmesh.edges_begin(); e_it != lsmesh.edges_end(); ++e_it)
+	 {
+        int eid=e_it.handle().idx();
+		 OpenMesh::HalfedgeHandle hh_ori = lsmesh.halfedge_handle(e_it, 0);
+         OpenMesh::HalfedgeHandle hh_opp = lsmesh.halfedge_handle(e_it, 1);
+         assert(hh_ori==lsmesh.opposite_halfedge_handle(hh_opp));
+		 int fid1=lsmesh.face_handle(hh_ori).idx();
+         int fid2=lsmesh.face_handle(hh_opp).idx();
+         Eigen::Vector3d n1=Eigen::Vector3d(0,0,0);
+         Eigen::Vector3d n2=Eigen::Vector3d(0,0,0);
+         if(fid1>=0){
+            n1=norm_f.row(fid1);
+         }
+         if(fid2>=0){
+            n2=norm_f.row(fid2);
+         }
+         Eigen::Vector3d direction=n1+n2;
+         direction=direction/direction.norm();
+         norm_e.row(eid)=direction;
+	 }
+    // CGMesh::HalfedgeHandle heh;
+    // CGMesh::EdgeHandle eh=lsmesh.edge_handle(heh);
     // int enbr=lsmesh.n_edges();
     // norm_e.resize(enbr,3);
     // norm_e.

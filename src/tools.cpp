@@ -80,6 +80,7 @@ void lsTools::debug_tool(int id, int id2, double value)
     flag_dbg = false;
     E0_dbg.resize(0,0);
     direction_dbg.resize(0,0);
+    
     pnorm_dbg.resize(0,0);
     pnorm_list_dbg.clear();
     flag_dbg = true;
@@ -90,19 +91,23 @@ void lsTools::debug_tool(int id, int id2, double value)
     double start_angle_degree = 60;
     double target_angle = value;
     std::vector<Eigen::Vector3d> curve;
-    
+    std::vector<CGMesh::HalfedgeHandle> handles;
     trace_single_pseudo_geodesic_curve(target_angle, Boundary_Edges[id], start_point_para, start_angle_degree,
-                                       curve);
+                                       curve,handles);
     flag_dbg = false;
     int nbr_midpts = curve.size() - 2;
     E0_dbg.resize(nbr_midpts, 3);
     direction_dbg.resize(nbr_midpts, 3);
+    Eigen::MatrixXd binormals_real(nbr_midpts,3);
     for (int i = 0; i < nbr_midpts; i++)
     {
         E0_dbg.row(i) = curve[i + 1];
         Eigen::Vector3d vec0 = (pseudo_vers_dbg[i + 1] - pseudo_vers_dbg[i]).normalized();
         Eigen::Vector3d vec1 = (curve[i + 2] - pseudo_vers_dbg[i + 1]).normalized();
-        direction_dbg.row(i) = vec0.cross(vec1).normalized();// pseudo normal
+        direction_dbg.row(i) = vec0.cross(vec1).normalized();// bi normal of the pseudo-curve
+        vec0 = (curve[i + 1] - curve[i]).normalized();
+        vec1 = (curve[i + 2] - curve[i + 1]).normalized();
+        binormals_real.row(i)= vec0.cross(vec1).normalized();
     }
     if(pnorm_list_dbg.size() != nbr_midpts){
         std::cout<<"dangerous size! "<<pnorm_list_dbg.size()<<", "<<nbr_midpts<<std::endl;
@@ -121,11 +126,15 @@ void lsTools::debug_tool(int id, int id2, double value)
             Eigen::Vector3d tmp_dir2 = pnorm_list_dbg[i].normalized();
             double cosin = tmp_dir1.dot(tmp_dir2);
             std::cout << i << "th cosin^2 " << cosin * cosin << std::endl;
+            tmp_dir1 = binormals_real.row(i);
+            cosin = tmp_dir1.dot(tmp_dir2);
+            std::cout << i << "th cosin^2 " << cosin * cosin << std::endl;
         }
     }
 
     // TODO temporarily checking one trace line
     trace_vers[0] = curve;
+    trace_hehs.push_back(handles);
 }
 void lsTools::debug_tool_v2(const std::vector<int>& ids, const std::vector<double> values){
     // cylinder_example(5, 10, 50, 30);
@@ -155,8 +164,9 @@ void lsTools::debug_tool_v2(const std::vector<int>& ids, const std::vector<doubl
         flag_dbg = true;
         id_dbg = ids[1];
         std::vector<Eigen::Vector3d> curve;
+        std::vector<CGMesh::HalfedgeHandle> handles;
         trace_single_pseudo_geodesic_curve(target_angle, checking_edge, 0.5, start_angel,
-                                           curve);
+                                           curve,handles);
         flag_dbg = false;
         curve_id++;
         if (curve_id == -1)
@@ -175,6 +185,7 @@ void lsTools::debug_tool_v2(const std::vector<int>& ids, const std::vector<doubl
             continue;
         }
         trace_vers.push_back(curve);
+        trace_hehs.push_back(handles);
         bool stop_flag=false;
         
         if(curve_id==-1){

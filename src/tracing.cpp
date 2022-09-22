@@ -1029,9 +1029,11 @@ Eigen::Vector3d the_first_point(const Eigen::Vector3d &vs, const Eigen::Vector3d
 bool lsTools::trace_single_pseudo_geodesic_curve(const double target_angle_degree,
                                                  const CGMesh::HalfedgeHandle &start_boundary_edge, const double &start_point_para,
                                                  const double start_boundary_angle_degree,
-                                                 std::vector<Eigen::Vector3d> &curve)
+                                                 std::vector<Eigen::Vector3d> &curve,
+                                                 std::vector<CGMesh::HalfedgeHandle>& handles)
 {
     curve.clear();
+    handles.clear();
     CGMesh::HalfedgeHandle intersected_handle_tmp;
     Eigen::Vector3d intersected_point_tmp;
     bool found = init_pseudo_geodesic_first_segment(start_boundary_edge, start_point_para, start_boundary_angle_degree,
@@ -1044,7 +1046,7 @@ bool lsTools::trace_single_pseudo_geodesic_curve(const double target_angle_degre
     }
     QuadricCalculator cc;
     std::vector<Eigen::Vector3d> pcurve;
-    std::vector<CGMesh::HalfedgeHandle> handles;
+    
     Eigen::Vector3d first_point = the_first_point(
         V.row(lsmesh.from_vertex_handle(start_boundary_edge).idx()),
         V.row(lsmesh.to_vertex_handle(start_boundary_edge).idx()),
@@ -1067,7 +1069,7 @@ bool lsTools::trace_single_pseudo_geodesic_curve(const double target_angle_degre
         if(curve.size()>=3){
             pcurve_local[0]=pcurve[curve.size()-3];
         }
-        bool calculate_pseudo_vertex_default=true;
+        bool calculate_pseudo_vertex_default=false;
         found = get_pseudo_vertex_and_trace_forward(cc, curve, pcurve_local, target_angle_degree, intersected_handle_tmp,
                                                     first_point,
                                                     intersected_point_tmp, calculate_pseudo_vertex_default, edge_out, point_out,

@@ -7,6 +7,7 @@
 // some function values on their corresponding vertices, of this vertex.
 // i.e. Efunc[0]*f_0+Efunc[1]*f_1+...+Efunc[n]*f_n.
 typedef Eigen::SparseVector<double> Efunc;
+typedef Eigen::SparseVector<int> SpVeci;
 // typedef Eigen::SparseMatrix<double> spMat;
 typedef Eigen::Triplet<double> Trip;
 #define SCALAR_ZERO 1e-8
@@ -64,7 +65,11 @@ private:
     std::vector<CGMesh::HalfedgeHandle> Boundary_Edges;
     Eigen::MatrixXd norm_e; // normal directions on each edge
     std::vector<TracCurve> trace;
-    std::vector<std::vector<Eigen::Vector3d>> trace_vers;
+    std::vector<std::vector<Eigen::Vector3d>> trace_vers;// traced vertices
+    std::vector<std::vector<CGMesh::HalfedgeHandle>> trace_hehs;//traced half edge handles
+    std::vector<SpVeci> traceEdgeIndicator; // indicates the traced segments among all the edges
+    SpVeci ie_Indicator; // indicates the inner edges among all edges
+    
 
     bool derivates_calculated = false;
     void
@@ -116,7 +121,9 @@ private:
     bool trace_single_pseudo_geodesic_curve(const double target_angle,
                                             const CGMesh::HalfedgeHandle &start_boundary_edge, const double &start_point_para,
                                             const double start_angle_degree,
-                                            std::vector<Eigen::Vector3d> &curve);
+                                            std::vector<Eigen::Vector3d> &curve,
+                                            std::vector<CGMesh::HalfedgeHandle>& handles);
+                                    
 
 public:
     // parametrization and find the boundary loop
@@ -183,6 +190,7 @@ public:
         get_I_and_II_locally();
         get_vertex_rotation_matices();
         get_bnd_and_bnd_one_ring();
+        get_all_the_edge_normals();
     }
     void show_level_set(Eigen::VectorXd &val);
     // convert the parameters into a mesh, for visulization purpose
