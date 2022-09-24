@@ -392,18 +392,51 @@ void vector_duplicate(const Tp &input, const int size, std::vector<Tp> &result)
 bool angles_match(const double angle_degree1, const double angle_degree2)
 {
     double uniformed = angle_degree1;
-    if (angle_degree1 > 180)
-    {
-        uniformed -= 180;
-    }
-    if (angle_degree1 < 0)
-    {
-        uniformed += 180;
-    }
+    // if (angle_degree1 > 180)// this is not true since angle can be more than 180 when the surface is concave
+    // {
+    //     uniformed -= 180;
+    // }
+    // if (angle_degree1 < 0)
+    // {
+    //     uniformed += 180;
+    // }
     if (fabs(uniformed - angle_degree2) < ANGLE_TOLERANCE)
     {
         return true;
     }
+    return false;
+}
+
+// TODO modify for asymptotic
+bool binormal_correct_angle(const Eigen::Vector3d &seg_in, const Eigen::Vector3d &seg_out, const Eigen::Vector3d &pnorm, const double angle_degree)
+{
+    Eigen::Vector3d dirin = seg_in.normalized();
+    Eigen::Vector3d dirout = seg_out.normalized();
+    if(dirin.dot(dirout)<0){// avoid sharp turn.
+        return false;
+    }
+    Eigen::Vector3d norm = dirin.cross(dirout).normalized();
+    double dot_product1 = norm.dot(pnorm);
+    double real_angle = acos(dot_product1) * 180 / LSC_PI;
+    if (!angles_match(real_angle, angle_degree))
+    {
+        return false;
+    }
+    // tangent is othogonal to surface normal and the curve bi-normal
+    Eigen::Vector3d tangent = norm.cross(pnorm).normalized();
+    if(angle_degree>=0&&angle_degree<=180){
+        if(tangent.dot(seg_in)>0){
+            return true;
+        }
+        return false;
+    }
+    else{// 180~360 degree
+        if(tangent.dot(seg_in)<0){
+            return true;
+        }
+        return false;
+    }
+
     return false;
 }
 
@@ -437,67 +470,45 @@ void pseudo_geodesic_intersection_filter_by_closeness(
     {
         flag_right[i] = true;
     }
-    if (size >= 3)
-    { // when there is an osculating plane in the previous point
-        Eigen::Vector3d dire0 = (pcurve_local[1] - pcurve_local[0]).normalized();
-        Eigen::Vector3d osnormal = dire0.cross(dire1);
-        double dot_product0 = pnorm_list[size - 3].dot(osnormal);
-        for (int i = 0; i < candi_size; i++)
-        {
-            Eigen::Vector3d dire2 = (candi_points[i] - pcurve_local[2]).normalized();
-            Eigen::Vector3d osnormal1 = dire1.cross(dire2).normalized();
-            double dot_product1 = pnorm.dot(osnormal1);
-            bool correct_normal = dot_product0 * dot_product1 > 0; // remove negative normals
-            double real_angle = acos(dot_product1) * 180 / LSC_PI;
-            bool correct_angle = angles_match(real_angle, angle_degree); // remove planar segments
-            flag_right[i] = correct_normal && correct_angle;             // check if the signs are the same. if so, set as true;
-            std::cout << "correct normal " << correct_normal << std::endl;
-            std::cout << "correct angle " << correct_angle << std::endl;
-            std::cout << "real angle, " << real_angle << ", angle_degree, " << angle_degree << std::endl;
-            std::cout << "dot_product1, " << dot_product1 << std::endl;
-        }
-    }
+    // if (size >= 3)
+    // { // when there is an osculating plane in the previous point
+    //     Eigen::Vector3d dire0 = (pcurve_local[1] - pcurve_local[0]).normalized();
+    //     Eigen::Vector3d osnormal = dire0.cross(dire1);
+    //     double dot_product0 = pnorm_list[size - 3].dot(osnormal);
+    //     for (int i = 0; i < candi_size; i++)
+    //     {
+    //         Eigen::Vector3d dire2 = (candi_points[i] - pcurve_local[2]).normalized();
+    //         Eigen::Vector3d osnormal1 = dire1.cross(dire2).normalized();
+    //         double dot_product1 = pnorm.dot(osnormal1);
+    //         bool correct_normal = dot_product0 * dot_product1 > 0; // remove negative normals
+    //         double real_angle = acos(dot_product1) * 180 / LSC_PI;
+    //         bool correct_angle = angles_match(real_angle, angle_degree); // remove planar segments
+    //         flag_right[i] = correct_normal && correct_angle;             // check if the signs are the same. if so, set as true;
+    //         std::cout << "correct normal " << correct_normal << std::endl;
+    //         std::cout << "correct angle " << correct_angle << std::endl;
+    //         std::cout << "real angle, " << real_angle << ", angle_degree, " << angle_degree << std::endl;
+    //         std::cout << "dot_product1, " << dot_product1 << std::endl;
+    //     }
+    // }
 
     int closest_id = -1;
     // TODO should we consider the angle consistancy? to avoid cases like 5 degree flip to 355 degree?
     // int closest_id_consider_angle=-1;
-    double closest_angle_diff_radian = -5;
-    // double closest_angle_diff_radian_consider_angle = 370. * LSC_PI / 180.;
-    // int quadrant; // show which quadrant the normal is in respect to the pnormal
-    // if(angle_degree>=0&& angle_degree<=90){
-    //   quadrant=1;
-    // }
-    // if(angle_degree>=90&& angle_degree<=180){
-    //   quadrant=2;
-    // }
-    // if(angle_degree>=180&& angle_degree<=270){
-    //   quadrant=3;
-    // }
-    // if(angle_degree>=270&& angle_degree<=360){
-    //   quadrant=4;
-    // }
-    double angle_radian = angle_degree * LSC_PI / 180;
+    double closest_distance = std::numeric_limits<double>::max();
+
     for (int i = 0; i < candi_points.size(); i++)
     {
         if (!flag_right[i])
             continue;
         Eigen::Vector3d dire2 = (candi_points[i] - pcurve_local[2]).normalized();
         
-        double dot_product = dire1.dot(dire2);
-        if(dot_product<0){// avoid sharp turn
+        if(!binormal_correct_angle(dire1,dire2,pnorm,angle_degree)){
             continue;
         }
-        // TODO move all the correct_angle part here, now still have some remaining above
-        Eigen::Vector3d osnormal1 = dire1.cross(dire2).normalized();
-        double dot_product1 = pnorm.dot(osnormal1);
-        double real_angle = acos(dot_product1) * 180 / LSC_PI;
-        bool correct_angle = angles_match(real_angle, angle_degree); 
-        if(!correct_angle){
-            continue;
-        }
-        if (dot_product > closest_angle_diff_radian) // select the most smooth one
+        double distance=(candi_points[i] - pcurve_local[2]).norm();
+        if (distance < closest_distance) // select the most smooth one
         {
-            closest_angle_diff_radian = dot_product;
+            closest_distance = distance;
             closest_id = i;
         }
     }
