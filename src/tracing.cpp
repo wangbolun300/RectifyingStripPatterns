@@ -134,6 +134,10 @@ bool find_geodesic_intersection_p1_is_ver(const Eigen::Vector3d &p0, const Eigen
     if (t >= 0 && t <= 1)
     {
         p_end = vs + t * ves;
+        if ((p1 - p0).dot(p_end - p1) < 0)// to avoid trace back
+        {
+            return false;
+        }
         return true;
     }
     return false;
@@ -610,6 +614,7 @@ bool lsTools::get_pseudo_vertex_and_trace_forward(
     Eigen::Vector3d pnorm;
     CGMesh::VertexHandle center_handle;
     std::vector<CGMesh::HalfedgeHandle> edges;
+    
     if (from_ratio <= MERGE_VERTEX_RATIO)
     {
         std::cout << "\nnext middle is ver" << std::endl;
@@ -637,7 +642,7 @@ bool lsTools::get_pseudo_vertex_and_trace_forward(
     else{
         int fid2 = lsmesh.opposite_face_handle(edge_middle).idx();
         assert(fid1 != fid2);
-        int cent_id = lsmesh.from_vertex_handle(edge_middle).idx();
+        
         Eigen::Vector3d norm1 = norm_f.row(fid1);
         Eigen::Vector3d norm2 = norm_f.row(fid2);
         pnorm = (norm1 + norm2).normalized(); // the normal of the pseudo-vertex
@@ -656,6 +661,7 @@ bool lsTools::get_pseudo_vertex_and_trace_forward(
     if (calculate_pseudo_vertex&&!is_vertex)// if not vertex, and need to calculate pver, we calculate pver
     {
         std::cout << "TTTTT getting pseudo vertex " << std::endl;
+        int cent_id = lsmesh.from_vertex_handle(edge_middle).idx();
         cc.get_pseudo_vertex_on_edge(cent_id, point_middle, pnorm, pver);
         generate_pseudo_vertex = true; // TODO add tolerance
     }
@@ -667,7 +673,7 @@ bool lsTools::get_pseudo_vertex_and_trace_forward(
     
     pseudo_vertex_out = pver;
     pcurve_local[2]=pver;
-    for(edge_to_check: edges){
+    for(CGMesh::HalfedgeHandle edge_to_check: edges){
         Eigen::Vector3d vs = V.row(lsmesh.from_vertex_handle(edge_to_check).idx());
         Eigen::Vector3d ve = V.row(lsmesh.to_vertex_handle(edge_to_check).idx());
 
@@ -1058,6 +1064,11 @@ bool lsTools::trace_single_pseudo_geodesic_curve(const double target_angle_degre
             intersected_handle_tmp = edge_out; // middle edge = edge out
             first_point = pseudo_vertex_out;   // first point = pseudo middle point
             intersected_point_tmp = point_out; // point middle = point out. but may eventually be converted to a pseudo point
+            std::cout<<"found point, "<<point_out.transpose()<<std::endl;
+            // if(curve.size()>55){
+            //     pcurve.push_back(intersected_point_tmp);
+            //     break;
+            // }
         }
         else
         {
