@@ -12,7 +12,28 @@ bool triangles_coplanar(const Eigen::Vector3d& t0, const Eigen::Vector3d& t1, co
     }
     return false;
  }
+ // -1: boundary edge
+ // 0 not coplanar
+ // 1 co-planar
+int edge_is_coplanar(const CGMesh& lsmesh, const CGMesh::EdgeHandle& edge_middle, const Eigen::MatrixXd& V, const Eigen::MatrixXi& F){
 
+    OpenMesh::HalfedgeHandle e1 = lsmesh.halfedge_handle(edge_middle, 0);
+    OpenMesh::HalfedgeHandle e2 = lsmesh.halfedge_handle(edge_middle, 1);
+
+    int f1 = lsmesh.face_handle(e1).idx();
+    int f2 = lsmesh.face_handle(e2).idx();
+    if (f1 < 0 || f2 < 0)
+    {
+        return -1;
+    }
+    Eigen::Vector3d t0 = V.row(F(f1, 0));
+    Eigen::Vector3d t1 = V.row(F(f1, 1));
+    Eigen::Vector3d t2 = V.row(F(f1, 2));
+    Eigen::Vector3d p0 = V.row(F(f2, 0));
+    Eigen::Vector3d p1 = V.row(F(f2, 1));
+    Eigen::Vector3d p2 = V.row(F(f2, 2));
+    return triangles_coplanar(t0,t1,t2,p0,p1,p2);
+}
 
 std::vector<Trip> to_triplets(spMat &M)
 {
@@ -105,7 +126,7 @@ void lsTools::debug_tool(int id, int id2, double value)
     double target_angle = value;
     std::vector<Eigen::Vector3d> curve;
     std::vector<CGMesh::HalfedgeHandle> handles;
-    trace_single_pseudo_geodesic_curve(target_angle, Boundary_Edges[id], start_point_para, start_angle_degree,
+    trace_single_pseudo_geodesic_curve_pseudo_vertex_method(target_angle, Boundary_Edges[id], start_point_para, start_angle_degree,
                                        curve,handles);
     flag_dbg = false;
     int nbr_midpts = curve.size() - 2;
@@ -178,7 +199,7 @@ void lsTools::debug_tool_v2(const std::vector<int>& ids, const std::vector<doubl
         id_dbg = ids[1];
         std::vector<Eigen::Vector3d> curve;
         std::vector<CGMesh::HalfedgeHandle> handles;
-        trace_single_pseudo_geodesic_curve(target_angle, checking_edge, 0.5, start_angel,
+        trace_single_pseudo_geodesic_curve_pseudo_vertex_method(target_angle, checking_edge, 0.5, start_angel,
                                            curve,handles);
         flag_dbg = false;
         curve_id++;

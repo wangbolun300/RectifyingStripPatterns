@@ -11,7 +11,10 @@ Eigen::MatrixXd vec_list_to_matrix(const std::vector<Eigen::Vector3d> &vec);
 
 bool triangles_coplanar(const Eigen::Vector3d& t0, const Eigen::Vector3d& t1, const Eigen::Vector3d& t2,
  const Eigen::Vector3d&p0, const Eigen::Vector3d&p1, const Eigen::Vector3d&p2);
-
+ // -1: boundary edge
+ // 0 not coplanar
+ // 1 co-planar
+int edge_is_coplanar(const CGMesh& lsmesh, const CGMesh::EdgeHandle& edge_middle, const Eigen::MatrixXd& V, const Eigen::MatrixXi& F);
 std::vector<double> polynomial_simplify(const std::vector<double> &poly);
 std::vector<double> polynomial_add(const std::vector<double> &poly1, const std::vector<double> &poly2);
 std::vector<double> polynomial_times(const std::vector<double> &poly1, const std::vector<double> &poly2);
