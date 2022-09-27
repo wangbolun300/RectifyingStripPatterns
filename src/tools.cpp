@@ -240,6 +240,134 @@ void lsTools::debug_tool_v2(const std::vector<int>& ids, const std::vector<doubl
     }
 }
 
+void lsTools::debug_tool_v3(int id, int id2, double value)
+{
+    trace_vers.resize(1);
+    std::cout << "checking one pseudo geodesic" << std::endl;
+    // debug init
+    ver_dbg.resize(0,0);
+    ver_dbg1.resize(0,0);
+    flag_dbg = false;
+    E0_dbg.resize(0,0);
+    direction_dbg.resize(0,0);
+    trace_hehs.clear();
+    pnorm_dbg.resize(0,0);
+    pnorm_list_dbg.clear();
+    flag_dbg = true;
+    id_dbg = id2;
+
+    // debug init end
+    double start_point_para = 0.5;
+    double start_angle_degree = 60;
+    double target_angle = value;
+    std::vector<Eigen::Vector3d> curve;
+    std::vector<CGMesh::HalfedgeHandle> handles;
+    trace_single_pseudo_geodesic_curve(target_angle, Boundary_Edges[id], start_point_para, start_angle_degree,
+                                       curve,handles);
+    flag_dbg = false;
+    int nbr_midpts = curve.size() - 2;
+    E0_dbg.resize(nbr_midpts, 3);
+    direction_dbg.resize(nbr_midpts, 3);
+    Eigen::MatrixXd binormals_real(nbr_midpts,3);
+    for (int i = 0; i < nbr_midpts; i++)
+    {
+        E0_dbg.row(i) = curve[i + 1];
+        Eigen::Vector3d vec0 = (curve[i + 1] - curve[i]).normalized();
+        Eigen::Vector3d vec1 = (curve[i + 2] - curve[i + 1]).normalized();
+        direction_dbg.row(i) = vec0.cross(vec1).normalized();// bi normal of the pseudo-curve
+
+    }
+    
+    if (target_angle > 90 - ANGLE_TOLERANCE && target_angle < 90 + ANGLE_TOLERANCE){
+        std::cout<<"Traced geodesic"<<std::endl;
+    }
+    else
+    {
+       
+        for (int i = 0; i < nbr_midpts; i++)
+        {
+            Eigen::Vector3d tmp_dir1 = direction_dbg.row(i);
+            Eigen::Vector3d tmp_dir2 = pnorm_list_dbg[i].normalized();
+            double cosin = tmp_dir1.dot(tmp_dir2);
+            std::cout << i << "th cosin^2 " << cosin * cosin << std::endl;
+        }
+    }
+
+    // TODO temporarily checking one trace line
+    trace_vers[0] = curve;
+    trace_hehs.push_back(handles);
+}
+void lsTools::debug_tool_v4(const std::vector<int>& ids, const std::vector<double> values){
+    // cylinder_example(5, 10, 50, 30);
+    // exit(0);
+    trace_vers.clear();
+    trace_hehs.clear();
+    int nbr_itv= ids[0]; // every nbr_itv boundary edges we shoot one curve
+    if(nbr_itv<1){
+        std::cout<<"Please set up the parameter nbr_itv "<<std::endl;
+        return;
+    }
+    double target_angle=values[0];
+    double start_angel=values[1];
+    OpenMesh::HalfedgeHandle init_edge=Boundary_Edges[0];
+    if(lsmesh.face_handle(init_edge).idx()>=0){
+        init_edge=lsmesh.opposite_halfedge_handle(init_edge);
+    }
+    OpenMesh::HalfedgeHandle checking_edge=init_edge;
+    int curve_id = 0;
+    while (1)
+    {
+        ver_dbg.resize(0, 0);
+        ver_dbg1.resize(0, 0);
+        E0_dbg.resize(0, 0);
+        direction_dbg.resize(0, 0);
+        pnorm_dbg.resize(0, 0);
+        pnorm_list_dbg.clear();
+        flag_dbg = true;
+        id_dbg = ids[1];
+        std::vector<Eigen::Vector3d> curve;
+        std::vector<CGMesh::HalfedgeHandle> handles;
+        trace_single_pseudo_geodesic_curve(target_angle, checking_edge, 0.5, start_angel,
+                                           curve,handles);
+        flag_dbg = false;
+        curve_id++;
+        if (curve_id == -1)
+        {
+            bool stop_flag = false;
+
+            for (int i = 0; i < nbr_itv; i++)
+            {
+                checking_edge = lsmesh.next_halfedge_handle(checking_edge);
+                if (checking_edge == init_edge)
+                {
+                    stop_flag = true;
+                    break;
+                }
+            }
+            continue;
+        }
+        trace_vers.push_back(curve);
+        trace_hehs.push_back(handles);
+        bool stop_flag=false;
+        
+        if(curve_id==-1){
+            break;
+        }
+        for (int i = 0; i < nbr_itv; i++)
+        {
+            checking_edge = lsmesh.next_halfedge_handle(checking_edge);
+            if (checking_edge == init_edge)
+            {
+                stop_flag=true;
+                break;
+            }
+        }
+        if(stop_flag){
+            break;
+        }
+    }
+}
+
 void extend_triplets_offset(std::vector<Trip> &triplets, const spMat &mat, int offrow, int offcol)
 {
     for (int i = 0; i < mat.outerSize(); i++)

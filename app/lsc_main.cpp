@@ -566,6 +566,66 @@ int main(int argc, char *argv[])
 				viewer.selected_data_index = id;
 			}
 			ImGui::SameLine();
+			if (ImGui::Button("debug neighbour search", ImVec2(ImGui::GetWindowSize().x * 0.23f, 0.0f)))
+			{
+
+				int id = viewer.selected_data_index;
+				CGMesh updatedMesh;
+				CGMesh inputMesh = lscif::Meshes[id];
+				lscif::tools.init(inputMesh);
+				lscif::tools.initialize_mesh_properties();
+				// calculate the pseudo-geodesic
+				lscif::tools.debug_tool_v3(lscif::dbg_int, lscif::dbg_int2, lscif::dbg_dbl);
+				lscif::updateMeshViewer(viewer, inputMesh);
+				lscif::meshFileName.push_back("dbg_" + lscif::meshFileName[id]);
+				lscif::Meshes.push_back(inputMesh);
+				Eigen::MatrixXd E0, E1;
+				// lscif::tools.show_gradients(E0,E1, lscif::vector_scaling);
+				const Eigen::RowVector3d red(0.8, 0.2, 0.2);
+				const Eigen::RowVector3d blue(0.2, 0.2, 0.8);
+				const Eigen::RowVector3d black(0, 0, 0);
+				const Eigen::RowVector3d green(0.2, 0.8, 0.2);
+				Eigen::MatrixXd RGB = Eigen::MatrixXd::Identity(3, 3);
+				Eigen::MatrixXd E2, E3, Ea0, Ea1;
+				Eigen::MatrixXd pts;
+				std::vector<Eigen::MatrixXd> E0list, E1list;
+				lscif::tools.show_pseudo_geodesic_curve(E0list, E1list, pts);
+				E0=E0list[0];
+				E1=E1list[0];
+				viewer.data().add_edges(E0, E1, red);
+				if (1)
+				{
+					// lscif::tools.show_current_reference_points(pts);
+					viewer.data().add_points(lscif::tools.visual_pts_dbg, black);
+					std::cout<<"the nbr of checking points "<<lscif::tools.visual_pts_dbg.rows()<<std::endl;
+					std::cout<<lscif::tools.visual_pts_dbg<<std::endl;
+				}
+				if (1)
+				{
+					viewer.data().add_points(pts, red);
+				}
+				viewer.data().add_points(lscif::tools.ver_dbg1, black);
+				viewer.data().add_points(lscif::tools.ver_dbg, blue);
+				for(int i=0;i<lscif::tools.ver_dbg.rows();i++){
+					Eigen::MatrixXd tmp_ver(1,3);
+					tmp_ver.row(0)=lscif::tools.ver_dbg.row(i);
+					viewer.data().add_edges(lscif::tools.ver_dbg1,tmp_ver,blue);
+				}
+				std::cout << "checking query size " << lscif::tools.ver_dbg1.rows() << std::endl;
+				std::cout << "checking result size " << lscif::tools.ver_dbg.rows() << std::endl;
+				std::cout << "checking results " << lscif::tools.ver_dbg<<std::endl;
+				Eigen::MatrixXd Edge1_dbg=lscif::tools.E0_dbg+lscif::tools.direction_dbg*lscif::vector_scaling;
+				viewer.data().add_edges(lscif::tools.E0_dbg,Edge1_dbg,green);
+				if (lscif::tools.pnorm_dbg.rows() == lscif::tools.E0_dbg.rows())
+				{
+					Eigen::MatrixXd Edge2_dbg = lscif::tools.E0_dbg + lscif::tools.pnorm_dbg * lscif::vector_scaling;
+					viewer.data().add_edges(lscif::tools.E0_dbg, Edge2_dbg, black);
+				}
+
+				viewer.selected_data_index = id;
+				// std::cout<<"acos(1) "<<acos(1.)<<std::endl;
+			}
+			
 			if (ImGui::Button("sphere example", ImVec2(ImGui::GetWindowSize().x * 0.23f, 0.0f)))
 			{
 

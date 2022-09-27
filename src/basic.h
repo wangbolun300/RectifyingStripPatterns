@@ -177,6 +177,7 @@ public:
     Eigen::MatrixXd pnorm_dbg;
     std::vector<Eigen::Vector3d> pseudo_vers_dbg;
     std::vector<Eigen::Vector3d> pnorm_list_dbg;
+    Eigen::MatrixXd visual_pts_dbg;
 
 
     // this function should be calculated first once the class get constructed
@@ -235,6 +236,8 @@ public:
     void initialize_and_optimize_pseudo_geodesic();
     void debug_tool(int id = 0, int id2 = 0, double value = 0);
     void debug_tool_v2(const std::vector<int>& ids, const std::vector<double> values);
+    void debug_tool_v3(int id = 0, int id2 = 0, double value = 0);
+    void debug_tool_v4(const std::vector<int>& ids, const std::vector<double> values);
     void make_sphere_ls_example(int rowid);
 };
 
