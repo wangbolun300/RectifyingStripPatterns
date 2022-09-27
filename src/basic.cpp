@@ -475,23 +475,24 @@ void sphere_example(double radius, double theta, double phi, int nt, int np)
                              ver, faces);
     std::cout << "sphere mesh file saved " << std::endl;
 }
-void cylinder_example(double radius, double height, int nr, int nh){
-     Eigen::MatrixXd ver;
+void cylinder_example(double radius, double height, int nr, int nh)
+{
+    Eigen::MatrixXd ver;
     Eigen::MatrixXi faces;
     ver.resize(nh * nr, 3);
     faces.resize(2 * (nh - 1) * nr, 3);
     int verline = 0;
-    double hitv = height/(nh-1);
+    double hitv = height / (nh - 1);
     double ritv = 2 * LSC_PI / nr;
     for (int i = 0; i < nr; i++)
     {
-        double angle=ritv*i;
-        double x=cos(angle)*radius;
-        double y=sin(angle)*radius;
+        double angle = ritv * i;
+        double x = cos(angle) * radius;
+        double y = sin(angle) * radius;
         for (int j = 0; j < nh; j++)
         {
             double z = j * hitv;
-            ver.row(verline)<<x,y,z;
+            ver.row(verline) << x, y, z;
             verline++;
         }
     }
@@ -512,18 +513,18 @@ void cylinder_example(double radius, double height, int nr, int nh){
                 fline += 2;
             }
         }
-        else{
+        else
+        {
             for (int j = 0; j < nh - 1; j++)
             {
                 int id0 = nh * i + j;
-                int id1 =  j;
-                int id2 =  j + 1;
+                int id1 = j;
+                int id2 = j + 1;
                 int id3 = nh * i + j + 1;
                 faces.row(fline) = Eigen::Vector3i(id0, id1, id2);
                 faces.row(fline + 1) = Eigen::Vector3i(id0, id2, id3);
                 fline += 2;
             }
-
         }
     }
     std::string path("/Users/wangb0d/bolun/D/vs/levelset/level-set-curves/data/");
@@ -929,27 +930,29 @@ void lsTools::initialize_and_optimize_strip_width()
 void lsTools::get_all_the_edge_normals()
 {
     int ne = lsmesh.n_edges();
-    norm_e.resize(ne,3);
-	 for (CGMesh::EdgeIter e_it = lsmesh.edges_begin(); e_it != lsmesh.edges_end(); ++e_it)
-	 {
-        int eid=e_it.handle().idx();
-		 OpenMesh::HalfedgeHandle hh_ori = lsmesh.halfedge_handle(e_it, 0);
-         OpenMesh::HalfedgeHandle hh_opp = lsmesh.halfedge_handle(e_it, 1);
-         assert(hh_ori==lsmesh.opposite_halfedge_handle(hh_opp));
-		 int fid1=lsmesh.face_handle(hh_ori).idx();
-         int fid2=lsmesh.face_handle(hh_opp).idx();
-         Eigen::Vector3d n1=Eigen::Vector3d(0,0,0);
-         Eigen::Vector3d n2=Eigen::Vector3d(0,0,0);
-         if(fid1>=0){
-            n1=norm_f.row(fid1);
-         }
-         if(fid2>=0){
-            n2=norm_f.row(fid2);
-         }
-         Eigen::Vector3d direction=n1+n2;
-         direction=direction/direction.norm();
-         norm_e.row(eid)=direction;
-	 }
+    norm_e.resize(ne, 3);
+    for (CGMesh::EdgeIter e_it = lsmesh.edges_begin(); e_it != lsmesh.edges_end(); ++e_it)
+    {
+        int eid = e_it.handle().idx();
+        OpenMesh::HalfedgeHandle hh_ori = lsmesh.halfedge_handle(e_it, 0);
+        OpenMesh::HalfedgeHandle hh_opp = lsmesh.halfedge_handle(e_it, 1);
+        assert(hh_ori == lsmesh.opposite_halfedge_handle(hh_opp));
+        int fid1 = lsmesh.face_handle(hh_ori).idx();
+        int fid2 = lsmesh.face_handle(hh_opp).idx();
+        Eigen::Vector3d n1 = Eigen::Vector3d(0, 0, 0);
+        Eigen::Vector3d n2 = Eigen::Vector3d(0, 0, 0);
+        if (fid1 >= 0)
+        {
+            n1 = norm_f.row(fid1);
+        }
+        if (fid2 >= 0)
+        {
+            n2 = norm_f.row(fid2);
+        }
+        Eigen::Vector3d direction = n1 + n2;
+        direction = direction / direction.norm();
+        norm_e.row(eid) = direction;
+    }
     // CGMesh::HalfedgeHandle heh;
     // CGMesh::EdgeHandle eh=lsmesh.edge_handle(heh);
     // int enbr=lsmesh.n_edges();

@@ -45,9 +45,9 @@ namespace lscif
 	double assign_value1 = 1;
 	double assign_value2 = 2;
 	int dbg_int;
-	int dbg_int2=5;
-	double dbg_dbl=30;
-	double dbg_dbl2=60;
+	int dbg_int2 = 5;
+	double dbg_dbl = 30;
+	double dbg_dbl2 = 60;
 	double vector_scaling = 1;
 	double strip_width_ratio = 1.;
 
@@ -468,8 +468,8 @@ int main(int argc, char *argv[])
 				Eigen::MatrixXd pts;
 				std::vector<Eigen::MatrixXd> E0list, E1list;
 				lscif::tools.show_pseudo_geodesic_curve(E0list, E1list, pts);
-				E0=E0list[0];
-				E1=E1list[0];
+				E0 = E0list[0];
+				E1 = E1list[0];
 				viewer.data().add_edges(E0, E1, red);
 				if (0)
 				{
@@ -482,16 +482,17 @@ int main(int argc, char *argv[])
 				}
 				viewer.data().add_points(lscif::tools.ver_dbg1, black);
 				viewer.data().add_points(lscif::tools.ver_dbg, blue);
-				for(int i=0;i<lscif::tools.ver_dbg.rows();i++){
-					Eigen::MatrixXd tmp_ver(1,3);
-					tmp_ver.row(0)=lscif::tools.ver_dbg.row(i);
-					viewer.data().add_edges(lscif::tools.ver_dbg1,tmp_ver,blue);
+				for (int i = 0; i < lscif::tools.ver_dbg.rows(); i++)
+				{
+					Eigen::MatrixXd tmp_ver(1, 3);
+					tmp_ver.row(0) = lscif::tools.ver_dbg.row(i);
+					viewer.data().add_edges(lscif::tools.ver_dbg1, tmp_ver, blue);
 				}
 				std::cout << "checking query size " << lscif::tools.ver_dbg1.rows() << std::endl;
 				std::cout << "checking result size " << lscif::tools.ver_dbg.rows() << std::endl;
-				std::cout << "checking results " << lscif::tools.ver_dbg<<std::endl;
-				Eigen::MatrixXd Edge1_dbg=lscif::tools.E0_dbg+lscif::tools.direction_dbg*lscif::vector_scaling;
-				viewer.data().add_edges(lscif::tools.E0_dbg,Edge1_dbg,green);
+				std::cout << "checking results " << lscif::tools.ver_dbg << std::endl;
+				Eigen::MatrixXd Edge1_dbg = lscif::tools.E0_dbg + lscif::tools.direction_dbg * lscif::vector_scaling;
+				viewer.data().add_edges(lscif::tools.E0_dbg, Edge1_dbg, green);
 				if (lscif::tools.pnorm_dbg.rows() == lscif::tools.E0_dbg.rows())
 				{
 					Eigen::MatrixXd Edge2_dbg = lscif::tools.E0_dbg + lscif::tools.pnorm_dbg * lscif::vector_scaling;
@@ -536,7 +537,7 @@ int main(int argc, char *argv[])
 					E0 = E0list[i];
 					E1 = E1list[i];
 					viewer.data().add_edges(E0, E1, red);
-					std::cout<<"edge sizes "<<E0.rows()<<std::endl;
+					std::cout << "edge sizes " << E0.rows() << std::endl;
 				}
 
 				if (0)
@@ -548,7 +549,7 @@ int main(int argc, char *argv[])
 				{
 					viewer.data().add_points(pts, red);
 				}
-			
+
 				// viewer.data().add_points(lscif::tools.ver_dbg1, black);
 				// viewer.data().add_points(lscif::tools.ver_dbg, blue);
 				// for(int i=0;i<lscif::tools.ver_dbg.rows();i++){
@@ -590,15 +591,15 @@ int main(int argc, char *argv[])
 				Eigen::MatrixXd pts;
 				std::vector<Eigen::MatrixXd> E0list, E1list;
 				lscif::tools.show_pseudo_geodesic_curve(E0list, E1list, pts);
-				E0=E0list[0];
-				E1=E1list[0];
+				E0 = E0list[0];
+				E1 = E1list[0];
 				viewer.data().add_edges(E0, E1, red);
 				if (1)
 				{
 					// lscif::tools.show_current_reference_points(pts);
 					viewer.data().add_points(lscif::tools.visual_pts_dbg, black);
-					std::cout<<"the nbr of checking points "<<lscif::tools.visual_pts_dbg.rows()<<std::endl;
-					std::cout<<lscif::tools.visual_pts_dbg<<std::endl;
+					std::cout << "the nbr of checking points " << lscif::tools.visual_pts_dbg.rows() << std::endl;
+					std::cout << lscif::tools.visual_pts_dbg << std::endl;
 				}
 				if (1)
 				{
@@ -606,16 +607,17 @@ int main(int argc, char *argv[])
 				}
 				viewer.data().add_points(lscif::tools.ver_dbg1, black);
 				viewer.data().add_points(lscif::tools.ver_dbg, blue);
-				for(int i=0;i<lscif::tools.ver_dbg.rows();i++){
-					Eigen::MatrixXd tmp_ver(1,3);
-					tmp_ver.row(0)=lscif::tools.ver_dbg.row(i);
-					viewer.data().add_edges(lscif::tools.ver_dbg1,tmp_ver,blue);
+				for (int i = 0; i < lscif::tools.ver_dbg.rows(); i++)
+				{
+					Eigen::MatrixXd tmp_ver(1, 3);
+					tmp_ver.row(0) = lscif::tools.ver_dbg.row(i);
+					viewer.data().add_edges(lscif::tools.ver_dbg1, tmp_ver, blue);
 				}
 				std::cout << "checking query size " << lscif::tools.ver_dbg1.rows() << std::endl;
 				std::cout << "checking result size " << lscif::tools.ver_dbg.rows() << std::endl;
-				std::cout << "checking results " << lscif::tools.ver_dbg<<std::endl;
-				Eigen::MatrixXd Edge1_dbg=lscif::tools.E0_dbg+lscif::tools.direction_dbg*lscif::vector_scaling;
-				viewer.data().add_edges(lscif::tools.E0_dbg,Edge1_dbg,green);
+				std::cout << "checking results " << lscif::tools.ver_dbg << std::endl;
+				Eigen::MatrixXd Edge1_dbg = lscif::tools.E0_dbg + lscif::tools.direction_dbg * lscif::vector_scaling;
+				viewer.data().add_edges(lscif::tools.E0_dbg, Edge1_dbg, green);
 				if (lscif::tools.pnorm_dbg.rows() == lscif::tools.E0_dbg.rows())
 				{
 					Eigen::MatrixXd Edge2_dbg = lscif::tools.E0_dbg + lscif::tools.pnorm_dbg * lscif::vector_scaling;
@@ -625,7 +627,7 @@ int main(int argc, char *argv[])
 				viewer.selected_data_index = id;
 				// std::cout<<"acos(1) "<<acos(1.)<<std::endl;
 			}
-			
+
 			if (ImGui::Button("sphere example", ImVec2(ImGui::GetWindowSize().x * 0.23f, 0.0f)))
 			{
 

@@ -1,21 +1,24 @@
 #include <lsc/basic.h>
 #include <lsc/tools.h>
 
-bool triangles_coplanar(const Eigen::Vector3d& t0, const Eigen::Vector3d& t1, const Eigen::Vector3d& t2,
- const Eigen::Vector3d&p0, const Eigen::Vector3d&p1, const Eigen::Vector3d&p2){
-    Eigen::Vector3d norm1=(t1-t0).cross(t2-t1).normalized();
-    Eigen::Vector3d norm2=(p1-p0).cross(p2-p1).normalized();
-    Eigen::Vector3d cross=norm1.cross(norm2);
-    
-    if(cross.norm()<1e-8){
+bool triangles_coplanar(const Eigen::Vector3d &t0, const Eigen::Vector3d &t1, const Eigen::Vector3d &t2,
+                        const Eigen::Vector3d &p0, const Eigen::Vector3d &p1, const Eigen::Vector3d &p2)
+{
+    Eigen::Vector3d norm1 = (t1 - t0).cross(t2 - t1).normalized();
+    Eigen::Vector3d norm2 = (p1 - p0).cross(p2 - p1).normalized();
+    Eigen::Vector3d cross = norm1.cross(norm2);
+
+    if (cross.norm() < 1e-8)
+    {
         return true;
     }
     return false;
- }
- // -1: boundary edge
- // 0 not coplanar
- // 1 co-planar
-int edge_is_coplanar(const CGMesh& lsmesh, const CGMesh::EdgeHandle& edge_middle, const Eigen::MatrixXd& V, const Eigen::MatrixXi& F){
+}
+// -1: boundary edge
+// 0 not coplanar
+// 1 co-planar
+int edge_is_coplanar(const CGMesh &lsmesh, const CGMesh::EdgeHandle &edge_middle, const Eigen::MatrixXd &V, const Eigen::MatrixXi &F)
+{
 
     OpenMesh::HalfedgeHandle e1 = lsmesh.halfedge_handle(edge_middle, 0);
     OpenMesh::HalfedgeHandle e2 = lsmesh.halfedge_handle(edge_middle, 1);
@@ -32,7 +35,7 @@ int edge_is_coplanar(const CGMesh& lsmesh, const CGMesh::EdgeHandle& edge_middle
     Eigen::Vector3d p0 = V.row(F(f2, 0));
     Eigen::Vector3d p1 = V.row(F(f2, 1));
     Eigen::Vector3d p2 = V.row(F(f2, 2));
-    return triangles_coplanar(t0,t1,t2,p0,p1,p2);
+    return triangles_coplanar(t0, t1, t2, p0, p1, p2);
 }
 
 std::vector<Trip> to_triplets(spMat &M)
@@ -109,13 +112,13 @@ void lsTools::debug_tool(int id, int id2, double value)
     trace_vers.resize(1);
     std::cout << "checking one pseudo geodesic" << std::endl;
     // debug init
-    ver_dbg.resize(0,0);
-    ver_dbg1.resize(0,0);
+    ver_dbg.resize(0, 0);
+    ver_dbg1.resize(0, 0);
     flag_dbg = false;
-    E0_dbg.resize(0,0);
-    direction_dbg.resize(0,0);
-    
-    pnorm_dbg.resize(0,0);
+    E0_dbg.resize(0, 0);
+    direction_dbg.resize(0, 0);
+
+    pnorm_dbg.resize(0, 0);
     pnorm_list_dbg.clear();
     flag_dbg = true;
     id_dbg = id2;
@@ -127,27 +130,29 @@ void lsTools::debug_tool(int id, int id2, double value)
     std::vector<Eigen::Vector3d> curve;
     std::vector<CGMesh::HalfedgeHandle> handles;
     trace_single_pseudo_geodesic_curve_pseudo_vertex_method(target_angle, Boundary_Edges[id], start_point_para, start_angle_degree,
-                                       curve,handles);
+                                                            curve, handles);
     flag_dbg = false;
     int nbr_midpts = curve.size() - 2;
     E0_dbg.resize(nbr_midpts, 3);
     direction_dbg.resize(nbr_midpts, 3);
-    Eigen::MatrixXd binormals_real(nbr_midpts,3);
+    Eigen::MatrixXd binormals_real(nbr_midpts, 3);
     for (int i = 0; i < nbr_midpts; i++)
     {
         E0_dbg.row(i) = curve[i + 1];
         Eigen::Vector3d vec0 = (pseudo_vers_dbg[i + 1] - pseudo_vers_dbg[i]).normalized();
         Eigen::Vector3d vec1 = (curve[i + 2] - pseudo_vers_dbg[i + 1]).normalized();
-        direction_dbg.row(i) = vec0.cross(vec1).normalized();// bi normal of the pseudo-curve
+        direction_dbg.row(i) = vec0.cross(vec1).normalized(); // bi normal of the pseudo-curve
         vec0 = (curve[i + 1] - curve[i]).normalized();
         vec1 = (curve[i + 2] - curve[i + 1]).normalized();
-        binormals_real.row(i)= vec0.cross(vec1).normalized();
+        binormals_real.row(i) = vec0.cross(vec1).normalized();
     }
-    if(pnorm_list_dbg.size() != nbr_midpts){
-        std::cout<<"dangerous size! "<<pnorm_list_dbg.size()<<", "<<nbr_midpts<<std::endl;
+    if (pnorm_list_dbg.size() != nbr_midpts)
+    {
+        std::cout << "dangerous size! " << pnorm_list_dbg.size() << ", " << nbr_midpts << std::endl;
     }
-    if (target_angle > 90 - ANGLE_TOLERANCE && target_angle < 90 + ANGLE_TOLERANCE){
-        std::cout<<"Traced geodesic"<<std::endl;
+    if (target_angle > 90 - ANGLE_TOLERANCE && target_angle < 90 + ANGLE_TOLERANCE)
+    {
+        std::cout << "Traced geodesic" << std::endl;
     }
     else
     {
@@ -170,21 +175,24 @@ void lsTools::debug_tool(int id, int id2, double value)
     trace_vers[0] = curve;
     trace_hehs.push_back(handles);
 }
-void lsTools::debug_tool_v2(const std::vector<int>& ids, const std::vector<double> values){
+void lsTools::debug_tool_v2(const std::vector<int> &ids, const std::vector<double> values)
+{
     // cylinder_example(5, 10, 50, 30);
     // exit(0);
-    int nbr_itv= ids[0]; // every nbr_itv boundary edges we shoot one curve
-    if(nbr_itv<1){
-        std::cout<<"Please set up the parameter nbr_itv "<<std::endl;
+    int nbr_itv = ids[0]; // every nbr_itv boundary edges we shoot one curve
+    if (nbr_itv < 1)
+    {
+        std::cout << "Please set up the parameter nbr_itv " << std::endl;
         return;
     }
-    double target_angle=values[0];
-    double start_angel=values[1];
-    OpenMesh::HalfedgeHandle init_edge=Boundary_Edges[0];
-    if(lsmesh.face_handle(init_edge).idx()>=0){
-        init_edge=lsmesh.opposite_halfedge_handle(init_edge);
+    double target_angle = values[0];
+    double start_angel = values[1];
+    OpenMesh::HalfedgeHandle init_edge = Boundary_Edges[0];
+    if (lsmesh.face_handle(init_edge).idx() >= 0)
+    {
+        init_edge = lsmesh.opposite_halfedge_handle(init_edge);
     }
-    OpenMesh::HalfedgeHandle checking_edge=init_edge;
+    OpenMesh::HalfedgeHandle checking_edge = init_edge;
     int curve_id = 0;
     while (1)
     {
@@ -200,7 +208,7 @@ void lsTools::debug_tool_v2(const std::vector<int>& ids, const std::vector<doubl
         std::vector<Eigen::Vector3d> curve;
         std::vector<CGMesh::HalfedgeHandle> handles;
         trace_single_pseudo_geodesic_curve_pseudo_vertex_method(target_angle, checking_edge, 0.5, start_angel,
-                                           curve,handles);
+                                                                curve, handles);
         flag_dbg = false;
         curve_id++;
         if (curve_id == -1)
@@ -220,9 +228,10 @@ void lsTools::debug_tool_v2(const std::vector<int>& ids, const std::vector<doubl
         }
         trace_vers.push_back(curve);
         trace_hehs.push_back(handles);
-        bool stop_flag=false;
-        
-        if(curve_id==-1){
+        bool stop_flag = false;
+
+        if (curve_id == -1)
+        {
             break;
         }
         for (int i = 0; i < nbr_itv; i++)
@@ -230,11 +239,12 @@ void lsTools::debug_tool_v2(const std::vector<int>& ids, const std::vector<doubl
             checking_edge = lsmesh.next_halfedge_handle(checking_edge);
             if (checking_edge == init_edge)
             {
-                stop_flag=true;
+                stop_flag = true;
                 break;
             }
         }
-        if(stop_flag){
+        if (stop_flag)
+        {
             break;
         }
     }
@@ -245,13 +255,13 @@ void lsTools::debug_tool_v3(int id, int id2, double value)
     trace_vers.resize(1);
     std::cout << "checking one pseudo geodesic" << std::endl;
     // debug init
-    ver_dbg.resize(0,0);
-    ver_dbg1.resize(0,0);
+    ver_dbg.resize(0, 0);
+    ver_dbg1.resize(0, 0);
     flag_dbg = false;
-    E0_dbg.resize(0,0);
-    direction_dbg.resize(0,0);
+    E0_dbg.resize(0, 0);
+    direction_dbg.resize(0, 0);
     trace_hehs.clear();
-    pnorm_dbg.resize(0,0);
+    pnorm_dbg.resize(0, 0);
     pnorm_list_dbg.clear();
     flag_dbg = true;
     id_dbg = id2;
@@ -263,27 +273,27 @@ void lsTools::debug_tool_v3(int id, int id2, double value)
     std::vector<Eigen::Vector3d> curve;
     std::vector<CGMesh::HalfedgeHandle> handles;
     trace_single_pseudo_geodesic_curve(target_angle, Boundary_Edges[id], start_point_para, start_angle_degree,
-                                       curve,handles);
+                                       curve, handles);
     flag_dbg = false;
     int nbr_midpts = curve.size() - 2;
     E0_dbg.resize(nbr_midpts, 3);
     direction_dbg.resize(nbr_midpts, 3);
-    Eigen::MatrixXd binormals_real(nbr_midpts,3);
+    Eigen::MatrixXd binormals_real(nbr_midpts, 3);
     for (int i = 0; i < nbr_midpts; i++)
     {
         E0_dbg.row(i) = curve[i + 1];
         Eigen::Vector3d vec0 = (curve[i + 1] - curve[i]).normalized();
         Eigen::Vector3d vec1 = (curve[i + 2] - curve[i + 1]).normalized();
-        direction_dbg.row(i) = vec0.cross(vec1).normalized();// bi normal of the pseudo-curve
-
+        direction_dbg.row(i) = vec0.cross(vec1).normalized(); // bi normal of the pseudo-curve
     }
-    
-    if (target_angle > 90 - ANGLE_TOLERANCE && target_angle < 90 + ANGLE_TOLERANCE){
-        std::cout<<"Traced geodesic"<<std::endl;
+
+    if (target_angle > 90 - ANGLE_TOLERANCE && target_angle < 90 + ANGLE_TOLERANCE)
+    {
+        std::cout << "Traced geodesic" << std::endl;
     }
     else
     {
-       
+
         for (int i = 0; i < nbr_midpts; i++)
         {
             Eigen::Vector3d tmp_dir1 = direction_dbg.row(i);
@@ -297,23 +307,26 @@ void lsTools::debug_tool_v3(int id, int id2, double value)
     trace_vers[0] = curve;
     trace_hehs.push_back(handles);
 }
-void lsTools::debug_tool_v4(const std::vector<int>& ids, const std::vector<double> values){
+void lsTools::debug_tool_v4(const std::vector<int> &ids, const std::vector<double> values)
+{
     // cylinder_example(5, 10, 50, 30);
     // exit(0);
     trace_vers.clear();
     trace_hehs.clear();
-    int nbr_itv= ids[0]; // every nbr_itv boundary edges we shoot one curve
-    if(nbr_itv<1){
-        std::cout<<"Please set up the parameter nbr_itv "<<std::endl;
+    int nbr_itv = ids[0]; // every nbr_itv boundary edges we shoot one curve
+    if (nbr_itv < 1)
+    {
+        std::cout << "Please set up the parameter nbr_itv " << std::endl;
         return;
     }
-    double target_angle=values[0];
-    double start_angel=values[1];
-    OpenMesh::HalfedgeHandle init_edge=Boundary_Edges[0];
-    if(lsmesh.face_handle(init_edge).idx()>=0){
-        init_edge=lsmesh.opposite_halfedge_handle(init_edge);
+    double target_angle = values[0];
+    double start_angel = values[1];
+    OpenMesh::HalfedgeHandle init_edge = Boundary_Edges[0];
+    if (lsmesh.face_handle(init_edge).idx() >= 0)
+    {
+        init_edge = lsmesh.opposite_halfedge_handle(init_edge);
     }
-    OpenMesh::HalfedgeHandle checking_edge=init_edge;
+    OpenMesh::HalfedgeHandle checking_edge = init_edge;
     int curve_id = 0;
     while (1)
     {
@@ -328,7 +341,7 @@ void lsTools::debug_tool_v4(const std::vector<int>& ids, const std::vector<doubl
         std::vector<Eigen::Vector3d> curve;
         std::vector<CGMesh::HalfedgeHandle> handles;
         trace_single_pseudo_geodesic_curve(target_angle, checking_edge, 0.5, start_angel,
-                                           curve,handles);
+                                           curve, handles);
         flag_dbg = false;
         curve_id++;
         if (curve_id == -1)
@@ -348,9 +361,10 @@ void lsTools::debug_tool_v4(const std::vector<int>& ids, const std::vector<doubl
         }
         trace_vers.push_back(curve);
         trace_hehs.push_back(handles);
-        bool stop_flag=false;
-        
-        if(curve_id==-1){
+        bool stop_flag = false;
+
+        if (curve_id == -1)
+        {
             break;
         }
         for (int i = 0; i < nbr_itv; i++)
@@ -358,11 +372,12 @@ void lsTools::debug_tool_v4(const std::vector<int>& ids, const std::vector<doubl
             checking_edge = lsmesh.next_halfedge_handle(checking_edge);
             if (checking_edge == init_edge)
             {
-                stop_flag=true;
+                stop_flag = true;
                 break;
             }
         }
-        if(stop_flag){
+        if (stop_flag)
+        {
             break;
         }
     }

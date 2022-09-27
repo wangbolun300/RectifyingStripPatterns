@@ -26,16 +26,19 @@ public:
     std::vector<Eigen::Vector3d> edge_points; // intersection points on edges.
     bool size_correct();
 };
-class NeighbourInfo{
-    public:
-    NeighbourInfo(){
-        is_vertex=0;
-        round=0;};
-    bool is_vertex=false;
+class NeighbourInfo
+{
+public:
+    NeighbourInfo()
+    {
+        is_vertex = 0;
+        round = 0;
+    };
+    bool is_vertex = false;
     Eigen::Vector3d pnorm;
     CGMesh::VertexHandle center_handle;
     std::vector<CGMesh::HalfedgeHandle> edges;
-    int round=0;
+    int round = 0;
 };
 // The basic tool of LSC. Please initialize it with a mesh
 class lsTools
@@ -76,11 +79,10 @@ private:
     std::vector<CGMesh::HalfedgeHandle> Boundary_Edges;
     Eigen::MatrixXd norm_e; // normal directions on each edge
     std::vector<TracCurve> trace;
-    std::vector<std::vector<Eigen::Vector3d>> trace_vers;// traced vertices
-    std::vector<std::vector<CGMesh::HalfedgeHandle>> trace_hehs;//traced half edge handles
-    std::vector<SpVeci> traceEdgeIndicator; // indicates the traced segments among all the edges
-    SpVeci ie_Indicator; // indicates the inner edges among all edges
-    
+    std::vector<std::vector<Eigen::Vector3d>> trace_vers;        // traced vertices
+    std::vector<std::vector<CGMesh::HalfedgeHandle>> trace_hehs; // traced half edge handles
+    std::vector<SpVeci> traceEdgeIndicator;                      // indicates the traced segments among all the edges
+    SpVeci ie_Indicator;                                         // indicates the inner edges among all edges
 
     bool derivates_calculated = false;
     void
@@ -117,18 +119,18 @@ private:
                                                                        const CGMesh::HalfedgeHandle &edge_middle, const Eigen::Vector3d &pnorm, const double angle, std::vector<CGMesh::HalfedgeHandle> &edge_out, std::vector<Eigen::Vector3d> &p_end);
     bool get_pseudo_vertex_and_trace_forward(
         QuadricCalculator &cc,
-        const std::vector<Eigen::Vector3d> &curve,  std::array<Eigen::Vector3d,3>& pcurve_local, const double angle_degree,
+        const std::vector<Eigen::Vector3d> &curve, std::array<Eigen::Vector3d, 3> &pcurve_local, const double angle_degree,
         const CGMesh::HalfedgeHandle &edge_middle,
-        const Eigen::Vector3d &point_in, const Eigen::Vector3d &point_middle, 
+        const Eigen::Vector3d &point_in, const Eigen::Vector3d &point_middle,
         const bool calculate_pseudo_vertex, CGMesh::HalfedgeHandle &edge_out,
         Eigen::Vector3d &point_out, bool &generate_pseudo_vertex, Eigen::Vector3d &pseudo_vertex_out);
     bool trace_pseudo_geodesic_forward(
-    const NeighbourInfo &ninfo,
-    const std::vector<Eigen::Vector3d> &curve,  const double angle_degree,
-    const CGMesh::HalfedgeHandle &edge_middle,
-    const Eigen::Vector3d &point_in, const Eigen::Vector3d &point_middle,
-     CGMesh::HalfedgeHandle &edge_out,
-    Eigen::Vector3d &point_out);
+        const NeighbourInfo &ninfo,
+        const std::vector<Eigen::Vector3d> &curve, const double angle_degree,
+        const CGMesh::HalfedgeHandle &edge_middle,
+        const Eigen::Vector3d &point_in, const Eigen::Vector3d &point_middle,
+        CGMesh::HalfedgeHandle &edge_out,
+        Eigen::Vector3d &point_out);
     bool init_pseudo_geodesic_first_segment(
         const CGMesh::HalfedgeHandle &start_boundary_edge_pre, const double &start_point_para,
         const double start_boundary_angle_degree,
@@ -137,18 +139,19 @@ private:
     // start_point_para is the parameter t, start_point=from+t*(to-from).
     // start_angle_degree is the angle between the initial direction and the direction from->to
     bool trace_single_pseudo_geodesic_curve_pseudo_vertex_method(const double target_angle,
-                                            const CGMesh::HalfedgeHandle &start_boundary_edge, const double &start_point_para,
-                                            const double start_angle_degree,
-                                            std::vector<Eigen::Vector3d> &curve,
-                                            std::vector<CGMesh::HalfedgeHandle>& handles);
+                                                                 const CGMesh::HalfedgeHandle &start_boundary_edge, const double &start_point_para,
+                                                                 const double start_angle_degree,
+                                                                 std::vector<Eigen::Vector3d> &curve,
+                                                                 std::vector<CGMesh::HalfedgeHandle> &handles);
     bool trace_single_pseudo_geodesic_curve(const double target_angle_degree,
-                                                 const CGMesh::HalfedgeHandle &start_boundary_edge, const double &start_point_para,
-                                                 const double start_boundary_angle_degree,
-                                                 std::vector<Eigen::Vector3d> &curve,
-                                                 std::vector<CGMesh::HalfedgeHandle>& handles);
-                                    
-    bool get_checking_edges(const std::vector<int> &start_point_ids, const CGMesh::HalfedgeHandle &edge_middle,const Eigen::Vector3d& point_middle,
-                                 Efunc &edges_checked, Efunc &points_checked, NeighbourInfo &ninfo, std::vector<int>& point_to_check);
+                                            const CGMesh::HalfedgeHandle &start_boundary_edge, const double &start_point_para,
+                                            const double start_boundary_angle_degree,
+                                            std::vector<Eigen::Vector3d> &curve,
+                                            std::vector<CGMesh::HalfedgeHandle> &handles);
+
+    bool get_checking_edges(const std::vector<int> &start_point_ids, const CGMesh::HalfedgeHandle &edge_middle, const Eigen::Vector3d &point_middle,
+                            Efunc &edges_checked, Efunc &points_checked, NeighbourInfo &ninfo, std::vector<int> &point_to_check);
+
 public:
     // parametrization and find the boundary loop
     lsTools(CGMesh &mesh);
@@ -178,7 +181,6 @@ public:
     std::vector<Eigen::Vector3d> pseudo_vers_dbg;
     std::vector<Eigen::Vector3d> pnorm_list_dbg;
     Eigen::MatrixXd visual_pts_dbg;
-
 
     // this function should be calculated first once the class get constructed
     //  1. get face normals;
@@ -235,9 +237,9 @@ public:
     void initialize_and_optimize_strip_width();
     void initialize_and_optimize_pseudo_geodesic();
     void debug_tool(int id = 0, int id2 = 0, double value = 0);
-    void debug_tool_v2(const std::vector<int>& ids, const std::vector<double> values);
+    void debug_tool_v2(const std::vector<int> &ids, const std::vector<double> values);
     void debug_tool_v3(int id = 0, int id2 = 0, double value = 0);
-    void debug_tool_v4(const std::vector<int>& ids, const std::vector<double> values);
+    void debug_tool_v4(const std::vector<int> &ids, const std::vector<double> values);
     void make_sphere_ls_example(int rowid);
 };
 
