@@ -931,6 +931,7 @@ void lsTools::get_all_the_edge_normals()
 {
     int ne = lsmesh.n_edges();
     norm_e.resize(ne, 3);
+    ActE.resize(lsmesh.n_edges());
     for (CGMesh::EdgeIter e_it = lsmesh.edges_begin(); e_it != lsmesh.edges_end(); ++e_it)
     {
         int eid = e_it.handle().idx();
@@ -952,10 +953,61 @@ void lsTools::get_all_the_edge_normals()
         Eigen::Vector3d direction = n1 + n2;
         direction = direction / direction.norm();
         norm_e.row(eid) = direction;
+        int coplanarity=edge_is_coplanar(lsmesh,e_it.handle(),V,F);
+        if(coplanarity==0){// not on boundary and not co-planar
+            ActE.coeffRef(eid)=1;
+        }
     }
     // CGMesh::HalfedgeHandle heh;
     // CGMesh::EdgeHandle eh=lsmesh.edge_handle(heh);
     // int enbr=lsmesh.n_edges();
     // norm_e.resize(enbr,3);
     // norm_e.
+}
+
+void lsTools::convert_pseudo_geodesic_into_boundary_condition(){
+    assert(trace_vers.size()==trace_hehs.size());
+    int size=0;
+    std::vector<std::pair<int,double>> vec_elements;
+    std::vector<Trip> triplets;
+    vec_elements.reserve(lsmesh.n_edges());
+    triplets.reserve(lsmesh.n_edges());
+    func_values.resize(trace_vers.size());
+    for (int i = 0; i < trace_vers.size(); i++)// TODO assign func_values when tracing
+    {
+        func_values[i]=i;
+    }
+    for (int i = 0; i < trace_vers.size(); i++)
+    {
+        
+        assert(trace_vers[i].size()==trace_hehs[i].size());
+        for(int j=0;j<trace_vers[i].size();j++){
+            
+            CGMesh::HalfedgeHandle edge=trace_hehs[i][j];
+            Eigen::Vector3d point_middle=trace_vers[i][j];
+            int id_from=lsmesh.from_vertex_handle(edge).idx();
+            int id_to=lsmesh.to_vertex_handle(edge).idx();
+            Eigen::Vector3d point_from=V.row(id_from);
+            Eigen::Vector3d point_to=V.row(id_to);
+            double d1=(point_middle-point_from).norm();
+            double d2=(point_to-point_from).norm();
+            triplets.push_back(Trip(size, id_from, d2 - d1));
+            triplets.push_back(Trip(size, id_to, d1));
+            vec_elements.push_back(std::pair<int,double>(size,d2*func_values[i]));
+            size++;
+        }
+    }
+    // get boundary condition A*x=b
+    bcMatrix.resize(size,V.rows());
+    bcMatrix.setFromTriplets(triplets.begin(),triplets.end());
+    for(int i=0;i<size;i++){
+        int id=vec_elements[i].first;
+        assert(i==id);
+        int value=vec_elements[i].second;
+        bcVector.coeffRef(id)=value;
+    }
+}
+
+void lsTools::assemble_solver_laplacian_with_traced_boundary_condition(spMat&H, Efunc& B){
+    TODO
 }

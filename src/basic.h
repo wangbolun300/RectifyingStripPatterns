@@ -24,6 +24,7 @@ public:
     std::vector<Eigen::Vector3d> dirc;        // the directions of the tracing curve
     std::vector<int> edge_ids;                // ids of the corresponding edges;
     std::vector<Eigen::Vector3d> edge_points; // intersection points on edges.
+    std::vector<double> func_values;
     bool size_correct();
 };
 class NeighbourInfo
@@ -81,9 +82,12 @@ private:
     std::vector<TracCurve> trace;
     std::vector<std::vector<Eigen::Vector3d>> trace_vers;        // traced vertices
     std::vector<std::vector<CGMesh::HalfedgeHandle>> trace_hehs; // traced half edge handles
+    std::vector<double> func_values;// function values for each traced curve.
+    spMat bcMatrix;// boundary condition matrix
+    Efunc bcVector;// boundary condition vector
     std::vector<SpVeci> traceEdgeIndicator;                      // indicates the traced segments among all the edges
     SpVeci ie_Indicator;                                         // indicates the inner edges among all edges
-
+    Efunc ActE;// active edges, which means they are not co-planar edges, and not boundary edges.
     bool derivates_calculated = false;
     void
     get_mesh_angles();
@@ -109,9 +113,12 @@ private:
     void get_all_the_derivate_matrices();
     // get the boundary vertices and one ring vertices from them
     void get_bnd_and_bnd_one_ring();
-    void get_all_the_edge_normals();
+    void get_all_the_edge_normals();// the edge normals and the active edges
+    void convert_pseudo_geodesic_into_boundary_condition();
+
     void assemble_solver_laplacian_part(spMat &H, Efunc &B);
     void assemble_solver_strip_width_part(spMat &H, Efunc &B);
+    void assemble_solver_laplacian_with_traced_boundary_condition(spMat&H, Efunc& B);
     // void assemble_solver_pseudo_geodesic_part(spMat &H, Efunc& B);
     bool find_geodesic_intersection_p1_is_NOT_ver(const Eigen::Vector3d &p0, const Eigen::Vector3d &p1,
                                                   const CGMesh::HalfedgeHandle &edge_middle, const Eigen::Vector3d &pnorm, CGMesh::HalfedgeHandle &edge_out, Eigen::Vector3d &p_end);
