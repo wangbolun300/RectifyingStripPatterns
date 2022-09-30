@@ -536,3 +536,58 @@ Eigen::MatrixXd vec_list_to_matrix(const std::vector<Eigen::Vector3d> &vec)
     }
     return mat;
 }
+
+void split_mesh_boundary_by_corner_detection(CGMesh &lsmesh, const Eigen::MatirxXd& V, const double threadshold_angel_degree,
+                                             const std::vector<CGMesh::HalfedgeHandle> &Boundary_Edges, 
+                                             std::vector<std::vector<CGMesh::HalfedgeHandle>> &boundaries)
+{
+    SpVeci checked_edges;// 0: not a boundary edge; 1: not checked boundary edge; 2: checked boundary edge
+    int enbr=lsmesh.n_edges();
+    int bsize=Boundary_Edges.size();
+    checked_edges.resize(enbr);
+    for(int i=0;i<Boundary_Edges.size();i++){
+        CGMesh::EdgeHandle eh=lsmesh.edge_handle(Boundary_Edges[i]);
+        checked_edges.coeffRef(eh.idx())=1; // mark every boundary edges
+    }
+    // find the first corner
+    CGMesh::HalfedgeHandle start_he=Boundary_Edges[0];
+    if(lsmesh.face_handle(start_he).idx()>=0){
+        start_he=lsmesh.opposite_halfedge_handle(start_he);
+        
+    }
+    int nbr_corners=0;
+    for(int i=0;i<bsize;i++){
+        CGMesh::HalfedgeHandle next_he=lsmesh.next_halfedge_handle(start_he);
+        assert(lsmesh.face_handle(next_he).idx()==-1);
+        Eigen::Vector3d p0=V.row(lsmesh.from_vertex_handle(start_he).idx());
+        Eigen::Vector3d p1=V.row(lsmesh.to_vertex_handle(start_he).idx());
+        Eigen::Vector3d p2=V.row(lsmesh.to_vertex_handle(next_he).idx());
+        Eigen::Vector3d dir1=(p1-p0).normalized();
+        Eigen::Vector3d dir2=(p2-p1).normalized();
+        
+        double dot_product=dir1.dot(dir2);
+        double real_angle=acos(dot_product) * 180 / LSC_PI;
+        if(real_angle<threadshold_angel_degree){
+            start_he=next_he;
+            continue;
+        }
+        else{// current start_he and next_he are edges of a corner.
+            start_he=next_he;
+            nbr_corners++;
+            break;
+        }// TODO maybe detect all the corners, restore them and mark their neighbouring edges
+
+        
+    }
+    
+    //
+    for(int i=0;;i++){ 
+        
+        for(int echeck=0;echeck<bsize;echeck++){
+
+        }
+        for(int j=0;j<2*enbr;j++){
+
+        }
+    }
+}

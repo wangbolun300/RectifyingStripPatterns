@@ -1393,7 +1393,7 @@ bool lsTools::trace_single_pseudo_geodesic_curve_pseudo_vertex_method(const doub
         {
             pcurve_local[0] = pcurve[curve.size() - 3];
         }
-        bool calculate_pseudo_vertex_default = false;
+        bool calculate_pseudo_vertex_default = true;
         found = get_pseudo_vertex_and_trace_forward(cc, curve, pcurve_local, target_angle_degree, intersected_handle_tmp,
                                                     first_point,
                                                     intersected_point_tmp, calculate_pseudo_vertex_default, edge_out, point_out,
@@ -1471,15 +1471,17 @@ bool lsTools::trace_single_pseudo_geodesic_curve(const double target_angle_degre
             std::vector<int> point_to_check;
             edges_found = get_checking_edges(start_point_ids, intersected_handle_tmp, intersected_point_tmp,
                                              edges_checked, points_checked, ninfo, point_to_check);
-            if (ninfo.round == 1 && curve.size() - 1 == id_dbg)
-            {
-                std::vector<Eigen::Vector3d> temp_pts(point_to_check.size());
-                for (int itr = 0; itr < point_to_check.size(); itr++)
-                {
-                    temp_pts[itr] = V.row(point_to_check[itr]);
-                }
-                visual_pts_dbg = vec_list_to_matrix(temp_pts);
-            }
+            // DEBUG
+            // if (ninfo.round == 1 && curve.size() - 1 == id_dbg)
+            // {
+            //     std::vector<Eigen::Vector3d> temp_pts(point_to_check.size());
+            //     for (int itr = 0; itr < point_to_check.size(); itr++)
+            //     {
+            //         temp_pts[itr] = V.row(point_to_check[itr]);
+            //     }
+            //     visual_pts_dbg = vec_list_to_matrix(temp_pts);
+            // }
+            // DEBUGend
             std::cout << "get checked edges, edge size " << ninfo.edges.size() << std::endl;
             if (!edges_found)
             {

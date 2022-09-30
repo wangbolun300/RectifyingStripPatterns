@@ -965,18 +965,21 @@ void lsTools::get_all_the_edge_normals()
     // norm_e.
 }
 
-void lsTools::convert_pseudo_geodesic_into_boundary_condition(){
+void lsTools::assemble_solver_boundary_condition_part(spMat& H, Efunc& B){
+    spMat bcJacobian;
+    Efunc bcVector;
     assert(trace_vers.size()==trace_hehs.size());
-    int size=0;
+    int size=0;// the number of constraints
     std::vector<std::pair<int,double>> vec_elements;
     std::vector<Trip> triplets;
     vec_elements.reserve(lsmesh.n_edges());
     triplets.reserve(lsmesh.n_edges());
-    func_values.resize(trace_vers.size());
-    for (int i = 0; i < trace_vers.size(); i++)// TODO assign func_values when tracing
-    {
-        func_values[i]=i;
-    }
+    assert(assigned_trace_ls.size()==trace_vers.size());
+    // assigned_trace_ls.resize(trace_vers.size());
+    // for (int i = 0; i < trace_vers.size(); i++)// TODO assign assigned_trace_ls when tracing
+    // {
+    //     assigned_trace_ls[i]=i;
+    // }
     for (int i = 0; i < trace_vers.size(); i++)
     {
         
@@ -993,21 +996,72 @@ void lsTools::convert_pseudo_geodesic_into_boundary_condition(){
             double d2=(point_to-point_from).norm();
             triplets.push_back(Trip(size, id_from, d2 - d1));
             triplets.push_back(Trip(size, id_to, d1));
-            vec_elements.push_back(std::pair<int,double>(size,d2*func_values[i]));
+            double right_value=(d2-d1)*fvalues[id_from]+d1*fvalues[id_to]-d2*assigned_trace_ls[i];
+            vec_elements.push_back(std::pair<int,double>(size,right_value));
             size++;
         }
     }
-    // get boundary condition A*x=b
-    bcMatrix.resize(size,V.rows());
-    bcMatrix.setFromTriplets(triplets.begin(),triplets.end());
-    for(int i=0;i<size;i++){
+    // get boundary condition: the jacobian matrix
+    bcJacobian.resize(size,V.rows());
+    bcJacobian.setFromTriplets(triplets.begin(),triplets.end());
+    
+    for(int i=0;i<size;i++){// get the f(x)
         int id=vec_elements[i].first;
         assert(i==id);
         int value=vec_elements[i].second;
         bcVector.coeffRef(id)=value;
     }
+    // get JTJ
+    H=bcJacobian.transpose()*bcJacobian;
+    // get the -(J^T)*f(x)
+    B=-bcJacobian.transpose()*bcVector;
 }
 
-void lsTools::assemble_solver_laplacian_with_traced_boundary_condition(spMat&H, Efunc& B){
-    TODO
+// before calling this function, please get the traced curves and assign values 
+// for these curves
+void lsTools::initialize_and_optimize_laplacian_with_traced_boundary_condition(){
+    int vnbr = V.rows();
+    int fnbr = F.rows();
+    // initialize the level set with some number
+    if (fvalues.size() != vnbr)
+    {
+        double init_value=0;
+        for(int i=0;i<assigned_trace_ls.size();i++){
+            init_value+=assigned_trace_ls[i];
+        }
+        init_value/=assigned_trace_ls.size();
+        fvalues.setOnes(vnbr);
+        fvalues*=init_value;
+    }
+    get_gradient_hessian_values();
+    // std::cout << "finished calculate gradient and hessian" << std::endl;
+    get_all_the_derivate_matrices();
+    // the matrices
+    spMat H;
+    H.resize(vnbr,vnbr);
+    Efunc B;
+    B.resize(vnbr);
+    spMat bc_JTJ;
+    Efunc bc_mJTF;
+    // get the boundary condition bcJacobian (J) and bcVector F, 
+    assemble_solver_boundary_condition_part(bc_JTJ, bc_mJTF);
+    spMat LTL;// left of laplacian
+    Efunc mLTF;// right of laplacian
+    assemble_solver_laplacian_part(LTL, mLTF);
+    
+    assert(mass.rows() == vnbr);
+    
+    // gravity + laplacian + boundary condition
+    H = weight_mass * mass + weight_laplacian * LTL + weight_boundary * bc_JTJ;
+    B=weight_laplacian*mLTF+weight_boundary*bc_mJTF;
+    assert(H.rows() == vnbr);
+    assert(H.cols() == vnbr);
+    Eigen::SimplicialLLT<Eigen::SparseMatrix<double>> solver(H);
+    assert(solver.info() == Eigen::Success);
+
+    Eigen::VectorXd dx = solver.solve(B).eval();
+    // std::cout << "step length " << dx.norm() << std::endl;
+    level_set_step_length = dx.norm();
+    fvalues += dx;
+
 }

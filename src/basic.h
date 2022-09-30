@@ -75,6 +75,7 @@ private:
     spMat Dlps;       // the derivates of laplacian F for all the vertices.
     spMat Dgrad_norm; // the derivates of the norm of gradients for all the vertices.
     spMat mass;       // mass(i,i) is the area of the voronoi cell of vertex vi
+    
     // spMat F2V;                                       // the matrix averaging face values to vertices values, acorrding to the angels
     spMat ORB; // the matrix where the (i,i) element show if it is a boundary vertex or one-ring vertex of boundary
     std::vector<CGMesh::HalfedgeHandle> Boundary_Edges;
@@ -82,9 +83,10 @@ private:
     std::vector<TracCurve> trace;
     std::vector<std::vector<Eigen::Vector3d>> trace_vers;        // traced vertices
     std::vector<std::vector<CGMesh::HalfedgeHandle>> trace_hehs; // traced half edge handles
+    std::vector<double> assigned_trace_ls;
     std::vector<double> func_values;// function values for each traced curve.
-    spMat bcMatrix;// boundary condition matrix
-    Efunc bcVector;// boundary condition vector
+    // spMat bcJacobian;// boundary condition Jacobian
+    // Efunc bcVector;// boundary condition function value vector
     std::vector<SpVeci> traceEdgeIndicator;                      // indicates the traced segments among all the edges
     SpVeci ie_Indicator;                                         // indicates the inner edges among all edges
     Efunc ActE;// active edges, which means they are not co-planar edges, and not boundary edges.
@@ -114,11 +116,11 @@ private:
     // get the boundary vertices and one ring vertices from them
     void get_bnd_and_bnd_one_ring();
     void get_all_the_edge_normals();// the edge normals and the active edges
-    void convert_pseudo_geodesic_into_boundary_condition();
-
+    
+    void assemble_solver_boundary_condition_part(spMat& H, Efunc& B);
     void assemble_solver_laplacian_part(spMat &H, Efunc &B);
     void assemble_solver_strip_width_part(spMat &H, Efunc &B);
-    void assemble_solver_laplacian_with_traced_boundary_condition(spMat&H, Efunc& B);
+
     // void assemble_solver_pseudo_geodesic_part(spMat &H, Efunc& B);
     bool find_geodesic_intersection_p1_is_NOT_ver(const Eigen::Vector3d &p0, const Eigen::Vector3d &p1,
                                                   const CGMesh::HalfedgeHandle &edge_middle, const Eigen::Vector3d &pnorm, CGMesh::HalfedgeHandle &edge_out, Eigen::Vector3d &p_end);
@@ -172,7 +174,9 @@ public:
     Eigen::VectorXd fvalues; // function values
     double level_set_step_length;
     double weight_assign_face_value; // weight of the assigned value shown in the solver
-    double weight_mass;              // weight of the mass function to
+    double weight_mass;              // weight of the mass function energy
+    double weight_laplacian;              // weight of the laplacian energy
+    double weight_boundary;              // weight of the boundary energy
     int assign_face_id;              // the face id of which we will assign value to
     double assign_value[3];
     double strip_width = 0;       // strip width, defined as h/w.
@@ -243,6 +247,7 @@ public:
     void initialize_and_smooth_level_set_by_laplacian();
     void initialize_and_optimize_strip_width();
     void initialize_and_optimize_pseudo_geodesic();
+    void initialize_and_optimize_laplacian_with_traced_boundary_condition();
     void debug_tool(int id = 0, int id2 = 0, double value = 0);
     void debug_tool_v2(const std::vector<int> &ids, const std::vector<double> values);
     void debug_tool_v3(int id = 0, int id2 = 0, double value = 0);

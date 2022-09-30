@@ -26,3 +26,6 @@ double polynomial_integration(const std::vector<double> &poly, const double lowe
 void cylinder_example(double radius, double height, int nr, int nh);
 // theta <= pi/2, phi<=pi
 void sphere_example(double radius, double theta, double phi, int nt, int np);
+
+void split_mesh_boundary_by_corner_detection(CGMesh& lsmesh, const Eigen::MatirxXd& V, const double threadshold_angel_degree,
+const std::vector<CGMesh::HalfedgeHandle> &Boundary_Edges, std::vector<std::vector<CGMesh::HalfedgeHandle>>& boundaries);
