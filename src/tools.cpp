@@ -537,57 +537,121 @@ Eigen::MatrixXd vec_list_to_matrix(const std::vector<Eigen::Vector3d> &vec)
     return mat;
 }
 
-void split_mesh_boundary_by_corner_detection(CGMesh &lsmesh, const Eigen::MatirxXd& V, const double threadshold_angel_degree,
+CGMesh::HalfedgeHandle boundary_halfedge(const CGMesh& lsmesh, const CGMesh::HalfedgeHandle& boundary_edge){
+    assert(lsmesh.is_boundary(lsmesh.from_vertex_handle(boundary_edge)));
+    assert(lsmesh.is_boundary(lsmesh.to_vertex_handle(boundary_edge)));
+    CGMesh::HalfedgeHandle result=boundary_edge;
+    if(lsmesh.face_handle(result).idx()>=0){
+        result=lsmesh.opposite_halfedge_handle(result);
+    }
+    return result;
+}
+void split_mesh_boundary_by_corner_detection(CGMesh &lsmesh, const Eigen::MatrixXd& V, const double threadshold_angel_degree,
                                              const std::vector<CGMesh::HalfedgeHandle> &Boundary_Edges, 
                                              std::vector<std::vector<CGMesh::HalfedgeHandle>> &boundaries)
 {
-    SpVeci checked_edges;// 0: not a boundary edge; 1: not checked boundary edge; 2: checked boundary edge
+    boundaries.clear();
+    int vnbr=V.rows();
+    SpVeci bedges;// 0: not a boundary edge; 1: not checked boundary edge;
+    SpVeci corner_vers;
+    corner_vers.resize(vnbr);
     int enbr=lsmesh.n_edges();
     int bsize=Boundary_Edges.size();
-    checked_edges.resize(enbr);
+    std::cout<<"boundary edges size "<<Boundary_Edges.size()<<std::endl;
+    bedges.resize(enbr);
     for(int i=0;i<Boundary_Edges.size();i++){
         CGMesh::EdgeHandle eh=lsmesh.edge_handle(Boundary_Edges[i]);
-        checked_edges.coeffRef(eh.idx())=1; // mark every boundary edges
+        bedges.coeffRef(eh.idx())=1; // mark every boundary edges
     }
-    // find the first corner
-    CGMesh::HalfedgeHandle start_he=Boundary_Edges[0];
-    if(lsmesh.face_handle(start_he).idx()>=0){
-        start_he=lsmesh.opposite_halfedge_handle(start_he);
-        
-    }
+    
+    
     int nbr_corners=0;
-    for(int i=0;i<bsize;i++){
+    for (int i = 0; i < bsize; i++)
+    { // iterate all the boundary edges
+        CGMesh::HalfedgeHandle start_he=boundary_halfedge(lsmesh, Boundary_Edges[i]);
         CGMesh::HalfedgeHandle next_he=lsmesh.next_halfedge_handle(start_he);
-        assert(lsmesh.face_handle(next_he).idx()==-1);
+        std::cout<<"this face id "<<lsmesh.face_handle(start_he).idx()<<" opposite "<<lsmesh.face_handle(lsmesh.opposite_halfedge_handle(start_he))<<std::endl;
+        std::cout<<"next face id "<<lsmesh.face_handle(next_he).idx()<<" opposite "<<lsmesh.face_handle(lsmesh.opposite_halfedge_handle(next_he))<<std::endl;
+        assert(lsmesh.face_handle(next_he).idx()<0);
         Eigen::Vector3d p0=V.row(lsmesh.from_vertex_handle(start_he).idx());
         Eigen::Vector3d p1=V.row(lsmesh.to_vertex_handle(start_he).idx());
         Eigen::Vector3d p2=V.row(lsmesh.to_vertex_handle(next_he).idx());
         Eigen::Vector3d dir1=(p1-p0).normalized();
         Eigen::Vector3d dir2=(p2-p1).normalized();
-        
+        int id_middle_ver=lsmesh.to_vertex_handle(start_he).idx();
         double dot_product=dir1.dot(dir2);
         double real_angle=acos(dot_product) * 180 / LSC_PI;
-        if(real_angle<threadshold_angel_degree){
-            start_he=next_he;
+        // std::cout<<"real angle "<<real_angle<<std::endl;
+        if (real_angle < 180 - threadshold_angel_degree)
+        {
             continue;
         }
         else{// current start_he and next_he are edges of a corner.
-            start_he=next_he;
-            nbr_corners++;
-            break;
-        }// TODO maybe detect all the corners, restore them and mark their neighbouring edges
-
-        
+            corner_vers.coeffRef(id_middle_ver)=1;
+            std::cout<<"find one corner"<<std::endl;
+            nbr_corners++; 
+        }
     }
-    
-    //
-    for(int i=0;;i++){ 
+    std::cout<<"nbr of corners "<<nbr_corners<<std::endl;
+    if (nbr_corners == 0)
+    {
+        SpVeci recorded_edges;
+        recorded_edges.resize(enbr);
+        for (int i = 0; i < enbr; i++)
+        {
+            if (recorded_edges.coeffRef(i) == 0 && bedges.coeffRef(i) == 1)
+            { // if this is a boundary edge, and not checked yet
+                recorded_edges.coeffRef(i) = 1;
+                CGMesh::HalfedgeHandle start_he = lsmesh.halfedge_handle(lsmesh.edge_handle(i), 0);
+                start_he = boundary_halfedge(lsmesh, start_he);
+                // CGMesh::HalfedgeHandle start_copy = start_he;
+                std::vector<CGMesh::HalfedgeHandle> loop;
+                loop.push_back(start_he);
+                for (int j = 0; j < bsize; j++)
+                {
+                    CGMesh::HalfedgeHandle next_he = lsmesh.next_halfedge_handle(start_he);
+                    int edge_id=lsmesh.edge_handle(next_he).idx();
+                    if (recorded_edges.coeffRef(edge_id)==0)// if the next edge is not checked yet
+                    {
+                        recorded_edges.coeffRef(edge_id)=1;
+                        loop.push_back(next_he);
+                        start_he = next_he;
+                    }
+                    else
+                    {
+                        break;
+                    }
+                }
+                boundaries.push_back(loop);
+            }
+        }
+        return;
+    }
+    SpVeci startlist;// this list marks if this corner vertex is already used.
+    startlist.resize(vnbr);
+    // the number of corner points is the same as (or more than, in some extreme cases) the number of segments
+
+    for(int i=0;i<bsize;i++){ 
+        CGMesh::HalfedgeHandle start_he=boundary_halfedge(lsmesh, Boundary_Edges[i]);
+        int id_start_ver=lsmesh.from_vertex_handle(start_he).idx();
         
-        for(int echeck=0;echeck<bsize;echeck++){
 
+        if(corner_vers.coeffRef(id_start_ver)==1&&startlist.coeffRef(id_start_ver)==0){//if this point is a corner and not used as a start point
+            startlist.coeffRef(id_start_ver) = 1;// mark it as used point
+            std::vector<CGMesh::HalfedgeHandle> loop;
+            loop.push_back(start_he);
+            for(int j=0;j<bsize;j++){
+                CGMesh::HalfedgeHandle next_he=lsmesh.next_halfedge_handle(start_he);
+                int id_end_ver=lsmesh.to_vertex_handle(next_he).idx();
+                loop.push_back(next_he);
+                
+                if(corner_vers.coeffRef(id_end_ver)==1){// the end point is a vertex
+                    break;
+                }
+                start_he=next_he;
+            }
+            boundaries.push_back(loop);
         }
-        for(int j=0;j<2*enbr;j++){
-
-        }
+       
     }
 }

@@ -116,7 +116,7 @@ private:
     // get the boundary vertices and one ring vertices from them
     void get_bnd_and_bnd_one_ring();
     void get_all_the_edge_normals();// the edge normals and the active edges
-    
+
     void assemble_solver_boundary_condition_part(spMat& H, Efunc& B);
     void assemble_solver_laplacian_part(spMat &H, Efunc &B);
     void assemble_solver_strip_width_part(spMat &H, Efunc &B);
@@ -252,6 +252,7 @@ public:
     void debug_tool_v2(const std::vector<int> &ids, const std::vector<double> values);
     void debug_tool_v3(int id = 0, int id2 = 0, double value = 0);
     void debug_tool_v4(const std::vector<int> &ids, const std::vector<double> values);
+    void initialize_level_set_by_tracing(const std::vector<int> &ids, const std::vector<double> values);
     void make_sphere_ls_example(int rowid);
 };
 

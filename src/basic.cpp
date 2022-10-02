@@ -1022,6 +1022,7 @@ void lsTools::assemble_solver_boundary_condition_part(spMat& H, Efunc& B){
 void lsTools::initialize_and_optimize_laplacian_with_traced_boundary_condition(){
     int vnbr = V.rows();
     int fnbr = F.rows();
+    assert(assigned_trace_ls.size()==trace_vers.size());
     // initialize the level set with some number
     if (fvalues.size() != vnbr)
     {
@@ -1064,4 +1065,56 @@ void lsTools::initialize_and_optimize_laplacian_with_traced_boundary_condition()
     level_set_step_length = dx.norm();
     fvalues += dx;
 
+}
+void lsTools::initialize_level_set_by_tracing(const std::vector<int> &ids, const std::vector<double> values){
+    double target_angle = values[0];// 
+    double start_angel = values[1];
+    double threadshold_angel_degree = values[2]; // threadshold for checking mesh boundary corners
+    int nbr_itv = ids[0]; // every nbr_itv boundary edges we shoot one curve
+    id_dbg = ids[1];
+    int which_segment=ids[2];
+    std::vector<std::vector<CGMesh::HalfedgeHandle>> boundaries;
+    split_mesh_boundary_by_corner_detection(lsmesh, V, threadshold_angel_degree,Boundary_Edges, boundaries);
+    std::cout<<"get the boundary segments, how many: "<<boundaries.size()<<std::endl;
+    if (nbr_itv < 1)
+    {
+        std::cout << "Please set up the parameter nbr_itv " << std::endl;
+        return;
+    }
+    std::vector<CGMesh::HalfedgeHandle> boundary_segment=boundaries[which_segment];
+    OpenMesh::HalfedgeHandle init_edge = boundary_segment[0];
+    
+    OpenMesh::HalfedgeHandle checking_edge = init_edge;
+    int beid=0;
+    double lsvalue=0;
+    while (1){
+        ver_dbg.resize(0, 0);
+        ver_dbg1.resize(0, 0);
+        flag_dbg = false;
+        E0_dbg.resize(0, 0);
+        direction_dbg.resize(0, 0);
+        pnorm_dbg.resize(0, 0);
+        pnorm_list_dbg.clear();
+        flag_dbg = true;
+        checking_edge=boundary_segment[beid];
+        std::vector<Eigen::Vector3d> curve;
+        std::vector<CGMesh::HalfedgeHandle> handles;
+        trace_single_pseudo_geodesic_curve_pseudo_vertex_method(target_angle, checking_edge, 0.5, start_angel,
+                                                                curve, handles);
+        int nextbeid=beid+nbr_itv;
+        if(nextbeid<boundary_segment.size()){
+            beid=nextbeid;
+        }
+        else{
+            break;
+        }
+        
+        flag_dbg = false;
+        lsvalue+=1;
+        trace_vers.push_back(curve);
+        trace_hehs.push_back(handles);
+        assigned_trace_ls.push_back(lsvalue);
+        
+    }
+   
 }
