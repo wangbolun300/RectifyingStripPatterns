@@ -563,30 +563,54 @@ void initial_segment_intersection_filter_by_closeness(
     const double angle_degree,
     const Eigen::Vector3d &start_point,
     const Eigen::Vector3d &reference_direction,
+    const Eigen::Vector3d &normal,
     const std::vector<Eigen::Vector3d> &candi_points, int &id)
 {
-    double angle_radian = angle_degree * LSC_PI / 180;
-    assert(candi_points.size() > 0);
-    if (candi_points.size() == 1)
-    {
-        id = 0;
-        return;
-    }
+    std::cout<<"before filtering size "<<candi_points.size()<<std::endl;
     int closest_id = -1;
-    double closest_angle_diff_radian = 370. * LSC_PI / 180.;
-
-    for (int i = 0; i < candi_points.size(); i++)
-    {
-        Eigen::Vector3d direction = (candi_points[i] - start_point).normalized();
-        double inner_product = direction.dot(reference_direction);
-        double angle_tmp_radian = acos(inner_product);
-        double angle_diff = std::min(fabs(angle_tmp_radian - angle_radian), fabs(2 * LSC_PI - angle_tmp_radian - angle_radian));
-        if (angle_diff < closest_angle_diff_radian)
+    double closest_distance = std::numeric_limits<double>::max();
+    for(int i=0;i<candi_points.size(); i++){
+        Eigen::Vector3d direction=candi_points[i]-start_point;
+        direction=direction.normalized();
+        double dot_product=direction.dot(reference_direction.normalized());
+        double real_angle = acos(dot_product) * 180 / LSC_PI;
+        if(!angles_match(real_angle,angle_degree)){
+            std::cout<<"angle not match, id "<<i<<" angle "<<real_angle <<std::endl;
+            continue;
+        }
+        if (isnan(real_angle))
         {
-            closest_angle_diff_radian = angle_diff;
-            closest_id = i;
+            std::cout<<"angle nan, id "<<i<<std::endl;
+            continue;
+        }
+        Eigen::Vector3d tangent = reference_direction.cross(direction).normalized();
+        if (angle_degree >= 0 && angle_degree <= 180)
+        {
+            if (tangent.dot(normal) >= 0)
+            {
+            }
+            else{
+                std::cout<<"angle cross wrong, id "<<i<<std::endl;
+                continue;
+            }
+        }
+        else
+        { // 180~360 degree
+            if (tangent.dot(normal) <= 0)
+            {
+            }
+            else{
+                std::cout<<"angle cross wrong, id "<<i<<std::endl;
+                continue;
+            }
+        }
+        double dis=(candi_points[i]-start_point).norm();
+        if(dis<closest_distance){
+            closest_distance=dis;
+            closest_id=i;
         }
     }
+
     // already found the vertex that forms the angle most close to the given one
     id = closest_id;
     return;
@@ -1126,76 +1150,76 @@ int conservative_sign(const double input)
     return 0;
 }
 
-bool angle_satisfy_quadrant(const double angle_degree, const Eigen::Vector3d &reference_direction,
-                            const Eigen::Vector3d &normal, const Eigen::Vector3d &query_direction)
-{
-    double angle_radian = angle_degree * LSC_PI / 180.;
-    Eigen::Vector3d yframe = normal.cross(reference_direction).normalized();
-    double x = query_direction.dot(reference_direction);
-    double y = query_direction.dot(yframe);
-    int x_sign = conservative_sign(x);
-    int y_sign = conservative_sign(y);
-    bool quadrant[4];
-    quadrant[0] = 0;
-    quadrant[1] = 0;
-    quadrant[2] = 0;
-    quadrant[3] = 0;
-    if (x_sign >= 0 && y_sign >= 0)
-    {
-        quadrant[0] = 1;
-    }
-    if (x_sign <= 0 && y_sign >= 0)
-    {
-        quadrant[1] = 1;
-    }
-    if (x_sign <= 0 && y_sign <= 0)
-    {
-        quadrant[2] = 1;
-    }
-    if (x_sign >= 0 && y_sign <= 0)
-    {
-        quadrant[3] = 1;
-    }
-    int target_quadrant;
-    if (angle_degree >= 0 && angle_degree <= 90)
-    {
-        target_quadrant = 0;
-    }
-    if (angle_degree >= 90 && angle_degree <= 180)
-    {
-        target_quadrant = 1;
-    }
-    if (angle_degree >= 180 && angle_degree <= 270)
-    {
-        target_quadrant = 2;
-    }
-    if (angle_degree >= 270 && angle_degree <= 360)
-    {
-        target_quadrant = 3;
-    }
-    if (quadrant[target_quadrant])
-    {
-        return true;
-    }
-    return false;
-}
-void pseudo_geodesic_intersection_satisfy_angle_quadrant(
-    const double angle_degree, const Eigen::Vector3d &reference_direction,
-    const Eigen::Vector3d &start_point,
-    const Eigen::Vector3d &normal, const std::vector<CGMesh::HalfedgeHandle> &handle_in,
-    const std::vector<Eigen::Vector3d> &point_in, std::vector<CGMesh::HalfedgeHandle> &handle_out,
-    std::vector<Eigen::Vector3d> &point_out)
-{
-    for (int i = 0; i < point_in.size(); i++)
-    {
-        Eigen::Vector3d direction = (point_in[i] - start_point).normalized();
-        if (angle_satisfy_quadrant(angle_degree, reference_direction, normal, direction))
-        {
-            handle_out.push_back(handle_in[i]);
-            point_out.push_back(point_in[i]);
-        }
-    }
-}
+// bool angle_satisfy_quadrant(const double angle_degree, const Eigen::Vector3d &reference_direction,
+//                             const Eigen::Vector3d &normal, const Eigen::Vector3d &query_direction)
+// {
+//     double angle_radian = angle_degree * LSC_PI / 180.;
+//     Eigen::Vector3d yframe = normal.cross(reference_direction).normalized();
+//     double x = query_direction.dot(reference_direction);
+//     double y = query_direction.dot(yframe);
+//     int x_sign = conservative_sign(x);
+//     int y_sign = conservative_sign(y);
+//     bool quadrant[4];
+//     quadrant[0] = 0;
+//     quadrant[1] = 0;
+//     quadrant[2] = 0;
+//     quadrant[3] = 0;
+//     if (x_sign >= 0 && y_sign >= 0)
+//     {
+//         quadrant[0] = 1;
+//     }
+//     if (x_sign <= 0 && y_sign >= 0)
+//     {
+//         quadrant[1] = 1;
+//     }
+//     if (x_sign <= 0 && y_sign <= 0)
+//     {
+//         quadrant[2] = 1;
+//     }
+//     if (x_sign >= 0 && y_sign <= 0)
+//     {
+//         quadrant[3] = 1;
+//     }
+//     int target_quadrant;
+//     if (angle_degree >= 0 && angle_degree <= 90)
+//     {
+//         target_quadrant = 0;
+//     }
+//     if (angle_degree >= 90 && angle_degree <= 180)
+//     {
+//         target_quadrant = 1;
+//     }
+//     if (angle_degree >= 180 && angle_degree <= 270)
+//     {
+//         target_quadrant = 2;
+//     }
+//     if (angle_degree >= 270 && angle_degree <= 360)
+//     {
+//         target_quadrant = 3;
+//     }
+//     if (quadrant[target_quadrant])
+//     {
+//         return true;
+//     }
+//     return false;
+// }
+// void pseudo_geodesic_intersection_satisfy_angle_quadrant(
+//     const double angle_degree, const Eigen::Vector3d &reference_direction,
+//     const Eigen::Vector3d &start_point,
+//     const Eigen::Vector3d &normal, const std::vector<CGMesh::HalfedgeHandle> &handle_in,
+//     const std::vector<Eigen::Vector3d> &point_in, std::vector<CGMesh::HalfedgeHandle> &handle_out,
+//     std::vector<Eigen::Vector3d> &point_out)
+// {
+//     for (int i = 0; i < point_in.size(); i++)
+//     {
+//         Eigen::Vector3d direction = (point_in[i] - start_point).normalized();
+//         if (angle_satisfy_quadrant(angle_degree, reference_direction, normal, direction))
+//         {
+//             handle_out.push_back(handle_in[i]);
+//             point_out.push_back(point_in[i]);
+//         }
+//     }
+// }
 // this code extend the candidate point list.
 // after calling this code, filter the points according to the quadrant and closeness.
 bool find_initial_direction_intersection_on_edge(const Eigen::Vector3d &start_point, const double angle_degree,
@@ -1203,6 +1227,14 @@ bool find_initial_direction_intersection_on_edge(const Eigen::Vector3d &start_po
                                                  const Eigen::Vector3d &normal, const CGMesh::HalfedgeHandle &handle_in, std::vector<CGMesh::HalfedgeHandle> &handle_out,
                                                  std::vector<Eigen::Vector3d> &point_out)
 {
+    //////////////////
+    // Eigen::Vector3d d1=vs-start_point;
+    // Eigen::Vector3d d2=ve-start_point;
+    // d1=d1.normalized();
+    // d2=d2.normalized();
+
+    
+    // std::cout<<"vs angle "<<
     double angle_radian = angle_degree * LSC_PI / 180.;
     Eigen::Vector3d ves = ve - vs;
     Eigen::Vector3d vssp = vs - start_point;
@@ -1214,7 +1246,8 @@ bool find_initial_direction_intersection_on_edge(const Eigen::Vector3d &start_po
     double right_square_0 = vssp.dot(vssp);
     double right_square_1 = 2 * vssp.dot(ves);
     double right_square_2 = ves.dot(ves);
-    double right_cons = cos(angle_degree) * reference_direction.dot(reference_direction);
+    double right_cons = cos(angle_radian)*cos(angle_radian) * reference_direction.dot(reference_direction);
+    // std::cout<<"## right cos "<<right_cons<<std::endl;
     right_square_0 *= right_cons;
     right_square_1 *= right_cons;
     right_square_2 *= right_cons;
@@ -1225,13 +1258,19 @@ bool find_initial_direction_intersection_on_edge(const Eigen::Vector3d &start_po
     equation[0] = eq0;
     equation[1] = eq1;
     equation[2] = eq2;
+    std::cout<<"equation "<<eq0<<" "<<eq1<<" "<<eq2<<std::endl;
+    std::cout<<"b^2-4ac= "<<eq1*eq1-4*eq0*eq2<<std::endl;
     equation = polynomial_simplify(equation);
     std::array<double, 2> roots;
     bool found = quadratic_solver(equation, roots);
+    if(!found){
+        return false;
+    }
     std::vector<Eigen::Vector3d> p_end;
     for (int i = 0; i < 2; i++)
     {
         double t = roots[i];
+        std::cout<<"t "<<t <<" equation value "<<polynomial_value(equation,t)<<std::endl;
         if (t < -MERGE_VERTEX_RATIO || t > 1 + MERGE_VERTEX_RATIO)
         {
             continue;
@@ -1254,7 +1293,11 @@ bool find_initial_direction_intersection_on_edge(const Eigen::Vector3d &start_po
         return false;
     }
     for (int i = 0; i < p_end.size(); i++)
-    {
+    {   
+        Eigen::Vector3d direction=(p_end[i]-start_point).normalized();
+        double dot_product=direction.dot(reference_direction.normalized());
+        double real_angle = acos(dot_product) * 180 / LSC_PI;
+        std::cout<<"recheck angle "<<real_angle<<std::endl;
         handle_out.push_back(handle_in);
         point_out.push_back(p_end[i]);
     }
@@ -1278,9 +1321,10 @@ bool lsTools::init_pseudo_geodesic_first_segment(
     Eigen::Vector3d vf = V.row(lsmesh.from_vertex_handle(start_boundary_edge).idx());
     Eigen::Vector3d vt = V.row(lsmesh.to_vertex_handle(start_boundary_edge).idx());
     Eigen::Vector3d start_point = vf + start_point_para * (vt - vf);
+    assert((vt-vf).norm()>1e-8);
     Eigen::Vector3d reference_direction = (vt - vf).normalized();
-    std::vector<CGMesh::HalfedgeHandle> handle_out, handle_out2;
-    std::vector<Eigen::Vector3d> point_out, point_out2;
+    std::vector<CGMesh::HalfedgeHandle> handle_out;
+    std::vector<Eigen::Vector3d> point_out;
 
     if (start_point_para == 0 || start_point_para == 1)
     {
@@ -1293,7 +1337,7 @@ bool lsTools::init_pseudo_geodesic_first_segment(
         {
             center_handle = lsmesh.to_vertex_handle(start_boundary_edge);
         }
-        Eigen::Vector3d normal = V.row(center_handle.idx());
+        Eigen::Vector3d normal = norm_v.row(center_handle.idx());
         for (CGMesh::VertexOHalfedgeIter voh_itr = lsmesh.voh_begin(center_handle);
              voh_itr != lsmesh.voh_end(center_handle); ++voh_itr)
         {
@@ -1316,6 +1360,7 @@ bool lsTools::init_pseudo_geodesic_first_segment(
     Eigen::Vector3d vs;
     Eigen::Vector3d ve;
     assert(lsmesh.face_handle(start_boundary_edge).idx() == lsmesh.face_handle(checking_he).idx());
+    assert(lsmesh.face_handle(start_boundary_edge).idx()>=0);
     vs = V.row(lsmesh.from_vertex_handle(checking_he).idx());
     ve = V.row(lsmesh.to_vertex_handle(checking_he).idx());
     find_initial_direction_intersection_on_edge(start_point, start_boundary_angle_degree, reference_direction,
@@ -1327,18 +1372,22 @@ bool lsTools::init_pseudo_geodesic_first_segment(
     ve = V.row(lsmesh.to_vertex_handle(checking_he).idx());
     find_initial_direction_intersection_on_edge(start_point, start_boundary_angle_degree, reference_direction,
                                                 vs, ve, normal, checking_he, handle_out, point_out);
-    pseudo_geodesic_intersection_satisfy_angle_quadrant(start_boundary_angle_degree, reference_direction, start_point,
-                                                        normal, handle_out, point_out, handle_out2, point_out2);
-    if (point_out2.size() == 0)
+    // pseudo_geodesic_intersection_satisfy_angle_quadrant(start_boundary_angle_degree, reference_direction, start_point,
+    //                                                     normal, handle_out, point_out, handle_out2, point_out2);
+    if (point_out.size() == 0)
     {
         std::cout << "ERROR: no point satisfies the angle quadrant in initialization" << std::endl;
         return false;
     }
     int result_id = -1;
     initial_segment_intersection_filter_by_closeness(start_boundary_angle_degree, start_point,
-                                                     reference_direction, point_out2, result_id);
-    intersected_handle = handle_out2[result_id];
-    intersected_point = point_out2[result_id];
+                                                     reference_direction,normal, point_out, result_id);
+    if(result_id==-1){
+        std::cout<<"in init_pseudo_geodesic_first_segment() not finding any point"<<std::endl;
+        return false;
+    }
+    intersected_handle = handle_out[result_id];
+    intersected_point = point_out[result_id];
     return true;
 }
 void update_tracing_list(const Eigen::Vector3d &ver, const Eigen::Vector3d &pver, const CGMesh::HalfedgeHandle &handle,
@@ -1488,6 +1537,7 @@ bool lsTools::trace_single_pseudo_geodesic_curve(const double target_angle_degre
             std::cout << "get checked edges, edge size " << ninfo.edges.size() << std::endl;
             if (!edges_found)
             {
+                std::cout<<"edges not found"<<std::endl;
                 break;
             }
             found = trace_pseudo_geodesic_forward(ninfo, curve, target_angle_degree, intersected_handle_tmp, // edge middle
@@ -1517,12 +1567,19 @@ bool lsTools::trace_single_pseudo_geodesic_curve(const double target_angle_degre
 }
 void lsTools::show_pseudo_geodesic_curve(std::vector<Eigen::MatrixXd> &E0, std::vector<Eigen::MatrixXd> &E1, Eigen::MatrixXd &vers)
 {
+    std::cout<<"check 1"<<std::endl;
+    // for debug
+    
+
+    // for debug
+
     E0.resize(trace_vers.size());
     E1.resize(trace_vers.size());
     int pnbr = 0;
     for (int i = 0; i < trace_vers.size(); i++)
     {
         int vsize = trace_vers[i].size();
+        assert(vsize>=1);
         E0[i].resize(vsize - 1, 3);
         E1[i].resize(vsize - 1, 3);
         for (int j = 0; j < vsize - 1; j++)

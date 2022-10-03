@@ -276,11 +276,11 @@ int main(int argc, char *argv[])
 #else
 	std::string spliter = "/";
 #endif
-	std::string fname = example_root_path + std::string("RefMesh1.obj");
+	std::string fname = example_root_path + std::string("quad_pq.obj");
 	OpenMesh::IO::read_mesh(lscif::mesh, fname);
 
 	lscif::MP.mesh2Matrix(lscif::mesh, lscif::V, lscif::F);
-	lscif::meshFileName.push_back("RefMesh1");
+	lscif::meshFileName.push_back("quad_pq");
 	lscif::Meshes.push_back(lscif::mesh);
 
 	// Init the viewer
@@ -654,6 +654,7 @@ int main(int argc, char *argv[])
 				input_dbl.push_back(lscif::threadshold_angel_degree);
 				lscif::tools.initialize_mesh_properties();
 				lscif::tools.initialize_level_set_by_tracing(input_int, input_dbl);
+				std::cout<<"finish tracing"<<std::endl;
 				lscif::updateMeshViewer(viewer, inputMesh);
 				lscif::meshFileName.push_back("dbg_" + lscif::meshFileName[id]);
 				lscif::Meshes.push_back(inputMesh);
@@ -668,15 +669,17 @@ int main(int argc, char *argv[])
 				
 				Eigen::MatrixXd pts;
 				std::vector<Eigen::MatrixXd> E0list, E1list;
+				std::cout<<"before ploting the curve"<<std::endl;
 				lscif::tools.show_pseudo_geodesic_curve(E0list, E1list, pts);
 				for (int i = 0; i < E0list.size(); i++)// plot the curves
 				{
 					E0 = E0list[i];
 					E1 = E1list[i];
+					std::cout << "edge sizes " << E0.rows()<<", "<<E1.size() << std::endl;
 					viewer.data().add_edges(E0, E1, red);
-					std::cout << "edge sizes " << E0.rows() << std::endl;
+					
 				}
-
+				std::cout<<"the number of curves "<<E0list.size()<<std::endl;
 				
 				if (1)// plot the vertices of the curves
 				{
