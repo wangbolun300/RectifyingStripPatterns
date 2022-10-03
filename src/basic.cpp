@@ -186,15 +186,15 @@ void lsTools::get_rotated_edges_for_each_face()
                 assert(lsmesh.face_handle(heh).idx() == fid);
                 // std::cout<<"the face id is "<<fid<<", the corresponding edge is "<<vid1<<" "<<vid2<<std::endl;
                 auto opposite = lsmesh.opposite_face_handle(heh);
-                if (lsmesh.is_boundary(lsmesh.from_vertex_handle(heh)) && lsmesh.is_boundary(lsmesh.to_vertex_handle(heh)))
-                {
-                    // std::cout<<"it is already boundary"<<std::endl;
-                }
-                else
-                {
-                    // std::cout<<"opposite is "<<opposite.idx();
-                    // std::cout<<", the corresponding edges are "<<F.row(opposite.idx())<<std::endl<<std::endl;
-                }
+                // if (lsmesh.is_boundary(lsmesh.from_vertex_handle(heh)) && lsmesh.is_boundary(lsmesh.to_vertex_handle(heh)))
+                // {
+                //     // std::cout<<"it is already boundary"<<std::endl;
+                // }
+                // else
+                // {
+                //     // std::cout<<"opposite is "<<opposite.idx();
+                //     // std::cout<<", the corresponding edges are "<<F.row(opposite.idx())<<std::endl<<std::endl;
+                // }
             }
             // if(1)
             // //if(!(vid1==F(fid,0)||vid1==F(fid,1)||vid1==F(fid,2))||!(vid2==F(fid,0)||vid2==F(fid,1)||vid2==F(fid,2)))
@@ -344,11 +344,14 @@ void lsTools::get_bnd_and_bnd_one_ring()
     for (CGMesh::EdgeIter e_it = lsmesh.edges_begin(); e_it != lsmesh.edges_end(); ++e_it)
     {
         OpenMesh::HalfedgeHandle hh = lsmesh.halfedge_handle(e_it, 0);
-        if (!hh.is_valid())
-            hh = lsmesh.halfedge_handle(e_it, 1);
-        CGMesh::VertexHandle vfrom = lsmesh.from_vertex_handle(hh);
-        CGMesh::VertexHandle vto = lsmesh.to_vertex_handle(hh);
-        if (lsmesh.is_boundary(vfrom) && lsmesh.is_boundary(vto))
+        CGMesh::HalfedgeHandle ophe=lsmesh.opposite_halfedge_handle(hh);
+    
+        if (lsmesh.face_handle(hh).idx()<0)
+        {
+            // this is a boundary halfedge.
+            hdls.push_back(hh);
+        }
+        else if (lsmesh.face_handle(ophe).idx()<0)
         {
             // this is a boundary halfedge.
             hdls.push_back(hh);
@@ -1067,6 +1070,9 @@ void lsTools::initialize_and_optimize_laplacian_with_traced_boundary_condition()
 
 }
 void lsTools::initialize_level_set_by_tracing(const std::vector<int> &ids, const std::vector<double> values){
+    trace_vers.clear();
+    trace_hehs.clear();
+    assigned_trace_ls.clear();
     double target_angle = values[0];// 
     double start_angel = values[1];
     double threadshold_angel_degree = values[2]; // threadshold for checking mesh boundary corners
@@ -1099,7 +1105,7 @@ void lsTools::initialize_level_set_by_tracing(const std::vector<int> &ids, const
         checking_edge=boundary_segment[beid];
         std::vector<Eigen::Vector3d> curve;
         std::vector<CGMesh::HalfedgeHandle> handles;
-        trace_single_pseudo_geodesic_curve_pseudo_vertex_method(target_angle, checking_edge, 0.5, start_angel,
+        trace_single_pseudo_geodesic_curve(target_angle, checking_edge, 0.5, start_angel,
                                                                 curve, handles);
         int nextbeid=beid+nbr_itv;
         if(nextbeid<boundary_segment.size()){

@@ -558,6 +558,7 @@ void pseudo_geodesic_intersection_filter_by_closeness(
     id = closest_id;
     return;
 }
+// TODO need to fix the bug inside.
 void initial_segment_intersection_filter_by_closeness(
     const double angle_degree,
     const Eigen::Vector3d &start_point,
@@ -604,7 +605,9 @@ void get_one_ring_vertices(CGMesh &lsmesh, const int id, std::vector<int> &pts)
 }
 bool is_boundary_edge(CGMesh &lsmesh, const CGMesh::HalfedgeHandle &he)
 {
-    return lsmesh.is_boundary(lsmesh.from_vertex_handle(he)) && lsmesh.is_boundary(lsmesh.to_vertex_handle(he));
+    CGMesh::HalfedgeHandle ophe=lsmesh.opposite_halfedge_handle(he);
+    bool result=(lsmesh.face_handle(he).idx()<0)||(lsmesh.face_handle(ophe).idx()<0);
+    return result;
 }
 
 // in the first iteration, start_point_ids is empty so we can search the adjecent trianlge or the one-ring

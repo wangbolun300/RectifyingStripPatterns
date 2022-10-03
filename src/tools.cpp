@@ -570,8 +570,8 @@ void split_mesh_boundary_by_corner_detection(CGMesh &lsmesh, const Eigen::Matrix
     { // iterate all the boundary edges
         CGMesh::HalfedgeHandle start_he=boundary_halfedge(lsmesh, Boundary_Edges[i]);
         CGMesh::HalfedgeHandle next_he=lsmesh.next_halfedge_handle(start_he);
-        std::cout<<"this face id "<<lsmesh.face_handle(start_he).idx()<<" opposite "<<lsmesh.face_handle(lsmesh.opposite_halfedge_handle(start_he))<<std::endl;
-        std::cout<<"next face id "<<lsmesh.face_handle(next_he).idx()<<" opposite "<<lsmesh.face_handle(lsmesh.opposite_halfedge_handle(next_he))<<std::endl;
+        // std::cout<<"this face id "<<lsmesh.face_handle(start_he).idx()<<" opposite "<<lsmesh.face_handle(lsmesh.opposite_halfedge_handle(start_he))<<std::endl;
+        // std::cout<<"next face id "<<lsmesh.face_handle(next_he).idx()<<" opposite "<<lsmesh.face_handle(lsmesh.opposite_halfedge_handle(next_he))<<std::endl;
         assert(lsmesh.face_handle(next_he).idx()<0);
         Eigen::Vector3d p0=V.row(lsmesh.from_vertex_handle(start_he).idx());
         Eigen::Vector3d p1=V.row(lsmesh.to_vertex_handle(start_he).idx());
