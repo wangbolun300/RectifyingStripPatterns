@@ -276,7 +276,7 @@ int main(int argc, char *argv[])
 #else
 	std::string spliter = "/";
 #endif
-	std::string fname = example_root_path + std::string("quad_pq.obj");
+	std::string fname = example_root_path + std::string("oc_5.000000_10.000000_50_30.obj");
 	OpenMesh::IO::read_mesh(lscif::mesh, fname);
 
 	lscif::MP.mesh2Matrix(lscif::mesh, lscif::V, lscif::F);
@@ -633,7 +633,7 @@ int main(int argc, char *argv[])
 				viewer.selected_data_index = id;
 				// std::cout<<"acos(1) "<<acos(1.)<<std::endl;
 			}
-			ImGui::SameLine();
+			
 			if (ImGui::Button("levelset tracing", ImVec2(ImGui::GetWindowSize().x * 0.23f, 0.0f)))
 			{
 
@@ -687,6 +687,38 @@ int main(int argc, char *argv[])
 				}
 				viewer.selected_data_index = id;
 				// std::cout<<"acos(1) "<<acos(1.)<<std::endl;
+			}
+			ImGui::SameLine();
+			if (ImGui::Button("smooth+boundary", ImVec2(ImGui::GetWindowSize().x * 0.23f, 0.0f)))
+			{
+
+				int id = viewer.selected_data_index;
+				CGMesh inputMesh = lscif::Meshes[id];
+				lscif::tools.weight_mass = lscif::weight_mass;
+				lscif::tools.weight_boundary = lscif::weight_boundary;
+				lscif::tools.weight_laplacian = lscif::weight_laplacian;
+				
+
+				for (int i = 0; i < lscif::OpIter; i++)
+				{
+					lscif::tools.optimize_laplacian_with_traced_boundary_condition();
+					std::cout << "step length " << lscif::tools.level_set_step_length << std::endl;
+				}
+				std::cout << "waiting for instruction..." << std::endl;
+				// lscif::MP.MeshUnitScale(inputMesh, updatedMesh);
+				lscif::updateMeshViewer(viewer, inputMesh);
+				lscif::meshFileName.push_back("smt_" + lscif::meshFileName[id]);
+				lscif::Meshes.push_back(inputMesh);
+
+				Eigen::VectorXd level_set_values;
+				lscif::tools.show_level_set(level_set_values);
+				viewer.data().set_colors(level_set_values);
+				// Eigen::MatrixXd E0, E1;
+				// // lscif::tools.show_gradients(E0,E1, lscif::vector_scaling);
+				const Eigen::RowVector3d red(0.8, 0.2, 0.2);
+				const Eigen::RowVector3d blue(0.2, 0.2, 0.8);
+
+				viewer.selected_data_index = id;
 			}
 			if (ImGui::Button("sphere example", ImVec2(ImGui::GetWindowSize().x * 0.23f, 0.0f)))
 			{

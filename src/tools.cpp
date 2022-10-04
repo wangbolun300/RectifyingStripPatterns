@@ -655,3 +655,172 @@ void split_mesh_boundary_by_corner_detection(CGMesh &lsmesh, const Eigen::Matrix
        
     }
 }
+
+
+Eigen::Vector3d sphere_function(double r, double theta, double phi)
+{
+    double x = r * sin(theta) * cos(phi);
+    double y = r * sin(theta) * sin(phi);
+    double z = r * cos(theta);
+    return Eigen::Vector3d(x, y, z);
+}
+// create a triangle mesh sphere.
+#include <igl/write_triangle_mesh.h>
+void sphere_example(double radius, double theta, double phi, int nt, int np)
+{
+
+    Eigen::MatrixXd ver;
+    Eigen::MatrixXi faces;
+    ver.resize(nt * np, 3);
+    faces.resize(2 * (nt - 1) * (np - 1), 3);
+    int verline = 0;
+    double titv = 2 * theta / (nt - 1);
+    double pitv = 2 * phi / (np - 1);
+    for (int i = 0; i < nt; i++)
+    {
+        for (int j = 0; j < np; j++)
+        {
+            double upara = 0.5 * 3.1415926 - theta + i * titv;
+            double vpara = -phi + j * pitv;
+            ver.row(verline) = sphere_function(radius, upara, vpara);
+            verline++;
+        }
+    }
+    faces.resize(2 * (nt - 1) * (np - 1), 3);
+    int fline = 0;
+    for (int i = 0; i < nt - 1; i++)
+    {
+        for (int j = 0; j < np - 1; j++)
+        {
+            int id0 = np * i + j;
+            int id1 = np * (i + 1) + j;
+            int id2 = np * (i + 1) + j + 1;
+            int id3 = np * i + j + 1;
+            faces.row(fline) = Eigen::Vector3i(id0, id1, id2);
+            faces.row(fline + 1) = Eigen::Vector3i(id0, id2, id3);
+            fline += 2;
+        }
+    }
+    std::string path("/Users/wangb0d/bolun/D/vs/levelset/level-set-curves/data/");
+    igl::write_triangle_mesh(path + "sphere_" + std::to_string(radius) + "_" + std::to_string(theta) + "_" +
+                                 std::to_string(phi) + "_" + std::to_string(nt) + "_" + std::to_string(np) + ".obj",
+                             ver, faces);
+    std::cout << "sphere mesh file saved " << std::endl;
+}
+void cylinder_example(double radius, double height, int nr, int nh)
+{
+    Eigen::MatrixXd ver;
+    Eigen::MatrixXi faces;
+    ver.resize(nh * nr, 3);
+    faces.resize(2 * (nh - 1) * nr, 3);
+    int verline = 0;
+    double hitv = height / (nh - 1);
+    double ritv = 2 * LSC_PI / nr;
+    for (int i = 0; i < nr; i++)
+    {
+        double angle = ritv * i;
+        double x = cos(angle) * radius;
+        double y = sin(angle) * radius;
+        for (int j = 0; j < nh; j++)
+        {
+            double z = j * hitv;
+            ver.row(verline) << x, y, z;
+            verline++;
+        }
+    }
+
+    int fline = 0;
+    for (int i = 0; i < nr; i++)
+    {
+        if (i < nr - 1)
+        {
+            for (int j = 0; j < nh - 1; j++)
+            {
+                int id0 = nh * i + j;
+                int id1 = nh * (i + 1) + j;
+                int id2 = nh * (i + 1) + j + 1;
+                int id3 = nh * i + j + 1;
+                faces.row(fline) = Eigen::Vector3i(id0, id1, id2);
+                faces.row(fline + 1) = Eigen::Vector3i(id0, id2, id3);
+                fline += 2;
+            }
+        }
+        else
+        {
+            for (int j = 0; j < nh - 1; j++)
+            {
+                int id0 = nh * i + j;
+                int id1 = j;
+                int id2 = j + 1;
+                int id3 = nh * i + j + 1;
+                faces.row(fline) = Eigen::Vector3i(id0, id1, id2);
+                faces.row(fline + 1) = Eigen::Vector3i(id0, id2, id3);
+                fline += 2;
+            }
+        }
+    }
+    std::string path("/Users/wangb0d/bolun/D/vs/levelset/level-set-curves/data/");
+    igl::write_triangle_mesh(path + "cylinder_" + std::to_string(radius) + "_" + std::to_string(height) + "_" +
+                                 std::to_string(nr) + "_" + std::to_string(nh) + ".obj",
+                             ver, faces);
+    std::cout << "sphere mesh file saved " << std::endl;
+}
+
+void cylinder_open_example(double radius, double height, int nr, int nh)
+{
+    Eigen::MatrixXd ver;
+    Eigen::MatrixXi faces;
+    ver.resize(nh * nr, 3);
+    faces.resize(2 * (nh - 1) * (nr-1), 3);
+    int verline = 0;
+    double hitv = height / (nh - 1);
+    double ritv =  LSC_PI / (nr-1);// we only draw half a cylinder
+    for (int i = 0; i < nr; i++)
+    {
+        double angle = ritv * i;
+        double x = cos(angle) * radius;
+        double y = sin(angle) * radius;
+        for (int j = 0; j < nh; j++)
+        {
+            double z = j * hitv;
+            ver.row(verline) << x, y, z;
+            verline++;
+        }
+    }
+
+    int fline = 0;
+    for (int i = 0; i < nr; i++)
+    {
+        if (i < nr - 1)
+        {
+            for (int j = 0; j < nh - 1; j++)
+            {
+                int id0 = nh * i + j;
+                int id1 = nh * (i + 1) + j;
+                int id2 = nh * (i + 1) + j + 1;
+                int id3 = nh * i + j + 1;
+                faces.row(fline) = Eigen::Vector3i(id0, id1, id2);
+                faces.row(fline + 1) = Eigen::Vector3i(id0, id2, id3);
+                fline += 2;
+            }
+        }
+        // else
+        // {
+        //     for (int j = 0; j < nh - 1; j++)
+        //     {
+        //         int id0 = nh * i + j;
+        //         int id1 = j;
+        //         int id2 = j + 1;
+        //         int id3 = nh * i + j + 1;
+        //         faces.row(fline) = Eigen::Vector3i(id0, id1, id2);
+        //         faces.row(fline + 1) = Eigen::Vector3i(id0, id2, id3);
+        //         fline += 2;
+        //     }
+        // }
+    }
+    std::string path("/Users/wangb0d/bolun/D/vs/levelset/level-set-curves/data/");
+    igl::write_triangle_mesh(path + "oc_" + std::to_string(radius) + "_" + std::to_string(height) + "_" +
+                                 std::to_string(nr) + "_" + std::to_string(nh) + ".obj",
+                             ver, faces);
+    std::cout << "cylinder file saved " << std::endl;
+}

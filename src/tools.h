@@ -24,6 +24,7 @@ std::vector<double> polynomial_integration(const std::vector<double> &poly);
 double polynomial_integration(const std::vector<double> &poly, const double lower, const double upper);
 
 void cylinder_example(double radius, double height, int nr, int nh);
+void cylinder_open_example(double radius, double height, int nr, int nh);
 // theta <= pi/2, phi<=pi
 void sphere_example(double radius, double theta, double phi, int nt, int np);
 

@@ -247,7 +247,9 @@ public:
     void initialize_and_smooth_level_set_by_laplacian();
     void initialize_and_optimize_strip_width();
     void initialize_and_optimize_pseudo_geodesic();
-    void initialize_and_optimize_laplacian_with_traced_boundary_condition();
+    // after tracing, use this function to get smooth level set
+    void optimize_laplacian_with_traced_boundary_condition();
+    void initialize_level_set_accroding_to_parametrization();
     void debug_tool(int id = 0, int id2 = 0, double value = 0);
     void debug_tool_v2(const std::vector<int> &ids, const std::vector<double> values);
     void debug_tool_v3(int id = 0, int id2 = 0, double value = 0);

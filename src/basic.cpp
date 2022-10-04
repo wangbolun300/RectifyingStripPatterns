@@ -428,114 +428,6 @@ void lsTools::get_gradient_hessian_values()
     }
 }
 
-Eigen::Vector3d sphere_function(double r, double theta, double phi)
-{
-    double x = r * sin(theta) * cos(phi);
-    double y = r * sin(theta) * sin(phi);
-    double z = r * cos(theta);
-    return Eigen::Vector3d(x, y, z);
-}
-// create a triangle mesh sphere.
-#include <igl/write_triangle_mesh.h>
-void sphere_example(double radius, double theta, double phi, int nt, int np)
-{
-
-    Eigen::MatrixXd ver;
-    Eigen::MatrixXi faces;
-    ver.resize(nt * np, 3);
-    faces.resize(2 * (nt - 1) * (np - 1), 3);
-    int verline = 0;
-    double titv = 2 * theta / (nt - 1);
-    double pitv = 2 * phi / (np - 1);
-    for (int i = 0; i < nt; i++)
-    {
-        for (int j = 0; j < np; j++)
-        {
-            double upara = 0.5 * 3.1415926 - theta + i * titv;
-            double vpara = -phi + j * pitv;
-            ver.row(verline) = sphere_function(radius, upara, vpara);
-            verline++;
-        }
-    }
-    faces.resize(2 * (nt - 1) * (np - 1), 3);
-    int fline = 0;
-    for (int i = 0; i < nt - 1; i++)
-    {
-        for (int j = 0; j < np - 1; j++)
-        {
-            int id0 = np * i + j;
-            int id1 = np * (i + 1) + j;
-            int id2 = np * (i + 1) + j + 1;
-            int id3 = np * i + j + 1;
-            faces.row(fline) = Eigen::Vector3i(id0, id1, id2);
-            faces.row(fline + 1) = Eigen::Vector3i(id0, id2, id3);
-            fline += 2;
-        }
-    }
-    std::string path("/Users/wangb0d/bolun/D/vs/levelset/level-set-curves/data/");
-    igl::write_triangle_mesh(path + "sphere_" + std::to_string(radius) + "_" + std::to_string(theta) + "_" +
-                                 std::to_string(phi) + "_" + std::to_string(nt) + "_" + std::to_string(np) + ".obj",
-                             ver, faces);
-    std::cout << "sphere mesh file saved " << std::endl;
-}
-void cylinder_example(double radius, double height, int nr, int nh)
-{
-    Eigen::MatrixXd ver;
-    Eigen::MatrixXi faces;
-    ver.resize(nh * nr, 3);
-    faces.resize(2 * (nh - 1) * nr, 3);
-    int verline = 0;
-    double hitv = height / (nh - 1);
-    double ritv = 2 * LSC_PI / nr;
-    for (int i = 0; i < nr; i++)
-    {
-        double angle = ritv * i;
-        double x = cos(angle) * radius;
-        double y = sin(angle) * radius;
-        for (int j = 0; j < nh; j++)
-        {
-            double z = j * hitv;
-            ver.row(verline) << x, y, z;
-            verline++;
-        }
-    }
-
-    int fline = 0;
-    for (int i = 0; i < nr; i++)
-    {
-        if (i < nr - 1)
-        {
-            for (int j = 0; j < nh - 1; j++)
-            {
-                int id0 = nh * i + j;
-                int id1 = nh * (i + 1) + j;
-                int id2 = nh * (i + 1) + j + 1;
-                int id3 = nh * i + j + 1;
-                faces.row(fline) = Eigen::Vector3i(id0, id1, id2);
-                faces.row(fline + 1) = Eigen::Vector3i(id0, id2, id3);
-                fline += 2;
-            }
-        }
-        else
-        {
-            for (int j = 0; j < nh - 1; j++)
-            {
-                int id0 = nh * i + j;
-                int id1 = j;
-                int id2 = j + 1;
-                int id3 = nh * i + j + 1;
-                faces.row(fline) = Eigen::Vector3i(id0, id1, id2);
-                faces.row(fline + 1) = Eigen::Vector3i(id0, id2, id3);
-                fline += 2;
-            }
-        }
-    }
-    std::string path("/Users/wangb0d/bolun/D/vs/levelset/level-set-curves/data/");
-    igl::write_triangle_mesh(path + "cylinder_" + std::to_string(radius) + "_" + std::to_string(height) + "_" +
-                                 std::to_string(nr) + "_" + std::to_string(nh) + ".obj",
-                             ver, faces);
-    std::cout << "sphere mesh file saved " << std::endl;
-}
 void lsTools::make_sphere_ls_example(int rowid)
 {
     int vsize = V.rows();
@@ -983,6 +875,7 @@ void lsTools::assemble_solver_boundary_condition_part(spMat& H, Efunc& B){
     // {
     //     assigned_trace_ls[i]=i;
     // }
+    // std::cout<<"before going into for loop"<<std::endl;
     for (int i = 0; i < trace_vers.size(); i++)
     {
         
@@ -1004,10 +897,12 @@ void lsTools::assemble_solver_boundary_condition_part(spMat& H, Efunc& B){
             size++;
         }
     }
+    // std::cout<<"after loop"<<std::endl;
     // get boundary condition: the jacobian matrix
     bcJacobian.resize(size,V.rows());
     bcJacobian.setFromTriplets(triplets.begin(),triplets.end());
-    
+    bcVector.resize(size);
+    // std::cout<<"calculated a and b"<<std::endl;
     for(int i=0;i<size;i++){// get the f(x)
         int id=vec_elements[i].first;
         assert(i==id);
@@ -1019,23 +914,31 @@ void lsTools::assemble_solver_boundary_condition_part(spMat& H, Efunc& B){
     // get the -(J^T)*f(x)
     B=-bcJacobian.transpose()*bcVector;
 }
+void lsTools::initialize_level_set_accroding_to_parametrization(){
+    // int lssize=assign
+}
+
+
 
 // before calling this function, please get the traced curves and assign values 
 // for these curves
-void lsTools::initialize_and_optimize_laplacian_with_traced_boundary_condition(){
+void lsTools::optimize_laplacian_with_traced_boundary_condition(){
     int vnbr = V.rows();
     int fnbr = F.rows();
     assert(assigned_trace_ls.size()==trace_vers.size());
     // initialize the level set with some number
     if (fvalues.size() != vnbr)
     {
+        std::cout<<"set values for level set"<<std::endl;
         double init_value=0;
         for(int i=0;i<assigned_trace_ls.size();i++){
             init_value+=assigned_trace_ls[i];
+            std::cout<<"assigned value, "<<assigned_trace_ls[i]<<std::endl;
         }
         init_value/=assigned_trace_ls.size();
         fvalues.setOnes(vnbr);
         fvalues*=init_value;
+        std::cout<<"boundary condition setted, initially, "<<init_value<<std::endl;
     }
     get_gradient_hessian_values();
     // std::cout << "finished calculate gradient and hessian" << std::endl;
@@ -1048,11 +951,13 @@ void lsTools::initialize_and_optimize_laplacian_with_traced_boundary_condition()
     spMat bc_JTJ;
     Efunc bc_mJTF;
     // get the boundary condition bcJacobian (J) and bcVector F, 
+    // std::cout<<"before assembling matrices"<<std::endl;
     assemble_solver_boundary_condition_part(bc_JTJ, bc_mJTF);
+    // std::cout<<"boundary condition set up"<<std::endl;
     spMat LTL;// left of laplacian
     Efunc mLTF;// right of laplacian
     assemble_solver_laplacian_part(LTL, mLTF);
-    
+    // std::cout<<"laplacian condition set up"<<std::endl;
     assert(mass.rows() == vnbr);
     
     // gravity + laplacian + boundary condition
@@ -1060,9 +965,10 @@ void lsTools::initialize_and_optimize_laplacian_with_traced_boundary_condition()
     B=weight_laplacian*mLTF+weight_boundary*bc_mJTF;
     assert(H.rows() == vnbr);
     assert(H.cols() == vnbr);
+    // std::cout<<"before solving"<<std::endl;
     Eigen::SimplicialLLT<Eigen::SparseMatrix<double>> solver(H);
     assert(solver.info() == Eigen::Success);
-
+    // std::cout<<"solved successfully"<<std::endl;
     Eigen::VectorXd dx = solver.solve(B).eval();
     // std::cout << "step length " << dx.norm() << std::endl;
     level_set_step_length = dx.norm();
@@ -1070,6 +976,8 @@ void lsTools::initialize_and_optimize_laplacian_with_traced_boundary_condition()
 
 }
 void lsTools::initialize_level_set_by_tracing(const std::vector<int> &ids, const std::vector<double> values){
+    // cylinder_open_example(5, 10, 50, 30);
+    // exit(0);
     trace_vers.clear();
     trace_hehs.clear();
     assigned_trace_ls.clear();
