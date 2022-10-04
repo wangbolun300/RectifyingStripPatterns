@@ -914,8 +914,27 @@ void lsTools::assemble_solver_boundary_condition_part(spMat& H, Efunc& B){
     // get the -(J^T)*f(x)
     B=-bcJacobian.transpose()*bcVector;
 }
+double get_t_of_segment(const Eigen::Vector3d& ver, const Eigen::Vector3d& start, const Eigen::Vector3d& end){
+    double dis1=(ver-start).norm();
+    double dis2=(end-start).norm();
+    assert(start!=end);
+    double t=dis1/dis2;
+    return t;
+}
+Eigen::Vector2d get_2d_ver_from_t(const double t, const Eigen::Vector2d& start, const Eigen::Vector2d& end){
+    return start+t*(end-start);
+}
 void lsTools::initialize_level_set_accroding_to_parametrization(){
-    // int lssize=assign
+    int lssize=assigned_trace_ls.size();
+    double value0=assigned_trace_ls[0];
+    double value1=assigned_trace_ls[lssize-1];
+    int ver0id=lsmesh.from_vertex_handle(trace_hehs[0][0]).idx();
+    int ver1id=lsmesh.to_vertex_handle(trace_hehs[0][0]).idx();
+    int ver2id=lsmesh.from_vertex_handle(trace_hehs[lssize-1][0]).idx();
+    int ver3id=lsmesh.to_vertex_handle(trace_hehs[lssize-1][0]).idx();
+
+    Eigen::Vector3d p3d0=V.row
+    Eigen::Vector2d para0=paras.row()
 }
 
 
