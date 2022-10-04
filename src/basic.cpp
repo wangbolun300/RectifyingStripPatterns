@@ -1094,6 +1094,7 @@ void lsTools::initialize_level_set_by_tracing(const std::vector<int> &ids, const
     OpenMesh::HalfedgeHandle checking_edge = init_edge;
     int beid=0;
     double lsvalue=0;
+    int curvecount=0;
     while (1){
         ver_dbg.resize(0, 0);
         ver_dbg1.resize(0, 0);
@@ -1108,22 +1109,25 @@ void lsTools::initialize_level_set_by_tracing(const std::vector<int> &ids, const
         std::vector<CGMesh::HalfedgeHandle> handles;
         trace_single_pseudo_geodesic_curve(target_angle, checking_edge, 0.5, start_angel,
                                                                 curve, handles);
-        std::cout<<"one curver traced, size "<<curve.size()<<std::endl;
+        curvecount++;
+        std::cout<<"one curver traced, size "<<curve.size()<<" the ith "<<curvecount<<std::endl;
+        
+        flag_dbg = false;
+        assert(curve.size()>0);
+        trace_vers.push_back(curve);
+        trace_hehs.push_back(handles);
+        assigned_trace_ls.push_back(lsvalue);
+        lsvalue+=1;
         int nextbeid=beid+nbr_itv;
         if(nextbeid<boundary_segment.size()){
             beid=nextbeid;
         }
         else{
-            std::cout<<"run out of this edge, final id "<<nextbeid<<std::endl;
+            std::cout<<"run out of this edge, final segment id "<<beid<<std::endl;
             break;
         }
         
-        flag_dbg = false;
-        lsvalue+=1;
-        assert(curve.size()>0);
-        trace_vers.push_back(curve);
-        trace_hehs.push_back(handles);
-        assigned_trace_ls.push_back(lsvalue);
+        
         
     }
     std::cout<<"check the numbr of curves "<<trace_vers.size()<<std::endl;

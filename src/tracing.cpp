@@ -1233,44 +1233,65 @@ bool find_initial_direction_intersection_on_edge(const Eigen::Vector3d &start_po
     // d1=d1.normalized();
     // d2=d2.normalized();
 
-    
+    std::array<double, 2> roots;
+    std::vector<double> equation(3);
     // std::cout<<"vs angle "<<
     double angle_radian = angle_degree * LSC_PI / 180.;
     Eigen::Vector3d ves = ve - vs;
     Eigen::Vector3d vssp = vs - start_point;
     double degree1 = ves.dot(reference_direction);
     double degree0 = vssp.dot(reference_direction);
-    double left_square_0 = degree0 * degree0;
-    double left_square_1 = 2 * degree0 * degree1;
-    double left_square_2 = degree1 * degree1;
-    double right_square_0 = vssp.dot(vssp);
-    double right_square_1 = 2 * vssp.dot(ves);
-    double right_square_2 = ves.dot(ves);
-    double right_cons = cos(angle_radian)*cos(angle_radian) * reference_direction.dot(reference_direction);
-    // std::cout<<"## right cos "<<right_cons<<std::endl;
-    right_square_0 *= right_cons;
-    right_square_1 *= right_cons;
-    right_square_2 *= right_cons;
-    double eq0 = left_square_0 - right_square_0;
-    double eq1 = left_square_1 - right_square_1;
-    double eq2 = left_square_2 - right_square_2;
-    std::vector<double> equation(3);
-    equation[0] = eq0;
-    equation[1] = eq1;
-    equation[2] = eq2;
-    std::cout<<"equation "<<eq0<<" "<<eq1<<" "<<eq2<<std::endl;
-    std::cout<<"b^2-4ac= "<<eq1*eq1-4*eq0*eq2<<std::endl;
-    equation = polynomial_simplify(equation);
-    std::array<double, 2> roots;
-    bool found = quadratic_solver(equation, roots);
-    if(!found){
-        return false;
+    if (!angles_match(angle_degree, 90))
+    {
+        double left_square_0 = degree0 * degree0;
+        double left_square_1 = 2 * degree0 * degree1;
+        double left_square_2 = degree1 * degree1;
+        double right_square_0 = vssp.dot(vssp);
+        double right_square_1 = 2 * vssp.dot(ves);
+        double right_square_2 = ves.dot(ves);
+        double right_cons = cos(angle_radian) * cos(angle_radian) * reference_direction.dot(reference_direction);
+        // std::cout<<"## right cos "<<right_cons<<std::endl;
+        right_square_0 *= right_cons;
+        right_square_1 *= right_cons;
+        right_square_2 *= right_cons;
+        double eq0 = left_square_0 - right_square_0;
+        double eq1 = left_square_1 - right_square_1;
+        double eq2 = left_square_2 - right_square_2;
+        
+        equation[0] = eq0;
+        equation[1] = eq1;
+        equation[2] = eq2;
+        
+        std::cout << "equation " << eq0 << " " << eq1 << " " << eq2 << std::endl;
+        std::cout << "b^2-4ac= " << eq1 * eq1 - 4 * eq0 * eq2 << std::endl;
+        equation = polynomial_simplify(equation);
+
+        bool found = quadratic_solver(equation, roots);
+        if (!found)
+        {
+            return false;
+        }
     }
+    else
+    {
+        if (degree1 == 0)
+        {
+            return false;
+        }
+        double value = -degree0 / degree1;
+        roots[0] = value;
+        roots[1] = -1;
+    }
+
     std::vector<Eigen::Vector3d> p_end;
     for (int i = 0; i < 2; i++)
     {
         double t = roots[i];
-        std::cout<<"t "<<t <<" equation value "<<polynomial_value(equation,t)<<std::endl;
+        if (!angles_match(angle_degree, 90))
+        {
+            std::cout << "t " << t << " equation value " << polynomial_value(equation, t) << std::endl;
+        }
+
         if (t < -MERGE_VERTEX_RATIO || t > 1 + MERGE_VERTEX_RATIO)
         {
             continue;
@@ -1293,16 +1314,17 @@ bool find_initial_direction_intersection_on_edge(const Eigen::Vector3d &start_po
         return false;
     }
     for (int i = 0; i < p_end.size(); i++)
-    {   
-        Eigen::Vector3d direction=(p_end[i]-start_point).normalized();
-        double dot_product=direction.dot(reference_direction.normalized());
+    {
+        Eigen::Vector3d direction = (p_end[i] - start_point).normalized();
+        double dot_product = direction.dot(reference_direction.normalized());
         double real_angle = acos(dot_product) * 180 / LSC_PI;
-        std::cout<<"recheck angle "<<real_angle<<std::endl;
+        std::cout << "recheck angle " << real_angle << std::endl;
         handle_out.push_back(handle_in);
         point_out.push_back(p_end[i]);
     }
     return true;
 }
+
 bool lsTools::init_pseudo_geodesic_first_segment(
     const CGMesh::HalfedgeHandle &start_boundary_edge_pre, const double &start_point_para,
     const double start_boundary_angle_degree,
