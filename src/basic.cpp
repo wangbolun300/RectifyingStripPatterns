@@ -853,19 +853,62 @@ void lsTools::get_all_the_edge_normals()
             ActE.coeffRef(eid)=1;
         }
     }
-    // CGMesh::HalfedgeHandle heh;
-    // CGMesh::EdgeHandle eh=lsmesh.edge_handle(heh);
-    // int enbr=lsmesh.n_edges();
-    // norm_e.resize(enbr,3);
-    // norm_e.
 }
+
+// get vid1, vid2, vidA and vidB.
+std::array<int,4> get_vers_around_edge(CGMesh& lsmesh, int edgeid, int& fid1, int &fid2){
+    CGMesh::EdgeHandle edge_middle=lsmesh.edge_handle(edgeid);
+    CGMesh::HalfedgeHandle he = lsmesh.halfedge_handle(edge_middle, 0);
+    fid1=lsmesh.face_handle(he).idx();
+    int vid1 = lsmesh.to_vertex_handle(he).idx();
+    int vid2 = lsmesh.from_vertex_handle(he).idx();
+    CGMesh::HalfedgeHandle nexthandle=lsmesh.next_halfedge_handle(he);
+    int vidA=lsmesh.to_vertex_handle(nexthandle).idx();
+    CGMesh::HalfedgeHandle oppohandle=lsmesh.opposite_halfedge_handle(he);
+    fid2=lsmesh.face_handle(oppohandle).idx();
+    CGMesh::HalfedgeHandle opnexthandle=lsmesh.next_halfedge_handle(oppohandle);
+    int vidB=lsmesh.to_vertex_handle(opnexthandle).idx();
+    std::array<int,4> result;
+    result[0]=vid1;
+    result[1]=vid2;
+    result[2]=vidA;
+    result[3]=vidB;
+    return result;
+}
+
+Eigen::Vector3d get_coff_vec_for_gradient(const std::array<spMat, 3> &gradVF, const int fid, const int vid){
+xxx
+}
+void lsTools::calculate_gradient_partial_parts(){
+
+    
+    std::vector<int> Actid;
+    Actid.reserve(lsmesh.n_edges());
+    for(int i=0;i<ActE.size();i++){
+        if(ActE.coeffRef(i)==1){
+            Actid.push_back(i);
+        }
+    }
+    int act_size=Actid.size();
+    // std::array<Eigen::MatrixXd,8> 
+    for(int i=0;i<act_size;i++){
+        int fid1, fid2;
+        std::array<int,4> vids;
+        // get the v1, v2, vA, vB.
+        vids=get_vers_around_edge(lsmesh,Actid[i], fid1,fid2);
+
+        Eigen::Vector3d d1, d2, dA, b1, b2, bB; // the coffecient vectors of each point for assembling the gradients.
+        
+    }
+}
+
 
 void lsTools::assemble_solver_boundary_condition_part(spMat& H, Efunc& B){
     spMat bcJacobian;
     Efunc bcVector;
     assert(trace_vers.size()==trace_hehs.size());
     int size=0;// the number of constraints
-    std::vector<std::pair<int,double>> vec_elements;
+    std::vector<double> vec_elements;
     std::vector<Trip> triplets;
     vec_elements.reserve(lsmesh.n_edges());
     triplets.reserve(lsmesh.n_edges());
@@ -893,7 +936,7 @@ void lsTools::assemble_solver_boundary_condition_part(spMat& H, Efunc& B){
             triplets.push_back(Trip(size, id_from, d2 - d1));
             triplets.push_back(Trip(size, id_to, d1));
             double right_value=(d2-d1)*fvalues[id_from]+d1*fvalues[id_to]-d2*assigned_trace_ls[i];
-            vec_elements.push_back(std::pair<int,double>(size,right_value));
+            vec_elements.push_back(right_value);
             size++;
         }
     }
@@ -904,11 +947,10 @@ void lsTools::assemble_solver_boundary_condition_part(spMat& H, Efunc& B){
     bcVector.resize(size);
     // std::cout<<"calculated a and b"<<std::endl;
     for(int i=0;i<size;i++){// get the f(x)
-        int id=vec_elements[i].first;
-        assert(i==id);
-        int value=vec_elements[i].second;
-        bcVector.coeffRef(id)=value;
+        double value=vec_elements[i];
+        bcVector.coeffRef(i)=value;
     }
+    bcfvalue=bcVector;
     // get JTJ
     H=bcJacobian.transpose()*bcJacobian;
     // get the -(J^T)*f(x)
@@ -924,6 +966,22 @@ double get_t_of_segment(const Eigen::Vector3d& ver, const Eigen::Vector3d& start
 Eigen::Vector2d get_2d_ver_from_t(const double t, const Eigen::Vector2d& start, const Eigen::Vector2d& end){
     return start+t*(end-start);
 }
+Eigen::VectorXd duplicate_valus(const double value, const int n){
+    Eigen::VectorXd result;
+    result.resize(n);
+    for(int i=0;i<n;i++){
+        result[i]=value;
+    }
+    return result;
+}
+Eigen::MatrixXd duplicate_vector(const Eigen::Vector2d& vec, const int n){
+    Eigen::MatrixXd result;
+    result.resize(n,2);
+    for(int i=0;i<n;i++){
+        result.row(i)=vec;
+    }
+    return result;
+}
 void lsTools::initialize_level_set_accroding_to_parametrization(){
     int lssize=assigned_trace_ls.size();
     double value0=assigned_trace_ls[0];
@@ -933,10 +991,35 @@ void lsTools::initialize_level_set_accroding_to_parametrization(){
     int ver2id=lsmesh.from_vertex_handle(trace_hehs[lssize-1][0]).idx();
     int ver3id=lsmesh.to_vertex_handle(trace_hehs[lssize-1][0]).idx();
 
-    Eigen::Vector3d p3d0=V.row
-    Eigen::Vector2d para0=paras.row()
-}
+    Eigen::Vector3d ver0=V.row(ver0id);
+    Eigen::Vector3d ver1=V.row(ver1id);
+    Eigen::Vector3d ver2=V.row(ver2id);
+    Eigen::Vector3d ver3=V.row(ver3id);
+    assert(paras.rows()==V.rows());
+    Eigen::Vector2d ver2d0=paras.row(ver0id);
+    Eigen::Vector2d ver2d1=paras.row(ver1id);
+    Eigen::Vector2d ver2d2=paras.row(ver2id);
+    Eigen::Vector2d ver2d3=paras.row(ver3id);
+    std::cout<<"test 1 "<<std::endl;
+    Eigen::Vector3d ver_value0=trace_vers[0][0];
+    Eigen::Vector3d ver_value1=trace_vers[lssize-1][0];
 
+    double t1=get_t_of_segment(ver_value0,ver0,ver1);
+    double t2=get_t_of_segment(ver_value1,ver2,ver3);
+    Eigen::Vector2d para_value0=get_2d_ver_from_t(t1,ver2d0,ver2d1);
+    Eigen::Vector2d para_value1=get_2d_ver_from_t(t1,ver2d2,ver2d3);
+    std::cout<<"test 2 "<<std::endl;
+    Eigen::Vector2d trans=(value1-value0)*(para_value1-para_value0)/(para_value1-para_value0).dot(para_value1-para_value0);
+    std::cout<<"test 4 "<<std::endl;
+    Eigen::VectorXd dupvalue=duplicate_valus(value0,V.rows());
+    std::cout<<"test 5 "<<std::endl;
+    Eigen::MatrixXd dupmatrix=duplicate_vector(para_value0,V.rows());
+    std::cout<<"test 3 "<<std::endl;
+    Eigen::MatrixXd tmp=paras-dupmatrix;// matrix of Vi-V0
+    Eigen::VectorXd result=tmp*trans;
+    result=result-dupvalue;
+    fvalues=result;
+}
 
 
 // before calling this function, please get the traced curves and assign values 
@@ -948,16 +1031,9 @@ void lsTools::optimize_laplacian_with_traced_boundary_condition(){
     // initialize the level set with some number
     if (fvalues.size() != vnbr)
     {
-        std::cout<<"set values for level set"<<std::endl;
-        double init_value=0;
-        for(int i=0;i<assigned_trace_ls.size();i++){
-            init_value+=assigned_trace_ls[i];
-            std::cout<<"assigned value, "<<assigned_trace_ls[i]<<std::endl;
-        }
-        init_value/=assigned_trace_ls.size();
-        fvalues.setOnes(vnbr);
-        fvalues*=init_value;
-        std::cout<<"boundary condition setted, initially, "<<init_value<<std::endl;
+        initialize_level_set_accroding_to_parametrization();
+        std::cout<<"level set get initialized for smoothing"<<std::endl;
+        return;
     }
     get_gradient_hessian_values();
     // std::cout << "finished calculate gradient and hessian" << std::endl;
@@ -992,6 +1068,11 @@ void lsTools::optimize_laplacian_with_traced_boundary_condition(){
     // std::cout << "step length " << dx.norm() << std::endl;
     level_set_step_length = dx.norm();
     fvalues += dx;
+    double energy_laplacian=(Dlps*fvalues).norm();
+    double energy_boundary=(bcfvalue).norm();
+    std::cout<<"energy: lap "<<energy_laplacian<<", bnd "<<energy_boundary<<", ";
+
+
 
 }
 void lsTools::initialize_level_set_by_tracing(const std::vector<int> &ids, const std::vector<double> values){

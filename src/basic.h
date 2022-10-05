@@ -75,6 +75,7 @@ private:
     spMat Dlps;       // the derivates of laplacian F for all the vertices.
     spMat Dgrad_norm; // the derivates of the norm of gradients for all the vertices.
     spMat mass;       // mass(i,i) is the area of the voronoi cell of vertex vi
+    Efunc bcfvalue; // boundary condition function values
     
     // spMat F2V;                                       // the matrix averaging face values to vertices values, acorrding to the angels
     spMat ORB; // the matrix where the (i,i) element show if it is a boundary vertex or one-ring vertex of boundary
@@ -85,10 +86,7 @@ private:
     std::vector<std::vector<CGMesh::HalfedgeHandle>> trace_hehs; // traced half edge handles
     std::vector<double> assigned_trace_ls;
     std::vector<double> func_values;// function values for each traced curve.
-    // spMat bcJacobian;// boundary condition Jacobian
-    // Efunc bcVector;// boundary condition function value vector
-    std::vector<SpVeci> traceEdgeIndicator;                      // indicates the traced segments among all the edges
-    SpVeci ie_Indicator;                                         // indicates the inner edges among all edges
+    
     Efunc ActE;// active edges, which means they are not co-planar edges, and not boundary edges.
     bool derivates_calculated = false;
     void
@@ -116,7 +114,7 @@ private:
     // get the boundary vertices and one ring vertices from them
     void get_bnd_and_bnd_one_ring();
     void get_all_the_edge_normals();// the edge normals and the active edges
-
+    void calculate_gradient_partial_parts();// calculate gradient partial derivatives. Edge based
     void assemble_solver_boundary_condition_part(spMat& H, Efunc& B);
     void assemble_solver_laplacian_part(spMat &H, Efunc &B);
     void assemble_solver_strip_width_part(spMat &H, Efunc &B);
