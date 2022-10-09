@@ -30,3 +30,6 @@ void sphere_example(double radius, double theta, double phi, int nt, int np);
 
 void split_mesh_boundary_by_corner_detection(CGMesh& lsmesh, const Eigen::MatrixXd& V, const double threadshold_angel_degree,
 const std::vector<CGMesh::HalfedgeHandle> &Boundary_Edges, std::vector<std::vector<CGMesh::HalfedgeHandle>>& boundaries);
+
+bool save_levelset(const Eigen::VectorXd &ls);
+bool read_levelset(Eigen::VectorXd &ls);

@@ -7,7 +7,6 @@
 #include <igl/arap.h>
 #include <igl/harmonic.h>
 #include <imgui/imgui.h>
-#include <imgui/imgui.h>
 #include <iostream>
 
 #include <igl/unproject_ray.h>
@@ -15,6 +14,7 @@
 #include <lsc/MeshProcessing.h>
 #include <lsc/OptimizerCheckboard.h>
 #include <lsc/basic.h>
+#include<lsc/tools.h>
 // -------------------- OpenMesh
 #include <OpenMesh/Core/IO/MeshIO.hh>
 #include <OpenMesh/Core/Mesh/PolyMesh_ArrayKernelT.hh>
@@ -361,29 +361,17 @@ int main(int argc, char *argv[])
 
 		ImGui::SameLine();
 
-		if (ImGui::Button("Import Para", ImVec2(ImGui::GetWindowSize().x * 0.25f, 0.0f)))
+		if (ImGui::Button("Import levelset", ImVec2(ImGui::GetWindowSize().x * 0.25f, 0.0f)))
 		{
-			std::string fname = igl::file_dialog_open();
-
-			if (fname.length() == 0)
-				return;
-
-			std::ifstream settings(fname);
-			settings >> lscif::weigth_closeness;
+			
+			read_levelset(lscif::tools.fvalues);
 		}
 
 		ImGui::SameLine();
 
-		if (ImGui::Button("Save Para", ImVec2(ImGui::GetWindowSize().x * 0.25f, 0.0f)))
+		if (ImGui::Button("Save levelset", ImVec2(ImGui::GetWindowSize().x * 0.25f, 0.0f)))
 		{
-			std::string fname = igl::file_dialog_save();
-
-			std::ofstream file;
-			file.open(fname);
-
-			file << lscif::weigth_closeness << std::endl;
-
-			file.close();
+			save_levelset(lscif::tools.fvalues);
 		}
 
 		static bool updateMeshFlag = false;

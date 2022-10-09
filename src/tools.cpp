@@ -824,3 +824,80 @@ void cylinder_open_example(double radius, double height, int nr, int nh)
                              ver, faces);
     std::cout << "cylinder file saved " << std::endl;
 }
+
+#include<igl/file_dialog_open.h>
+#include<igl/file_dialog_save.h>
+bool save_levelset(const Eigen::VectorXd &ls){
+    std::string fname = igl::file_dialog_save();
+    std::ofstream file;
+    file.open(fname);
+    for(int i=0;i<ls.size();i++){
+        file<<ls[i]<<std::endl;
+    }
+    file.close();
+    return true;
+}
+bool read_levelset(Eigen::VectorXd &ls){
+    std::string fname = igl::file_dialog_open();
+
+    if (fname.length() == 0)
+        return false;
+
+    std::ifstream infile;
+    std::vector<double> results;
+
+    infile.open(fname);
+    if (!infile.is_open())
+    {
+        std::cout << "Path Wrong!!!!" << std::endl;
+        std::cout << "path, " << fname << std::endl;
+        return false;
+    }
+
+    int l = 0;
+    while (infile) // there is input overload classfile
+    {
+        std::string s;
+        if (!getline(infile, s))
+            break;
+
+        if (s[0] != '#')
+        {
+            std::istringstream ss(s);
+            std::string record;
+
+            while (ss)
+            {
+                std::string line;
+                if (!getline(ss, line, ','))
+                    break;
+                try
+                {
+
+                    record = line;
+
+                }
+                catch (const std::invalid_argument e)
+                {
+                    std::cout << "NaN found in file " << fname
+                              <<  std::endl;
+                    e.what();
+                }
+            }
+
+            double x = std::stod(record);
+            results.push_back(x);
+        }
+    }
+
+    ls.resize(results.size());
+    for(int i=0;i<results.size();i++){
+        ls[i]=results[i];
+    }
+    if (!infile.eof())
+    {
+        std::cerr << "Could not read file " << fname << "\n";
+    }
+
+    return true;
+}

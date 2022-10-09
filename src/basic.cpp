@@ -853,6 +853,12 @@ void lsTools::get_all_the_edge_normals()
             ActE.coeffRef(eid)=1;
         }
     }
+    Actid.reserve(lsmesh.n_edges());
+    for(int i=0;i<ActE.size();i++){
+        if(ActE.coeffRef(i)==1){
+            Actid.push_back(i);
+        }
+    }
 }
 
 // get vid1, vid2, vidA and vidB.
@@ -876,29 +882,100 @@ std::array<int,4> get_vers_around_edge(CGMesh& lsmesh, int edgeid, int& fid1, in
     return result;
 }
 
-Eigen::Vector3d get_coff_vec_for_gradient(const std::array<spMat, 3> &gradVF, const int fid, const int vid){
-xxx
+Eigen::Vector3d get_coff_vec_for_gradient(std::array<spMat, 3> &gradVF, const int fid, const int vid)
+{
+    Eigen::Vector3d result;
+    result[0]=gradVF[0].coeffRef(fid,vid);
+    result[1]=gradVF[1].coeffRef(fid,vid);
+    result[2]=gradVF[2].coeffRef(fid,vid);
 }
 void lsTools::calculate_gradient_partial_parts(){
-
     
-    std::vector<int> Actid;
-    Actid.reserve(lsmesh.n_edges());
-    for(int i=0;i<ActE.size();i++){
-        if(ActE.coeffRef(i)==1){
-            Actid.push_back(i);
-        }
-    }
     int act_size=Actid.size();
+    PEJC.resize(act_size);
+    for(int i=0;i<act_size;i++){
+        PEJC[i].resize(V.rows(),V.rows());
+    }
     // std::array<Eigen::MatrixXd,8> 
     for(int i=0;i<act_size;i++){
+        std::vector<Trip> triplets;
+        triplets.reserve(16);
         int fid1, fid2;
         std::array<int,4> vids;
         // get the v1, v2, vA, vB.
         vids=get_vers_around_edge(lsmesh,Actid[i], fid1,fid2);
-
+        int v1=vids[0];
+        int v2=vids[1];
+        int vA=vids[2];
+        int vB=vids[3];
         Eigen::Vector3d d1, d2, dA, b1, b2, bB; // the coffecient vectors of each point for assembling the gradients.
+        d1=get_coff_vec_for_gradient(gradVF,fid1,v1);
+        d2=get_coff_vec_for_gradient(gradVF,fid1,v2);
+        dA=get_coff_vec_for_gradient(gradVF,fid1,vA);
+        b1=get_coff_vec_for_gradient(gradVF,fid2,v1);
+        b2=get_coff_vec_for_gradient(gradVF,fid2,v2);
+        bB=get_coff_vec_for_gradient(gradVF,fid2,vB);
+        Eigen::Vector3d norm=norm_e.row(Actid[i]);
+
+        double cf1f1 = d1.cross(b1).dot(norm);
+        double cf1f2 = (d2.cross(b1) + d1.cross(b2)).dot(norm);
+        double cf2f2 = d2.cross(b2).dot(norm);
+        double cfaf1 = dA.cross(b1).dot(norm);
+        double cfaf2 = dA.cross(b2).dot(norm);
+        double cfafb = dA.cross(bB).dot(norm);
+        double cf1fb = d1.cross(bB).dot(norm);
+        double cf2fb = d2.cross(bB).dot(norm);
+        // derivate v1
+        triplets.push_back(Trip(v1, v1, 2 * cf1f1));
+        triplets.push_back(Trip(v1, v2, cf1f2));
+        triplets.push_back(Trip(v1, vA, cfaf1));
+        triplets.push_back(Trip(v1, vB, cf1fb));
+
+        // derivate v2
+        triplets.push_back(Trip(v2, v1, cf1f2));
+        triplets.push_back(Trip(v2, v2, 2*cf2f2));
+        triplets.push_back(Trip(v2, vA, cfaf2));
+        triplets.push_back(Trip(v2, vB, cf2fb));
+
+         // derivate vA
+        triplets.push_back(Trip(vA, v1, cfaf1));
+        triplets.push_back(Trip(vA, v2, cfaf2));
+        triplets.push_back(Trip(vA, vB, cfafb));
+
+         // derivate vB
+        triplets.push_back(Trip(vB, v1, cf1fb));
+        triplets.push_back(Trip(vB, v2, cf2fb));
+        triplets.push_back(Trip(vB, vA, cfafb));
+        PEJC[i].setFromTriplets(triplets.begin(),triplets.end());
+
+        // Eigen::Vector3d g1=gfvalue.row(fid1);
+        // Eigen::Vector3d g2=gfvalue.row(fid2);
         
+
+    }
+}
+
+void lsTools::calculate_pseudo_energy_function_values(const double angle_degree){
+
+    int act_size=Actid.size();
+    PEfvalue.resize(act_size);
+    double angle_radian = angle_degree * LSC_PI / 180.; // the angle in radian
+    double cos_angle=cos(angle_radian);
+    // std::array<Eigen::MatrixXd,8>
+    for (int i = 0; i < act_size; i++)
+    {
+        int fid1, fid2;
+        std::array<int, 4> vids;
+        // get the v1, v2, vA, vB.
+        vids = get_vers_around_edge(lsmesh, Actid[i], fid1, fid2);
+
+        Eigen::Vector3d norm = norm_e.row(Actid[i]);
+
+        Eigen::Vector3d g1=gfvalue.row(fid1);
+        Eigen::Vector3d g2=gfvalue.row(fid2);
+        Eigen::Vector3d g1xg2=g1.cross(g2);
+        double value=g1xg2.dot(norm)-g1xg2.norm()*cos_angle;
+        PEfvalue.coeffRef(i)=value;
     }
 }
 
@@ -943,23 +1020,31 @@ void lsTools::assemble_solver_boundary_condition_part(spMat& H, Efunc& B){
     // std::cout<<"after loop"<<std::endl;
     // get boundary condition: the jacobian matrix
     bcJacobian.resize(size,V.rows());
-    bcJacobian.setFromTriplets(triplets.begin(),triplets.end());
+    bcJacobian.setFromTriplets(triplets.begin(),triplets.end());// TODO calculate this before optimization
     bcVector.resize(size);
     // std::cout<<"calculated a and b"<<std::endl;
     for(int i=0;i<size;i++){// get the f(x)
         double value=vec_elements[i];
-        bcVector.coeffRef(i)=value;
+        bcVector.coeffRef(i) = value;
     }
-    bcfvalue=bcVector;
+    bcfvalue = bcVector;
     // get JTJ
-    H=bcJacobian.transpose()*bcJacobian;
+    H = bcJacobian.transpose() * bcJacobian;
     // get the -(J^T)*f(x)
-    B=-bcJacobian.transpose()*bcVector;
+    B = -bcJacobian.transpose() * bcVector;
 }
-double get_t_of_segment(const Eigen::Vector3d& ver, const Eigen::Vector3d& start, const Eigen::Vector3d& end){
-    double dis1=(ver-start).norm();
-    double dis2=(end-start).norm();
-    assert(start!=end);
+void lsTools::assemble_solver_pesudo_geodesic_energy_part(spMat &H, Efunc &B)
+{
+    int act_size=Actid.size();
+    int vnbr=V.rows();
+    spMat JTJ;
+    JTJ.resize()//TODO
+}
+double get_t_of_segment(const Eigen::Vector3d &ver, const Eigen::Vector3d &start, const Eigen::Vector3d &end)
+{
+    double dis1 = (ver - start).norm();
+    double dis2 = (end - start).norm();
+    assert(start != end);
     double t=dis1/dis2;
     return t;
 }

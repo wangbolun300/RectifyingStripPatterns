@@ -88,9 +88,11 @@ private:
     std::vector<double> func_values;// function values for each traced curve.
     
     Efunc ActE;// active edges, which means they are not co-planar edges, and not boundary edges.
+    std::vector<int> Actid; // active edge ids. the length equals to the number of non-zero elements in ActE
+    std::vector<spMat> PEJC; // pseudo-geodesic energy jacobian coffecients of each active edge. PEJC[i]*fvalues is the real Jacobian
+    Efunc PEfvalue; // pseudo-geodesic energy values for each active edge
     bool derivates_calculated = false;
-    void
-    get_mesh_angles();
+    void get_mesh_angles();
     void get_mesh_normals_per_face();
     // void get_mesh_normals_per_ver();
     // This is to calculate the 90 degree rotation matrices in
@@ -114,9 +116,11 @@ private:
     // get the boundary vertices and one ring vertices from them
     void get_bnd_and_bnd_one_ring();
     void get_all_the_edge_normals();// the edge normals and the active edges
-    void calculate_gradient_partial_parts();// calculate gradient partial derivatives. Edge based
+    void calculate_gradient_partial_parts();// calculate gradient partial derivatives. Edge based energy part
+    void calculate_pseudo_energy_function_values(const double angle_degree);
     void assemble_solver_boundary_condition_part(spMat& H, Efunc& B);
     void assemble_solver_laplacian_part(spMat &H, Efunc &B);
+    void assemble_solver_pesudo_geodesic_energy_part(spMat &H, Efunc &B);
     void assemble_solver_strip_width_part(spMat &H, Efunc &B);
 
     // void assemble_solver_pseudo_geodesic_part(spMat &H, Efunc& B);
@@ -175,10 +179,13 @@ public:
     double weight_mass;              // weight of the mass function energy
     double weight_laplacian;              // weight of the laplacian energy
     double weight_boundary;              // weight of the boundary energy
+    double weight_pseudo_geodesic_energy;// weight of the pseudo-geodesic energy
     int assign_face_id;              // the face id of which we will assign value to
     double assign_value[3];
     double strip_width = 0;       // strip width, defined as h/w.
     double pseudo_geodesic_ratio; // k_g/k_n of the pseudo geodesic
+    bool enable_pseudo_geodesic_energy=false; // decide if we include pseudo-geodesic energy
+    double pseudo_geodesic_target_angle_degree; // the target pseudo-geodesic angle
     // bool enable_pseudo_vertex=false;
     Eigen::MatrixXd ver_dbg;
     Eigen::MatrixXd ver_dbg1;
@@ -227,6 +234,7 @@ public:
         get_vertex_rotation_matices();
         get_bnd_and_bnd_one_ring();
         get_all_the_edge_normals();
+        calculate_gradient_partial_parts();
     }
     void show_level_set(Eigen::VectorXd &val);
     // convert the parameters into a mesh, for visulization purpose
