@@ -76,6 +76,8 @@ private:
     spMat Dgrad_norm; // the derivates of the norm of gradients for all the vertices.
     spMat mass;       // mass(i,i) is the area of the voronoi cell of vertex vi
     Efunc bcfvalue; // boundary condition function values
+    Eigen::VectorXi EdgeOrient; // orientation of the edges
+    Eigen::VectorXd EdgeWeight; // weight (0~1) of each edge depending on the neighbouring gradient directions
     
     // spMat F2V;                                       // the matrix averaging face values to vertices values, acorrding to the angels
     spMat ORB; // the matrix where the (i,i) element show if it is a boundary vertex or one-ring vertex of boundary
@@ -112,11 +114,12 @@ private:
     void get_I_and_II_locally();
 
     // CAUTION: please call this after you initialize the function values.
-    void get_all_the_derivate_matrices();
+    void get_grad_norm_jacobian();
     // get the boundary vertices and one ring vertices from them
     void get_bnd_and_bnd_one_ring();
     void get_all_the_edge_normals();// the edge normals and the active edges
     void calculate_gradient_partial_parts();// calculate gradient partial derivatives. Edge based energy part
+    // pseudo energy values for right side of the Gauss-newton. update weights.
     void calculate_pseudo_energy_function_values(const double angle_degree);
     void assemble_solver_boundary_condition_part(spMat& H, Efunc& B);
     void assemble_solver_laplacian_part(spMat &H, Efunc &B);
@@ -183,7 +186,7 @@ public:
     int assign_face_id;              // the face id of which we will assign value to
     double assign_value[3];
     double strip_width = 0;       // strip width, defined as h/w.
-    double pseudo_geodesic_ratio; // k_g/k_n of the pseudo geodesic
+    
     bool enable_pseudo_geodesic_energy=false; // decide if we include pseudo-geodesic energy
     double pseudo_geodesic_target_angle_degree; // the target pseudo-geodesic angle
     // bool enable_pseudo_vertex=false;
@@ -236,6 +239,8 @@ public:
         get_all_the_edge_normals();
         calculate_gradient_partial_parts();
     }
+    void prepare_level_set_solving(const double weight_gravity, const double weight_lap, const double weight_bnd, 
+    const double weight_pg, const bool solve_pseudo_geodesic,  const double target_angle);
     void show_level_set(Eigen::VectorXd &val);
     // convert the parameters into a mesh, for visulization purpose
     void convert_paras_as_meshes(CGMesh &output);

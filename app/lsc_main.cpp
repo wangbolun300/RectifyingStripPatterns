@@ -41,6 +41,7 @@ namespace lscif
 	double weight_mass = 100.;			  // weight of the mass function to
 	double weight_boundary=100;	// weight of the boundary condition
 	double weight_laplacian=1;
+	double weight_pseudo_geodesic=0;
 	int which_seg_id = 0;			  // the face id of which we will assign value to
 	int nbr_of_intervals = 3;
 	int id_debug_global=5;
@@ -59,7 +60,7 @@ namespace lscif
 	int OpIter = 10;
 	CGMesh mesh;
 	CGMesh RefMesh;
-	static bool fixCorner_checkbox = false;
+	static bool enable_pg_energy_checkbox = false;
 	static bool fixBoundary_checkbox = false;
 	static bool selectFEV[30] = {true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true};
 	std::vector<std::string> meshFileName;
@@ -411,6 +412,7 @@ int main(int argc, char *argv[])
 			ImGui::InputDouble("weight ls mass(big)", &lscif::weight_mass, 0, 0, "%.4f");
 			ImGui::InputDouble("weight boundary (big)", &lscif::weight_boundary, 0, 0, "%.4f");
 			ImGui::InputDouble("weight laplacian (small)", &lscif::weight_laplacian, 0, 0, "%.4f");
+			ImGui::InputDouble("weight pseudo-geodesic", &lscif::weight_pseudo_geodesic, 0, 0, "%.4f");
 			ImGui::InputInt("which boundary segment id", &lscif::which_seg_id, 0, 0);
 			ImGui::InputInt("every i segments", &lscif::nbr_of_intervals, 0, 0);
 			ImGui::InputInt("debug id", &lscif::id_debug_global, 0, 0);
@@ -420,7 +422,7 @@ int main(int argc, char *argv[])
 			// ImGui::InputDouble("Average Edge length", &lscif::refer_AveEL, 0, 0, "%.4f");
 			ImGui::InputDouble("Strip Width Ratio", &lscif::strip_width_ratio, 0, 0, "%.4f");
 
-			// ImGui::Checkbox("Fix Corners", &lscif::fixCorner_checkbox);
+			ImGui::Checkbox("Enable PG Energy", &lscif::enable_pg_energy_checkbox);
 			// ImGui::SameLine();
 			// ImGui::Checkbox("Fix Boundary", &lscif::fixBoundary_checkbox);
 		}
@@ -682,10 +684,8 @@ int main(int argc, char *argv[])
 
 				int id = viewer.selected_data_index;
 				CGMesh inputMesh = lscif::Meshes[id];
-				lscif::tools.weight_mass = lscif::weight_mass;
-				lscif::tools.weight_boundary = lscif::weight_boundary;
-				lscif::tools.weight_laplacian = lscif::weight_laplacian;
-				
+				lscif::tools.prepare_level_set_solving(lscif::weight_mass,lscif::weight_laplacian,lscif::weight_boundary,lscif::weight_pseudo_geodesic,
+				lscif::enable_pg_energy_checkbox,lscif::target_angle);
 
 				for (int i = 0; i < lscif::OpIter; i++)
 				{

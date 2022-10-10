@@ -29,6 +29,21 @@ void lsTools::init(CGMesh &mesh)
     igl::lscm(V, F, b, bc, paras);
     assert(paras.cols() == 2);
     std::cout << "parametrization finished, parameter matrix size " << paras.rows() << " x " << paras.cols() << std::endl;
+
+    igl::cotmatrix(V, F, Dlps);
+}
+void lsTools::prepare_level_set_solving(const double weight_gravity, const double weight_lap, const double weight_bnd,
+                                        const double weight_pg, const bool solve_pseudo_geodesic, const double target_angle)
+{
+    weight_mass = weight_gravity;
+    weight_laplacian = weight_lap;
+    weight_boundary = weight_bnd;
+    enable_pseudo_geodesic_energy = solve_pseudo_geodesic;
+    if (solve_pseudo_geodesic)
+    {
+        weight_pseudo_geodesic_energy = weight_pg;
+        pseudo_geodesic_target_angle_degree = target_angle;
+    }
 }
 void lsTools::convert_paras_as_meshes(CGMesh &output)
 {
@@ -426,6 +441,7 @@ void lsTools::get_gradient_hessian_values()
             }
         }
     }
+    get_grad_norm_jacobian();
 }
 
 void lsTools::make_sphere_ls_example(int rowid)
@@ -602,11 +618,11 @@ void lsTools::show_vertex_normal(Eigen::MatrixXd &E0, Eigen::MatrixXd &E1, doubl
     E1 = E0 + norm_v * ratio;
 }
 
-void lsTools::get_all_the_derivate_matrices()
+void lsTools::get_grad_norm_jacobian()
 {
 
     int vsize = V.rows();
-    igl::cotmatrix(V, F, Dlps);
+    
     spMat fx_diag, fy_diag, fz_diag;     // diagnal matrices with gradeint values as matrices
     Eigen::VectorXd fxvec, fyvec, fzvec; // gradient values, fx, fy, fz
     fxvec = gvvalue.col(0);
@@ -739,8 +755,6 @@ void lsTools::initialize_and_smooth_level_set_by_laplacian()
     }
     get_gradient_hessian_values();
 
-    // std::cout << "finished calculate gradient and hessian" << std::endl;
-    get_all_the_derivate_matrices();
     // the matrices
     spMat H;
     Efunc B;
@@ -795,8 +809,7 @@ void lsTools::initialize_and_optimize_strip_width()
     }
     get_gradient_hessian_values();
 
-    // std::cout << "finished calculate gradient and hessian" << std::endl;
-    get_all_the_derivate_matrices();
+
     // the matrices
     spMat H;
     Efunc B;
@@ -888,6 +901,7 @@ Eigen::Vector3d get_coff_vec_for_gradient(std::array<spMat, 3> &gradVF, const in
     result[0]=gradVF[0].coeffRef(fid,vid);
     result[1]=gradVF[1].coeffRef(fid,vid);
     result[2]=gradVF[2].coeffRef(fid,vid);
+    return result;
 }
 void lsTools::calculate_gradient_partial_parts(){
     
@@ -959,6 +973,8 @@ void lsTools::calculate_pseudo_energy_function_values(const double angle_degree)
 
     int act_size=Actid.size();
     PEfvalue.resize(act_size);
+    EdgeOrient.resize(act_size);
+    EdgeWeight.resize(act_size);
     double angle_radian = angle_degree * LSC_PI / 180.; // the angle in radian
     double cos_angle=cos(angle_radian);
     // std::array<Eigen::MatrixXd,8>
@@ -968,13 +984,44 @@ void lsTools::calculate_pseudo_energy_function_values(const double angle_degree)
         std::array<int, 4> vids;
         // get the v1, v2, vA, vB.
         vids = get_vers_around_edge(lsmesh, Actid[i], fid1, fid2);
-
+        int v1=vids[0];
+        int v2=vids[1];
+        int vA=vids[2];
+        int vB=vids[3];
         Eigen::Vector3d norm = norm_e.row(Actid[i]);
 
         Eigen::Vector3d g1=gfvalue.row(fid1);
         Eigen::Vector3d g2=gfvalue.row(fid2);
         Eigen::Vector3d g1xg2=g1.cross(g2);
-        double value=g1xg2.dot(norm)-g1xg2.norm()*cos_angle;
+        
+        // deal with edge orientation
+        Eigen::Vector3d edirec = V.row(v1) - V.row(v2);
+        double flag1=g1.cross(edirec).dot(norm);
+        double flag2=g2.cross(edirec).dot(norm);
+        double flag=flag1*flag2;
+        if(flag>=0){
+            EdgeOrient[i]=1;
+        }
+        else{
+            EdgeOrient[i]=-1;
+        }
+        // check if left triangle is on the left
+        Eigen::Vector3d ldirec=V.row(vA)-V.row(v1);
+        assert(edirec.cross(ldirec).dot(norm)>=0);
+
+        // deal with EdgeWeight
+        double lg1=g1.norm();
+        double lg2=g2.norm();
+        if(lg1<1e-16 || lg2<1e-16){
+            EdgeWeight[i]=0;// it means the g1xg2 will not be accurate
+        }
+        else{
+            Eigen::Vector3d g1n = g1.normalized();
+            Eigen::Vector3d g2n = EdgeOrient[i]*g2.normalized();// get the oriented g2
+            double cos_real=g1n.dot(g2n);
+            EdgeWeight[i]=(cos_real+1)/2;// cos = 1, weight is 1; cos = -1, means it is very sharp turn, weight = 0
+        }
+        double value = EdgeOrient[i] * g1xg2.dot(norm) - g1xg2.norm() * cos_angle;
         PEfvalue.coeffRef(i)=value;
     }
 }
@@ -1035,10 +1082,36 @@ void lsTools::assemble_solver_boundary_condition_part(spMat& H, Efunc& B){
 }
 void lsTools::assemble_solver_pesudo_geodesic_energy_part(spMat &H, Efunc &B)
 {
-    int act_size=Actid.size();
-    int vnbr=V.rows();
+    calculate_pseudo_energy_function_values(pseudo_geodesic_target_angle_degree);
+    // std::cout<<"function values get calculated"<<std::endl;
+
+    int act_size = Actid.size();
+    int vnbr = V.rows();
+    // std::cout<<"vnbr "<<vnbr<<std::endl;
     spMat JTJ;
-    JTJ.resize()//TODO
+    spMat JTf;
+    JTJ.resize(vnbr, vnbr);
+    JTf.resize(vnbr,1);
+    Eigen::MatrixXd Mfvalues(vnbr, 1);
+    Mfvalues.col(0) = fvalues;
+    spMat SMfvalues = Mfvalues.sparseView();
+    
+    for (int i = 0; i < act_size; i++)
+    {
+        // std::cout<<"SMfvalues size "<<SMfvalues.rows()<<" "<<SMfvalues.cols()<<std::endl;
+        spMat JT = EdgeOrient[i] * PEJC[i] * SMfvalues;
+        // std::cout<<"J size "<<J.rows()<<" "<<J.cols()<<std::endl;
+        spMat tjtj=JT* JT.transpose();
+        // std::cout<<"tempJTJ size "<<tjtj.rows()<<" "<<tjtj.cols()<<std::endl;
+        JTJ += EdgeWeight[i] * tjtj;
+        // std::cout<<"JTJ size "<<JTJ.rows()<<" "<<JTJ.cols()<<std::endl;
+        spMat temp=EdgeWeight[i] * JT * PEfvalue.coeffRef(i);
+        // std::cout<<"tmp size "<<temp.rows()<<" "<<temp.cols()<<std::endl;
+        JTf +=temp;
+    }
+    // std::cout<<"assembled"<<std::endl;
+    H = JTJ;
+    B = sparse_mat_col_to_sparse_vec(-JTf,0);
 }
 double get_t_of_segment(const Eigen::Vector3d &ver, const Eigen::Vector3d &start, const Eigen::Vector3d &end)
 {
@@ -1120,9 +1193,8 @@ void lsTools::optimize_laplacian_with_traced_boundary_condition(){
         std::cout<<"level set get initialized for smoothing"<<std::endl;
         return;
     }
+    // after initialization we can calculate some quantities associated with level set values
     get_gradient_hessian_values();
-    // std::cout << "finished calculate gradient and hessian" << std::endl;
-    get_all_the_derivate_matrices();
     // the matrices
     spMat H;
     H.resize(vnbr,vnbr);
@@ -1143,6 +1215,18 @@ void lsTools::optimize_laplacian_with_traced_boundary_condition(){
     // gravity + laplacian + boundary condition
     H = weight_mass * mass + weight_laplacian * LTL + weight_boundary * bc_JTJ;
     B=weight_laplacian*mLTF+weight_boundary*bc_mJTF;
+    if(enable_pseudo_geodesic_energy&&weight_pseudo_geodesic_energy==0){
+        std::cout<<"Pseudo-geodesic Energy weight is 0"<<std::endl;
+    }
+    if (enable_pseudo_geodesic_energy && weight_pseudo_geodesic_energy > 0)
+    {
+        spMat pg_JTJ;
+        Efunc pg_mJTF;
+        // std::cout<<"before solving pg energy"<<std::endl;
+        assemble_solver_pesudo_geodesic_energy_part(pg_JTJ, pg_mJTF);
+        H += weight_pseudo_geodesic_energy * pg_JTJ;
+        B += weight_pseudo_geodesic_energy * pg_mJTF;
+    }
     assert(H.rows() == vnbr);
     assert(H.cols() == vnbr);
     // std::cout<<"before solving"<<std::endl;
@@ -1156,7 +1240,10 @@ void lsTools::optimize_laplacian_with_traced_boundary_condition(){
     double energy_laplacian=(Dlps*fvalues).norm();
     double energy_boundary=(bcfvalue).norm();
     std::cout<<"energy: lap "<<energy_laplacian<<", bnd "<<energy_boundary<<", ";
-
+    if(enable_pseudo_geodesic_energy){
+        double energy_pg=PEfvalue.norm();
+        std::cout<<"pg, "<<energy_pg<<", ";
+    }
 
 
 }

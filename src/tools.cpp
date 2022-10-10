@@ -69,7 +69,7 @@ Efunc sparse_mat_col_to_sparse_vec(const spMat &mat, const int col)
 {
     Efunc vec;
     vec.resize(mat.rows());
-    assert(!mat.IsRowMajor);
+    assert(!mat.IsRowMajor);// it works for colomn major
     for (spMat::InnerIterator it(mat, col); it; ++it)
     {
         vec.coeffRef(it.index()) = it.value();
