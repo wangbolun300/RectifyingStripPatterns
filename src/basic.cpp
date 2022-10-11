@@ -45,6 +45,8 @@ void lsTools::prepare_level_set_solving(const EnergyPrepare &Energy_initializer)
         pseudo_geodesic_target_angle_degree = Energy_initializer.target_angle;
     }
     max_step_length=Energy_initializer.max_step_length;
+    enable_strip_width_energy=Energy_initializer.solve_strip_width_on_traced;
+    weight_strip_width = Energy_initializer.weight_strip_width;
 }
 void lsTools::convert_paras_as_meshes(CGMesh &output)
 {
@@ -666,6 +668,7 @@ void lsTools::assemble_solver_laplacian_part(spMat &H, Efunc &B)
 }
 
 // assemble matrices for \sum{area(i)*(||gradient(i)||-strip_width)^2}
+// TODO modify it to be a triangle face based method
 void lsTools::assemble_solver_strip_width_part(spMat &H, Efunc &B)
 {
     int vsize = V.rows();
@@ -1239,6 +1242,13 @@ void lsTools::optimize_laplacian_with_traced_boundary_condition(){
         H += weight_pseudo_geodesic_energy * pg_JTJ;
         B += weight_pseudo_geodesic_energy * pg_mJTF;
     }
+    if(enable_strip_width_energy){
+        spMat sw_JTJ;
+        Efunc sw_mJTF;
+        assemble_solver_strip_width_part(sw_JTJ, sw_mJTF);
+        H += weight_strip_width * sw_JTJ;
+        B += weight_strip_width * sw_mJTF;
+    }
     assert(H.rows() == vnbr);
     assert(H.cols() == vnbr);
     // std::cout<<"before solving"<<std::endl;
@@ -1256,10 +1266,21 @@ void lsTools::optimize_laplacian_with_traced_boundary_condition(){
     fvalues += dx;
     double energy_laplacian=(Dlps*fvalues).norm();
     double energy_boundary=(bcfvalue).norm();
-    std::cout<<"energy: lap "<<energy_laplacian<<", bnd "<<energy_boundary<<", ";
-    if(enable_pseudo_geodesic_energy){
+    std::cout << "energy: lap " << energy_laplacian << ", bnd " << energy_boundary << ", ";
+    if (enable_pseudo_geodesic_energy)
+    {
         double energy_pg = (EdgeWeight.asDiagonal() * PEfvalue).norm();
-        std::cout<<"pg, "<<energy_pg<<", ";
+        std::cout << "pg, " << energy_pg << ", ";
+    }
+    if (enable_strip_width_energy)
+    {
+      
+        Eigen::VectorXd ener = gvvalue.rowwise().norm();
+        Eigen::VectorXd wds = Eigen::VectorXd::Ones(vnbr)*strip_width;
+        
+        ener-=wds;
+        double stp_energy=Eigen::VectorXd(mass*ener).dot(ener);
+        std::cout << "strip, " << stp_energy << ", ";
     }
     std::cout<<"step "<<dx.norm()<<std::endl;
 
@@ -1273,6 +1294,7 @@ void lsTools::initialize_level_set_by_tracing(const std::vector<int> &ids, const
     assigned_trace_ls.clear();
     double target_angle = values[0];// 
     double start_angel = values[1];
+    trace_start_angle_degree=start_angel;
     double threadshold_angel_degree = values[2]; // threadshold for checking mesh boundary corners
     int nbr_itv = ids[0]; // every nbr_itv boundary edges we shoot one curve
     id_dbg = ids[1];
@@ -1326,6 +1348,7 @@ void lsTools::initialize_level_set_by_tracing(const std::vector<int> &ids, const
         }
         
     }
+    estimate_strip_width_according_to_tracing();
     std::cout<<"check the numbr of curves "<<trace_vers.size()<<std::endl;
    
 }
@@ -1408,4 +1431,18 @@ void lsTools::extract_levelset_curves(const int nbr, std::vector<Eigen::MatrixXd
         E0.push_back(e0tmp);
         E1.push_back(e1tmp);
     }
+}
+void lsTools::estimate_strip_width_according_to_tracing(){
+    assert(trace_vers.size()!=0); // must have at least one curve
+    double dis=0;// total lengths
+    int tnbr=trace_vers.size();
+
+    
+    for(int i=0;i<tnbr-1;i++){
+        dis += (trace_vers[i + 1][0] - trace_vers[i][0]).norm();
+    }
+    double angle_radian = trace_start_angle_degree * LSC_PI / 180.;
+    double dis_real=abs(dis*sin(angle_radian));
+    double function_value_diff=abs(assigned_trace_ls.back()-assigned_trace_ls[0]);
+    strip_width=function_value_diff/dis_real;
 }

@@ -23,7 +23,9 @@ class EnergyPrepare{
     double weight_lap; 
     double weight_bnd;
     double weight_pg; 
+    double weight_strip_width;
     bool solve_pseudo_geodesic;
+    bool solve_strip_width_on_traced;
     double target_angle;
     double max_step_length;
 
@@ -87,6 +89,7 @@ private:
     std::vector<std::vector<Eigen::Vector3d>> trace_vers;        // traced vertices
     std::vector<std::vector<CGMesh::HalfedgeHandle>> trace_hehs; // traced half edge handles
     std::vector<double> assigned_trace_ls; // function values for each traced curve.
+    double trace_start_angle_degree; //the angle between the first segment and the given boundary
     
     Efunc ActE;// active edges, which means they are not co-planar edges, and not boundary edges.
     std::vector<int> Actid; // active edge ids. the length equals to the number of non-zero elements in ActE
@@ -166,6 +169,7 @@ private:
                             Efunc &edges_checked, Efunc &points_checked, NeighbourInfo &ninfo, std::vector<int> &point_to_check);
 
     void extract_one_curve(const double value, Eigen::MatrixXd& E0, Eigen::MatrixXd &E1);
+    void estimate_strip_width_according_to_tracing();
 
 public:
     // parametrization and find the boundary loop
@@ -183,12 +187,14 @@ public:
     double weight_laplacian;              // weight of the laplacian energy
     double weight_boundary;              // weight of the boundary energy
     double weight_pseudo_geodesic_energy;// weight of the pseudo-geodesic energy
+    double weight_strip_width;
     int assign_face_id;              // the face id of which we will assign value to
     double assign_value[3];
-    double strip_width = 0;       // strip width, defined as h/w.
+    double strip_width = 0;       // strip width, defined as h/w, h: level set function value difference. w: distance between two points on the surface
     double max_step_length;
     
     bool enable_pseudo_geodesic_energy=false; // decide if we include pseudo-geodesic energy
+    bool enable_strip_width_energy=false;
     double pseudo_geodesic_target_angle_degree; // the target pseudo-geodesic angle
     // bool enable_pseudo_vertex=false;
     Eigen::MatrixXd ver_dbg;
