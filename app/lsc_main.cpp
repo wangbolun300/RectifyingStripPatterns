@@ -41,7 +41,10 @@ namespace lscif
 	double weight_mass = 100.;			  // weight of the mass function to
 	double weight_boundary=100;	// weight of the boundary condition
 	double weight_laplacian=1;
-	double weight_pseudo_geodesic=0;
+	double weight_pseudo_geodesic=10;
+	double maximal_step_length = 0.5;
+
+	// Tracing Parameters
 	int which_seg_id = 0;			  // the face id of which we will assign value to
 	int nbr_of_intervals = 3;
 	int id_debug_global=5;
@@ -54,7 +57,7 @@ namespace lscif
 	double dbg_dbl2 = 60;
 	double vector_scaling = 1;
 	double strip_width_ratio = 1.;
-
+	int extracted_nbr=5;
 	std::vector<int> fixedVertices;
 
 	int OpIter = 10;
@@ -404,7 +407,11 @@ int main(int argc, char *argv[])
 		}
 
 		// Add new group
-		if (ImGui::CollapsingHeader("Weights", ImGuiTreeNodeFlags_DefaultOpen))
+		if (ImGui::CollapsingHeader("Pseudo-Geodesic Angle", ImGuiTreeNodeFlags_DefaultOpen))
+		{
+			ImGui::InputDouble("target angle", &lscif::target_angle, 0, 0, "%.4f");
+		}
+		if (ImGui::CollapsingHeader("Energy Solving", ImGuiTreeNodeFlags_DefaultOpen))
 		{
 			// Expose variable directly ...
 			// ImGui::InputDouble("Closeness", &lscif::weigth_closeness, 0, 0, "%.4f");
@@ -413,12 +420,8 @@ int main(int argc, char *argv[])
 			ImGui::InputDouble("weight boundary (big)", &lscif::weight_boundary, 0, 0, "%.4f");
 			ImGui::InputDouble("weight laplacian (small)", &lscif::weight_laplacian, 0, 0, "%.4f");
 			ImGui::InputDouble("weight pseudo-geodesic", &lscif::weight_pseudo_geodesic, 0, 0, "%.4f");
-			ImGui::InputInt("which boundary segment id", &lscif::which_seg_id, 0, 0);
-			ImGui::InputInt("every i segments", &lscif::nbr_of_intervals, 0, 0);
-			ImGui::InputInt("debug id", &lscif::id_debug_global, 0, 0);
-			ImGui::InputDouble("target angle", &lscif::target_angle, 0, 0, "%.4f");
-			ImGui::InputDouble("start angle", &lscif::start_angle, 0, 0, "%.4f");
-			ImGui::InputDouble("threadshold angle", &lscif::threadshold_angel_degree, 0, 0, "%.4f");
+			ImGui::InputDouble("MaxStpLenght(PG Enabled)", &lscif::maximal_step_length, 0, 0, "%.4f");
+			
 			// ImGui::InputDouble("Average Edge length", &lscif::refer_AveEL, 0, 0, "%.4f");
 			ImGui::InputDouble("Strip Width Ratio", &lscif::strip_width_ratio, 0, 0, "%.4f");
 
@@ -426,7 +429,17 @@ int main(int argc, char *argv[])
 			// ImGui::SameLine();
 			// ImGui::Checkbox("Fix Boundary", &lscif::fixBoundary_checkbox);
 		}
-
+		if (ImGui::CollapsingHeader("Tracing", ImGuiTreeNodeFlags_DefaultOpen))
+		{
+			
+			ImGui::InputInt("which boundary segment id", &lscif::which_seg_id, 0, 0);
+			ImGui::InputInt("every i segments", &lscif::nbr_of_intervals, 0, 0);
+			ImGui::InputInt("debug id", &lscif::id_debug_global, 0, 0);
+			ImGui::InputDouble("start angle", &lscif::start_angle, 0, 0, "%.4f");
+			ImGui::InputDouble("threadshold angle", &lscif::threadshold_angel_degree, 0, 0, "%.4f");
+			// ImGui::SameLine();
+			// ImGui::Checkbox("Fix Boundary", &lscif::fixBoundary_checkbox);
+		}
 		ImGui::Separator();
 
 		if (ImGui::CollapsingHeader("Mesh Processing", ImGuiTreeNodeFlags_DefaultOpen))
@@ -439,190 +452,191 @@ int main(int argc, char *argv[])
 				ImGui::InputDouble("double", &lscif::dbg_dbl, 0, 0, "%.4f");
 				ImGui::InputDouble("double2", &lscif::dbg_dbl2, 0, 0, "%.4f");
 				ImGui::InputDouble("vector_scaling", &lscif::vector_scaling, 0, 0, "%.4f");
+				ImGui::InputInt("extracted_nbr", &lscif::extracted_nbr, 0, 0);
 			}
-			if (ImGui::Button("debug", ImVec2(ImGui::GetWindowSize().x * 0.23f, 0.0f)))
-			{
+			// if (ImGui::Button("debug", ImVec2(ImGui::GetWindowSize().x * 0.23f, 0.0f)))
+			// {
 
-				int id = viewer.selected_data_index;
-				CGMesh updatedMesh;
-				CGMesh inputMesh = lscif::Meshes[id];
-				lscif::tools.init(inputMesh);
-				lscif::tools.initialize_mesh_properties();
-				// calculate the pseudo-geodesic
-				lscif::tools.debug_tool(lscif::dbg_int, lscif::dbg_int2, lscif::dbg_dbl);
-				lscif::updateMeshViewer(viewer, inputMesh);
-				lscif::meshFileName.push_back("dbg_" + lscif::meshFileName[id]);
-				lscif::Meshes.push_back(inputMesh);
-				Eigen::MatrixXd E0, E1;
-				// lscif::tools.show_gradients(E0,E1, lscif::vector_scaling);
-				const Eigen::RowVector3d red(0.8, 0.2, 0.2);
-				const Eigen::RowVector3d blue(0.2, 0.2, 0.8);
-				const Eigen::RowVector3d black(0, 0, 0);
-				const Eigen::RowVector3d green(0.2, 0.8, 0.2);
-				Eigen::MatrixXd RGB = Eigen::MatrixXd::Identity(3, 3);
-				Eigen::MatrixXd E2, E3, Ea0, Ea1;
-				Eigen::MatrixXd pts;
-				std::vector<Eigen::MatrixXd> E0list, E1list;
-				lscif::tools.show_pseudo_geodesic_curve(E0list, E1list, pts);
-				E0 = E0list[0];
-				E1 = E1list[0];
-				viewer.data().add_edges(E0, E1, red);
-				if (0)
-				{
-					lscif::tools.show_current_reference_points(pts);
-					viewer.data().add_points(pts, red);
-				}
-				if (1)
-				{
-					viewer.data().add_points(pts, red);
-				}
-				viewer.data().add_points(lscif::tools.ver_dbg1, black);
-				viewer.data().add_points(lscif::tools.ver_dbg, blue);
-				for (int i = 0; i < lscif::tools.ver_dbg.rows(); i++)
-				{
-					Eigen::MatrixXd tmp_ver(1, 3);
-					tmp_ver.row(0) = lscif::tools.ver_dbg.row(i);
-					viewer.data().add_edges(lscif::tools.ver_dbg1, tmp_ver, blue);
-				}
-				std::cout << "checking query size " << lscif::tools.ver_dbg1.rows() << std::endl;
-				std::cout << "checking result size " << lscif::tools.ver_dbg.rows() << std::endl;
-				std::cout << "checking results " << lscif::tools.ver_dbg << std::endl;
-				Eigen::MatrixXd Edge1_dbg = lscif::tools.E0_dbg + lscif::tools.direction_dbg * lscif::vector_scaling;
-				viewer.data().add_edges(lscif::tools.E0_dbg, Edge1_dbg, green);
-				if (lscif::tools.pnorm_dbg.rows() == lscif::tools.E0_dbg.rows())
-				{
-					Eigen::MatrixXd Edge2_dbg = lscif::tools.E0_dbg + lscif::tools.pnorm_dbg * lscif::vector_scaling;
-					viewer.data().add_edges(lscif::tools.E0_dbg, Edge2_dbg, black);
-				}
+			// 	int id = viewer.selected_data_index;
+			// 	CGMesh updatedMesh;
+			// 	CGMesh inputMesh = lscif::Meshes[id];
+			// 	lscif::tools.init(inputMesh);
+			// 	lscif::tools.initialize_mesh_properties();
+			// 	// calculate the pseudo-geodesic
+			// 	lscif::tools.debug_tool(lscif::dbg_int, lscif::dbg_int2, lscif::dbg_dbl);
+			// 	lscif::updateMeshViewer(viewer, inputMesh);
+			// 	lscif::meshFileName.push_back("dbg_" + lscif::meshFileName[id]);
+			// 	lscif::Meshes.push_back(inputMesh);
+			// 	Eigen::MatrixXd E0, E1;
+			// 	// lscif::tools.show_gradients(E0,E1, lscif::vector_scaling);
+			// 	const Eigen::RowVector3d red(0.8, 0.2, 0.2);
+			// 	const Eigen::RowVector3d blue(0.2, 0.2, 0.8);
+			// 	const Eigen::RowVector3d black(0, 0, 0);
+			// 	const Eigen::RowVector3d green(0.2, 0.8, 0.2);
+			// 	Eigen::MatrixXd RGB = Eigen::MatrixXd::Identity(3, 3);
+			// 	Eigen::MatrixXd E2, E3, Ea0, Ea1;
+			// 	Eigen::MatrixXd pts;
+			// 	std::vector<Eigen::MatrixXd> E0list, E1list;
+			// 	lscif::tools.show_pseudo_geodesic_curve(E0list, E1list, pts);
+			// 	E0 = E0list[0];
+			// 	E1 = E1list[0];
+			// 	viewer.data().add_edges(E0, E1, red);
+			// 	if (0)
+			// 	{
+			// 		lscif::tools.show_current_reference_points(pts);
+			// 		viewer.data().add_points(pts, red);
+			// 	}
+			// 	if (1)
+			// 	{
+			// 		viewer.data().add_points(pts, red);
+			// 	}
+			// 	viewer.data().add_points(lscif::tools.ver_dbg1, black);
+			// 	viewer.data().add_points(lscif::tools.ver_dbg, blue);
+			// 	for (int i = 0; i < lscif::tools.ver_dbg.rows(); i++)
+			// 	{
+			// 		Eigen::MatrixXd tmp_ver(1, 3);
+			// 		tmp_ver.row(0) = lscif::tools.ver_dbg.row(i);
+			// 		viewer.data().add_edges(lscif::tools.ver_dbg1, tmp_ver, blue);
+			// 	}
+			// 	std::cout << "checking query size " << lscif::tools.ver_dbg1.rows() << std::endl;
+			// 	std::cout << "checking result size " << lscif::tools.ver_dbg.rows() << std::endl;
+			// 	std::cout << "checking results " << lscif::tools.ver_dbg << std::endl;
+			// 	Eigen::MatrixXd Edge1_dbg = lscif::tools.E0_dbg + lscif::tools.direction_dbg * lscif::vector_scaling;
+			// 	viewer.data().add_edges(lscif::tools.E0_dbg, Edge1_dbg, green);
+			// 	if (lscif::tools.pnorm_dbg.rows() == lscif::tools.E0_dbg.rows())
+			// 	{
+			// 		Eigen::MatrixXd Edge2_dbg = lscif::tools.E0_dbg + lscif::tools.pnorm_dbg * lscif::vector_scaling;
+			// 		viewer.data().add_edges(lscif::tools.E0_dbg, Edge2_dbg, black);
+			// 	}
 
-				viewer.selected_data_index = id;
-			}
-			ImGui::SameLine();
-			if (ImGui::Button("debug cylinder", ImVec2(ImGui::GetWindowSize().x * 0.23f, 0.0f)))
-			{
+			// 	viewer.selected_data_index = id;
+			// }
+			// ImGui::SameLine();
+			// if (ImGui::Button("debug cylinder", ImVec2(ImGui::GetWindowSize().x * 0.23f, 0.0f)))
+			// {
 
-				int id = viewer.selected_data_index;
-				CGMesh updatedMesh;
-				CGMesh inputMesh = lscif::Meshes[id];
-				lscif::tools.init(inputMesh);
-				lscif::tools.initialize_mesh_properties();
-				// calculate the pseudo-geodesic
-				std::vector<int> input_int;
-				std::vector<double> input_dbl;
-				input_int.push_back(lscif::dbg_int);
-				input_int.push_back(lscif::dbg_int2);
-				input_dbl.push_back(lscif::dbg_dbl);
-				input_dbl.push_back(lscif::dbg_dbl2);
-				lscif::tools.debug_tool_v2(input_int, input_dbl);
-				lscif::updateMeshViewer(viewer, inputMesh);
-				lscif::meshFileName.push_back("dbg_" + lscif::meshFileName[id]);
-				lscif::Meshes.push_back(inputMesh);
-				Eigen::MatrixXd E0, E1;
-				// lscif::tools.show_gradients(E0,E1, lscif::vector_scaling);
-				const Eigen::RowVector3d red(0.8, 0.2, 0.2);
-				const Eigen::RowVector3d blue(0.2, 0.2, 0.8);
-				const Eigen::RowVector3d black(0, 0, 0);
-				const Eigen::RowVector3d green(0.2, 0.8, 0.2);
-				Eigen::MatrixXd RGB = Eigen::MatrixXd::Identity(3, 3);
-				Eigen::MatrixXd E2, E3, Ea0, Ea1;
-				Eigen::MatrixXd pts;
-				std::vector<Eigen::MatrixXd> E0list, E1list;
-				lscif::tools.show_pseudo_geodesic_curve(E0list, E1list, pts);
-				for (int i = 0; i < E0list.size(); i++)
-				{
-					E0 = E0list[i];
-					E1 = E1list[i];
-					viewer.data().add_edges(E0, E1, red);
-					std::cout << "edge sizes " << E0.rows() << std::endl;
-				}
+			// 	int id = viewer.selected_data_index;
+			// 	CGMesh updatedMesh;
+			// 	CGMesh inputMesh = lscif::Meshes[id];
+			// 	lscif::tools.init(inputMesh);
+			// 	lscif::tools.initialize_mesh_properties();
+			// 	// calculate the pseudo-geodesic
+			// 	std::vector<int> input_int;
+			// 	std::vector<double> input_dbl;
+			// 	input_int.push_back(lscif::dbg_int);
+			// 	input_int.push_back(lscif::dbg_int2);
+			// 	input_dbl.push_back(lscif::dbg_dbl);
+			// 	input_dbl.push_back(lscif::dbg_dbl2);
+			// 	lscif::tools.debug_tool_v2(input_int, input_dbl);
+			// 	lscif::updateMeshViewer(viewer, inputMesh);
+			// 	lscif::meshFileName.push_back("dbg_" + lscif::meshFileName[id]);
+			// 	lscif::Meshes.push_back(inputMesh);
+			// 	Eigen::MatrixXd E0, E1;
+			// 	// lscif::tools.show_gradients(E0,E1, lscif::vector_scaling);
+			// 	const Eigen::RowVector3d red(0.8, 0.2, 0.2);
+			// 	const Eigen::RowVector3d blue(0.2, 0.2, 0.8);
+			// 	const Eigen::RowVector3d black(0, 0, 0);
+			// 	const Eigen::RowVector3d green(0.2, 0.8, 0.2);
+			// 	Eigen::MatrixXd RGB = Eigen::MatrixXd::Identity(3, 3);
+			// 	Eigen::MatrixXd E2, E3, Ea0, Ea1;
+			// 	Eigen::MatrixXd pts;
+			// 	std::vector<Eigen::MatrixXd> E0list, E1list;
+			// 	lscif::tools.show_pseudo_geodesic_curve(E0list, E1list, pts);
+			// 	for (int i = 0; i < E0list.size(); i++)
+			// 	{
+			// 		E0 = E0list[i];
+			// 		E1 = E1list[i];
+			// 		viewer.data().add_edges(E0, E1, red);
+			// 		std::cout << "edge sizes " << E0.rows() << std::endl;
+			// 	}
 
-				if (0)
-				{
-					lscif::tools.show_current_reference_points(pts);
-					viewer.data().add_points(pts, red);
-				}
-				if (1)
-				{
-					viewer.data().add_points(pts, red);
-				}
+			// 	if (0)
+			// 	{
+			// 		lscif::tools.show_current_reference_points(pts);
+			// 		viewer.data().add_points(pts, red);
+			// 	}
+			// 	if (1)
+			// 	{
+			// 		viewer.data().add_points(pts, red);
+			// 	}
 
-				// viewer.data().add_points(lscif::tools.ver_dbg1, black);
-				// viewer.data().add_points(lscif::tools.ver_dbg, blue);
-				// for(int i=0;i<lscif::tools.ver_dbg.rows();i++){
-				// 	Eigen::MatrixXd tmp_ver(1,3);
-				// 	tmp_ver.row(0)=lscif::tools.ver_dbg.row(i);
-				// 	viewer.data().add_edges(lscif::tools.ver_dbg1,tmp_ver,blue);
-				// }
-				// std::cout << "checking query size " << lscif::tools.ver_dbg1.rows() << std::endl;
-				// std::cout << "checking result size " << lscif::tools.ver_dbg.rows() << std::endl;
-				// std::cout << "checking results " << lscif::tools.ver_dbg<<std::endl;
-				// Eigen::MatrixXd Edge1_dbg=lscif::tools.E0_dbg+lscif::tools.direction_dbg*lscif::vector_scaling;
-				// viewer.data().add_edges(lscif::tools.E0_dbg,Edge1_dbg,green);
-				// Eigen::MatrixXd Edge2_dbg=lscif::tools.E0_dbg+lscif::tools.pnorm_dbg*lscif::vector_scaling;
-				// viewer.data().add_edges(lscif::tools.E0_dbg,Edge2_dbg,black);
-				viewer.selected_data_index = id;
-			}
-			ImGui::SameLine();
-			if (ImGui::Button("debug neighbour search", ImVec2(ImGui::GetWindowSize().x * 0.23f, 0.0f)))
-			{
+			// 	// viewer.data().add_points(lscif::tools.ver_dbg1, black);
+			// 	// viewer.data().add_points(lscif::tools.ver_dbg, blue);
+			// 	// for(int i=0;i<lscif::tools.ver_dbg.rows();i++){
+			// 	// 	Eigen::MatrixXd tmp_ver(1,3);
+			// 	// 	tmp_ver.row(0)=lscif::tools.ver_dbg.row(i);
+			// 	// 	viewer.data().add_edges(lscif::tools.ver_dbg1,tmp_ver,blue);
+			// 	// }
+			// 	// std::cout << "checking query size " << lscif::tools.ver_dbg1.rows() << std::endl;
+			// 	// std::cout << "checking result size " << lscif::tools.ver_dbg.rows() << std::endl;
+			// 	// std::cout << "checking results " << lscif::tools.ver_dbg<<std::endl;
+			// 	// Eigen::MatrixXd Edge1_dbg=lscif::tools.E0_dbg+lscif::tools.direction_dbg*lscif::vector_scaling;
+			// 	// viewer.data().add_edges(lscif::tools.E0_dbg,Edge1_dbg,green);
+			// 	// Eigen::MatrixXd Edge2_dbg=lscif::tools.E0_dbg+lscif::tools.pnorm_dbg*lscif::vector_scaling;
+			// 	// viewer.data().add_edges(lscif::tools.E0_dbg,Edge2_dbg,black);
+			// 	viewer.selected_data_index = id;
+			// }
+			// ImGui::SameLine();
+			// if (ImGui::Button("debug neighbour search", ImVec2(ImGui::GetWindowSize().x * 0.23f, 0.0f)))
+			// {
 
-				int id = viewer.selected_data_index;
-				CGMesh updatedMesh;
-				CGMesh inputMesh = lscif::Meshes[id];
-				lscif::tools.init(inputMesh);
-				lscif::tools.initialize_mesh_properties();
-				// calculate the pseudo-geodesic
-				lscif::tools.debug_tool_v3(lscif::dbg_int, lscif::dbg_int2, lscif::dbg_dbl);
-				lscif::updateMeshViewer(viewer, inputMesh);
-				lscif::meshFileName.push_back("dbg_" + lscif::meshFileName[id]);
-				lscif::Meshes.push_back(inputMesh);
-				Eigen::MatrixXd E0, E1;
-				// lscif::tools.show_gradients(E0,E1, lscif::vector_scaling);
-				const Eigen::RowVector3d red(0.8, 0.2, 0.2);
-				const Eigen::RowVector3d blue(0.2, 0.2, 0.8);
-				const Eigen::RowVector3d black(0, 0, 0);
-				const Eigen::RowVector3d green(0.2, 0.8, 0.2);
-				Eigen::MatrixXd RGB = Eigen::MatrixXd::Identity(3, 3);
-				Eigen::MatrixXd E2, E3, Ea0, Ea1;
-				Eigen::MatrixXd pts;
-				std::vector<Eigen::MatrixXd> E0list, E1list;
-				lscif::tools.show_pseudo_geodesic_curve(E0list, E1list, pts);
-				E0 = E0list[0];
-				E1 = E1list[0];
-				viewer.data().add_edges(E0, E1, red);
-				if (1)
-				{
-					// lscif::tools.show_current_reference_points(pts);
-					viewer.data().add_points(lscif::tools.visual_pts_dbg, black);
-					std::cout << "the nbr of checking points " << lscif::tools.visual_pts_dbg.rows() << std::endl;
-					std::cout << lscif::tools.visual_pts_dbg << std::endl;
-				}
-				if (1)
-				{
-					viewer.data().add_points(pts, red);
-				}
-				viewer.data().add_points(lscif::tools.ver_dbg1, black);
-				viewer.data().add_points(lscif::tools.ver_dbg, blue);
-				for (int i = 0; i < lscif::tools.ver_dbg.rows(); i++)
-				{
-					Eigen::MatrixXd tmp_ver(1, 3);
-					tmp_ver.row(0) = lscif::tools.ver_dbg.row(i);
-					viewer.data().add_edges(lscif::tools.ver_dbg1, tmp_ver, blue);
-				}
-				std::cout << "checking query size " << lscif::tools.ver_dbg1.rows() << std::endl;
-				std::cout << "checking result size " << lscif::tools.ver_dbg.rows() << std::endl;
-				std::cout << "checking results " << lscif::tools.ver_dbg << std::endl;
-				Eigen::MatrixXd Edge1_dbg = lscif::tools.E0_dbg + lscif::tools.direction_dbg * lscif::vector_scaling;
-				viewer.data().add_edges(lscif::tools.E0_dbg, Edge1_dbg, green);
-				if (lscif::tools.pnorm_dbg.rows() == lscif::tools.E0_dbg.rows())
-				{
-					Eigen::MatrixXd Edge2_dbg = lscif::tools.E0_dbg + lscif::tools.pnorm_dbg * lscif::vector_scaling;
-					viewer.data().add_edges(lscif::tools.E0_dbg, Edge2_dbg, black);
-				}
+			// 	int id = viewer.selected_data_index;
+			// 	CGMesh updatedMesh;
+			// 	CGMesh inputMesh = lscif::Meshes[id];
+			// 	lscif::tools.init(inputMesh);
+			// 	lscif::tools.initialize_mesh_properties();
+			// 	// calculate the pseudo-geodesic
+			// 	lscif::tools.debug_tool_v3(lscif::dbg_int, lscif::dbg_int2, lscif::dbg_dbl);
+			// 	lscif::updateMeshViewer(viewer, inputMesh);
+			// 	lscif::meshFileName.push_back("dbg_" + lscif::meshFileName[id]);
+			// 	lscif::Meshes.push_back(inputMesh);
+			// 	Eigen::MatrixXd E0, E1;
+			// 	// lscif::tools.show_gradients(E0,E1, lscif::vector_scaling);
+			// 	const Eigen::RowVector3d red(0.8, 0.2, 0.2);
+			// 	const Eigen::RowVector3d blue(0.2, 0.2, 0.8);
+			// 	const Eigen::RowVector3d black(0, 0, 0);
+			// 	const Eigen::RowVector3d green(0.2, 0.8, 0.2);
+			// 	Eigen::MatrixXd RGB = Eigen::MatrixXd::Identity(3, 3);
+			// 	Eigen::MatrixXd E2, E3, Ea0, Ea1;
+			// 	Eigen::MatrixXd pts;
+			// 	std::vector<Eigen::MatrixXd> E0list, E1list;
+			// 	lscif::tools.show_pseudo_geodesic_curve(E0list, E1list, pts);
+			// 	E0 = E0list[0];
+			// 	E1 = E1list[0];
+			// 	viewer.data().add_edges(E0, E1, red);
+			// 	if (1)
+			// 	{
+			// 		// lscif::tools.show_current_reference_points(pts);
+			// 		viewer.data().add_points(lscif::tools.visual_pts_dbg, black);
+			// 		std::cout << "the nbr of checking points " << lscif::tools.visual_pts_dbg.rows() << std::endl;
+			// 		std::cout << lscif::tools.visual_pts_dbg << std::endl;
+			// 	}
+			// 	if (1)
+			// 	{
+			// 		viewer.data().add_points(pts, red);
+			// 	}
+			// 	viewer.data().add_points(lscif::tools.ver_dbg1, black);
+			// 	viewer.data().add_points(lscif::tools.ver_dbg, blue);
+			// 	for (int i = 0; i < lscif::tools.ver_dbg.rows(); i++)
+			// 	{
+			// 		Eigen::MatrixXd tmp_ver(1, 3);
+			// 		tmp_ver.row(0) = lscif::tools.ver_dbg.row(i);
+			// 		viewer.data().add_edges(lscif::tools.ver_dbg1, tmp_ver, blue);
+			// 	}
+			// 	std::cout << "checking query size " << lscif::tools.ver_dbg1.rows() << std::endl;
+			// 	std::cout << "checking result size " << lscif::tools.ver_dbg.rows() << std::endl;
+			// 	std::cout << "checking results " << lscif::tools.ver_dbg << std::endl;
+			// 	Eigen::MatrixXd Edge1_dbg = lscif::tools.E0_dbg + lscif::tools.direction_dbg * lscif::vector_scaling;
+			// 	viewer.data().add_edges(lscif::tools.E0_dbg, Edge1_dbg, green);
+			// 	if (lscif::tools.pnorm_dbg.rows() == lscif::tools.E0_dbg.rows())
+			// 	{
+			// 		Eigen::MatrixXd Edge2_dbg = lscif::tools.E0_dbg + lscif::tools.pnorm_dbg * lscif::vector_scaling;
+			// 		viewer.data().add_edges(lscif::tools.E0_dbg, Edge2_dbg, black);
+			// 	}
 
-				viewer.selected_data_index = id;
-				// std::cout<<"acos(1) "<<acos(1.)<<std::endl;
-			}
+			// 	viewer.selected_data_index = id;
+			// 	// std::cout<<"acos(1) "<<acos(1.)<<std::endl;
+			// }
 			
 			if (ImGui::Button("levelset tracing", ImVec2(ImGui::GetWindowSize().x * 0.23f, 0.0f)))
 			{
@@ -684,13 +698,20 @@ int main(int argc, char *argv[])
 
 				int id = viewer.selected_data_index;
 				CGMesh inputMesh = lscif::Meshes[id];
-				lscif::tools.prepare_level_set_solving(lscif::weight_mass,lscif::weight_laplacian,lscif::weight_boundary,lscif::weight_pseudo_geodesic,
-				lscif::enable_pg_energy_checkbox,lscif::target_angle);
+				EnergyPrepare einit;
+				einit.weight_gravity=lscif::weight_mass;
+				einit.weight_lap=lscif::weight_laplacian;
+				einit.weight_bnd=lscif::weight_boundary;
+				einit.weight_pg=lscif::weight_pseudo_geodesic;
+				einit.solve_pseudo_geodesic=lscif::enable_pg_energy_checkbox;
+				einit.target_angle=lscif::target_angle;
+				einit.max_step_length=lscif::maximal_step_length;
+				lscif::tools.prepare_level_set_solving(einit);
 
 				for (int i = 0; i < lscif::OpIter; i++)
 				{
 					lscif::tools.optimize_laplacian_with_traced_boundary_condition();
-					std::cout << "step length " << lscif::tools.level_set_step_length << std::endl;
+					
 				}
 				std::cout << "waiting for instruction..." << std::endl;
 				// lscif::MP.MeshUnitScale(inputMesh, updatedMesh);
@@ -708,59 +729,42 @@ int main(int argc, char *argv[])
 
 				viewer.selected_data_index = id;
 			}
-			if (ImGui::Button("sphere example", ImVec2(ImGui::GetWindowSize().x * 0.23f, 0.0f)))
+			ImGui::SameLine();
+			if (ImGui::Button("draw extracted", ImVec2(ImGui::GetWindowSize().x * 0.23f, 0.0f)))
 			{
 
 				int id = viewer.selected_data_index;
 				CGMesh inputMesh = lscif::Meshes[id];
-				lscif::tools.init(inputMesh);
-				lscif::tools.initialize_mesh_properties();
-				lscif::tools.make_sphere_ls_example(lscif::dbg_int);
+				
 				// lscif::MP.MeshUnitScale(inputMesh, updatedMesh);
 				lscif::updateMeshViewer(viewer, inputMesh);
-				lscif::meshFileName.push_back("dbg_" + lscif::meshFileName[id]);
+				lscif::meshFileName.push_back("extracted_" + lscif::meshFileName[id]);
 				lscif::Meshes.push_back(inputMesh);
 
 				Eigen::VectorXd level_set_values;
 				lscif::tools.show_level_set(level_set_values);
-				viewer.data().set_colors(level_set_values);
+				// viewer.data().set_colors(level_set_values);
 				Eigen::MatrixXd E0, E1;
-				// lscif::tools.show_gradients(E0,E1, lscif::vector_scaling);
+				// // lscif::tools.show_gradients(E0,E1, lscif::vector_scaling);
 				const Eigen::RowVector3d red(0.8, 0.2, 0.2);
 				const Eigen::RowVector3d blue(0.2, 0.2, 0.8);
-				Eigen::MatrixXd RGB = Eigen::MatrixXd::Identity(3, 3);
-				Eigen::MatrixXd E2, E3, Ea0, Ea1;
-				Eigen::MatrixXd pts;
-				lscif::tools.show_current_reference_points(pts);
-				viewer.data().add_points(pts, red);
-				// lscif::tools.show_gradients(E2, E3, lscif::vector_scaling);
-				int which = 1;
-				lscif::tools.show_hessian(E2, E3, lscif::vector_scaling, which);
-				// Eigen::VectorXd gradient_xyz_values;
-				// lscif::tools.show_gradient_scalar(gradient_xyz_values,which);
-				// //  lscif::tools.show_1_order_derivate(E0, E1, E2, E3, lscif::vector_scaling);
-				// //  lscif::tools.show_vertex_normal(E0,E1,lscif::vector_scaling);
-				// //  viewer.data().add_edges(E0,E1,red);
-				viewer.data().add_edges(E2, E3, blue);
-				// lscif::show_axis(Ea0,Ea1,lscif::vector_scaling);
-				// viewer.data().add_edges(Ea0,Ea1,RGB);
-				// viewer.data().set_colors(gradient_xyz_values);
-				viewer.selected_data_index = id;
-			}
-			if (ImGui::Button("init level set", ImVec2(ImGui::GetWindowSize().x * 0.23f, 0.0f)))
-			{
-				// int id = viewer.selected_data_index;
-				// std::cout<<"viewer.data().V.rows "<<viewer.data().V.rows()<<"\n";
-				// std::cout<<"viewer.data_list[id].V.rows() "<<viewer.data_list[id].V.rows()<<"\n";
-				// std::cout<<"If the above two numbers, then viewer.data() refers to the selected data."<<std::endl;
-				int id = viewer.selected_data_index;
-				CGMesh inputMesh = lscif::Meshes[id];
-				lscif::tools.init(inputMesh);
-				lscif::tools.initialize_mesh_properties();
+
+				const Eigen::RowVector3d black(0, 0, 0);
+				const Eigen::RowVector3d green(0.2, 0.8, 0.2);
+				std::vector<Eigen::MatrixXd> E0list,E1list;
+				lscif::tools.extract_levelset_curves(lscif::extracted_nbr,E0list,E1list);
+				for (int i = 0; i < E0list.size(); i++)// plot the curves
+				{
+					E0 = E0list[i];
+					E1 = E1list[i];
+					std::cout << "traced seg sizes " << E0.rows()<<", "<<E1.size() << std::endl;
+					viewer.data().add_edges(E0, E1, red);
+					
+				}
 				viewer.selected_data_index = id;
 			}
 			
-			ImGui::SameLine();
+			
 			if (ImGui::Button("MeshUnitScale", ImVec2(ImGui::GetWindowSize().x * 0.23f, 0.0f)))
 			{
 				int id = viewer.selected_data_index;
@@ -773,7 +777,7 @@ int main(int argc, char *argv[])
 				lscif::Meshes.push_back(updatedMesh);
 				viewer.selected_data_index = id;
 			}
-
+			ImGui::SameLine();
 			if (ImGui::Button("Focus Selected Mesh", ImVec2(ImGui::GetWindowSize().x * 0.23f, 0.0f)))
 			{
 				int id = viewer.selected_data_index;

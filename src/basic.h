@@ -15,17 +15,18 @@ typedef Eigen::Triplet<double> Trip;
 #define LSC_PI 3.14159265
 #define ANGLE_TOLERANCE 2.
 #define QUADRANT_TOLERANCE 0.04 // over 2 degree tolerance
-class TracCurve
-{
-public:
-    TracCurve(){};
 
-    std::vector<int> face_ids;
-    std::vector<Eigen::Vector3d> dirc;        // the directions of the tracing curve
-    std::vector<int> edge_ids;                // ids of the corresponding edges;
-    std::vector<Eigen::Vector3d> edge_points; // intersection points on edges.
-    std::vector<double> func_values;
-    bool size_correct();
+class EnergyPrepare{
+    public:
+    EnergyPrepare(){};
+    double weight_gravity;  
+    double weight_lap; 
+    double weight_bnd;
+    double weight_pg; 
+    bool solve_pseudo_geodesic;
+    double target_angle;
+    double max_step_length;
+
 };
 class NeighbourInfo
 {
@@ -83,11 +84,9 @@ private:
     spMat ORB; // the matrix where the (i,i) element show if it is a boundary vertex or one-ring vertex of boundary
     std::vector<CGMesh::HalfedgeHandle> Boundary_Edges;
     Eigen::MatrixXd norm_e; // normal directions on each edge
-    std::vector<TracCurve> trace;
     std::vector<std::vector<Eigen::Vector3d>> trace_vers;        // traced vertices
     std::vector<std::vector<CGMesh::HalfedgeHandle>> trace_hehs; // traced half edge handles
-    std::vector<double> assigned_trace_ls;
-    std::vector<double> func_values;// function values for each traced curve.
+    std::vector<double> assigned_trace_ls; // function values for each traced curve.
     
     Efunc ActE;// active edges, which means they are not co-planar edges, and not boundary edges.
     std::vector<int> Actid; // active edge ids. the length equals to the number of non-zero elements in ActE
@@ -166,6 +165,8 @@ private:
     bool get_checking_edges(const std::vector<int> &start_point_ids, const CGMesh::HalfedgeHandle &edge_middle, const Eigen::Vector3d &point_middle,
                             Efunc &edges_checked, Efunc &points_checked, NeighbourInfo &ninfo, std::vector<int> &point_to_check);
 
+    void extract_one_curve(const double value, Eigen::MatrixXd& E0, Eigen::MatrixXd &E1);
+
 public:
     // parametrization and find the boundary loop
     lsTools(CGMesh &mesh);
@@ -177,7 +178,6 @@ public:
     Eigen::VectorXi bnd;     // boundary loop
     Eigen::MatrixXd paras;   // parameters of the mesh vertices, nx2
     Eigen::VectorXd fvalues; // function values
-    double level_set_step_length;
     double weight_assign_face_value; // weight of the assigned value shown in the solver
     double weight_mass;              // weight of the mass function energy
     double weight_laplacian;              // weight of the laplacian energy
@@ -186,6 +186,7 @@ public:
     int assign_face_id;              // the face id of which we will assign value to
     double assign_value[3];
     double strip_width = 0;       // strip width, defined as h/w.
+    double max_step_length;
     
     bool enable_pseudo_geodesic_energy=false; // decide if we include pseudo-geodesic energy
     double pseudo_geodesic_target_angle_degree; // the target pseudo-geodesic angle
@@ -239,8 +240,7 @@ public:
         get_all_the_edge_normals();
         calculate_gradient_partial_parts();
     }
-    void prepare_level_set_solving(const double weight_gravity, const double weight_lap, const double weight_bnd, 
-    const double weight_pg, const bool solve_pseudo_geodesic,  const double target_angle);
+    void prepare_level_set_solving(const EnergyPrepare &Energy_initializer);
     void show_level_set(Eigen::VectorXd &val);
     // convert the parameters into a mesh, for visulization purpose
     void convert_paras_as_meshes(CGMesh &output);
@@ -266,6 +266,7 @@ public:
     void debug_tool_v3(int id = 0, int id2 = 0, double value = 0);
     void debug_tool_v4(const std::vector<int> &ids, const std::vector<double> values);
     void initialize_level_set_by_tracing(const std::vector<int> &ids, const std::vector<double> values);
+    void extract_levelset_curves(const int nbr, std::vector<Eigen::MatrixXd> &E0, std::vector<Eigen::MatrixXd> &E1);
     void make_sphere_ls_example(int rowid);
 };
 

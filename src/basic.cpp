@@ -32,18 +32,19 @@ void lsTools::init(CGMesh &mesh)
 
     igl::cotmatrix(V, F, Dlps);
 }
-void lsTools::prepare_level_set_solving(const double weight_gravity, const double weight_lap, const double weight_bnd,
-                                        const double weight_pg, const bool solve_pseudo_geodesic, const double target_angle)
+
+void lsTools::prepare_level_set_solving(const EnergyPrepare &Energy_initializer)
 {
-    weight_mass = weight_gravity;
-    weight_laplacian = weight_lap;
-    weight_boundary = weight_bnd;
-    enable_pseudo_geodesic_energy = solve_pseudo_geodesic;
-    if (solve_pseudo_geodesic)
+    weight_mass = Energy_initializer.weight_gravity;
+    weight_laplacian = Energy_initializer.weight_lap;
+    weight_boundary = Energy_initializer.weight_bnd;
+    enable_pseudo_geodesic_energy = Energy_initializer.solve_pseudo_geodesic;
+    if (Energy_initializer.solve_pseudo_geodesic)
     {
-        weight_pseudo_geodesic_energy = weight_pg;
-        pseudo_geodesic_target_angle_degree = target_angle;
+        weight_pseudo_geodesic_energy = Energy_initializer.weight_pg;
+        pseudo_geodesic_target_angle_degree = Energy_initializer.target_angle;
     }
+    max_step_length=Energy_initializer.max_step_length;
 }
 void lsTools::convert_paras_as_meshes(CGMesh &output)
 {
@@ -783,7 +784,7 @@ void lsTools::initialize_and_smooth_level_set_by_laplacian()
 
     Eigen::VectorXd dx = solver.solve(B).eval();
     // std::cout << "step length " << dx.norm() << std::endl;
-    level_set_step_length = dx.norm();
+    // level_set_step_length = dx.norm();
     fvalues += dx;
     // for (int i = 0; i < 3; i++)
     // {
@@ -819,7 +820,7 @@ void lsTools::initialize_and_optimize_strip_width()
     assert(solver.info() == Eigen::Success);
 
     Eigen::VectorXd dx = solver.solve(B).eval();
-    level_set_step_length = dx.norm();
+    // level_set_step_length = dx.norm();
     fvalues += dx;
     // next check if the energy is getting lower
     Eigen::VectorXd gnorms = gvvalue.rowwise().norm();
@@ -1121,7 +1122,18 @@ double get_t_of_segment(const Eigen::Vector3d &ver, const Eigen::Vector3d &start
     double t=dis1/dis2;
     return t;
 }
+double get_t_of_value(const double &ver, const double &start, const double &end)
+{
+    double dis1 = abs(ver - start);
+    double dis2 = abs(end - start);
+    assert(start != end);
+    double t=dis1/dis2;
+    return t;
+}
 Eigen::Vector2d get_2d_ver_from_t(const double t, const Eigen::Vector2d& start, const Eigen::Vector2d& end){
+    return start+t*(end-start);
+}
+Eigen::Vector3d get_3d_ver_from_t(const double t, const Eigen::Vector3d& start, const Eigen::Vector3d& end){
     return start+t*(end-start);
 }
 Eigen::VectorXd duplicate_valus(const double value, const int n){
@@ -1235,15 +1247,21 @@ void lsTools::optimize_laplacian_with_traced_boundary_condition(){
     // std::cout<<"solved successfully"<<std::endl;
     Eigen::VectorXd dx = solver.solve(B).eval();
     // std::cout << "step length " << dx.norm() << std::endl;
-    level_set_step_length = dx.norm();
+    double level_set_step_length = dx.norm();
+    // double inf_norm=dx.cwiseAbs().maxCoeff();
+    if (enable_pseudo_geodesic_energy && level_set_step_length > max_step_length)
+    {
+        dx *= max_step_length / level_set_step_length;
+    }
     fvalues += dx;
     double energy_laplacian=(Dlps*fvalues).norm();
     double energy_boundary=(bcfvalue).norm();
     std::cout<<"energy: lap "<<energy_laplacian<<", bnd "<<energy_boundary<<", ";
     if(enable_pseudo_geodesic_energy){
-        double energy_pg=PEfvalue.norm();
+        double energy_pg = (EdgeWeight.asDiagonal() * PEfvalue).norm();
         std::cout<<"pg, "<<energy_pg<<", ";
     }
+    std::cout<<"step "<<dx.norm()<<std::endl;
 
 
 }
@@ -1307,9 +1325,87 @@ void lsTools::initialize_level_set_by_tracing(const std::vector<int> &ids, const
             break;
         }
         
-        
-        
     }
     std::cout<<"check the numbr of curves "<<trace_vers.size()<<std::endl;
    
+}
+bool find_one_ls_segment_on_triangle(const double value, const Eigen::MatrixXi &F, const Eigen::MatrixXd &V,
+                                      const Eigen::VectorXd &fvalues, const int fid, Eigen::Vector3d &E0, Eigen::Vector3d &E1)
+{
+    int vid0 = F(fid, 0);
+    int vid1 = F(fid, 1);
+    int vid2 = F(fid, 2);
+
+    std::vector<std::array<int, 2>> eids;
+    eids.reserve(2);
+    double fv0 = fvalues[vid0];
+    double fv1 = fvalues[vid1];
+    double fv2 = fvalues[vid2];
+    std::array<int, 2> tmp;
+    // check [0, 1)
+    if ((value <= fv0 && value > fv1) || (value < fv1 && value >= fv0))
+    {
+        tmp[0] = vid0;
+        tmp[1] = vid1;
+        eids.push_back(tmp);
+    }
+    // check [1, 2)
+    if ((value <= fv1 && value > fv2) || (value < fv2 && value >= fv1))
+    {
+        tmp[0] = vid1;
+        tmp[1] = vid2;
+        eids.push_back(tmp);
+    }
+    // check [2, 0)
+    if ((value <= fv2 && value > fv0) || (value < fv0 && value >= fv2))
+    {
+        tmp[0] = vid2;
+        tmp[1] = vid0;
+        eids.push_back(tmp);
+    }
+    if(eids.empty()||eids.size()==1){// if no value, or the value is on one vertex, no segment.
+        return false;
+    }
+    assert(eids.size()!=3);
+    
+    double t = get_t_of_value(value,fvalues[eids[0][0]],fvalues[eids[0][1]]);
+    E0 = get_3d_ver_from_t(t, V.row(eids[0][0]), V.row(eids[0][1]));
+    t=get_t_of_value(value,fvalues[eids[1][0]],fvalues[eids[1][1]]);
+    E1 = get_3d_ver_from_t(t, V.row(eids[1][0]), V.row(eids[1][1]));
+    return true;
+}
+void lsTools::extract_one_curve(const double value, Eigen::MatrixXd& E0, Eigen::MatrixXd &E1){
+    std::vector<Eigen::Vector3d> e0list;
+    std::vector<Eigen::Vector3d> e1list;
+    e0list.reserve(F.rows()/2);
+    e1list.reserve(F.rows()/2);
+    for(int i=0;i<F.rows();i++){
+        Eigen::Vector3d e0tmp;
+        Eigen::Vector3d e1tmp;
+        bool found=find_one_ls_segment_on_triangle(value,F,V,fvalues,i,e0tmp,e1tmp);
+        if(found){
+            e0list.push_back(e0tmp);
+            e1list.push_back(e1tmp);
+        }
+    }
+    E0=vec_list_to_matrix(e0list);
+    E1=vec_list_to_matrix(e1list);
+}
+void lsTools::extract_levelset_curves(const int nbr, std::vector<Eigen::MatrixXd> &E0, std::vector<Eigen::MatrixXd> &E1){
+    E0.clear();
+    E1.clear();
+    E0.reserve(nbr);
+    E1.reserve(nbr);
+    double lsmin=fvalues.minCoeff();
+    double lsmax=fvalues.maxCoeff();
+    double itv=(lsmax-lsmin)/(nbr+1);
+    for(int i=0;i<nbr;i++){
+        double lsvalue=lsmin+(i+1)*itv;
+        assert(lsvalue<lsmax);
+        Eigen::MatrixXd e0tmp, e1tmp;
+        extract_one_curve(lsvalue, e0tmp,e1tmp);
+        assert(e0tmp.rows()>=1);
+        E0.push_back(e0tmp);
+        E1.push_back(e1tmp);
+    }
 }
