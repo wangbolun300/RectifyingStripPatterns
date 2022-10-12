@@ -83,7 +83,7 @@ _deps
 
 ## Build
 build*
-# rbuild*
+rbuild*
 bin*
 
 ## IDES
