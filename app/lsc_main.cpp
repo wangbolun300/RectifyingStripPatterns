@@ -553,7 +553,7 @@ int main(int argc, char *argv[])
 
 				viewer.selected_data_index = id;
 			}
-			ImGui::SameLine();
+			
 			if (ImGui::Button("draw extracted", ImVec2(ImGui::GetWindowSize().x * 0.23f, 0.0f)))
 			{
 
@@ -587,8 +587,39 @@ int main(int argc, char *argv[])
 				}
 				viewer.selected_data_index = id;
 			}
-			
-			
+			ImGui::SameLine();
+			if (ImGui::Button("draw traced", ImVec2(ImGui::GetWindowSize().x * 0.23f, 0.0f)))
+			{
+				const Eigen::RowVector3d red(0.8, 0.2, 0.2);
+				const Eigen::RowVector3d blue(0.2, 0.2, 0.8);
+
+				const Eigen::RowVector3d black(0, 0, 0);
+				const Eigen::RowVector3d green(0.2, 0.8, 0.2);
+
+				std::vector<Eigen::MatrixXd> E0list, E1list;
+				Eigen::MatrixXd pts, E0, E1;
+				std::cout<<"before ploting the traced curves"<<std::endl;
+				
+				lscif::tools.show_pseudo_geodesic_curve(E0list, E1list, pts);
+				if(E0list.size()==0){
+					std::cout<<"please trace the curves first"<<std::endl;
+				}
+
+				for (int i = 0; i < E0list.size(); i++)// plot the curves
+				{
+					E0 = E0list[i];
+					E1 = E1list[i];
+					std::cout << "edge sizes " << E0.rows()<<", "<<E1.size() << std::endl;
+					viewer.data().add_edges(E0, E1, red);
+					
+				}
+				std::cout<<"the number of curves "<<E0list.size()<<std::endl;
+
+				if (1) // plot the vertices of the curves
+				{
+					viewer.data().add_points(pts, red);
+				}
+			}
 			if (ImGui::Button("MeshUnitScale", ImVec2(ImGui::GetWindowSize().x * 0.23f, 0.0f)))
 			{
 				int id = viewer.selected_data_index;

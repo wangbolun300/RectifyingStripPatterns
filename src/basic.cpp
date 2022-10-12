@@ -1200,6 +1200,7 @@ void lsTools::initialize_level_set_accroding_to_parametrization(){
 void lsTools::optimize_laplacian_with_traced_boundary_condition(){
     int vnbr = V.rows();
     int fnbr = F.rows();
+    assert(assigned_trace_ls.size()&& "Please trace the curves first before solve the energy");
     assert(assigned_trace_ls.size()==trace_vers.size());
     // initialize the level set with some number
     if (fvalues.size() != vnbr)

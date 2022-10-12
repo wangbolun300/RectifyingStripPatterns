@@ -21,7 +21,7 @@ public:
   }
 };
 
-IGL_INLINE QuadricCalculator::QuadricCalculator()
+QuadricCalculator::QuadricCalculator()
 {
   this->localMode = true;
   this->projectionPlaneCheck = true;
@@ -245,7 +245,7 @@ IGL_INLINE Eigen::Vector3d QuadricCalculator::project(const Eigen::Vector3d &v, 
   return (vp - (ppn * ((vp - v).dot(ppn))));
 }
 
-IGL_INLINE void QuadricCalculator::computeReferenceFrame(int i, const Eigen::Vector3d &normal, std::vector<Eigen::Vector3d> &ref)
+void QuadricCalculator::computeReferenceFrame(int i, const Eigen::Vector3d &normal, std::vector<Eigen::Vector3d> &ref)
 {
 
   Eigen::Vector3d longest_v = Eigen::Vector3d(vertices.row(vertex_to_vertices[i][0]));
