@@ -535,6 +535,10 @@ int main(int argc, char *argv[])
 				for (int i = 0; i < lscif::OpIter; i++)
 				{
 					lscif::tools.optimize_laplacian_with_traced_boundary_condition();
+					if(lscif::tools.step_length<1e-6){
+						std::cout<<"optimization converges "<<std::endl;
+						break;
+					}
 					
 				}
 				std::cout << "waiting for instruction..." << std::endl;

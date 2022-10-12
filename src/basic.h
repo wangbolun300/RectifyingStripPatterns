@@ -192,6 +192,7 @@ public:
     double assign_value[3];
     double strip_width = 0;       // strip width, defined as h/w, h: level set function value difference. w: distance between two points on the surface
     double max_step_length;
+    double step_length;
     
     bool enable_pseudo_geodesic_energy=false; // decide if we include pseudo-geodesic energy
     bool enable_strip_width_energy=false;

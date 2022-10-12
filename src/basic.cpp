@@ -672,18 +672,17 @@ void lsTools::assemble_solver_laplacian_part(spMat &H, Efunc &B)
 void lsTools::assemble_solver_strip_width_part(spMat &H, Efunc &B)
 {
     int vsize = V.rows();
-    Eigen::VectorXd f = gvvalue.rowwise().norm(); // f=||gradient{i}||-strip_width
-    for (int i = 0; i < vsize; i++)
-    {
-        f(i) -= strip_width;
-    }
-    spMat J = Dgrad_norm;
-    // now only consider about the interior vertices but not the boundaries and one ring from them
-    J = J;
-    f = f;
-    // end of interior part
-    spMat JTJ = J.transpose() * mass * J;
-    Eigen::VectorXd mJTF_dense = -J.transpose() * mass * f;
+    int fsize = F.rows();
+    // std::cout<<"compute J"<<std::endl;
+    spMat J = (gfvalue.col(0)).asDiagonal() * gradVF[0] + (gfvalue.col(1)).asDiagonal() * gradVF[1] + (gfvalue.col(2)).asDiagonal() * gradVF[2];
+    J *= 2;
+    // std::cout<<"compute JTJ"<<std::endl;
+    spMat JTJ = J.transpose() * J;
+    // std::cout<<"compute f"<<std::endl;
+    Eigen::VectorXd f = gfvalue.col(0).asDiagonal() * gfvalue.col(0) + gfvalue.col(1).asDiagonal() * gfvalue.col(1) + gfvalue.col(2).asDiagonal() * gfvalue.col(2);
+    f -= Eigen::VectorXd::Ones(fsize) * strip_width * strip_width;
+
+    Eigen::VectorXd mJTF_dense = -J.transpose() * f;
     H = JTJ;
     B = dense_vec_to_sparse_vec(mJTF_dense);
 }
@@ -1276,14 +1275,16 @@ void lsTools::optimize_laplacian_with_traced_boundary_condition(){
     if (enable_strip_width_energy)
     {
       
-        Eigen::VectorXd ener = gvvalue.rowwise().norm();
-        Eigen::VectorXd wds = Eigen::VectorXd::Ones(vnbr)*strip_width;
+        Eigen::VectorXd ener = gfvalue.rowwise().norm();
+        ener=ener.asDiagonal()*ener;
+        Eigen::VectorXd wds = Eigen::VectorXd::Ones(fnbr)*strip_width*strip_width;
         
         ener-=wds;
-        double stp_energy=Eigen::VectorXd(mass*ener).dot(ener);
+        double stp_energy=Eigen::VectorXd(ener).dot(ener);
         std::cout << "strip, " << stp_energy << ", ";
     }
-    std::cout<<"step "<<dx.norm()<<std::endl;
+    step_length=dx.norm();
+    std::cout<<"step "<<step_length<<std::endl;
 
 
 }
