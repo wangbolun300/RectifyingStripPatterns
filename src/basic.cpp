@@ -677,12 +677,12 @@ void lsTools::assemble_solver_strip_width_part(spMat &H, Efunc &B)
     spMat J = (gfvalue.col(0)).asDiagonal() * gradVF[0] + (gfvalue.col(1)).asDiagonal() * gradVF[1] + (gfvalue.col(2)).asDiagonal() * gradVF[2];
     J *= 2;
     // std::cout<<"compute JTJ"<<std::endl;
-    spMat JTJ = J.transpose() * J;
+    spMat JTJ = J.transpose() *areaF.asDiagonal()* J;
     // std::cout<<"compute f"<<std::endl;
     Eigen::VectorXd f = gfvalue.col(0).asDiagonal() * gfvalue.col(0) + gfvalue.col(1).asDiagonal() * gfvalue.col(1) + gfvalue.col(2).asDiagonal() * gfvalue.col(2);
     f -= Eigen::VectorXd::Ones(fsize) * strip_width * strip_width;
 
-    Eigen::VectorXd mJTF_dense = -J.transpose() * f;
+    Eigen::VectorXd mJTF_dense = -J.transpose()*areaF.asDiagonal() * f;
     H = JTJ;
     B = dense_vec_to_sparse_vec(mJTF_dense);
 }

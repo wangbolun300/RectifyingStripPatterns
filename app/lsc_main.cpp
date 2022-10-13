@@ -42,7 +42,7 @@ namespace lscif
 	double weight_boundary=100;	// weight of the boundary condition
 	double weight_laplacian=1;
 	double weight_pseudo_geodesic=10;
-	double weight_strip_width=10;
+	double weight_strip_width=0.1;
 	double maximal_step_length = 0.5;
 	
 
@@ -58,7 +58,6 @@ namespace lscif
 	double dbg_dbl = 30;
 	double dbg_dbl2 = 60;
 	double vector_scaling = 1;
-	double strip_width_ratio = 1.;
 	int extracted_nbr=5;
 	std::vector<int> fixedVertices;
 
@@ -535,7 +534,7 @@ int main(int argc, char *argv[])
 				for (int i = 0; i < lscif::OpIter; i++)
 				{
 					lscif::tools.optimize_laplacian_with_traced_boundary_condition();
-					if(lscif::tools.step_length<1e-6){
+					if(lscif::tools.step_length<1e-6&& i!=0){// step length actually is the value for the last step
 						std::cout<<"optimization converges "<<std::endl;
 						break;
 					}
