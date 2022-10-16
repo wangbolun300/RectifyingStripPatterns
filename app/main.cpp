@@ -30,7 +30,7 @@ int main(int argc, char * argv[])
   Eigen::MatrixXd V;
   Eigen::MatrixXi F;
   if(!igl::read_triangle_mesh(
-                              argc>1?argv[1]: TUTORIAL_SHARED_PATH "/beetle.off",V,F)) {
+                              argc>1?argv[1]:  "/Users/wangb0d/bolun/D/vs/libigl-example-project/libigl-tutorial-data-master/beetle.off",V,F)) {
     std::cout << "Failed to load mesh." << std::endl;
   }
   

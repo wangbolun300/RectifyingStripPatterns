@@ -34,14 +34,18 @@ endif()
 
 
 
-  # libigl for timing
-if(NOT TARGET igl::core)
-  sparse_interp_download_libigl()
+  # libigl
+if(TARGET igl::core)
+  return()
+endif()
 
-    # Import libigl targets
-    list(APPEND CMAKE_MODULE_PATH "${SPARSE_EXTERNAL}/libigl/cmake")
-    include(libigl)
-  endif()
+include(FetchContent)
+FetchContent_Declare(
+  libigl
+  GIT_REPOSITORY https://github.com/libigl/libigl.git
+  GIT_TAG v2.4.0
+)
+FetchContent_MakeAvailable(libigl)
 
  
 

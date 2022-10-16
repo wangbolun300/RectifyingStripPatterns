@@ -6,7 +6,7 @@
 #include <igl/unproject_onto_mesh.h>
 #include <igl/arap.h>
 #include <igl/harmonic.h>
-#include <imgui/imgui.h>
+
 #include <iostream>
 
 #include <igl/unproject_ray.h>
@@ -291,10 +291,11 @@ int main(int argc, char *argv[])
 
 	// Init the viewer
 	igl::opengl::glfw::Viewer viewer;
-
+	igl::opengl::glfw::imgui::ImGuiPlugin plugin;
+	viewer.plugins.push_back(&plugin);
 	// Attach a menu plugin
 	igl::opengl::glfw::imgui::ImGuiMenu menu;
-	viewer.plugins.push_back(&menu);
+	plugin.widgets.push_back(&menu);
 
 	// Add content to the default menu window
 	menu.callback_draw_viewer_menu = [&]()
@@ -307,8 +308,8 @@ int main(int argc, char *argv[])
 	menu.callback_draw_custom_window = [&]()
 	{
 		// Define next window position + size
-		ImGui::SetNextWindowPos(ImVec2(180.f * menu.menu_scaling(), 10), ImGuiSetCond_FirstUseEver);
-		ImGui::SetNextWindowSize(ImVec2(300, 800), ImGuiSetCond_FirstUseEver);
+		ImGui::SetNextWindowPos(ImVec2(180.f * menu.menu_scaling(), 10), ImGuiCond_FirstUseEver);
+		ImGui::SetNextWindowSize(ImVec2(300, 800), ImGuiCond_FirstUseEver);
 		ImGui::Begin(
 			"Levelset Curves", nullptr,
 			ImGuiWindowFlags_NoSavedSettings);
@@ -727,7 +728,7 @@ int main(int argc, char *argv[])
 			ImGui::PopItemWidth();
 		}
 
-		ImGui::SetNextTreeNodeOpen(true);
+		ImGui::SetNextItemOpen(true);
 		if (ImGui::TreeNode("Mesh Management"))
 		{
 
