@@ -39,7 +39,7 @@ Temporary Items
 *.slo
 *.lo
 *.o
-*.obj
+# *.obj #we need obj mesh files 
 
 # Precompiled Headers
 *.gch
