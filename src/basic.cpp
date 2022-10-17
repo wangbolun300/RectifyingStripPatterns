@@ -5,6 +5,7 @@
 #include <igl/boundary_loop.h>
 #include <igl/grad.h>
 #include <igl/hessian.h>
+#include <igl/curved_hessian_energy.h>
 
 lsTools::lsTools(CGMesh &mesh)
 {
@@ -31,6 +32,8 @@ void lsTools::init(CGMesh &mesh)
     std::cout << "parametrization finished, parameter matrix size " << paras.rows() << " x " << paras.cols() << std::endl;
 
     igl::cotmatrix(V, F, Dlps);
+    igl::curved_hessian_energy(V, F, QcH);
+    
 }
 
 void lsTools::prepare_level_set_solving(const EnergyPrepare &Energy_initializer)
@@ -666,7 +669,14 @@ void lsTools::assemble_solver_laplacian_part(spMat &H, Efunc &B)
     assert(B.size() == V.rows());
     assert(H.rows() == H.cols() && H.rows() == V.rows());
 }
-
+void lsTools::assemble_solver_biharmonic_smoothing(spMat &H, Efunc &B){
+    spMat JTJ=QcH; 
+    Efunc mJTF=dense_vec_to_sparse_vec(-JTJ * fvalues);
+    H = JTJ;
+    B = mJTF;// the mass matrix is already integrated in QcH.
+    assert(B.size() == V.rows());
+    assert(H.rows() == H.cols() && H.rows() == V.rows());
+}
 // assemble matrices for \sum{area(i)*(||gradient(i)||-strip_width)^2}
 // TODO modify it to be a triangle face based method
 void lsTools::assemble_solver_strip_width_part(spMat &H, Efunc &B)
@@ -1223,7 +1233,8 @@ void lsTools::optimize_laplacian_with_traced_boundary_condition(){
     // std::cout<<"boundary condition set up"<<std::endl;
     spMat LTL;// left of laplacian
     Efunc mLTF;// right of laplacian
-    assemble_solver_laplacian_part(LTL, mLTF);
+    // assemble_solver_laplacian_part(LTL, mLTF);
+    assemble_solver_biharmonic_smoothing(LTL,mLTF);
     // std::cout<<"laplacian condition set up"<<std::endl;
     assert(mass.rows() == vnbr);
     
@@ -1256,6 +1267,7 @@ void lsTools::optimize_laplacian_with_traced_boundary_condition(){
     assert(solver.info() == Eigen::Success);
     // std::cout<<"solved successfully"<<std::endl;
     Eigen::VectorXd dx = solver.solve(B).eval();
+    dx*=0.75;
     // std::cout << "step length " << dx.norm() << std::endl;
     double level_set_step_length = dx.norm();
     // double inf_norm=dx.cwiseAbs().maxCoeff();
@@ -1265,12 +1277,14 @@ void lsTools::optimize_laplacian_with_traced_boundary_condition(){
     }
     fvalues += dx;
     double energy_laplacian=(Dlps*fvalues).norm();
+    double energy_biharmonic=fvalues.transpose()* QcH*fvalues;
     double energy_boundary=(bcfvalue).norm();
-    std::cout << "energy: lap " << energy_laplacian << ", bnd " << energy_boundary << ", ";
+    std::cout << "energy: harm " << energy_biharmonic << ", bnd " << energy_boundary << ", ";
     if (enable_pseudo_geodesic_energy)
     {
         double energy_pg = (EdgeWeight.asDiagonal() * PEfvalue).norm();
         std::cout << "pg, " << energy_pg << ", ";
+        // std::cout<<"EdgeWeight\n"<<EdgeWeight<<std::endl;
     }
     if (enable_strip_width_energy)
     {

@@ -75,6 +75,7 @@ private:
     std::vector<Eigen::Matrix3d> hfvalue;         // the calculated Hessian values of f for each vertex
     std::vector<int> refids;                      // output the ids of current dealing points. just for debug purpose
     // spMat Dlpsqr;                       // the derivates of ||laplacian F||^2 for all the vertices.
+    spMat QcH; // curved 
     spMat Dlps;       // the derivates of laplacian F for all the vertices.
     spMat Dgrad_norm; // the derivates of the norm of gradients for all the vertices.
     spMat mass;       // mass(i,i) is the area of the voronoi cell of vertex vi
@@ -125,6 +126,7 @@ private:
     void calculate_pseudo_energy_function_values(const double angle_degree);
     void assemble_solver_boundary_condition_part(spMat& H, Efunc& B);
     void assemble_solver_laplacian_part(spMat &H, Efunc &B);
+    void assemble_solver_biharmonic_smoothing(spMat &H, Efunc &B); //Biharmonic smoothing (natural curved Hessian boundary)
     void assemble_solver_pesudo_geodesic_energy_part(spMat &H, Efunc &B);
     void assemble_solver_strip_width_part(spMat &H, Efunc &B);
 

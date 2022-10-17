@@ -62,14 +62,15 @@ int main(int argc, char * argv[])
   
   //Solve to find Laplacian-smoothed Hessian-smoothed, and
   // curved-Hessian-smoothed solutions
-  const double al = 3e-7;
+   double al = 3e-7;
   Eigen::SimplicialLDLT<SparseMat> lapSolver(al*QL + (1.-al)*M);
   Eigen::VectorXd zl = lapSolver.solve(al*M*znoisy);
+  
   const double ah = 2e-7;
   Eigen::SimplicialLDLT<SparseMat> hessSolver(ah*QH + (1.-ah)*M);
   Eigen::VectorXd zh = hessSolver.solve(ah*M*znoisy);
-  const double ach = 3e-7;
-  Eigen::SimplicialLDLT<SparseMat> curvedHessSolver(al*QcH + (1.-ach)*M);
+   double ach = 3e-7;
+  Eigen::SimplicialLDLT<SparseMat> curvedHessSolver(ach*QcH + (1.-ach)*M);
   Eigen::VectorXd zch = curvedHessSolver.solve(ach*M*znoisy);
   
   //Viewer that shows all functions: zexact, znoisy, zl, zh
@@ -81,6 +82,7 @@ int main(int argc, char * argv[])
   {
     //Graduate result to show isolines, then compute color matrix
     const Eigen::VectorXd* z;
+    Eigen::VectorXd zx;
     switch(key) {
       case '1':
         z = &zexact;
@@ -97,6 +99,57 @@ int main(int argc, char * argv[])
       case '5':
         z = &zch;
         break;
+      case '6':
+      {
+        // std::cout<<zl.norm()<<std::endl;
+        // zl = lapSolver.solve(al*M*zl);
+        // z=&zl;
+        SparseMat JTJ=al*QL+(1.-al)*M;
+        Eigen::VectorXd right=-al*QL*zl;
+        Eigen::SimplicialLDLT<SparseMat> tsolver(JTJ);
+        Eigen::VectorXd delta=tsolver.solve(right).eval();
+        zl+=delta;
+        z=&zl;
+        std::cout<<"*delta "<<delta.norm()<<std::endl;
+        std::cout<<"zl "<<zl.norm()<<std::endl;
+
+        break;
+      }
+        
+      case '7':
+      {
+        std::cout<<zh.norm()<<std::endl;
+        zh = hessSolver.solve(ah*M*zh);
+        z=&zh;
+        break;
+      }
+        
+      case '8':
+      {
+        // std::cout<<zch.norm()<<std::endl;
+        // zch = curvedHessSolver.solve(ach*M*zch);
+        // z=&zch;
+        ach=1e-3;
+        SparseMat JTJ=ach*QcH + (1.-ach)*M;
+        Eigen::VectorXd right=-ach*QcH*zch;
+        Eigen::SimplicialLDLT<SparseMat> tsolver(JTJ);
+        Eigen::VectorXd delta=tsolver.solve(right);
+        zch+=delta;
+        z=&zch;
+        std::cout<<"*delta "<<delta.norm()<<std::endl;
+        std::cout<<"zch "<<zch.norm()<<std::endl;
+        break;
+      }
+      case '9':{
+        
+        SparseMat mJT=(2*al-1)*M-ah*QL;
+        Eigen::VectorXd delta=lapSolver.solve(mJT*zl);
+        zl-=delta;
+        std::cout<<"delta "<<delta.norm()<<std::endl;
+        z=&zl;
+        break;
+      }
+  
       default:
         return false;
     }
