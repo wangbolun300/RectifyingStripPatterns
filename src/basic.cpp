@@ -888,15 +888,21 @@ void lsTools::get_all_the_edge_normals()
 }
 
 // get vid1, vid2, vidA and vidB.
+// here we do not assume fvalues[vid1]>fvalues[vid2], we need to consider it outside
 std::array<int,4> get_vers_around_edge(CGMesh& lsmesh, int edgeid, int& fid1, int &fid2){
     CGMesh::EdgeHandle edge_middle=lsmesh.edge_handle(edgeid);
     CGMesh::HalfedgeHandle he = lsmesh.halfedge_handle(edge_middle, 0);
-    fid1=lsmesh.face_handle(he).idx();
     int vid1 = lsmesh.to_vertex_handle(he).idx();
     int vid2 = lsmesh.from_vertex_handle(he).idx();
+    // if(fvalues[vid1]<fvalues[vid2]){
+    //     he = lsmesh.halfedge_handle(edge_middle, 1);
+    //     vid1 = lsmesh.to_vertex_handle(he).idx();
+    //     vid2 = lsmesh.from_vertex_handle(he).idx();
+    // }
     CGMesh::HalfedgeHandle nexthandle=lsmesh.next_halfedge_handle(he);
     int vidA=lsmesh.to_vertex_handle(nexthandle).idx();
     CGMesh::HalfedgeHandle oppohandle=lsmesh.opposite_halfedge_handle(he);
+    fid1=lsmesh.face_handle(he).idx();
     fid2=lsmesh.face_handle(oppohandle).idx();
     CGMesh::HalfedgeHandle opnexthandle=lsmesh.next_halfedge_handle(oppohandle);
     int vidB=lsmesh.to_vertex_handle(opnexthandle).idx();
@@ -916,6 +922,9 @@ Eigen::Vector3d get_coff_vec_for_gradient(std::array<spMat, 3> &gradVF, const in
     result[2]=gradVF[2].coeffRef(fid,vid);
     return result;
 }
+
+// calculate vector of matrix A, A[i]*f is the jacobian of (g1xg2).dot(norm).
+// here g1, g2 are the rotated gradients
 void lsTools::calculate_gradient_partial_parts(){
     
     int act_size=Actid.size();
@@ -943,6 +952,16 @@ void lsTools::calculate_gradient_partial_parts(){
         b2=get_coff_vec_for_gradient(gradVF,fid2,v2);
         bB=get_coff_vec_for_gradient(gradVF,fid2,vB);
         Eigen::Vector3d norm=norm_e.row(Actid[i]);
+        Eigen::Vector3d norm1=norm_f.row(fid1);
+        Eigen::Vector3d norm2=norm_f.row(fid2);
+
+        // rotate the gradient to present the iso-line direction
+        d1=norm1.cross(d1);
+        d2=norm1.cross(d2);
+        dA=norm1.cross(dA);
+        b1=norm2.cross(b1);
+        b2=norm2.cross(b2);
+        bB=norm2.cross(bB);
 
         double cf1f1 = d1.cross(b1).dot(norm);
         double cf1f2 = (d2.cross(b1) + d1.cross(b2)).dot(norm);
@@ -986,7 +1005,7 @@ void lsTools::calculate_pseudo_energy_function_values(const double angle_degree)
 
     int act_size=Actid.size();
     PEfvalue.resize(act_size);
-    EdgeOrient.resize(act_size);
+    EdgeOrient.resize(act_size);// first make g1 g2 same direction, then check if g1xg2 or g2xg1
     EdgeWeight.resize(act_size);
     double angle_radian = angle_degree * LSC_PI / 180.; // the angle in radian
     double cos_angle=cos(angle_radian);
@@ -1002,12 +1021,17 @@ void lsTools::calculate_pseudo_energy_function_values(const double angle_degree)
         int vA=vids[2];
         int vB=vids[3];
         Eigen::Vector3d norm = norm_e.row(Actid[i]);
-
+        Eigen::Vector3d norm1=norm_f.row(fid1);
+        Eigen::Vector3d norm2=norm_f.row(fid2);
         Eigen::Vector3d g1=gfvalue.row(fid1);
         Eigen::Vector3d g2=gfvalue.row(fid2);
+        // rotate gradients to get iso-curve directions
+        g1=norm1.cross(g1);
+        g2=norm2.cross(g2);
         Eigen::Vector3d g1xg2=g1.cross(g2);
+
         
-        // deal with edge orientation
+        // deal with edge orientation: shoot from small value to big value
         Eigen::Vector3d edirec = V.row(v1) - V.row(v2);
         double flag1=g1.cross(edirec).dot(norm);
         double flag2=g2.cross(edirec).dot(norm);
@@ -1030,9 +1054,13 @@ void lsTools::calculate_pseudo_energy_function_values(const double angle_degree)
         }
         else{
             Eigen::Vector3d g1n = g1.normalized();
-            Eigen::Vector3d g2n = EdgeOrient[i]*g2.normalized();// get the oriented g2
+            Eigen::Vector3d g2n = EdgeOrient[i]*g2.normalized();// get the oriented g2, to make g1 g2 goes to the same direction
             double cos_real=g1n.dot(g2n);
             EdgeWeight[i]=(cos_real+1)/2;// cos = 1, weight is 1; cos = -1, means it is very sharp turn, weight = 0
+        }
+
+        if(fvalues[v1]<fvalues[v2]){ // orient g1xg2 or g2xg1
+            EdgeOrient[i]*=-1;
         }
         double value = EdgeOrient[i] * g1xg2.dot(norm) - g1xg2.norm() * cos_angle;
         PEfvalue.coeffRef(i)=value;
