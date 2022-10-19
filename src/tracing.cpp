@@ -643,6 +643,7 @@ bool lsTools::get_checking_edges(const std::vector<int> &start_point_ids, const 
     std::cout << "--------------getting checking edges, itr " << ninfo.round << std::endl;
     ninfo.edges.clear();
     point_to_check.clear();
+    int eid=lsmesh.edge_handle(edge_middle).idx();
     if (ninfo.round > 5)
     { // search only two rings
         return false;
@@ -702,18 +703,7 @@ bool lsTools::get_checking_edges(const std::vector<int> &start_point_ids, const 
             int fid1 = lsmesh.face_handle(edge_middle).idx();
             int fid2 = lsmesh.opposite_face_handle(edge_middle).idx();
             assert(fid1 != fid2);
-            Eigen::Vector3d norm1 = Eigen::Vector3d(0, 0, 0);
-            Eigen::Vector3d norm2 = Eigen::Vector3d(0, 0, 0);
-            if (fid1 >= 0)
-            {
-                norm1 = norm_f.row(fid1);
-            }
-            if (fid2 >= 0)
-            {
-                norm2 = norm_f.row(fid2);
-            }
-
-            ninfo.pnorm = (norm1 + norm2).normalized(); // the normal of the pseudo-vertex
+            ninfo.pnorm = norm_e.row(eid); // the normal of the pseudo-vertex
 
             CGMesh::HalfedgeHandle ophe = lsmesh.opposite_halfedge_handle(edge_middle);
             CGMesh::HalfedgeHandle ophe_next = lsmesh.next_halfedge_handle(ophe);
@@ -891,11 +881,8 @@ bool lsTools::get_pseudo_vertex_and_trace_forward(
     {
         int fid2 = lsmesh.opposite_face_handle(edge_middle).idx();
         assert(fid1 != fid2);
-
-        Eigen::Vector3d norm1 = norm_f.row(fid1);
-        Eigen::Vector3d norm2 = norm_f.row(fid2);
-        pnorm = (norm1 + norm2).normalized(); // the normal of the pseudo-vertex
-
+        int eid=lsmesh.edge_handle(edge_middle).idx();
+        pnorm = norm_e.row(eid); // the normal of the pseudo-vertex
         CGMesh::HalfedgeHandle ophe = lsmesh.opposite_halfedge_handle(edge_middle);
         edges.push_back(lsmesh.next_halfedge_handle(ophe));
         edges.push_back(lsmesh.prev_halfedge_handle(ophe));
