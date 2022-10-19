@@ -1005,7 +1005,7 @@ void lsTools::calculate_pseudo_energy_function_values(const double angle_degree)
 
     int act_size=Actid.size();
     PEfvalue.resize(act_size);
-    EdgeOrient.resize(act_size);// first make g1 g2 same direction, then check if g1xg2 or g2xg1
+    EdgeOrient.resize(act_size);// first make g1 g2 same direction, then check if g1xg2 or g2xg1.
     EdgeWeight.resize(act_size);
     double angle_radian = angle_degree * LSC_PI / 180.; // the angle in radian
     double cos_angle=cos(angle_radian);
