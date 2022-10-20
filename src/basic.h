@@ -75,7 +75,7 @@ private:
     std::vector<Eigen::Matrix3d> hfvalue;         // the calculated Hessian values of f for each vertex
     std::vector<int> refids;                      // output the ids of current dealing points. just for debug purpose
     // spMat Dlpsqr;                       // the derivates of ||laplacian F||^2 for all the vertices.
-    spMat QcH; // curved 
+    spMat QcH; // curved harmonic energy matrix
     spMat Dlps;       // the derivates of laplacian F for all the vertices.
     spMat Dgrad_norm; // the derivates of the norm of gradients for all the vertices.
     spMat mass;       // mass(i,i) is the area of the voronoi cell of vertex vi
@@ -83,15 +83,22 @@ private:
     Eigen::VectorXi EdgeOrient; // orientation of the edges
     Eigen::VectorXd EdgeWeight; // weight (0~1) of each edge depending on the neighbouring gradient directions
     
-    // spMat F2V;                                       // the matrix averaging face values to vertices values, acorrding to the angels
-    spMat ORB; // the matrix where the (i,i) element show if it is a boundary vertex or one-ring vertex of boundary
+    // vertex-based pseudo-energy values
+    Eigen::VectorXd InnerV; // the vector show if it is a inner ver (1) or not (0).
+    std::vector<int> IVids; // the ids of the inner vers.
+    Eigen::VectorXd ActV; // the vector where the ith element show if it is an active vertex. No boundary ver, no singularity ver
+    std::vector<spMat> VPEJC; // vertex-based pseudo-geodesic energy partial coffecients
+
     std::vector<CGMesh::HalfedgeHandle> Boundary_Edges;
+
+    
     Eigen::MatrixXd norm_e; // normal directions on each edge
     std::vector<std::vector<Eigen::Vector3d>> trace_vers;        // traced vertices
     std::vector<std::vector<CGMesh::HalfedgeHandle>> trace_hehs; // traced half edge handles
     std::vector<double> assigned_trace_ls; // function values for each traced curve.
     double trace_start_angle_degree; //the angle between the first segment and the given boundary
     
+    // edge-based pseudo-energy values
     Efunc ActE;// active edges, which means they are not co-planar edges, and not boundary edges.
     std::vector<int> Actid; // active edge ids. the length equals to the number of non-zero elements in ActE
     std::vector<spMat> PEJC; // pseudo-geodesic energy jacobian coffecients of each active edge. PEJC[i]*fvalues is the real Jacobian
@@ -119,9 +126,10 @@ private:
     // CAUTION: please call this after you initialize the function values.
     void get_grad_norm_jacobian();
     // get the boundary vertices and one ring vertices from them
-    void get_bnd_and_bnd_one_ring();
+    void get_bnd_vers_and_handles();
     void get_all_the_edge_normals();// the edge normals and the active edges
     void calculate_gradient_partial_parts();// calculate gradient partial derivatives. Edge based energy part
+    void calculate_gradient_partial_parts_ver_based();// calculate gradient partial derivatives. Edge based energy part
     // pseudo energy values for right side of the Gauss-newton. update weights.
     void calculate_pseudo_energy_function_values(const double angle_degree);
     void assemble_solver_boundary_condition_part(spMat& H, Efunc& B);
@@ -245,7 +253,7 @@ public:
         // 9
         get_I_and_II_locally();
         get_vertex_rotation_matices();
-        get_bnd_and_bnd_one_ring();
+        get_bnd_vers_and_handles();
         get_all_the_edge_normals();
         calculate_gradient_partial_parts();
     }

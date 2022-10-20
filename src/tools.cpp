@@ -901,3 +901,30 @@ bool read_levelset(Eigen::VectorXd &ls){
 
     return true;
 }
+
+// get vid1, vid2, vidA and vidB.
+// here we do not assume fvalues[vid1]>fvalues[vid2], we need to consider it outside
+std::array<int,4> get_vers_around_edge(CGMesh& lsmesh, int edgeid, int& fid1, int &fid2){
+    CGMesh::EdgeHandle edge_middle=lsmesh.edge_handle(edgeid);
+    CGMesh::HalfedgeHandle he = lsmesh.halfedge_handle(edge_middle, 0);
+    int vid1 = lsmesh.to_vertex_handle(he).idx();
+    int vid2 = lsmesh.from_vertex_handle(he).idx();
+    // if(fvalues[vid1]<fvalues[vid2]){
+    //     he = lsmesh.halfedge_handle(edge_middle, 1);
+    //     vid1 = lsmesh.to_vertex_handle(he).idx();
+    //     vid2 = lsmesh.from_vertex_handle(he).idx();
+    // }
+    CGMesh::HalfedgeHandle nexthandle=lsmesh.next_halfedge_handle(he);
+    int vidA=lsmesh.to_vertex_handle(nexthandle).idx();
+    CGMesh::HalfedgeHandle oppohandle=lsmesh.opposite_halfedge_handle(he);
+    fid1=lsmesh.face_handle(he).idx();
+    fid2=lsmesh.face_handle(oppohandle).idx();
+    CGMesh::HalfedgeHandle opnexthandle=lsmesh.next_halfedge_handle(oppohandle);
+    int vidB=lsmesh.to_vertex_handle(opnexthandle).idx();
+    std::array<int,4> result;
+    result[0]=vid1;
+    result[1]=vid2;
+    result[2]=vidA;
+    result[3]=vidB;
+    return result;
+}

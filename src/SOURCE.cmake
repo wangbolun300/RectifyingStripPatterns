@@ -11,6 +11,7 @@ src/igl_tool.cpp
 src/tools.h
 src/tools.cpp
 src/tracing.cpp
+src/energy.cpp
 )
 ################################################################################
 # Subfolders

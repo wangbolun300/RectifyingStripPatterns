@@ -18,6 +18,8 @@
 // -------------------- OpenMesh
 #include <OpenMesh/Core/IO/MeshIO.hh>
 #include <OpenMesh/Core/Mesh/PolyMesh_ArrayKernelT.hh>
+#include <igl/parula.h>
+#include <igl/isolines_map.h>
 typedef OpenMesh::PolyMesh_ArrayKernelT<> CGMesh;
 
 // the interface operators
@@ -284,7 +286,7 @@ int main(int argc, char *argv[])
 #endif
 	std::string fname = example_root_path + std::string("oc_5.000000_10.000000_50_30.obj");
 	OpenMesh::IO::read_mesh(lscif::mesh, fname);
-
+	lscif::tools.init(lscif::mesh);
 	lscif::MP.mesh2Matrix(lscif::mesh, lscif::V, lscif::F);
 	lscif::meshFileName.push_back("quad_pq");
 	lscif::Meshes.push_back(lscif::mesh);
@@ -323,7 +325,7 @@ int main(int argc, char *argv[])
 				return;
 
 			OpenMesh::IO::read_mesh(lscif::mesh, fname);
-
+			lscif::tools.init(lscif::mesh);
 			size_t last_dot = fname.rfind('.');
 			size_t last_slash = fname.rfind(spliter); // TODO on linux it should be '/'
 			std::string fnameNew = fname.substr(last_slash + 1, (last_dot - last_slash - 1));
@@ -371,14 +373,20 @@ int main(int argc, char *argv[])
 		if (ImGui::Button("Import levelset", ImVec2(ImGui::GetWindowSize().x * 0.25f, 0.0f)))
 		{
 			
-			read_levelset(lscif::tools.fvalues);
+			bool read=read_levelset(lscif::tools.fvalues);
+			if(read){
+				std::cout<<"\nlevel set readed"<<std::endl;
+			}
 		}
 
 		ImGui::SameLine();
 
 		if (ImGui::Button("Save levelset", ImVec2(ImGui::GetWindowSize().x * 0.25f, 0.0f)))
 		{
-			save_levelset(lscif::tools.fvalues);
+			bool saved=save_levelset(lscif::tools.fvalues);
+			if(saved){
+				std::cout<<"\nlevel set saved"<<std::endl;
+			}
 		}
 
 		static bool updateMeshFlag = false;
@@ -549,6 +557,10 @@ int main(int argc, char *argv[])
 
 				Eigen::VectorXd level_set_values;
 				lscif::tools.show_level_set(level_set_values);
+				Eigen::MatrixXd CM;
+				igl::parula(Eigen::VectorXd::LinSpaced(21, 0, 1).eval(), false, CM);
+				igl::isolines_map(Eigen::MatrixXd(CM), CM);
+				viewer.data().set_colormap(CM);
 				viewer.data().set_colors(level_set_values);
 				// Eigen::MatrixXd E0, E1;
 				// // lscif::tools.show_gradients(E0,E1, lscif::vector_scaling);
@@ -623,6 +635,17 @@ int main(int argc, char *argv[])
 				{
 					viewer.data().add_points(pts, red);
 				}
+			}
+			ImGui::SameLine();
+			if (ImGui::Button("draw levelset", ImVec2(ImGui::GetWindowSize().x * 0.23f, 0.0f)))
+			{
+				Eigen::VectorXd level_set_values;
+				lscif::tools.show_level_set(level_set_values);
+				Eigen::MatrixXd CM;
+				igl::parula(Eigen::VectorXd::LinSpaced(21, 0, 1).eval(), false, CM);
+				igl::isolines_map(Eigen::MatrixXd(CM), CM);
+				viewer.data().set_colormap(CM);
+				viewer.data().set_colors(level_set_values);
 			}
 			if (ImGui::Button("MeshUnitScale", ImVec2(ImGui::GetWindowSize().x * 0.23f, 0.0f)))
 			{

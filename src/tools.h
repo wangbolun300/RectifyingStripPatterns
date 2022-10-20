@@ -33,3 +33,8 @@ const std::vector<CGMesh::HalfedgeHandle> &Boundary_Edges, std::vector<std::vect
 
 bool save_levelset(const Eigen::VectorXd &ls);
 bool read_levelset(Eigen::VectorXd &ls);
+std::array<int,4> get_vers_around_edge(CGMesh& lsmesh, int edgeid, int& fid1, int &fid2);
+double get_t_of_segment(const Eigen::Vector3d &ver, const Eigen::Vector3d &start, const Eigen::Vector3d &end);
+double get_t_of_value(const double &ver, const double &start, const double &end);
+Eigen::Vector2d get_2d_ver_from_t(const double t, const Eigen::Vector2d& start, const Eigen::Vector2d& end);
+Eigen::Vector3d get_3d_ver_from_t(const double t, const Eigen::Vector3d& start, const Eigen::Vector3d& end);

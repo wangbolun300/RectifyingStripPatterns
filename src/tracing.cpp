@@ -433,6 +433,10 @@ bool binormal_correct_angle(const Eigen::Vector3d &seg_in, const Eigen::Vector3d
     {
         return false;
     }
+    // if we are checking asymptotic, then don't need further check
+    if(angles_match(angle_degree,0)|| angles_match(angle_degree,180)){
+        return true;
+    }
     // tangent is othogonal to surface normal and the curve bi-normal
     Eigen::Vector3d tangent = norm.cross(pnorm).normalized();
     if (angle_degree >= 0 && angle_degree <= 180)
