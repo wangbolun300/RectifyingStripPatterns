@@ -80,15 +80,17 @@ private:
     spMat Dgrad_norm; // the derivates of the norm of gradients for all the vertices.
     spMat mass;       // mass(i,i) is the area of the voronoi cell of vertex vi
     Efunc bcfvalue; // boundary condition function values
-    Eigen::VectorXi EdgeOrient; // orientation of the edges
-    Eigen::VectorXd EdgeWeight; // weight (0~1) of each edge depending on the neighbouring gradient directions
+    Eigen::VectorXi LsOrient; // orientation of the level set. it gives the orientation of shooting an iso-value line
+    Eigen::VectorXd PeWeight; // weight (0~1) of each edge/vertex depending on the neighbouring gradient directions
     
     // vertex-based pseudo-energy values
     Eigen::VectorXd InnerV; // the vector show if it is a inner ver (1) or not (0).
     std::vector<int> IVids; // the ids of the inner vers.
     Eigen::VectorXd ActV; // the vector where the ith element show if it is an active vertex. No boundary ver, no singularity ver
     std::vector<spMat> VPEJC; // vertex-based pseudo-geodesic energy partial coffecients
-
+    std::vector<CGMesh::HalfedgeHandle> Vheh0;// the inward halfedge of each inner ver
+    std::vector<CGMesh::HalfedgeHandle> Vheh1;// the outward halfedge of each inner ver
+    std::vector<int> ActInner; // the active elements in the inner vertices
     std::vector<CGMesh::HalfedgeHandle> Boundary_Edges;
 
     
@@ -102,7 +104,8 @@ private:
     Efunc ActE;// active edges, which means they are not co-planar edges, and not boundary edges.
     std::vector<int> Actid; // active edge ids. the length equals to the number of non-zero elements in ActE
     std::vector<spMat> PEJC; // pseudo-geodesic energy jacobian coffecients of each active edge. PEJC[i]*fvalues is the real Jacobian
-    Efunc PEfvalue; // pseudo-geodesic energy values for each active edge
+    Efunc EPEvalue; // pseudo-geodesic energy values for each active edge
+    Efunc VPEvalue; // pseudo-geodesic energy for each inner
     bool derivates_calculated = false;
     void get_mesh_angles();
     void get_mesh_normals_per_face();
@@ -132,6 +135,7 @@ private:
     void calculate_gradient_partial_parts_ver_based();// calculate gradient partial derivatives. Edge based energy part
     // pseudo energy values for right side of the Gauss-newton. update weights.
     void calculate_pseudo_energy_function_values(const double angle_degree);
+    void calculate_pseudo_energy_function_values_vertex_based(const double angle_degree);
     void assemble_solver_boundary_condition_part(spMat& H, Efunc& B);
     void assemble_solver_laplacian_part(spMat &H, Efunc &B);
     void assemble_solver_biharmonic_smoothing(spMat &H, Efunc &B); //Biharmonic smoothing (natural curved Hessian boundary)
