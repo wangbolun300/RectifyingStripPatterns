@@ -75,7 +75,7 @@ bool find_active_faces_and_directions_around_ver(CGMesh &lsmesh, const Eigen::Ve
         directions[order[i]]=dircs[i];
         l2s[order[i]]=large_to_small[i];
     }
-    assert(lsmesh.face_handle(handles[0]).idx()==lsmesh.face_handle(handles[1]).idx());
+    assert(lsmesh.face_handle(handles[0]).idx()!=lsmesh.face_handle(handles[1]).idx()&& "the two halfedges correspond to different faces");
     return true;
    
 }
@@ -233,6 +233,7 @@ void lsTools::calculate_gradient_partial_parts(){
 // here g1, g2 are the rotated gradients
 void lsTools::calculate_gradient_partial_parts_ver_based(){
     int ninner=IVids.size();
+    int vnbr=V.rows();
     bool first_time_compute = false; // if it is first time, we need to compute all; otherwise we just need to update
     if (VPEJC.empty())
     {
@@ -303,6 +304,7 @@ void lsTools::calculate_gradient_partial_parts_ver_based(){
             {
                 triplets = get_triplets_for_gradient_partial_parts_vertex_based(gradVF, v1, v2, v3, v4, vid, fid1, fid2, norm, norm1, norm2);
             }
+            VPEJC[i].resize(vnbr,vnbr);
             VPEJC[i].setFromTriplets(triplets.begin(), triplets.end());
             Vheh0[i] = hd1;
             Vheh1[i] = hd2;
@@ -496,6 +498,11 @@ void lsTools::assemble_solver_boundary_condition_part(spMat& H, Efunc& B){
 }
 void lsTools::assemble_solver_pesudo_geodesic_energy_part(spMat &H, Efunc &B)
 {
+    if (PEJC.empty())
+    {
+        calculate_gradient_partial_parts();// this compute some constant matrices so only need called once
+    }
+
     calculate_pseudo_energy_function_values(pseudo_geodesic_target_angle_degree);
     // std::cout<<"function values get calculated"<<std::endl;
 
@@ -530,36 +537,42 @@ void lsTools::assemble_solver_pesudo_geodesic_energy_part(spMat &H, Efunc &B)
 
 void lsTools::assemble_solver_pesudo_geodesic_energy_part_vertex_baed(spMat &H, Efunc &B)
 {
-    // calculate_pseudo_energy_function_values(pseudo_geodesic_target_angle_degree);
-    // // std::cout<<"function values get calculated"<<std::endl;
+    // recompute the left part
+    calculate_gradient_partial_parts_ver_based();
+    // std::cout<<"calculated gradient partial"<<std::endl;
+    // recompute the right part
+    calculate_pseudo_energy_function_values_vertex_based(pseudo_geodesic_target_angle_degree);
+    // std::cout<<"calculated fuction values"<<std::endl;
 
-    // int act_size = Actid.size();
-    // int vnbr = V.rows();
-    // // std::cout<<"vnbr "<<vnbr<<std::endl;
-    // spMat JTJ;
-    // spMat JTf;
-    // JTJ.resize(vnbr, vnbr);
-    // JTf.resize(vnbr,1);
-    // Eigen::MatrixXd Mfvalues(vnbr, 1);
-    // Mfvalues.col(0) = fvalues;
-    // spMat SMfvalues = Mfvalues.sparseView();
-    
-    // for (int i = 0; i < act_size; i++)
-    // {
-    //     // std::cout<<"SMfvalues size "<<SMfvalues.rows()<<" "<<SMfvalues.cols()<<std::endl;
-    //     spMat JT = LsOrient[i] * PEJC[i] * SMfvalues;
-    //     // std::cout<<"J size "<<J.rows()<<" "<<J.cols()<<std::endl;
-    //     spMat tjtj=JT* JT.transpose();
-    //     // std::cout<<"tempJTJ size "<<tjtj.rows()<<" "<<tjtj.cols()<<std::endl;
-    //     JTJ += PeWeight[i] * tjtj;
-    //     // std::cout<<"JTJ size "<<JTJ.rows()<<" "<<JTJ.cols()<<std::endl;
-    //     spMat temp=PeWeight[i] * JT * EPEvalue.coeffRef(i);
-    //     // std::cout<<"tmp size "<<temp.rows()<<" "<<temp.cols()<<std::endl;
-    //     JTf +=temp;
-    // }
+    int vnbr = V.rows();
+
+    spMat JTJ;
+    spMat JTf;
+    JTJ.resize(vnbr, vnbr);
+    JTf.resize(vnbr,1);
+    Eigen::MatrixXd Mfvalues(vnbr, 1);
+    Mfvalues.col(0) = fvalues;
+    spMat SMfvalues = Mfvalues.sparseView();
+    int ninner=IVids.size();
+    for (int i = 0; i < ninner; i++)
+    {
+        if(ActInner[i] == false){// this is a singularity
+            continue;
+        }
+        // std::cout<<"SMfvalues size "<<SMfvalues.rows()<<" "<<SMfvalues.cols()<<std::endl;
+        spMat JT = LsOrient[i] * VPEJC[i] * SMfvalues;
+        // std::cout<<"J size "<<J.rows()<<" "<<J.cols()<<std::endl;
+        spMat tjtj=JT* JT.transpose();
+        // std::cout<<"tempJTJ size "<<tjtj.rows()<<" "<<tjtj.cols()<<std::endl;
+        JTJ += PeWeight[i] * tjtj;
+        // std::cout<<"JTJ size "<<JTJ.rows()<<" "<<JTJ.cols()<<std::endl;
+        spMat temp=PeWeight[i] * JT * VPEvalue.coeffRef(i);
+        // std::cout<<"tmp size "<<temp.rows()<<" "<<temp.cols()<<std::endl;
+        JTf +=temp;
+    }
     // // std::cout<<"assembled"<<std::endl;
-    // H = JTJ;
-    // B = sparse_mat_col_to_sparse_vec(-JTf,0);
+    H = JTJ;
+    B = sparse_mat_col_to_sparse_vec(-JTf,0);
 }
 // check if active faces exist around one vertex
 // the information can be used to construct pseudo-geodesic energy
@@ -610,7 +623,7 @@ void lsTools::optimize_laplacian_with_traced_boundary_condition(){
         spMat pg_JTJ;
         Efunc pg_mJTF;
         // std::cout<<"before solving pg energy"<<std::endl;
-        assemble_solver_pesudo_geodesic_energy_part(pg_JTJ, pg_mJTF);
+        assemble_solver_pesudo_geodesic_energy_part_vertex_baed(pg_JTJ, pg_mJTF);
         H += weight_pseudo_geodesic_energy * pg_JTJ;
         B += weight_pseudo_geodesic_energy * pg_mJTF;
     }
@@ -643,7 +656,7 @@ void lsTools::optimize_laplacian_with_traced_boundary_condition(){
     std::cout << "energy: harm " << energy_biharmonic << ", bnd " << energy_boundary << ", ";
     if (enable_pseudo_geodesic_energy)
     {
-        double energy_pg = (PeWeight.asDiagonal() * EPEvalue).norm();
+        double energy_pg = (spMat(PeWeight.asDiagonal()) * spMat(ActInner.asDiagonal()) * VPEvalue).norm();
         std::cout << "pg, " << energy_pg << ", ";
         // std::cout<<"PeWeight\n"<<PeWeight<<std::endl;
     }

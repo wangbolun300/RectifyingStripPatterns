@@ -86,13 +86,12 @@ private:
     // vertex-based pseudo-energy values
     Eigen::VectorXd InnerV; // the vector show if it is a inner ver (1) or not (0).
     std::vector<int> IVids; // the ids of the inner vers.
-    Eigen::VectorXd ActV; // the vector where the ith element show if it is an active vertex. No boundary ver, no singularity ver
     std::vector<spMat> VPEJC; // vertex-based pseudo-geodesic energy partial coffecients
     std::vector<CGMesh::HalfedgeHandle> Vheh0;// the inward halfedge of each inner ver
     std::vector<CGMesh::HalfedgeHandle> Vheh1;// the outward halfedge of each inner ver
     std::vector<Eigen::Vector3d> Vdire0;// the inward direction for each ver
     std::vector<Eigen::Vector3d> Vdire1;// the outward direction for each ver
-    std::vector<bool> ActInner; // the active elements in the inner vertices
+    Eigen::VectorXd ActInner; // the active elements in the inner vertices
     std::vector<CGMesh::HalfedgeHandle> Boundary_Edges;
 
     
@@ -262,7 +261,6 @@ public:
         get_vertex_rotation_matices();
         get_bnd_vers_and_handles();
         get_all_the_edge_normals();
-        calculate_gradient_partial_parts();
     }
     void prepare_level_set_solving(const EnergyPrepare &Energy_initializer);
     void show_level_set(Eigen::VectorXd &val);

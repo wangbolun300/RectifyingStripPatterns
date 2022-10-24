@@ -42,9 +42,9 @@ namespace lscif
 	double refer_AveEL = 1;
 	double weight_mass = 100.;			  // weight of the mass function to
 	double weight_boundary=100;	// weight of the boundary condition
-	double weight_laplacian=1;
+	double weight_laplacian=10;
 	double weight_pseudo_geodesic=10;
-	double weight_strip_width=0.1;
+	double weight_strip_width=1;
 	double maximal_step_length = 0.5;
 	
 
@@ -63,7 +63,7 @@ namespace lscif
 	int extracted_nbr=5;
 	std::vector<int> fixedVertices;
 
-	int OpIter = 10;
+	int OpIter = 100;
 	CGMesh mesh;
 	CGMesh RefMesh;
 	static bool enable_pg_energy_checkbox = false;
@@ -558,10 +558,13 @@ int main(int argc, char *argv[])
 				Eigen::VectorXd level_set_values;
 				lscif::tools.show_level_set(level_set_values);
 				Eigen::MatrixXd CM;
+				// std::cout<<"before compute colormap"<<std::endl;
 				igl::parula(Eigen::VectorXd::LinSpaced(21, 0, 1).eval(), false, CM);
 				igl::isolines_map(Eigen::MatrixXd(CM), CM);
+				// std::cout<<"before set colormap"<<std::endl;
 				viewer.data().set_colormap(CM);
-				viewer.data().set_colors(level_set_values);
+				// std::cout<<"before set color"<<std::endl;
+				viewer.data().set_data(level_set_values);
 				// Eigen::MatrixXd E0, E1;
 				// // lscif::tools.show_gradients(E0,E1, lscif::vector_scaling);
 				const Eigen::RowVector3d red(0.8, 0.2, 0.2);
