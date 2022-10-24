@@ -90,7 +90,9 @@ private:
     std::vector<spMat> VPEJC; // vertex-based pseudo-geodesic energy partial coffecients
     std::vector<CGMesh::HalfedgeHandle> Vheh0;// the inward halfedge of each inner ver
     std::vector<CGMesh::HalfedgeHandle> Vheh1;// the outward halfedge of each inner ver
-    std::vector<int> ActInner; // the active elements in the inner vertices
+    std::vector<Eigen::Vector3d> Vdire0;// the inward direction for each ver
+    std::vector<Eigen::Vector3d> Vdire1;// the outward direction for each ver
+    std::vector<bool> ActInner; // the active elements in the inner vertices
     std::vector<CGMesh::HalfedgeHandle> Boundary_Edges;
 
     
@@ -140,6 +142,7 @@ private:
     void assemble_solver_laplacian_part(spMat &H, Efunc &B);
     void assemble_solver_biharmonic_smoothing(spMat &H, Efunc &B); //Biharmonic smoothing (natural curved Hessian boundary)
     void assemble_solver_pesudo_geodesic_energy_part(spMat &H, Efunc &B);
+    void assemble_solver_pesudo_geodesic_energy_part_vertex_baed(spMat &H, Efunc &B);
     void assemble_solver_strip_width_part(spMat &H, Efunc &B);
 
     // void assemble_solver_pseudo_geodesic_part(spMat &H, Efunc& B);

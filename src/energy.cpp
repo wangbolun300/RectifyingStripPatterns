@@ -239,6 +239,8 @@ void lsTools::calculate_gradient_partial_parts_ver_based(){
         VPEJC.resize(ninner);
         Vheh0.resize(ninner);
         Vheh1.resize(ninner);
+        Vdire0.resize(ninner);
+        Vdire1.resize(ninner);
         ActInner.resize(ninner);
         first_time_compute = true;
     }
@@ -304,6 +306,8 @@ void lsTools::calculate_gradient_partial_parts_ver_based(){
             VPEJC[i].setFromTriplets(triplets.begin(), triplets.end());
             Vheh0[i] = hd1;
             Vheh1[i] = hd2;
+            Vdire0[i]=directions[0];
+            Vdire1[i]=directions[1];
         }
     }
 }
@@ -380,18 +384,21 @@ void lsTools::calculate_pseudo_energy_function_values_vertex_based(const double 
     PeWeight.resize(ninner);
     double angle_radian = angle_degree * LSC_PI / 180.; // the angle in radian
     double cos_angle=cos(angle_radian);
-    TODO
-    for (int i = 0; i < act_size; i++)
+    
+    for (int i = 0; i < ninner; i++)
     {
+
+        if(ActInner[i] == false){// this is a singularity
+            continue;
+        }
+        int vid = IVids[i];
+        CGMesh::HalfedgeHandle heh1=Vheh0[i];
+        CGMesh::HalfedgeHandle heh2=Vheh1[i];
         int fid1, fid2;
-        std::array<int, 4> vids;
-        // get the v1, v2, vA, vB.
-        vids = get_vers_around_edge(lsmesh, Actid[i], fid1, fid2);
-        int v1=vids[0];
-        int v2=vids[1];
-        int vA=vids[2];
-        int vB=vids[3];
-        Eigen::Vector3d norm = norm_e.row(Actid[i]);
+        fid1=lsmesh.face_handle(heh1).idx();
+        fid2=lsmesh.face_handle(heh2).idx();
+        
+        Eigen::Vector3d norm = norm_v.row(vid);
         Eigen::Vector3d norm1=norm_f.row(fid1);
         Eigen::Vector3d norm2=norm_f.row(fid2);
         Eigen::Vector3d g1=gfvalue.row(fid1);
@@ -400,12 +407,9 @@ void lsTools::calculate_pseudo_energy_function_values_vertex_based(const double 
         g1=norm1.cross(g1);
         g2=norm2.cross(g2);
         Eigen::Vector3d g1xg2=g1.cross(g2);
-
-        
         // deal with edge orientation: shoot from small value to big value
-        Eigen::Vector3d edirec = V.row(v1) - V.row(v2);
-        double flag1=g1.cross(edirec).dot(norm);
-        double flag2=g2.cross(edirec).dot(norm);
+        double flag1=g1.dot(Vdire0[i]);
+        double flag2=g2.dot(Vdire1[i]);
         double flag=flag1*flag2;
         if(flag>=0){
             LsOrient[i]=1;
@@ -413,9 +417,6 @@ void lsTools::calculate_pseudo_energy_function_values_vertex_based(const double 
         else{
             LsOrient[i]=-1;
         }
-        // check if left triangle is on the left
-        Eigen::Vector3d ldirec=V.row(vA)-V.row(v1);
-        assert(edirec.cross(ldirec).dot(norm)>=0);
 
         // deal with PeWeight
         double lg1=g1.norm();
@@ -427,14 +428,17 @@ void lsTools::calculate_pseudo_energy_function_values_vertex_based(const double 
             Eigen::Vector3d g1n = g1.normalized();
             Eigen::Vector3d g2n = LsOrient[i]*g2.normalized();// get the oriented g2, to make g1 g2 goes to the same direction
             double cos_real=g1n.dot(g2n);
-            PeWeight[i]=(cos_real+1)/2;// cos = 1, weight is 1; cos = -1, means it is very sharp turn, weight = 0
+            // cos = 1, weight is 1; cos = -1, means it is very sharp turn, weight = 0
+            // it is still resonable for vertex-based method. since there can be multiple intersections between the 
+            // osculating plane and the one-ring of vertex
+            PeWeight[i]=(cos_real+1)/2;
         }
 
-        if(fvalues[v1]<fvalues[v2]){ // orient g1xg2 or g2xg1
-            LsOrient[i]*=-1;
-        }
+        // if(fvalues[v1]<fvalues[v2]){ // orient g1xg2 or g2xg1
+        //     LsOrient[i]*=-1;
+        // }// we don't need it for vertex based method, since it is implicitly given by Vheh0 and Vheh1
         double value = LsOrient[i] * g1xg2.dot(norm) - g1xg2.norm() * cos_angle;
-        EPEvalue.coeffRef(i)=value;
+        VPEvalue.coeffRef(i)=value;
     }
 }
 void lsTools::assemble_solver_boundary_condition_part(spMat& H, Efunc& B){
@@ -524,6 +528,39 @@ void lsTools::assemble_solver_pesudo_geodesic_energy_part(spMat &H, Efunc &B)
     B = sparse_mat_col_to_sparse_vec(-JTf,0);
 }
 
+void lsTools::assemble_solver_pesudo_geodesic_energy_part_vertex_baed(spMat &H, Efunc &B)
+{
+    // calculate_pseudo_energy_function_values(pseudo_geodesic_target_angle_degree);
+    // // std::cout<<"function values get calculated"<<std::endl;
+
+    // int act_size = Actid.size();
+    // int vnbr = V.rows();
+    // // std::cout<<"vnbr "<<vnbr<<std::endl;
+    // spMat JTJ;
+    // spMat JTf;
+    // JTJ.resize(vnbr, vnbr);
+    // JTf.resize(vnbr,1);
+    // Eigen::MatrixXd Mfvalues(vnbr, 1);
+    // Mfvalues.col(0) = fvalues;
+    // spMat SMfvalues = Mfvalues.sparseView();
+    
+    // for (int i = 0; i < act_size; i++)
+    // {
+    //     // std::cout<<"SMfvalues size "<<SMfvalues.rows()<<" "<<SMfvalues.cols()<<std::endl;
+    //     spMat JT = LsOrient[i] * PEJC[i] * SMfvalues;
+    //     // std::cout<<"J size "<<J.rows()<<" "<<J.cols()<<std::endl;
+    //     spMat tjtj=JT* JT.transpose();
+    //     // std::cout<<"tempJTJ size "<<tjtj.rows()<<" "<<tjtj.cols()<<std::endl;
+    //     JTJ += PeWeight[i] * tjtj;
+    //     // std::cout<<"JTJ size "<<JTJ.rows()<<" "<<JTJ.cols()<<std::endl;
+    //     spMat temp=PeWeight[i] * JT * EPEvalue.coeffRef(i);
+    //     // std::cout<<"tmp size "<<temp.rows()<<" "<<temp.cols()<<std::endl;
+    //     JTf +=temp;
+    // }
+    // // std::cout<<"assembled"<<std::endl;
+    // H = JTJ;
+    // B = sparse_mat_col_to_sparse_vec(-JTf,0);
+}
 // check if active faces exist around one vertex
 // the information can be used to construct pseudo-geodesic energy
 
