@@ -440,7 +440,7 @@ void lsTools::calculate_pseudo_energy_function_values_vertex_based(const double 
             //     PeWeight[i] = 0;
             // }
             // else
-                PeWeight[i] = (cos_real + 1) / 2;
+                PeWeight[i] = (cos_diff) / 2;
         }
 
         // if(fvalues[v1]<fvalues[v2]){ // orient g1xg2 or g2xg1
@@ -675,7 +675,7 @@ void lsTools::optimize_laplacian_with_traced_boundary_condition(){
     if (enable_pseudo_geodesic_energy)
     {
         double energy_pg = (spMat(PeWeight.asDiagonal()) * spMat(ActInner.asDiagonal()) * VPEvalue).norm();
-        std::cout << "pg, " << energy_pg << ", ";
+        std::cout << "pg, " << energy_pg << ", "<<"AngleDiffMax,"<<PeWeight.maxCoeff()<<",";
         // std::cout<<"PeWeight\n"<<PeWeight<<std::endl;
     }
     if (enable_strip_width_energy)

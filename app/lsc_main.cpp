@@ -656,7 +656,7 @@ int main(int argc, char *argv[])
 				igl::parula(Eigen::VectorXd::LinSpaced(21, 0, 1).eval(), false, CM);
 				igl::isolines_map(Eigen::MatrixXd(CM), CM);
 				viewer.data().set_colormap(CM);
-				viewer.data().set_colors(level_set_values);
+				viewer.data().set_data(level_set_values);
 			}
 			if (ImGui::Button("MeshUnitScale", ImVec2(ImGui::GetWindowSize().x * 0.23f, 0.0f)))
 			{
