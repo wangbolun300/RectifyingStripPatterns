@@ -38,3 +38,4 @@ double get_t_of_segment(const Eigen::Vector3d &ver, const Eigen::Vector3d &start
 double get_t_of_value(const double &ver, const double &start, const double &end);
 Eigen::Vector2d get_2d_ver_from_t(const double t, const Eigen::Vector2d& start, const Eigen::Vector2d& end);
 Eigen::Vector3d get_3d_ver_from_t(const double t, const Eigen::Vector3d& start, const Eigen::Vector3d& end);
+bool angles_match(const double angle_degree1, const double angle_degree2);

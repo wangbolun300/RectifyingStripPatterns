@@ -46,6 +46,7 @@ namespace lscif
 	double weight_pseudo_geodesic=10;
 	double weight_strip_width=1;
 	double maximal_step_length = 0.5;
+	bool enable_inner_vers_fixed=false;
 	
 
 	// Tracing Parameters
@@ -284,11 +285,12 @@ int main(int argc, char *argv[])
 #else
 	std::string spliter = "/";
 #endif
-	std::string fname = example_root_path + std::string("oc_5.000000_10.000000_50_30.obj");
+	std::string modelname="oc_5.000000_10.000000_50_30.obj";
+	std::string fname = example_root_path + std::string(modelname);
 	OpenMesh::IO::read_mesh(lscif::mesh, fname);
 	lscif::tools.init(lscif::mesh);
 	lscif::MP.mesh2Matrix(lscif::mesh, lscif::V, lscif::F);
-	lscif::meshFileName.push_back("quad_pq");
+	lscif::meshFileName.push_back(modelname);
 	lscif::Meshes.push_back(lscif::mesh);
 
 	// Init the viewer
@@ -321,8 +323,11 @@ int main(int argc, char *argv[])
 		{
 
 			std::string fname = igl::file_dialog_open();
-			if (fname.length() == 0)
+			if (fname.length() == 0){
+				std::cout<<"LSC: read mesh failed"<<std::endl;
 				return;
+			}
+				
 
 			OpenMesh::IO::read_mesh(lscif::mesh, fname);
 			lscif::tools.init(lscif::mesh);
@@ -440,6 +445,8 @@ int main(int argc, char *argv[])
 			ImGui::Checkbox("Enable PG Energy", &lscif::enable_pg_energy_checkbox);
 			ImGui::SameLine();
 			ImGui::Checkbox("Enable Strip Width", &lscif::enable_strip_width_checkbox);
+			ImGui::Checkbox("Enable Smooth Boundary", &lscif::enable_inner_vers_fixed);
+			
 
 			// ImGui::Checkbox("Fix Boundary", &lscif::fixBoundary_checkbox);
 		}
@@ -538,6 +545,7 @@ int main(int argc, char *argv[])
 				einit.target_angle=lscif::target_angle;
 				einit.max_step_length=lscif::maximal_step_length;
 				einit.solve_strip_width_on_traced=lscif::enable_strip_width_checkbox;
+				einit.enable_inner_vers_fixed=lscif::enable_inner_vers_fixed;
 				lscif::tools.prepare_level_set_solving(einit);
 
 				for (int i = 0; i < lscif::OpIter; i++)

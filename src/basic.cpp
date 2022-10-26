@@ -50,6 +50,7 @@ void lsTools::prepare_level_set_solving(const EnergyPrepare &Energy_initializer)
     max_step_length=Energy_initializer.max_step_length;
     enable_strip_width_energy=Energy_initializer.solve_strip_width_on_traced;
     weight_strip_width = Energy_initializer.weight_strip_width;
+    enable_inner_vers_fixed=Energy_initializer.enable_inner_vers_fixed;
 }
 void lsTools::convert_paras_as_meshes(CGMesh &output)
 {
@@ -854,16 +855,19 @@ void lsTools::get_all_the_edge_normals()
         assert(hh_ori == lsmesh.opposite_halfedge_handle(hh_opp));
         int fid1 = lsmesh.face_handle(hh_ori).idx();
         int fid2 = lsmesh.face_handle(hh_opp).idx();
-        Eigen::Vector3d n1 = Eigen::Vector3d(0, 0, 0);
-        Eigen::Vector3d n2 = Eigen::Vector3d(0, 0, 0);
-        if (fid1 >= 0)
-        {
-            n1 = norm_f.row(fid1);
-        }
-        if (fid2 >= 0)
-        {
-            n2 = norm_f.row(fid2);
-        }
+        int vid1=lsmesh.from_vertex_handle(hh_ori).idx();
+        int vid2=lsmesh.to_vertex_handle(hh_ori).idx();
+        Eigen::Vector3d n1 = norm_v.row(vid1);
+        Eigen::Vector3d n2 = norm_v.row(vid2);
+        
+        // if (fid1 >= 0)
+        // {
+        //     n1 = norm_f.row(fid1);
+        // }
+        // if (fid2 >= 0)
+        // {
+        //     n2 = norm_f.row(fid2);
+        // }
         Eigen::Vector3d direction = n1 + n2;
         direction = direction / direction.norm();
         norm_e.row(eid) = direction;

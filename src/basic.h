@@ -26,8 +26,10 @@ class EnergyPrepare{
     double weight_strip_width;
     bool solve_pseudo_geodesic;
     bool solve_strip_width_on_traced;
+    bool enable_inner_vers_fixed;
     double target_angle;
     double max_step_length;
+
 
 };
 class NeighbourInfo
@@ -212,6 +214,7 @@ public:
     
     bool enable_pseudo_geodesic_energy=false; // decide if we include pseudo-geodesic energy
     bool enable_strip_width_energy=false;
+    bool enable_inner_vers_fixed=false;// decide if we enables fixing the inner vers and optimize boundary laplacian
     double pseudo_geodesic_target_angle_degree; // the target pseudo-geodesic angle
     // bool enable_pseudo_vertex=false;
     Eigen::MatrixXd ver_dbg;

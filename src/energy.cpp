@@ -430,10 +430,17 @@ void lsTools::calculate_pseudo_energy_function_values_vertex_based(const double 
             Eigen::Vector3d g1n = g1.normalized();
             Eigen::Vector3d g2n = LsOrient[i]*g2.normalized();// get the oriented g2, to make g1 g2 goes to the same direction
             double cos_real=g1n.dot(g2n);
+            double cos_diff=abs(cos_angle-cos_real)/2;
+            double angle_real=acos(cos_real) * 180 / LSC_PI;
             // cos = 1, weight is 1; cos = -1, means it is very sharp turn, weight = 0
-            // it is still resonable for vertex-based method. since there can be multiple intersections between the 
+            // it is still resonable for vertex-based method. since there can be multiple intersections between the
             // osculating plane and the one-ring of vertex
-            PeWeight[i]=(cos_real+1)/2;
+            // if (angles_match(angle_real, 0)||angles_match(angle_real, 180))
+            // {
+            //     PeWeight[i] = 0;
+            // }
+            // else
+                PeWeight[i] = (cos_real + 1) / 2;
         }
 
         // if(fvalues[v1]<fvalues[v2]){ // orient g1xg2 or g2xg1
@@ -596,52 +603,63 @@ void lsTools::optimize_laplacian_with_traced_boundary_condition(){
     get_gradient_hessian_values();
     // the matrices
     spMat H;
-    H.resize(vnbr,vnbr);
+    H.resize(vnbr, vnbr);
     Efunc B;
     B.resize(vnbr);
-    spMat bc_JTJ;
-    Efunc bc_mJTF;
-    // get the boundary condition bcJacobian (J) and bcVector F, 
-    // std::cout<<"before assembling matrices"<<std::endl;
-    assemble_solver_boundary_condition_part(bc_JTJ, bc_mJTF);
-    // std::cout<<"boundary condition set up"<<std::endl;
-    spMat LTL;// left of laplacian
-    Efunc mLTF;// right of laplacian
-    // assemble_solver_laplacian_part(LTL, mLTF);
-    assemble_solver_biharmonic_smoothing(LTL,mLTF);
-    // std::cout<<"laplacian condition set up"<<std::endl;
+    spMat LTL;  // left of laplacian
+    Efunc mLTF; // right of laplacian
+    assemble_solver_biharmonic_smoothing(LTL, mLTF);
+    H = weight_mass * mass + weight_laplacian * LTL ;
+    B = weight_laplacian * mLTF;
     assert(mass.rows() == vnbr);
-    
-    // gravity + laplacian + boundary condition
-    H = weight_mass * mass + weight_laplacian * LTL + weight_boundary * bc_JTJ;
-    B=weight_laplacian*mLTF+weight_boundary*bc_mJTF;
-    if(enable_pseudo_geodesic_energy&&weight_pseudo_geodesic_energy==0){
-        std::cout<<"Pseudo-geodesic Energy weight is 0"<<std::endl;
-    }
-    if (enable_pseudo_geodesic_energy && weight_pseudo_geodesic_energy > 0)
+
+    if (enable_inner_vers_fixed)
     {
-        spMat pg_JTJ;
-        Efunc pg_mJTF;
-        // std::cout<<"before solving pg energy"<<std::endl;
-        assemble_solver_pesudo_geodesic_energy_part_vertex_baed(pg_JTJ, pg_mJTF);
-        H += weight_pseudo_geodesic_energy * pg_JTJ;
-        B += weight_pseudo_geodesic_energy * pg_mJTF;
+        H+=weight_mass*InnerV.asDiagonal();
     }
-    if(enable_strip_width_energy){
-        spMat sw_JTJ;
-        Efunc sw_mJTF;
-        assemble_solver_strip_width_part(sw_JTJ, sw_mJTF);
-        H += weight_strip_width * sw_JTJ;
-        B += weight_strip_width * sw_mJTF;
+    else
+    {
+        spMat bc_JTJ;
+        Efunc bc_mJTF;
+        // get the boundary condition bcJacobian (J) and bcVector F,
+        // std::cout<<"before assembling matrices"<<std::endl;
+        assemble_solver_boundary_condition_part(bc_JTJ, bc_mJTF);
+        // std::cout<<"boundary condition set up"<<std::endl;
+        
+
+        // gravity + laplacian + boundary condition
+        H += weight_boundary * bc_JTJ;
+        B += weight_boundary * bc_mJTF;
+        if (enable_pseudo_geodesic_energy && weight_pseudo_geodesic_energy == 0)
+        {
+            std::cout << "Pseudo-geodesic Energy weight is 0" << std::endl;
+        }
+        if (enable_pseudo_geodesic_energy && weight_pseudo_geodesic_energy > 0)
+        {
+            spMat pg_JTJ;
+            Efunc pg_mJTF;
+            // std::cout<<"before solving pg energy"<<std::endl;
+            assemble_solver_pesudo_geodesic_energy_part_vertex_baed(pg_JTJ, pg_mJTF);
+            H += weight_pseudo_geodesic_energy * pg_JTJ;
+            B += weight_pseudo_geodesic_energy * pg_mJTF;
+        }
+        if (enable_strip_width_energy)
+        {
+            spMat sw_JTJ;
+            Efunc sw_mJTF;
+            assemble_solver_strip_width_part(sw_JTJ, sw_mJTF);
+            H += weight_strip_width * sw_JTJ;
+            B += weight_strip_width * sw_mJTF;
+        }
+        assert(H.rows() == vnbr);
+        assert(H.cols() == vnbr);
+        // std::cout<<"before solving"<<std::endl;
     }
-    assert(H.rows() == vnbr);
-    assert(H.cols() == vnbr);
-    // std::cout<<"before solving"<<std::endl;
     Eigen::SimplicialLLT<Eigen::SparseMatrix<double>> solver(H);
     assert(solver.info() == Eigen::Success);
     // std::cout<<"solved successfully"<<std::endl;
     Eigen::VectorXd dx = solver.solve(B).eval();
-    dx*=0.75;
+    dx *= 0.75;
     // std::cout << "step length " << dx.norm() << std::endl;
     double level_set_step_length = dx.norm();
     // double inf_norm=dx.cwiseAbs().maxCoeff();
@@ -650,9 +668,9 @@ void lsTools::optimize_laplacian_with_traced_boundary_condition(){
         dx *= max_step_length / level_set_step_length;
     }
     fvalues += dx;
-    double energy_laplacian=(Dlps*fvalues).norm();
-    double energy_biharmonic=fvalues.transpose()* QcH*fvalues;
-    double energy_boundary=(bcfvalue).norm();
+    double energy_laplacian = (Dlps * fvalues).norm();
+    double energy_biharmonic = fvalues.transpose() * QcH * fvalues;
+    double energy_boundary = (bcfvalue).norm();
     std::cout << "energy: harm " << energy_biharmonic << ", bnd " << energy_boundary << ", ";
     if (enable_pseudo_geodesic_energy)
     {
@@ -662,13 +680,13 @@ void lsTools::optimize_laplacian_with_traced_boundary_condition(){
     }
     if (enable_strip_width_energy)
     {
-      
+
         Eigen::VectorXd ener = gfvalue.rowwise().norm();
-        ener=ener.asDiagonal()*ener;
-        Eigen::VectorXd wds = Eigen::VectorXd::Ones(fnbr)*strip_width*strip_width;
-        
-        ener-=wds;
-        double stp_energy=Eigen::VectorXd(ener).dot(ener);
+        ener = ener.asDiagonal() * ener;
+        Eigen::VectorXd wds = Eigen::VectorXd::Ones(fnbr) * strip_width * strip_width;
+
+        ener -= wds;
+        double stp_energy = Eigen::VectorXd(ener).dot(ener);
         std::cout << "strip, " << stp_energy << ", ";
     }
     step_length=dx.norm();
