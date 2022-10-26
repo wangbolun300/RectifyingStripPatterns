@@ -324,7 +324,8 @@ int main(int argc, char *argv[])
 
 			std::string fname = igl::file_dialog_open();
 			if (fname.length() == 0){
-				std::cout<<"LSC: read mesh failed"<<std::endl;
+				std::cout<<"\nLSC: read mesh failed"<<std::endl;
+				ImGui::End();
 				return;
 			}
 				
@@ -365,8 +366,11 @@ int main(int argc, char *argv[])
 		{
 			std::string fname = igl::file_dialog_save();
 
-			if (fname.length() == 0)
+			if (fname.length() == 0){
+				std::cout<<"\nLSC: save mesh failed"<<std::endl;
+				ImGui::End();
 				return;
+			}
 			fname = fname + ".obj";
 
 			int id = viewer.selected_data_index;
