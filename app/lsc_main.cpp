@@ -36,6 +36,7 @@ namespace lscif
 
 	bool keyPress_1 = false;
 	bool keyPress_2 = false;
+	bool keyPress_d=false;
 
 	// Optimization Parameters
 	double weigth_closeness = 0.0;
@@ -55,7 +56,7 @@ namespace lscif
 	int id_debug_global=5;
 	double target_angle=60;
 	double start_angle=60;
-	double threadshold_angel_degree=120;// the threadshold for detecting boundary corners
+	double threadshold_angel_degree=150;// the threadshold for detecting boundary corners
 	int dbg_int;
 	int dbg_int2 = 5;
 	double dbg_dbl = 30;
@@ -127,6 +128,11 @@ namespace lscif
 			keyPress_2 = false;
 			return true;
 		}
+		case 'd':
+		{
+			keyPress_d=false;
+			return true;
+		}
 		}
 		return false;
 	}
@@ -145,6 +151,26 @@ namespace lscif
 		case '2':
 		{
 			keyPress_2 = true;
+			return true;
+		}
+		case 'd':
+		{
+			keyPress_d=true;
+			if(keyPress_d){
+				keyPress_d=false;
+				int id = viewer.selected_data_index;
+				// if (id > 1)
+				//	viewer.selected_data_index = id - 2;
+				// std::cout << "The current Mesh ID is" << viewer.selected_data_index << std::endl;
+
+				viewer.erase_mesh(id);
+				if (id > -1)
+				{
+					lscif::meshFileName.erase(lscif::meshFileName.begin() + id);
+					lscif::Meshes.erase(lscif::Meshes.begin() + id);
+				}
+			}
+			
 			return true;
 		}
 		}

@@ -399,7 +399,7 @@ void lsTools::calculate_pseudo_energy_function_values_vertex_based(const double 
         int fid1, fid2;
         fid1=lsmesh.face_handle(heh1).idx();
         fid2=lsmesh.face_handle(heh2).idx();
-        
+        assert(fid1!=fid2);
         Eigen::Vector3d norm = norm_v.row(vid);
         Eigen::Vector3d norm1=norm_f.row(fid1);
         Eigen::Vector3d norm2=norm_f.row(fid2);
@@ -424,23 +424,25 @@ void lsTools::calculate_pseudo_energy_function_values_vertex_based(const double 
         double lg1=g1.norm();
         double lg2=g2.norm();
         if(lg1<1e-16 || lg2<1e-16){
+            // std::cout<<"gradient too small"<<std::endl;
             PeWeight[i]=0;// it means the g1xg2 will not be accurate
         }
         else{
             Eigen::Vector3d g1n = g1.normalized();
             Eigen::Vector3d g2n = LsOrient[i]*g2.normalized();// get the oriented g2, to make g1 g2 goes to the same direction
-            double cos_real=g1n.dot(g2n);
-            double cos_diff=abs(cos_angle-cos_real)/2;
-            double angle_real=acos(cos_real) * 180 / LSC_PI;
+            double cos_real=g1n.cross(g2n).normalized().dot(norm);// angle between the binormal and the surface normal
+            double cos_diff=(cos_real+1)/2;
+            double angle_real=acos(g1n.dot(g2n)) * 180 / LSC_PI;// the angle between the two iso-lines
             // cos = 1, weight is 1; cos = -1, means it is very sharp turn, weight = 0
             // it is still resonable for vertex-based method. since there can be multiple intersections between the
             // osculating plane and the one-ring of vertex
-            // if (angles_match(angle_real, 0)||angles_match(angle_real, 180))
-            // {
-            //     PeWeight[i] = 0;
-            // }
-            // else
-                PeWeight[i] = (cos_diff) / 2;
+            //std::cout<<"angle is "<<angle_real<<std::endl;
+            if (angles_match(angle_real, 0))// if it is close to straight line, we skip.
+            {
+                PeWeight[i] = 0;
+            }
+            else
+                PeWeight[i] = (cos_diff);
         }
 
         // if(fvalues[v1]<fvalues[v2]){ // orient g1xg2 or g2xg1
