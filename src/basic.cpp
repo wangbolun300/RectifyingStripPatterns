@@ -1123,3 +1123,47 @@ void lsTools::estimate_strip_width_according_to_tracing(){
     double function_value_diff=abs(assigned_trace_ls.back()-assigned_trace_ls[0]);
     strip_width=function_value_diff/dis_real;
 }
+void lsTools::print_info(const int vid){
+    int i=-1;
+    int ninner=IVids.size();
+    for (int j = 0; j < ninner; j++)
+    {
+        if(IVids[j]==vid){
+            i=j;
+        }
+    }
+    if(i==-1){
+        std::cout<<"please check inner vers"<<std::endl;
+        return;
+    }
+    if (ActInner[i] == false)
+    { // this is a singularity
+        std::cout<<"singularity"<<std::endl;
+        return;
+    }
+
+    CGMesh::HalfedgeHandle heh1 = Vheh0[i];
+    CGMesh::HalfedgeHandle heh2 = Vheh1[i];
+    int fid1, fid2;
+    fid1 = lsmesh.face_handle(heh1).idx();
+    fid2 = lsmesh.face_handle(heh2).idx();
+    assert(fid1 != fid2);
+    Eigen::Vector3d norm = norm_v.row(vid);
+    Eigen::Vector3d norm1 = norm_f.row(fid1);
+    Eigen::Vector3d norm2 = norm_f.row(fid2);
+    Eigen::Vector3d g1 = gfvalue.row(fid1);
+    Eigen::Vector3d g2 = gfvalue.row(fid2);
+    std::cout<<"gradients \n"<<g1.transpose()<<"\n"<<g2.transpose()<<std::endl;
+    // rotate gradients to get iso-curve directions
+    g1 = norm1.cross(g1);
+    g2 = norm2.cross(g2);
+    std::cout<<"iso-line \n"<<g1.transpose()<<"\n"<<g2.transpose()<<std::endl;
+    Eigen::Vector3d g1xg2 = g1.cross(g2);
+    std::cout<<"g1xg2 "<<g1xg2.transpose()<<"\n";
+    Eigen::Vector3d binormal=g1xg2.normalized();
+    std::cout<<"binormal "<<binormal.transpose()<<"\n";
+    double cos_angle=norm.dot(binormal);
+    std::cout<<"norm\n"<<norm.transpose()<<"\ncos "<<cos_angle<<std::endl;
+    std::cout<<"energy value "<<VPEvalue.coeffRef(i)<<std::endl;
+    
+}

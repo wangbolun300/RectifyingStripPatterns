@@ -229,6 +229,7 @@ namespace lscif
 					std::cout << "level set value " << lscif::tools.fvalues[vid] << std::endl;
 				}
 				std::cout << "point position: (" << viewer.data().V(vid, 0) << ", " << viewer.data().V(vid, 1) << ", " << viewer.data().V(vid, 2) << ")\n\n";
+				lscif::tools.print_info(vid);
 				// viewer.data().add_points(igl::slice(viewer.data().V, vids, 1), hot_red);
 				viewer.data().set_points(igl::slice(viewer.data().V, vids, 1), lscif::hot_red);
 				viewer.data().add_points(igl::slice(viewer.data().V, vids2, 1), lscif::sea_green);

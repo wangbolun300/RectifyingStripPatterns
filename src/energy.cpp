@@ -431,7 +431,13 @@ void lsTools::calculate_pseudo_energy_function_values_vertex_based(const double 
             Eigen::Vector3d g1n = g1.normalized();
             Eigen::Vector3d g2n = LsOrient[i]*g2.normalized();// get the oriented g2, to make g1 g2 goes to the same direction
             double cos_real=g1n.cross(g2n).normalized().dot(norm);// angle between the binormal and the surface normal
-            double cos_diff=(cos_real+1)/2;
+            if(cos_real<-1||cos_real>1){
+                std::cout<<"angle is wrong"<<std::endl;
+            }
+            if(cos_angle<-1||cos_angle>1){
+                std::cout<<"angle is wrong1"<<std::endl;
+            }
+            double cos_diff = fabs(cos_real-cos_angle)/2;
             double angle_real=acos(g1n.dot(g2n)) * 180 / LSC_PI;// the angle between the two iso-lines
             // cos = 1, weight is 1; cos = -1, means it is very sharp turn, weight = 0
             // it is still resonable for vertex-based method. since there can be multiple intersections between the
@@ -442,7 +448,7 @@ void lsTools::calculate_pseudo_energy_function_values_vertex_based(const double 
                 PeWeight[i] = 0;
             }
             else
-                PeWeight[i] = (cos_diff);
+                PeWeight[i] = cos_diff;
         }
 
         // if(fvalues[v1]<fvalues[v2]){ // orient g1xg2 or g2xg1
@@ -543,7 +549,19 @@ void lsTools::assemble_solver_pesudo_geodesic_energy_part(spMat &H, Efunc &B)
     H = JTJ;
     B = sparse_mat_col_to_sparse_vec(-JTf,0);
 }
-
+double get_mat_max_diag(spMat& M){
+    int nbr = M.rows();
+    double value = 0;
+    for (int i = 0; i < nbr; i++)
+    {
+        double dv = M.coeffRef(i, i);
+        if (dv > value)
+        {
+            value = dv;
+        }
+    }
+    return value;
+}
 void lsTools::assemble_solver_pesudo_geodesic_energy_part_vertex_baed(spMat &H, Efunc &B)
 {
     // recompute the left part
@@ -611,7 +629,7 @@ void lsTools::optimize_laplacian_with_traced_boundary_condition(){
     spMat LTL;  // left of laplacian
     Efunc mLTF; // right of laplacian
     assemble_solver_biharmonic_smoothing(LTL, mLTF);
-    H = weight_mass * mass + weight_laplacian * LTL ;
+    H = weight_laplacian * LTL ;
     B = weight_laplacian * mLTF;
     assert(mass.rows() == vnbr);
 
@@ -657,6 +675,8 @@ void lsTools::optimize_laplacian_with_traced_boundary_condition(){
         assert(H.cols() == vnbr);
         // std::cout<<"before solving"<<std::endl;
     }
+    double dmax=get_mat_max_diag(H);
+    H += 1e-6 * dmax * Eigen::VectorXd::Ones(vnbr).asDiagonal();
     Eigen::SimplicialLLT<Eigen::SparseMatrix<double>> solver(H);
     assert(solver.info() == Eigen::Success);
     // std::cout<<"solved successfully"<<std::endl;
