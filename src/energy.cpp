@@ -386,12 +386,12 @@ void lsTools::calculate_pseudo_energy_function_values_vertex_based(const double 
     LsOrient.resize(ninner);// first make g1 g2 same direction, then check if g1xg2 or g2xg1.
     PeWeight.resize(ninner);
     lens.resize(ninner);
+    vBinormal.resize(ninner,3);
     double angle_radian = angle_degree * LSC_PI / 180.; // the angle in radian
     double cos_angle=cos(angle_radian);
     
     for (int i = 0; i < ninner; i++)
     {
-
         if(ActInner[i] == false){// this is a singularity
             continue;
         }
@@ -411,7 +411,7 @@ void lsTools::calculate_pseudo_energy_function_values_vertex_based(const double 
         g1=norm1.cross(g1);
         g2=norm2.cross(g2);
         Eigen::Vector3d g1xg2=g1.cross(g2);
-        // deal with edge orientation: shoot from small value to big value
+        // deal with the orientation of the level set: the left of the curve should be bigger value
         double flag1=g1.dot(Vdire0[i]);
         double flag2=g2.dot(Vdire1[i]);
         double flag=flag1*flag2;
@@ -426,12 +426,12 @@ void lsTools::calculate_pseudo_energy_function_values_vertex_based(const double 
         double lg1=g1.norm();
         double lg2=g2.norm();
         if(lg1<1e-16 || lg2<1e-16){
-            // std::cout<<"gradient too small"<<std::endl;
             PeWeight[i]=0;// it means the g1xg2 will not be accurate
         }
         else{
             Eigen::Vector3d g1n = g1.normalized();
             Eigen::Vector3d g2n = LsOrient[i]*g2.normalized();// get the oriented g2, to make g1 g2 goes to the same direction
+            vBinormal.row(i)=g1n.cross(g2n).normalized();
             double cos_real=g1n.cross(g2n).normalized().dot(norm);// angle between the binormal and the surface normal
             if(cos_real<-1||cos_real>1){
                 std::cout<<"angle is wrong"<<std::endl;
@@ -580,7 +580,16 @@ void lsTools::assemble_solver_pesudo_geodesic_energy_part_vertex_baed(spMat &H, 
     // std::cout<<"calculated gradient partial"<<std::endl;
     // recompute the right part
     Eigen::VectorXd lens;// the norm(g1xg2), size is ninner
-    calculate_pseudo_energy_function_values_vertex_based(pseudo_geodesic_target_angle_degree,lens);
+    if(enable_functional_angles){
+        std::cout<<"opt functional ";
+        std::vector<double> angles;
+        assign_angles_based_on_funtion_values(fvalues,pseudo_geodesic_target_max_angle_degree,pseudo_geodesic_target_min_angle_degree,angles);
+        calculate_pseudo_energy_function_values_vertex_based(angles,lens);
+    }
+    else{
+        calculate_pseudo_energy_function_values_vertex_based(pseudo_geodesic_target_angle_degree,lens);
+    }
+    
     // std::cout<<"calculated fuction values"<<std::endl;
 
     int vnbr = V.rows();

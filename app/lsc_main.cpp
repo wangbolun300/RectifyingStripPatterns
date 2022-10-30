@@ -14,7 +14,7 @@
 #include <lsc/MeshProcessing.h>
 #include <lsc/OptimizerCheckboard.h>
 #include <lsc/basic.h>
-#include<lsc/tools.h>
+#include <lsc/tools.h>
 // -------------------- OpenMesh
 #include <OpenMesh/Core/IO/MeshIO.hh>
 #include <OpenMesh/Core/Mesh/PolyMesh_ArrayKernelT.hh>
@@ -36,33 +36,37 @@ namespace lscif
 
 	bool keyPress_1 = false;
 	bool keyPress_2 = false;
-	bool keyPress_d=false;
+	bool keyPress_d = false;
+
+	bool enable_functional_degrees = false;
+	// bool show_
 
 	// Optimization Parameters
 	double weigth_closeness = 0.0;
 	double refer_AveEL = 1;
-	double weight_mass = 100.;			  // weight of the mass function to
-	double weight_boundary=100;	// weight of the boundary condition
-	double weight_laplacian=10;
-	double weight_pseudo_geodesic=10;
-	double weight_strip_width=1;
+	double weight_mass = 100.;	  // weight of the mass function to
+	double weight_boundary = 100; // weight of the boundary condition
+	double weight_laplacian = 10;
+	double weight_pseudo_geodesic = 10;
+	double weight_strip_width = 1;
 	double maximal_step_length = 0.5;
-	bool enable_inner_vers_fixed=false;
-	
+	bool enable_inner_vers_fixed = false;
 
 	// Tracing Parameters
-	int which_seg_id = 0;			  // the face id of which we will assign value to
+	int which_seg_id = 0; // the face id of which we will assign value to
 	int nbr_of_intervals = 3;
-	int id_debug_global=5;
-	double target_angle=60;
-	double start_angle=60;
-	double threadshold_angel_degree=150;// the threadshold for detecting boundary corners
+	int id_debug_global = 5;
+	double target_angle = 60;
+	double target_min_angle=90;// target angle for min function value;
+	double target_max_angle=90;// target angle for max function value;
+	double start_angle = 60;
+	double threadshold_angel_degree = 150; // the threadshold for detecting boundary corners
 	int dbg_int;
 	int dbg_int2 = 5;
 	double dbg_dbl = 30;
 	double dbg_dbl2 = 60;
 	double vector_scaling = 1;
-	int extracted_nbr=5;
+	int extracted_nbr = 5;
 	std::vector<int> fixedVertices;
 
 	int OpIter = 100;
@@ -130,7 +134,7 @@ namespace lscif
 		}
 		case 'd':
 		{
-			keyPress_d=false;
+			keyPress_d = false;
 			return true;
 		}
 		}
@@ -155,9 +159,10 @@ namespace lscif
 		}
 		case 'd':
 		{
-			keyPress_d=true;
-			if(keyPress_d){
-				keyPress_d=false;
+			keyPress_d = true;
+			if (keyPress_d)
+			{
+				keyPress_d = false;
 				int id = viewer.selected_data_index;
 				// if (id > 1)
 				//	viewer.selected_data_index = id - 2;
@@ -170,7 +175,7 @@ namespace lscif
 					lscif::Meshes.erase(lscif::Meshes.begin() + id);
 				}
 			}
-			
+
 			return true;
 		}
 		}
@@ -312,7 +317,7 @@ int main(int argc, char *argv[])
 #else
 	std::string spliter = "/";
 #endif
-	std::string modelname="oc_5.000000_10.000000_50_30.obj";
+	std::string modelname = "oc_5.000000_10.000000_50_30.obj";
 	std::string fname = example_root_path + std::string(modelname);
 	OpenMesh::IO::read_mesh(lscif::mesh, fname);
 	lscif::tools.init(lscif::mesh);
@@ -350,12 +355,12 @@ int main(int argc, char *argv[])
 		{
 
 			std::string fname = igl::file_dialog_open();
-			if (fname.length() == 0){
-				std::cout<<"\nLSC: read mesh failed"<<std::endl;
+			if (fname.length() == 0)
+			{
+				std::cout << "\nLSC: read mesh failed" << std::endl;
 				ImGui::End();
 				return;
 			}
-				
 
 			OpenMesh::IO::read_mesh(lscif::mesh, fname);
 			lscif::tools.init(lscif::mesh);
@@ -393,8 +398,9 @@ int main(int argc, char *argv[])
 		{
 			std::string fname = igl::file_dialog_save();
 
-			if (fname.length() == 0){
-				std::cout<<"\nLSC: save mesh failed"<<std::endl;
+			if (fname.length() == 0)
+			{
+				std::cout << "\nLSC: save mesh failed" << std::endl;
 				ImGui::End();
 				return;
 			}
@@ -408,10 +414,11 @@ int main(int argc, char *argv[])
 
 		if (ImGui::Button("Import levelset", ImVec2(ImGui::GetWindowSize().x * 0.25f, 0.0f)))
 		{
-			
-			bool read=read_levelset(lscif::tools.fvalues);
-			if(read){
-				std::cout<<"\nlevel set readed"<<std::endl;
+
+			bool read = read_levelset(lscif::tools.fvalues);
+			if (read)
+			{
+				std::cout << "\nlevel set readed" << std::endl;
 			}
 		}
 
@@ -419,9 +426,10 @@ int main(int argc, char *argv[])
 
 		if (ImGui::Button("Save levelset", ImVec2(ImGui::GetWindowSize().x * 0.25f, 0.0f)))
 		{
-			bool saved=save_levelset(lscif::tools.fvalues);
-			if(saved){
-				std::cout<<"\nlevel set saved"<<std::endl;
+			bool saved = save_levelset(lscif::tools.fvalues);
+			if (saved)
+			{
+				std::cout << "\nlevel set saved" << std::endl;
 			}
 		}
 
@@ -444,6 +452,8 @@ int main(int argc, char *argv[])
 			}
 			lscif::refer_AveEL = refAveEL;
 		}
+		
+		// ImGui::Checkbox("Enable PG Energy", &lscif::show_optimizer_checkbox);
 		// show the name of the mesh when printing the info of this mesh
 		if (updateMeshFlag)
 		{
@@ -458,7 +468,8 @@ int main(int argc, char *argv[])
 		{
 			ImGui::InputDouble("target angle", &lscif::target_angle, 0, 0, "%.4f");
 		}
-		if (ImGui::CollapsingHeader("Energy Solving", ImGuiTreeNodeFlags_DefaultOpen))
+
+		if (ImGui::CollapsingHeader("Energy Solving", ImGuiTreeNodeFlags_CollapsingHeader))
 		{
 			// Expose variable directly ...
 			// ImGui::InputDouble("Closeness", &lscif::weigth_closeness, 0, 0, "%.4f");
@@ -468,22 +479,26 @@ int main(int argc, char *argv[])
 			ImGui::InputDouble("weight laplacian (small)", &lscif::weight_laplacian, 0, 0, "%.4f");
 			ImGui::InputDouble("weight pseudo-geodesic", &lscif::weight_pseudo_geodesic, 0, 0, "%.4f");
 			ImGui::InputDouble("MaxStpLenght(Need PG Enabled)", &lscif::maximal_step_length, 0, 0, "%.4f");
-			ImGui::InputDouble("weight Strip width(Need SW Enabled)", &lscif::weight_strip_width, 0, 0, "%.4f"); 
+			ImGui::InputDouble("weight Strip width(Need SW Enabled)", &lscif::weight_strip_width, 0, 0, "%.4f");
+			ImGui::Checkbox("Enable functional Energy", &lscif::enable_functional_degrees);
+			if(lscif::enable_functional_degrees){
+				ImGui::InputDouble("angle (min func)", &lscif::target_min_angle, 0, 0, "%.4f");
+				ImGui::InputDouble("angle (max func)", &lscif::target_max_angle, 0, 0, "%.4f");
+			}
 			
-			// ImGui::InputDouble("Average Edge length", &lscif::refer_AveEL, 0, 0, "%.4f");
 			// ImGui::InputDouble("Strip Width Ratio", &lscif::strip_width_ratio, 0, 0, "%.4f");
 
 			ImGui::Checkbox("Enable PG Energy", &lscif::enable_pg_energy_checkbox);
 			ImGui::SameLine();
 			ImGui::Checkbox("Enable Strip Width", &lscif::enable_strip_width_checkbox);
 			ImGui::Checkbox("Enable Smooth Boundary", &lscif::enable_inner_vers_fixed);
-			
 
 			// ImGui::Checkbox("Fix Boundary", &lscif::fixBoundary_checkbox);
 		}
+
 		if (ImGui::CollapsingHeader("Tracing", ImGuiTreeNodeFlags_DefaultOpen))
 		{
-			
+
 			ImGui::InputInt("which boundary segment id", &lscif::which_seg_id, 0, 0);
 			ImGui::InputInt("every i segments", &lscif::nbr_of_intervals, 0, 0);
 			ImGui::InputInt("debug id", &lscif::id_debug_global, 0, 0);
@@ -493,29 +508,30 @@ int main(int argc, char *argv[])
 			// ImGui::Checkbox("Fix Boundary", &lscif::fixBoundary_checkbox);
 		}
 		ImGui::Separator();
+		
 
-		if (ImGui::CollapsingHeader("Mesh Processing", ImGuiTreeNodeFlags_DefaultOpen))
+		if (ImGui::CollapsingHeader("Debug input", ImGuiTreeNodeFlags_CollapsingHeader))
 		{
-			if (ImGui::CollapsingHeader("Debug input", ImGuiTreeNodeFlags_DefaultOpen))
+			// Expose variable directly ...
+			ImGui::InputInt("int", &lscif::dbg_int, 0, 0);
+			ImGui::InputInt("int2", &lscif::dbg_int2, 0, 0);
+			ImGui::InputDouble("double", &lscif::dbg_dbl, 0, 0, "%.4f");
+			ImGui::InputDouble("double2", &lscif::dbg_dbl2, 0, 0, "%.4f");
+			ImGui::InputDouble("vector_scaling", &lscif::vector_scaling, 0, 0, "%.4f");
+			ImGui::InputInt("extracted_nbr", &lscif::extracted_nbr, 0, 0);
+		}
+		if (ImGui::CollapsingHeader("LS Processing", ImGuiTreeNodeFlags_DefaultOpen))
+		{
+			if (ImGui::Button("Trace Curves", ImVec2(ImGui::GetWindowSize().x * 0.23f, 0.0f)))
 			{
-				// Expose variable directly ...
-				ImGui::InputInt("int", &lscif::dbg_int, 0, 0);
-				ImGui::InputInt("int2", &lscif::dbg_int2, 0, 0);
-				ImGui::InputDouble("double", &lscif::dbg_dbl, 0, 0, "%.4f");
-				ImGui::InputDouble("double2", &lscif::dbg_dbl2, 0, 0, "%.4f");
-				ImGui::InputDouble("vector_scaling", &lscif::vector_scaling, 0, 0, "%.4f");
-				ImGui::InputInt("extracted_nbr", &lscif::extracted_nbr, 0, 0);
-			}
-			if (ImGui::Button("levelset tracing", ImVec2(ImGui::GetWindowSize().x * 0.23f, 0.0f)))
-			{
-				
+
 				int id = viewer.selected_data_index;
 				CGMesh updatedMesh;
 				CGMesh inputMesh = lscif::Meshes[id];
 				lscif::tools.init(inputMesh);
-				lscif::tools.weight_mass=lscif::weight_mass;
-				lscif::tools.weight_laplacian=lscif::weight_laplacian;
-				lscif::tools.weight_boundary=lscif::weight_boundary;
+				lscif::tools.weight_mass = lscif::weight_mass;
+				lscif::tools.weight_laplacian = lscif::weight_laplacian;
+				lscif::tools.weight_boundary = lscif::weight_boundary;
 				std::vector<int> input_int;
 				std::vector<double> input_dbl;
 				input_int.push_back(lscif::nbr_of_intervals);
@@ -526,7 +542,7 @@ int main(int argc, char *argv[])
 				input_dbl.push_back(lscif::threadshold_angel_degree);
 				lscif::tools.initialize_mesh_properties();
 				lscif::tools.initialize_level_set_by_tracing(input_int, input_dbl);
-				std::cout<<"finish tracing"<<std::endl;
+				std::cout << "finish tracing" << std::endl;
 				lscif::updateMeshViewer(viewer, inputMesh);
 				lscif::meshFileName.push_back("dbg_" + lscif::meshFileName[id]);
 				lscif::Meshes.push_back(inputMesh);
@@ -538,22 +554,21 @@ int main(int argc, char *argv[])
 				const Eigen::RowVector3d black(0, 0, 0);
 				const Eigen::RowVector3d green(0.2, 0.8, 0.2);
 				Eigen::MatrixXd RGB = Eigen::MatrixXd::Identity(3, 3);
-				
+
 				Eigen::MatrixXd pts;
 				std::vector<Eigen::MatrixXd> E0list, E1list;
-				std::cout<<"before ploting the curve"<<std::endl;
+				std::cout << "before ploting the curve" << std::endl;
 				lscif::tools.show_pseudo_geodesic_curve(E0list, E1list, pts);
-				for (int i = 0; i < E0list.size(); i++)// plot the curves
+				for (int i = 0; i < E0list.size(); i++) // plot the curves
 				{
 					E0 = E0list[i];
 					E1 = E1list[i];
-					std::cout << "edge sizes " << E0.rows()<<", "<<E1.size() << std::endl;
+					std::cout << "edge sizes " << E0.rows() << ", " << E1.size() << std::endl;
 					viewer.data().add_edges(E0, E1, red);
-					
 				}
-				std::cout<<"the number of curves "<<E0list.size()<<std::endl;
-				
-				if (1)// plot the vertices of the curves
+				std::cout << "the number of curves " << E0list.size() << std::endl;
+
+				if (1) // plot the vertices of the curves
 				{
 					viewer.data().add_points(pts, red);
 				}
@@ -567,26 +582,29 @@ int main(int argc, char *argv[])
 				int id = viewer.selected_data_index;
 				CGMesh inputMesh = lscif::Meshes[id];
 				EnergyPrepare einit;
-				einit.weight_gravity=lscif::weight_mass;
-				einit.weight_lap=lscif::weight_laplacian;
-				einit.weight_bnd=lscif::weight_boundary;
-				einit.weight_pg=lscif::weight_pseudo_geodesic;
+				einit.weight_gravity = lscif::weight_mass;
+				einit.weight_lap = lscif::weight_laplacian;
+				einit.weight_bnd = lscif::weight_boundary;
+				einit.weight_pg = lscif::weight_pseudo_geodesic;
 				einit.weight_strip_width = lscif::weight_strip_width;
-				einit.solve_pseudo_geodesic=lscif::enable_pg_energy_checkbox;
-				einit.target_angle=lscif::target_angle;
-				einit.max_step_length=lscif::maximal_step_length;
-				einit.solve_strip_width_on_traced=lscif::enable_strip_width_checkbox;
-				einit.enable_inner_vers_fixed=lscif::enable_inner_vers_fixed;
+				einit.solve_pseudo_geodesic = lscif::enable_pg_energy_checkbox;
+				einit.target_angle = lscif::target_angle;
+				einit.max_step_length = lscif::maximal_step_length;
+				einit.solve_strip_width_on_traced = lscif::enable_strip_width_checkbox;
+				einit.enable_inner_vers_fixed = lscif::enable_inner_vers_fixed;
+				einit.enable_functional_angles=lscif::enable_functional_degrees;
+				einit.target_min_angle=lscif::target_min_angle;
+				einit.target_max_angle=lscif::target_max_angle;
 				lscif::tools.prepare_level_set_solving(einit);
 
 				for (int i = 0; i < lscif::OpIter; i++)
 				{
 					lscif::tools.optimize_laplacian_with_traced_boundary_condition();
-					if(lscif::tools.step_length<1e-16&& i!=0){// step length actually is the value for the last step
-						std::cout<<"optimization converges "<<std::endl;
+					if (lscif::tools.step_length < 1e-16 && i != 0)
+					{ // step length actually is the value for the last step
+						std::cout << "optimization converges " << std::endl;
 						break;
 					}
-					
 				}
 				std::cout << "waiting for instruction..." << std::endl;
 				// lscif::MP.MeshUnitScale(inputMesh, updatedMesh);
@@ -611,13 +629,13 @@ int main(int argc, char *argv[])
 
 				viewer.selected_data_index = id;
 			}
-			
+
 			if (ImGui::Button("draw extracted", ImVec2(ImGui::GetWindowSize().x * 0.23f, 0.0f)))
 			{
 
 				int id = viewer.selected_data_index;
 				CGMesh inputMesh = lscif::Meshes[id];
-				
+
 				// lscif::MP.MeshUnitScale(inputMesh, updatedMesh);
 				lscif::updateMeshViewer(viewer, inputMesh);
 				lscif::meshFileName.push_back("extracted_" + lscif::meshFileName[id]);
@@ -633,15 +651,14 @@ int main(int argc, char *argv[])
 
 				const Eigen::RowVector3d black(0, 0, 0);
 				const Eigen::RowVector3d green(0.2, 0.8, 0.2);
-				std::vector<Eigen::MatrixXd> E0list,E1list;
-				lscif::tools.extract_levelset_curves(lscif::extracted_nbr,E0list,E1list);
-				for (int i = 0; i < E0list.size(); i++)// plot the curves
+				std::vector<Eigen::MatrixXd> E0list, E1list;
+				lscif::tools.extract_levelset_curves(lscif::extracted_nbr, E0list, E1list);
+				for (int i = 0; i < E0list.size(); i++) // plot the curves
 				{
 					E0 = E0list[i];
 					E1 = E1list[i];
-					std::cout << "traced seg sizes " << E0.rows()<<", "<<E1.size() << std::endl;
+					std::cout << "traced seg sizes " << E0.rows() << ", " << E1.size() << std::endl;
 					viewer.data().add_edges(E0, E1, red);
-					
 				}
 				viewer.selected_data_index = id;
 			}
@@ -656,22 +673,22 @@ int main(int argc, char *argv[])
 
 				std::vector<Eigen::MatrixXd> E0list, E1list;
 				Eigen::MatrixXd pts, E0, E1;
-				std::cout<<"before ploting the traced curves"<<std::endl;
-				
+				std::cout << "before ploting the traced curves" << std::endl;
+
 				lscif::tools.show_pseudo_geodesic_curve(E0list, E1list, pts);
-				if(E0list.size()==0){
-					std::cout<<"please trace the curves first"<<std::endl;
+				if (E0list.size() == 0)
+				{
+					std::cout << "please trace the curves first" << std::endl;
 				}
 
-				for (int i = 0; i < E0list.size(); i++)// plot the curves
+				for (int i = 0; i < E0list.size(); i++) // plot the curves
 				{
 					E0 = E0list[i];
 					E1 = E1list[i];
-					std::cout << "edge sizes " << E0.rows()<<", "<<E1.size() << std::endl;
+					std::cout << "edge sizes " << E0.rows() << ", " << E1.size() << std::endl;
 					viewer.data().add_edges(E0, E1, red);
-					
 				}
-				std::cout<<"the number of curves "<<E0list.size()<<std::endl;
+				std::cout << "the number of curves " << E0list.size() << std::endl;
 
 				if (1) // plot the vertices of the curves
 				{
@@ -688,6 +705,15 @@ int main(int argc, char *argv[])
 				igl::isolines_map(Eigen::MatrixXd(CM), CM);
 				viewer.data().set_colormap(CM);
 				viewer.data().set_data(level_set_values);
+			}
+			ImGui::SameLine();
+			if (ImGui::Button("draw binormals", ImVec2(ImGui::GetWindowSize().x * 0.23f, 0.0f)))
+			{
+				Eigen::MatrixXd E0, E1;
+				lscif::tools.show_binormals(E0,E1,lscif::vector_scaling);
+				const Eigen::RowVector3d green(0.2, 0.8, 0.2);
+				
+				viewer.data().add_edges(E0,E1,green);
 			}
 			if (ImGui::Button("MeshUnitScale", ImVec2(ImGui::GetWindowSize().x * 0.23f, 0.0f)))
 			{
@@ -743,7 +769,7 @@ int main(int argc, char *argv[])
 				viewer.data().set_points(igl::slice(viewer.data().V, vids, 1), lscif::hot_red);
 			}
 		}
-
+		
 		if (ImGui::CollapsingHeader("Closest point projection", ImGuiTreeNodeFlags_DefaultOpen))
 		{
 			ImGui::PushItemWidth(100);

@@ -928,3 +928,22 @@ std::array<int,4> get_vers_around_edge(CGMesh& lsmesh, int edgeid, int& fid1, in
     result[3]=vidB;
     return result;
 }
+void lsTools::show_binormals(Eigen::MatrixXd& E0, Eigen::MatrixXd& E1, double ratio){
+    
+    int ninner=IVids.size();
+    E0.resize(ninner,3);
+    E1.resize(ninner,3);
+    for (int i = 0; i < ninner; i++)
+    {
+        int vid = IVids[i];
+        Eigen::Vector3d ver=V.row(vid);
+        if(ActInner[i] == false){// this is a singularity
+            E0.row(vid)=ver;
+            E1.row(vid)=ver;
+            continue;
+        }
+        E0.row(i)=ver;
+        E1.row(i)=ver+ratio*Eigen::Vector3d(vBinormal.row(i));
+
+    }
+}

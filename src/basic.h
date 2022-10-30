@@ -27,7 +27,10 @@ class EnergyPrepare{
     bool solve_pseudo_geodesic;
     bool solve_strip_width_on_traced;
     bool enable_inner_vers_fixed;
+    bool enable_functional_angles;
     double target_angle;
+    double target_min_angle;
+    double target_max_angle;
     double max_step_length;
 
 
@@ -139,6 +142,7 @@ private:
     // pseudo energy values for right side of the Gauss-newton. update weights.
     void calculate_pseudo_energy_function_values(const double angle_degree);
     void calculate_pseudo_energy_function_values_vertex_based(const double angle_degree, Eigen::VectorXd& lens);
+    void calculate_pseudo_energy_function_values_vertex_based(const std::vector<double>& angle_degree, Eigen::VectorXd& lens);
     void assemble_solver_boundary_condition_part(spMat& H, Efunc& B);
     void assemble_solver_laplacian_part(spMat &H, Efunc &B);
     void assemble_solver_biharmonic_smoothing(spMat &H, Efunc &B); //Biharmonic smoothing (natural curved Hessian boundary)
@@ -215,7 +219,10 @@ public:
     bool enable_pseudo_geodesic_energy=false; // decide if we include pseudo-geodesic energy
     bool enable_strip_width_energy=false;
     bool enable_inner_vers_fixed=false;// decide if we enables fixing the inner vers and optimize boundary laplacian
+    bool enable_functional_angles=false;// decide if we enable functional angle variation
     double pseudo_geodesic_target_angle_degree; // the target pseudo-geodesic angle
+    double pseudo_geodesic_target_min_angle_degree; // the target angle for max function value of LS
+    double pseudo_geodesic_target_max_angle_degree; // the target angle for min function value of LS
     // bool enable_pseudo_vertex=false;
     Eigen::MatrixXd ver_dbg;
     Eigen::MatrixXd ver_dbg1;
@@ -227,6 +234,7 @@ public:
     std::vector<Eigen::Vector3d> pseudo_vers_dbg;
     std::vector<Eigen::Vector3d> pnorm_list_dbg;
     Eigen::MatrixXd visual_pts_dbg;
+    Eigen::MatrixXd vBinormal;
 
     // this function should be calculated first once the class get constructed
     //  1. get face normals;
@@ -279,6 +287,7 @@ public:
     void show_face_1_order_derivate(Eigen::MatrixXd &E0, Eigen::MatrixXd &E1, Eigen::MatrixXd &E2, Eigen::MatrixXd &E3, double ratio);
     void show_vertex_normal(Eigen::MatrixXd &E0, Eigen::MatrixXd &E1, double ratio);
     void show_pseudo_geodesic_curve(std::vector<Eigen::MatrixXd> &E0, std::vector<Eigen::MatrixXd> &E1, Eigen::MatrixXd &vers);
+    void show_binormals(Eigen::MatrixXd& E0, Eigen::MatrixXd& E1, double ratio);
     void print_info(const int vid);
     void initialize_and_smooth_level_set_by_laplacian();
     void initialize_and_optimize_strip_width();

@@ -51,6 +51,12 @@ void lsTools::prepare_level_set_solving(const EnergyPrepare &Energy_initializer)
     enable_strip_width_energy=Energy_initializer.solve_strip_width_on_traced;
     weight_strip_width = Energy_initializer.weight_strip_width;
     enable_inner_vers_fixed=Energy_initializer.enable_inner_vers_fixed;
+    enable_functional_angles=Energy_initializer.enable_functional_angles;
+    if(Energy_initializer.enable_functional_angles){
+        
+        pseudo_geodesic_target_min_angle_degree=Energy_initializer.target_min_angle;
+        pseudo_geodesic_target_max_angle_degree=Energy_initializer.target_max_angle;
+    }
 }
 void lsTools::convert_paras_as_meshes(CGMesh &output)
 {
@@ -1164,11 +1170,12 @@ void lsTools::print_info(const int vid){
     // std::cout<<"energy, "<<g1xg2.dot(norm) / g1xg2.norm() - cos_angle
     Eigen::Vector3d binormal=g1xg2.normalized();
     std::cout<<"binormal "<<binormal.transpose()<<"\n";
+    std::cout<<"vBinormal "<<vBinormal.row(i)<<"\n";
     double cos_angle=norm.dot(binormal);
     std::cout<<"norm\n"<<norm.transpose()<<"\ncos "<<cos_angle<<std::endl;
     std::cout<<"energy value "<<VPEvalue.coeffRef(i)<<std::endl;
-    std::cout<<"pew\n"<<PeWeight.transpose()<<std::endl;
-    std::cout<<"peV\n"<<VPEvalue<<std::endl;
+    // std::cout<<"pew\n"<<PeWeight.transpose()<<std::endl;
+    // std::cout<<"peV\n"<<VPEvalue<<std::endl;
     std::cout<<"n(peV) "<<VPEvalue.norm()<<std::endl;
     
 }

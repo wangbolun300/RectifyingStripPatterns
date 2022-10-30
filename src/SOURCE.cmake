@@ -12,6 +12,7 @@ src/tools.h
 src/tools.cpp
 src/tracing.cpp
 src/energy.cpp
+src/functional.cpp
 )
 ################################################################################
 # Subfolders
