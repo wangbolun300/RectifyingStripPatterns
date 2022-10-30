@@ -1153,17 +1153,22 @@ void lsTools::print_info(const int vid){
     Eigen::Vector3d norm2 = norm_f.row(fid2);
     Eigen::Vector3d g1 = gfvalue.row(fid1);
     Eigen::Vector3d g2 = gfvalue.row(fid2);
-    std::cout<<"gradients \n"<<g1.transpose()<<"\n"<<g2.transpose()<<std::endl;
+    std::cout<<"gradients "<<g1.transpose()<<"\n"<<g2.transpose()<<std::endl;
     // rotate gradients to get iso-curve directions
     g1 = norm1.cross(g1);
     g2 = norm2.cross(g2);
     std::cout<<"iso-line \n"<<g1.transpose()<<"\n"<<g2.transpose()<<std::endl;
     Eigen::Vector3d g1xg2 = g1.cross(g2);
-    std::cout<<"g1xg2 "<<g1xg2.transpose()<<"\n";
+    
+    std::cout<<"g1xg2 "<<g1xg2.transpose()<<", norm, "<<g1xg2.norm()<<"\n";
+    // std::cout<<"energy, "<<g1xg2.dot(norm) / g1xg2.norm() - cos_angle
     Eigen::Vector3d binormal=g1xg2.normalized();
     std::cout<<"binormal "<<binormal.transpose()<<"\n";
     double cos_angle=norm.dot(binormal);
     std::cout<<"norm\n"<<norm.transpose()<<"\ncos "<<cos_angle<<std::endl;
     std::cout<<"energy value "<<VPEvalue.coeffRef(i)<<std::endl;
+    std::cout<<"pew\n"<<PeWeight.transpose()<<std::endl;
+    std::cout<<"peV\n"<<VPEvalue<<std::endl;
+    std::cout<<"n(peV) "<<VPEvalue.norm()<<std::endl;
     
 }

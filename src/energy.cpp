@@ -379,11 +379,13 @@ void lsTools::calculate_pseudo_energy_function_values(const double angle_degree)
         EPEvalue.coeffRef(i)=value;
     }
 }
-void lsTools::calculate_pseudo_energy_function_values_vertex_based(const double angle_degree){
+void lsTools::calculate_pseudo_energy_function_values_vertex_based(const double angle_degree, Eigen::VectorXd &lens)
+{
     int ninner=IVids.size();
     VPEvalue.resize(ninner);
     LsOrient.resize(ninner);// first make g1 g2 same direction, then check if g1xg2 or g2xg1.
     PeWeight.resize(ninner);
+    lens.resize(ninner);
     double angle_radian = angle_degree * LSC_PI / 180.; // the angle in radian
     double cos_angle=cos(angle_radian);
     
@@ -443,19 +445,28 @@ void lsTools::calculate_pseudo_energy_function_values_vertex_based(const double 
             // it is still resonable for vertex-based method. since there can be multiple intersections between the
             // osculating plane and the one-ring of vertex
             //std::cout<<"angle is "<<angle_real<<std::endl;
-            if (angles_match(angle_real, 0))// if it is close to straight line, we skip.
-            {
-                PeWeight[i] = 0;
-            }
-            else
+            // if (angles_match(angle_real, 0))// if it is close to straight line, we skip.
+            // {
+            //     PeWeight[i] = 0;
+            // }
+            // else
                 PeWeight[i] = cos_diff;
         }
 
         // if(fvalues[v1]<fvalues[v2]){ // orient g1xg2 or g2xg1
         //     LsOrient[i]*=-1;
         // }// we don't need it for vertex based method, since it is implicitly given by Vheh0 and Vheh1
-        double value = LsOrient[i] * g1xg2.dot(norm) - g1xg2.norm() * cos_angle;
+        double length=g1xg2.norm();
+        double value;
+        if(length<1e-16){
+            value=1e6;// if it is really small, we set the value very big
+        }
+        else// divided by the length to avoid straight lines
+        {
+            value = LsOrient[i] * g1xg2.dot(norm) / length - cos_angle;
+        }
         VPEvalue.coeffRef(i)=value;
+        lens[i]=length;
     }
 }
 void lsTools::assemble_solver_boundary_condition_part(spMat& H, Efunc& B){
@@ -568,7 +579,8 @@ void lsTools::assemble_solver_pesudo_geodesic_energy_part_vertex_baed(spMat &H, 
     calculate_gradient_partial_parts_ver_based();
     // std::cout<<"calculated gradient partial"<<std::endl;
     // recompute the right part
-    calculate_pseudo_energy_function_values_vertex_based(pseudo_geodesic_target_angle_degree);
+    Eigen::VectorXd lens;// the norm(g1xg2), size is ninner
+    calculate_pseudo_energy_function_values_vertex_based(pseudo_geodesic_target_angle_degree,lens);
     // std::cout<<"calculated fuction values"<<std::endl;
 
     int vnbr = V.rows();
@@ -587,7 +599,7 @@ void lsTools::assemble_solver_pesudo_geodesic_energy_part_vertex_baed(spMat &H, 
             continue;
         }
         // std::cout<<"SMfvalues size "<<SMfvalues.rows()<<" "<<SMfvalues.cols()<<std::endl;
-        spMat JT = LsOrient[i] * VPEJC[i] * SMfvalues;
+        spMat JT = LsOrient[i] * VPEJC[i] * SMfvalues/lens[i];
         // std::cout<<"J size "<<J.rows()<<" "<<J.cols()<<std::endl;
         spMat tjtj=JT* JT.transpose();
         // std::cout<<"tempJTJ size "<<tjtj.rows()<<" "<<tjtj.cols()<<std::endl;
@@ -679,6 +691,12 @@ void lsTools::optimize_laplacian_with_traced_boundary_condition(){
     H += 1e-6 * dmax * Eigen::VectorXd::Ones(vnbr).asDiagonal();
     Eigen::SimplicialLLT<Eigen::SparseMatrix<double>> solver(H);
     assert(solver.info() == Eigen::Success);
+    if (solver.info() != Eigen::Success)
+    {
+        // solving failed
+        std::cout << "solver fail" << std::endl;
+        return;
+    }
     // std::cout<<"solved successfully"<<std::endl;
     Eigen::VectorXd dx = solver.solve(B).eval();
     dx *= 0.75;

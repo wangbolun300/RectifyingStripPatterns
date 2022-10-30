@@ -138,7 +138,7 @@ private:
     void calculate_gradient_partial_parts_ver_based();// calculate gradient partial derivatives. Edge based energy part
     // pseudo energy values for right side of the Gauss-newton. update weights.
     void calculate_pseudo_energy_function_values(const double angle_degree);
-    void calculate_pseudo_energy_function_values_vertex_based(const double angle_degree);
+    void calculate_pseudo_energy_function_values_vertex_based(const double angle_degree, Eigen::VectorXd& lens);
     void assemble_solver_boundary_condition_part(spMat& H, Efunc& B);
     void assemble_solver_laplacian_part(spMat &H, Efunc &B);
     void assemble_solver_biharmonic_smoothing(spMat &H, Efunc &B); //Biharmonic smoothing (natural curved Hessian boundary)
