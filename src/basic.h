@@ -106,7 +106,7 @@ private:
     std::vector<std::vector<CGMesh::HalfedgeHandle>> trace_hehs; // traced half edge handles
     std::vector<double> assigned_trace_ls; // function values for each traced curve.
     double trace_start_angle_degree; //the angle between the first segment and the given boundary
-    
+    std::vector<spMat> DBdirections; // the derivative of boundary directions from tracing 
     // edge-based pseudo-energy values
     Efunc ActE;// active edges, which means they are not co-planar edges, and not boundary edges.
     std::vector<int> Actid; // active edge ids. the length equals to the number of non-zero elements in ActE
@@ -135,6 +135,10 @@ private:
 
     // CAUTION: please call this after you initialize the function values.
     void get_grad_norm_jacobian();
+
+    // get the derivatives of direction.dot(edge) of boundary triangles the traced curves start, 
+    // where edge is the boundary edge directions from large to small. 
+    void get_traced_boundary_triangle_direction_derivatives(); 
     // get the boundary vertices and one ring vertices from them
     void get_bnd_vers_and_handles();
     void get_all_the_edge_normals();// the edge normals and the active edges
@@ -144,6 +148,7 @@ private:
     void calculate_pseudo_energy_function_values(const double angle_degree);
     void calculate_pseudo_energy_function_values_vertex_based(const double angle_degree, Eigen::VectorXd& lens);
     void calculate_pseudo_energy_function_values_vertex_based(const std::vector<double>& angle_degree, Eigen::VectorXd& lens);
+    
     void assemble_solver_boundary_condition_part(spMat& H, Efunc& B);
     void assemble_solver_laplacian_part(spMat &H, Efunc &B);
     void assemble_solver_biharmonic_smoothing(spMat &H, Efunc &B); //Biharmonic smoothing (natural curved Hessian boundary)

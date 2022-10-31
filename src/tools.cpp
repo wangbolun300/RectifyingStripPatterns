@@ -14,6 +14,26 @@ bool triangles_coplanar(const Eigen::Vector3d &t0, const Eigen::Vector3d &t1, co
     }
     return false;
 }
+bool triangles_coplanar(const Eigen::MatrixXd& V, const Eigen::MatrixXi& F, const int fid1, const int fid2){
+    Eigen::Vector3d t0, t1, t2, p0, p1, p2;
+    t0 = V.row(F(fid1, 0));
+    t1 = V.row(F(fid1, 1));
+    t2 = V.row(F(fid1, 2));
+
+    p0 = V.row(F(fid2, 0));
+    p1 = V.row(F(fid2, 1));
+    p2 = V.row(F(fid2, 2));
+    return triangles_coplanar(t0,t1,t2,p0,p1,p2);  
+}
+bool segments_colinear(const Eigen::Vector3d& s1, const Eigen::Vector3d& s2){
+    Eigen::Vector3d ss1=s1.normalized();
+    Eigen::Vector3d ss2=s2.normalized();
+    double dot=ss1.dot(ss2);
+    if(fabs(dot)>1-1e-8){
+        return true;
+    }
+    return false;
+}
 // -1: boundary edge
 // 0 not coplanar
 // 1 co-planar
@@ -839,7 +859,7 @@ bool save_levelset(const Eigen::VectorXd &ls){
 }
 bool read_levelset(Eigen::VectorXd &ls){
     std::string fname = igl::file_dialog_open();
-
+    std::cout<<"reading "<<fname<<std::endl;
     if (fname.length() == 0)
         return false;
 

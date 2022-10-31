@@ -1132,7 +1132,7 @@ void lsTools::estimate_strip_width_according_to_tracing(){
 void lsTools::print_info(const int vid){
     int i=-1;
     int ninner=IVids.size();
-    if(ninner<=0){
+    if(ActInner.size()<=0){
         std::cout<<"please opt pseudo-geodesic energy"<<std::endl;
         return;
     }
@@ -1140,6 +1140,7 @@ void lsTools::print_info(const int vid){
     {
         if(IVids[j]==vid){
             i=j;
+            break;
         }
     }
     if(i==-1){
@@ -1172,14 +1173,19 @@ void lsTools::print_info(const int vid){
     
     std::cout<<"g1xg2 "<<g1xg2.transpose()<<", norm, "<<g1xg2.norm()<<"\n";
     // std::cout<<"energy, "<<g1xg2.dot(norm) / g1xg2.norm() - cos_angle
-    Eigen::Vector3d binormal=g1xg2.normalized();
+    Eigen::Vector3d binormal=LsOrient[i]*g1xg2.normalized();
     std::cout<<"binormal "<<binormal.transpose()<<"\n";
     std::cout<<"vBinormal "<<vBinormal.row(i)<<"\n";
-    double cos_angle=norm.dot(binormal);
-    std::cout<<"norm\n"<<norm.transpose()<<"\ncos "<<cos_angle<<std::endl;
+    double cos_real=norm.dot(binormal);
+    std::cout<<"Vnorm "<<norm.transpose()<<"\ncos_real "<<cos_real<<std::endl;
     std::cout<<"energy value "<<VPEvalue.coeffRef(i)<<std::endl;
-    if(pseudo_geodesic_angles_per_ver.size()>0){
+    
+    if(enable_functional_angles){
         std::cout<<"target angle "<<pseudo_geodesic_angles_per_ver[vid]<<std::endl;
+        double angle_radian = pseudo_geodesic_angles_per_ver[vid] * LSC_PI / 180.; // the angle in radian
+        double cos_angle = cos(angle_radian);
+        std::cout<<"energy recomput "<<LsOrient[i] * g1xg2.dot(norm) / g1xg2.norm() - cos_angle<<std::endl;
+
     }
     else{
         std::cout<<"target angle "<<pseudo_geodesic_target_angle_degree<<std::endl;

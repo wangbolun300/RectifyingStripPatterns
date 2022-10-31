@@ -379,6 +379,10 @@ void lsTools::calculate_pseudo_energy_function_values(const double angle_degree)
         EPEvalue.coeffRef(i)=value;
     }
 }
+void lsTools::get_traced_boundary_triangle_direction_derivatives(){
+    int size=trace_vers.size();
+    DBdirections.resize(size);
+}
 void lsTools::calculate_pseudo_energy_function_values_vertex_based(const double angle_degree, Eigen::VectorXd &lens)
 {
     int ninner=IVids.size();
@@ -445,12 +449,16 @@ void lsTools::calculate_pseudo_energy_function_values_vertex_based(const double 
             // it is still resonable for vertex-based method. since there can be multiple intersections between the
             // osculating plane and the one-ring of vertex
             //std::cout<<"angle is "<<angle_real<<std::endl;
-            // if (angles_match(angle_real, 0))// if it is close to straight line, we skip.
-            // {
-            //     PeWeight[i] = 0;
-            // }
-            // else
+            // if the triangles are coplanar, or the segment is too straight, there is no room for optimization
+            if (triangles_coplanar(V, F, fid1, fid2)||segments_colinear(g1n,g2n))
+            {
+
+                PeWeight[i] = 0;
+            }
+            else
+            {
                 PeWeight[i] = cos_diff;
+            }
         }
 
         // if(fvalues[v1]<fvalues[v2]){ // orient g1xg2 or g2xg1

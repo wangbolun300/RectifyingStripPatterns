@@ -11,6 +11,9 @@ Eigen::MatrixXd vec_list_to_matrix(const std::vector<Eigen::Vector3d> &vec);
 
 bool triangles_coplanar(const Eigen::Vector3d &t0, const Eigen::Vector3d &t1, const Eigen::Vector3d &t2,
                         const Eigen::Vector3d &p0, const Eigen::Vector3d &p1, const Eigen::Vector3d &p2);
+
+bool triangles_coplanar(const Eigen::MatrixXd& V, const Eigen::MatrixXi& F, const int fid1, const int fid2);
+bool segments_colinear(const Eigen::Vector3d& s1, const Eigen::Vector3d& s2);
 // -1: boundary edge
 // 0 not coplanar
 // 1 co-planar
