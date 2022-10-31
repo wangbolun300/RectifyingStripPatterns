@@ -98,6 +98,7 @@ private:
     std::vector<Eigen::Vector3d> Vdire1;// the outward direction for each ver
     Eigen::VectorXd ActInner; // the active elements in the inner vertices
     std::vector<CGMesh::HalfedgeHandle> Boundary_Edges;
+    std::vector<double> pseudo_geodesic_angles_per_ver;
 
     
     Eigen::MatrixXd norm_e; // normal directions on each edge

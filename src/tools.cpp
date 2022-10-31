@@ -929,8 +929,13 @@ std::array<int,4> get_vers_around_edge(CGMesh& lsmesh, int edgeid, int& fid1, in
     return result;
 }
 void lsTools::show_binormals(Eigen::MatrixXd& E0, Eigen::MatrixXd& E1, double ratio){
-    
+    std::cout<<"show binormals "<<std::endl;
     int ninner=IVids.size();
+    if(ninner<=0){
+        std::cout<<"please optimize pseudo-geodesic energy first"<<std::endl;
+        return;
+    }
+    std::cout<<"there are "<<ninner<<" bi-normals"<<std::endl;
     E0.resize(ninner,3);
     E1.resize(ninner,3);
     for (int i = 0; i < ninner; i++)

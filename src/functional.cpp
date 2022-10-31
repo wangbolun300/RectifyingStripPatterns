@@ -26,7 +26,7 @@ void lsTools::calculate_pseudo_energy_function_values_vertex_based(const std::ve
     LsOrient.resize(ninner);// first make g1 g2 same direction, then check if g1xg2 or g2xg1.
     PeWeight.resize(ninner);
     lens.resize(ninner);
-    
+    vBinormal.resize(ninner,3);
     
     for (int i = 0; i < ninner; i++)
     {
@@ -72,6 +72,7 @@ void lsTools::calculate_pseudo_energy_function_values_vertex_based(const std::ve
         else{
             Eigen::Vector3d g1n = g1.normalized();
             Eigen::Vector3d g2n = LsOrient[i]*g2.normalized();// get the oriented g2, to make g1 g2 goes to the same direction
+            vBinormal.row(i)=g1n.cross(g2n).normalized();
             double cos_real=g1n.cross(g2n).normalized().dot(norm);// angle between the binormal and the surface normal
             if(cos_real<-1||cos_real>1){
                 std::cout<<"angle is wrong"<<std::endl;

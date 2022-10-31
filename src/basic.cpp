@@ -1132,6 +1132,10 @@ void lsTools::estimate_strip_width_according_to_tracing(){
 void lsTools::print_info(const int vid){
     int i=-1;
     int ninner=IVids.size();
+    if(ninner<=0){
+        std::cout<<"please opt pseudo-geodesic energy"<<std::endl;
+        return;
+    }
     for (int j = 0; j < ninner; j++)
     {
         if(IVids[j]==vid){
@@ -1174,6 +1178,12 @@ void lsTools::print_info(const int vid){
     double cos_angle=norm.dot(binormal);
     std::cout<<"norm\n"<<norm.transpose()<<"\ncos "<<cos_angle<<std::endl;
     std::cout<<"energy value "<<VPEvalue.coeffRef(i)<<std::endl;
+    if(pseudo_geodesic_angles_per_ver.size()>0){
+        std::cout<<"target angle "<<pseudo_geodesic_angles_per_ver[vid]<<std::endl;
+    }
+    else{
+        std::cout<<"target angle "<<pseudo_geodesic_target_angle_degree<<std::endl;
+    }
     // std::cout<<"pew\n"<<PeWeight.transpose()<<std::endl;
     // std::cout<<"peV\n"<<VPEvalue<<std::endl;
     std::cout<<"n(peV) "<<VPEvalue.norm()<<std::endl;

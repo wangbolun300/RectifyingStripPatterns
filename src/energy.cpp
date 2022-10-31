@@ -582,9 +582,9 @@ void lsTools::assemble_solver_pesudo_geodesic_energy_part_vertex_baed(spMat &H, 
     Eigen::VectorXd lens;// the norm(g1xg2), size is ninner
     if(enable_functional_angles){
         std::cout<<"opt functional ";
-        std::vector<double> angles;
-        assign_angles_based_on_funtion_values(fvalues,pseudo_geodesic_target_max_angle_degree,pseudo_geodesic_target_min_angle_degree,angles);
-        calculate_pseudo_energy_function_values_vertex_based(angles,lens);
+        
+        assign_angles_based_on_funtion_values(fvalues,pseudo_geodesic_target_max_angle_degree,pseudo_geodesic_target_min_angle_degree,pseudo_geodesic_angles_per_ver);
+        calculate_pseudo_energy_function_values_vertex_based(pseudo_geodesic_angles_per_ver,lens);
     }
     else{
         calculate_pseudo_energy_function_values_vertex_based(pseudo_geodesic_target_angle_degree,lens);
