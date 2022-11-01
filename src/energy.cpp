@@ -379,9 +379,98 @@ void lsTools::calculate_pseudo_energy_function_values(const double angle_degree)
         EPEvalue.coeffRef(i)=value;
     }
 }
+// this function only need be called after initializing the level set
 void lsTools::get_traced_boundary_triangle_direction_derivatives(){
     int size=trace_vers.size();
-    DBdirections.resize(size);
+    
+    spMat jacobian;
+    jacobian.resize(size,V.rows());
+    std::vector<Trip> triplets;
+    triplets.reserve(size*3);
+    for(int i=0;i<size;i++){
+        CGMesh::HalfedgeHandle hd=trace_hehs[i][0];
+        CGMesh::HalfedgeHandle op=lsmesh.opposite_halfedge_handle(hd);
+        // get the face
+        int fid=lsmesh.face_handle(hd).idx();
+        if(fid<0){
+            fid=lsmesh.face_handle(op).idx();
+        }
+        int idfrom=lsmesh.from_vertex_handle(hd).idx();
+        int idto=lsmesh.to_vertex_handle(hd).idx();
+        int idlarge=idto;
+        int idsmall=idfrom;
+        if(fvalues[idfrom]>fvalues[idto]){
+            idlarge=idfrom;
+            idsmall=idto;
+        }
+        Eigen::Vector3d bdirec=(V.row(idsmall)-V.row(idlarge)).normalized();// the direction large to small
+        Eigen::Vector3d norm=norm_f.row(fid);
+        Eigen::Vector3d d1 = get_coff_vec_for_gradient(gradVF, fid, F(fid,0));
+        Eigen::Vector3d d2 = get_coff_vec_for_gradient(gradVF, fid, F(fid,1));
+        Eigen::Vector3d d3 = get_coff_vec_for_gradient(gradVF, fid, F(fid,2));
+        double c1=norm.cross(-d1).dot(bdirec);
+        double c2=norm.cross(-d2).dot(bdirec);
+        double c3=norm.cross(-d3).dot(bdirec);
+        triplets.push_back(Trip(i,F(fid,0), c1));
+        triplets.push_back(Trip(i,F(fid,1), c2));
+        triplets.push_back(Trip(i,F(fid,2), c3));
+    }
+    jacobian.setFromTriplets(triplets.begin(),triplets.end());
+    DBdirections=jacobian;
+}
+
+void lsTools::calculate_boundary_direction_energy_function_values(Eigen::VectorXd &lens){
+    int size= trace_hehs.size();
+    BDEvalue.resize(size);
+    lens.resize(size);
+    for(int i=0;i<size;i++){
+        CGMesh::HalfedgeHandle hd=trace_hehs[i][0];
+        CGMesh::HalfedgeHandle op=lsmesh.opposite_halfedge_handle(hd);
+        // get the face
+        int fid=lsmesh.face_handle(hd).idx();
+        if(fid<0){
+            fid=lsmesh.face_handle(op).idx();
+        }
+        int idfrom=lsmesh.from_vertex_handle(hd).idx();
+        int idto=lsmesh.to_vertex_handle(hd).idx();
+        int idlarge=idto;
+        int idsmall=idfrom;
+        if(fvalues[idfrom]>fvalues[idto]){
+            idlarge=idfrom;
+            idsmall=idto;
+        }
+        Eigen::Vector3d bdirec=(V.row(idsmall)-V.row(idlarge)).normalized();// the direction large to small
+        Eigen::Vector3d norm=norm_f.row(fid);
+        Eigen::Vector3d gradient= -gfvalue.row(fid);
+        Eigen::Vector3d cross= norm.cross(gradient);
+        lens[i]=cross.norm();
+        
+        double angle_radian=pseudo_geodesic_start_angle_degree * LSC_PI / 180.; // the angle in radian
+        double value = cross.dot(bdirec) / lens[i] - cos(angle_radian);
+        BDEvalue[i]=value;
+
+        // check correctness
+        CGMesh::VertexHandle vh1=lsmesh.vertex_handle(idfrom);
+        CGMesh::VertexHandle vh2=lsmesh.vertex_handle(idto);
+        
+        if (!(lsmesh.is_boundary(vh1) && lsmesh.is_boundary(vh2)))
+        {
+            std::cout<<"not boundary!"<<std::endl;
+        }
+
+        if(gradient.dot(bdirec)<0){
+            std::cout<<"not correct gradient"<<std::endl;
+        }
+    }
+}
+void lsTools::assemble_solver_fixed_boundary_direction_part(spMat &H, Efunc &B){
+    Eigen::VectorXd lens;
+    calculate_boundary_direction_energy_function_values(lens);
+    spMat J = spMat(lens.asDiagonal().inverse()) * DBdirections;
+    spMat JTJ = J.transpose() * J;
+    Efunc mJTf = -J.transpose() * dense_vec_to_sparse_vec(BDEvalue);
+    H=JTJ;
+    B=mJTf;
 }
 void lsTools::calculate_pseudo_energy_function_values_vertex_based(const double angle_degree, Eigen::VectorXd &lens)
 {
@@ -645,12 +734,13 @@ void lsTools::optimize_laplacian_with_traced_boundary_condition(){
     if (fvalues.size() != vnbr)
     {
         initialize_level_set_accroding_to_parametrization();
+        get_traced_boundary_triangle_direction_derivatives();
         std::cout<<"level set get initialized for smoothing"<<std::endl;
         return;
     }
-    // after initialization we can calculate some quantities associated with level set values
+    //  update quantities associated with level set values
     get_gradient_hessian_values();
-    // the matrices
+    
     spMat H;
     H.resize(vnbr, vnbr);
     Efunc B;
@@ -668,17 +758,19 @@ void lsTools::optimize_laplacian_with_traced_boundary_condition(){
     }
     else
     {
-        spMat bc_JTJ;
-        Efunc bc_mJTF;
-        // get the boundary condition bcJacobian (J) and bcVector F,
-        // std::cout<<"before assembling matrices"<<std::endl;
-        assemble_solver_boundary_condition_part(bc_JTJ, bc_mJTF);
-        // std::cout<<"boundary condition set up"<<std::endl;
-        
+        if(!enable_boundary_angles){
+            spMat bc_JTJ;
+            Efunc bc_mJTF;
+            // get the boundary condition bcJacobian (J) and bcVector F,
+            // std::cout<<"before assembling matrices"<<std::endl;
+            assemble_solver_boundary_condition_part(bc_JTJ, bc_mJTF);
+            // std::cout<<"boundary condition set up"<<std::endl;
 
-        // gravity + laplacian + boundary condition
-        H += weight_boundary * bc_JTJ;
-        B += weight_boundary * bc_mJTF;
+            // gravity + laplacian + boundary condition
+            H += weight_boundary * bc_JTJ;
+            B += weight_boundary * bc_mJTF;
+        }
+        
         if (enable_pseudo_geodesic_energy && weight_pseudo_geodesic_energy == 0)
         {
             std::cout << "Pseudo-geodesic Energy weight is 0" << std::endl;
@@ -699,6 +791,13 @@ void lsTools::optimize_laplacian_with_traced_boundary_condition(){
             assemble_solver_strip_width_part(sw_JTJ, sw_mJTF);
             H += weight_strip_width * sw_JTJ;
             B += weight_strip_width * sw_mJTF;
+        }
+        if(enable_boundary_angles){
+            spMat JTJ;
+            Efunc mJTF;
+            assemble_solver_fixed_boundary_direction_part(JTJ,mJTF);
+            H+=weight_boundary*JTJ;
+            B+=weight_boundary*mJTF;
         }
         assert(H.rows() == vnbr);
         assert(H.cols() == vnbr);
@@ -745,6 +844,11 @@ void lsTools::optimize_laplacian_with_traced_boundary_condition(){
         ener -= wds;
         double stp_energy = Eigen::VectorXd(ener).dot(ener);
         std::cout << "strip, " << stp_energy << ", ";
+    }
+    if(enable_boundary_angles){
+        double energy=BDEvalue.norm();
+        std::cout<<"bound_dirc, "<<energy<<", ";
+
     }
     step_length=dx.norm();
     std::cout<<"step "<<step_length<<std::endl;

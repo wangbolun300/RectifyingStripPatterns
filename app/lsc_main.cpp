@@ -39,6 +39,7 @@ namespace lscif
 	bool keyPress_d = false;
 
 	bool enable_functional_degrees = false;
+	bool enable_boundary_angles=false;
 	// bool show_
 
 	// Optimization Parameters
@@ -132,7 +133,7 @@ namespace lscif
 			keyPress_2 = false;
 			return true;
 		}
-		case 'd':
+		case GLFW_KEY_X:
 		{
 			keyPress_d = false;
 			return true;
@@ -157,12 +158,12 @@ namespace lscif
 			keyPress_2 = true;
 			return true;
 		}
-		case 'd':
+		case GLFW_KEY_X:
 		{
 			keyPress_d = true;
 			if (keyPress_d)
 			{
-				keyPress_d = false;
+				// keyPress_d = false;
 				int id = viewer.selected_data_index;
 				// if (id > 1)
 				//	viewer.selected_data_index = id - 2;
@@ -174,6 +175,15 @@ namespace lscif
 					lscif::meshFileName.erase(lscif::meshFileName.begin() + id);
 					lscif::Meshes.erase(lscif::Meshes.begin() + id);
 				}
+				if(lscif::Meshes.size()>id){
+					viewer.selected_data_index= id;
+				}
+				else{
+					
+					viewer.selected_data_index= id-1;
+					
+				}
+				
 			}
 
 			return true;
@@ -481,6 +491,8 @@ int main(int argc, char *argv[])
 			ImGui::InputDouble("MaxStpLenght(Need PG Enabled)", &lscif::maximal_step_length, 0, 0, "%.4f");
 			ImGui::InputDouble("weight Strip width(Need SW Enabled)", &lscif::weight_strip_width, 0, 0, "%.4f");
 			ImGui::Checkbox("Enable functional Energy", &lscif::enable_functional_degrees);
+			
+			
 			if(lscif::enable_functional_degrees){
 				ImGui::InputDouble("angle (min func)", &lscif::target_min_angle, 0, 0, "%.4f");
 				ImGui::InputDouble("angle (max func)", &lscif::target_max_angle, 0, 0, "%.4f");
@@ -492,7 +504,8 @@ int main(int argc, char *argv[])
 			ImGui::SameLine();
 			ImGui::Checkbox("Enable Strip Width", &lscif::enable_strip_width_checkbox);
 			ImGui::Checkbox("Enable Smooth Boundary", &lscif::enable_inner_vers_fixed);
-
+			ImGui::SameLine();
+			ImGui::Checkbox("Enable Boundary Angles", &lscif::enable_boundary_angles);
 			// ImGui::Checkbox("Fix Boundary", &lscif::fixBoundary_checkbox);
 		}
 
@@ -595,6 +608,8 @@ int main(int argc, char *argv[])
 				einit.enable_functional_angles=lscif::enable_functional_degrees;
 				einit.target_min_angle=lscif::target_min_angle;
 				einit.target_max_angle=lscif::target_max_angle;
+				einit.start_angle=lscif::start_angle;
+				einit.enable_boundary_angles=lscif::enable_boundary_angles;
 				lscif::tools.prepare_level_set_solving(einit);
 
 				for (int i = 0; i < lscif::OpIter; i++)
@@ -748,6 +763,14 @@ int main(int argc, char *argv[])
 					lscif::meshFileName.erase(lscif::meshFileName.begin() + id);
 					lscif::Meshes.erase(lscif::Meshes.begin() + id);
 				}
+				if(lscif::Meshes.size()>id){
+					viewer.selected_data_index= id;
+				}
+				else{
+					
+					viewer.selected_data_index= id-1;
+					
+				}
 			}
 			ImGui::SameLine();
 
@@ -882,21 +905,6 @@ int main(int argc, char *argv[])
 		ImGui::End();
 	};
 
-	viewer.callback_key_down =
-		[&](igl::opengl::glfw::Viewer &, unsigned int key, int mod)
-	{
-		if (key == GLFW_KEY_BACKSPACE)
-		{
-			int old_id = viewer.data().id;
-			if (viewer.erase_mesh(viewer.selected_data_index))
-			{
-				colors.erase(old_id);
-				last_selected = -1;
-			}
-			return true;
-		}
-		return false;
-	};
 
 	// Refresh selected mesh colors
 	viewer.callback_pre_draw =

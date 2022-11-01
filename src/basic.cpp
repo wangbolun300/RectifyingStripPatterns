@@ -57,6 +57,8 @@ void lsTools::prepare_level_set_solving(const EnergyPrepare &Energy_initializer)
         pseudo_geodesic_target_min_angle_degree=Energy_initializer.target_min_angle;
         pseudo_geodesic_target_max_angle_degree=Energy_initializer.target_max_angle;
     }
+    pseudo_geodesic_start_angle_degree=Energy_initializer.start_angle;
+    enable_boundary_angles=Energy_initializer.enable_boundary_angles;
 }
 void lsTools::convert_paras_as_meshes(CGMesh &output)
 {

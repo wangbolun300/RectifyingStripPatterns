@@ -28,7 +28,9 @@ class EnergyPrepare{
     bool solve_strip_width_on_traced;
     bool enable_inner_vers_fixed;
     bool enable_functional_angles;
+    bool enable_boundary_angles;
     double target_angle;
+    double start_angle;
     double target_min_angle;
     double target_max_angle;
     double max_step_length;
@@ -106,13 +108,14 @@ private:
     std::vector<std::vector<CGMesh::HalfedgeHandle>> trace_hehs; // traced half edge handles
     std::vector<double> assigned_trace_ls; // function values for each traced curve.
     double trace_start_angle_degree; //the angle between the first segment and the given boundary
-    std::vector<spMat> DBdirections; // the derivative of boundary directions from tracing 
+    spMat  DBdirections; // the derivative of boundary directions from tracing 
     // edge-based pseudo-energy values
     Efunc ActE;// active edges, which means they are not co-planar edges, and not boundary edges.
     std::vector<int> Actid; // active edge ids. the length equals to the number of non-zero elements in ActE
     std::vector<spMat> PEJC; // pseudo-geodesic energy jacobian coffecients of each active edge. PEJC[i]*fvalues is the real Jacobian
     Efunc EPEvalue; // pseudo-geodesic energy values for each active edge
-    Efunc VPEvalue; // pseudo-geodesic energy for each inner
+    Efunc VPEvalue; // pseudo-geodesic energy for each inner ver
+    Eigen::VectorXd BDEvalue; // boundary direction energy value
     bool derivates_calculated = false;
     void get_mesh_angles();
     void get_mesh_normals_per_face();
@@ -148,13 +151,14 @@ private:
     void calculate_pseudo_energy_function_values(const double angle_degree);
     void calculate_pseudo_energy_function_values_vertex_based(const double angle_degree, Eigen::VectorXd& lens);
     void calculate_pseudo_energy_function_values_vertex_based(const std::vector<double>& angle_degree, Eigen::VectorXd& lens);
-    
+    void calculate_boundary_direction_energy_function_values(Eigen::VectorXd &lens);
     void assemble_solver_boundary_condition_part(spMat& H, Efunc& B);
     void assemble_solver_laplacian_part(spMat &H, Efunc &B);
     void assemble_solver_biharmonic_smoothing(spMat &H, Efunc &B); //Biharmonic smoothing (natural curved Hessian boundary)
     void assemble_solver_pesudo_geodesic_energy_part(spMat &H, Efunc &B);
     void assemble_solver_pesudo_geodesic_energy_part_vertex_baed(spMat &H, Efunc &B);
     void assemble_solver_strip_width_part(spMat &H, Efunc &B);
+    void assemble_solver_fixed_boundary_direction_part(spMat &H, Efunc &B);
 
     // void assemble_solver_pseudo_geodesic_part(spMat &H, Efunc& B);
     bool find_geodesic_intersection_p1_is_NOT_ver(const Eigen::Vector3d &p0, const Eigen::Vector3d &p1,
@@ -226,7 +230,11 @@ public:
     bool enable_strip_width_energy=false;
     bool enable_inner_vers_fixed=false;// decide if we enables fixing the inner vers and optimize boundary laplacian
     bool enable_functional_angles=false;// decide if we enable functional angle variation
+    bool enable_boundary_angles=false;
+
+
     double pseudo_geodesic_target_angle_degree; // the target pseudo-geodesic angle
+    double pseudo_geodesic_start_angle_degree; // the start angle
     double pseudo_geodesic_target_min_angle_degree; // the target angle for max function value of LS
     double pseudo_geodesic_target_max_angle_degree; // the target angle for min function value of LS
     // bool enable_pseudo_vertex=false;
