@@ -972,3 +972,154 @@ void lsTools::show_binormals(Eigen::MatrixXd& E0, Eigen::MatrixXd& E1, double ra
 
     }
 }
+
+void get_level_set_sample_values(const Eigen::VectorXd &ls, const int nbr, Eigen::VectorXd &values){
+    double vmax=ls.maxCoeff();
+    double vmin=ls.minCoeff();
+    double itv=(vmax-vmin)/(nbr+1);
+    values.resize(nbr);
+    for(int i=0;i<nbr;i++){
+        values[i]=vmin+(i+1)*itv;
+    }
+    return;
+}
+
+// 
+void get_iso_lines(const Eigen::MatrixXd &V,
+                   const Eigen::MatrixXi &F, const Eigen::VectorXd &ls, const double value,
+                   std::vector<Eigen::Vector3d> &poly0, std::vector<Eigen::Vector3d> &poly1,
+                   std::vector<int> &fids)
+{
+    for (int i = 0; i < F.rows(); i++)
+    {
+        Eigen::Vector3d E0, E1;
+        bool found = find_one_ls_segment_on_triangle(value, F, V,
+                                                     ls, i, E0, E1);
+        if(found){
+            poly0.push_back(E0);
+            poly1.push_back(E1);
+            fids.push_back(i);
+        }
+    }
+}
+bool two_triangles_connected(const Eigen::MatrixXi& F, const int fid0, const int fid1){
+    if(fid0==fid1){
+        return true;
+    }
+    for(int i=0;i<3;i++){
+        int vid0=F(fid0,i);
+        for(int j=0;j<3;j++){
+            int vid1=F(fid1,j);
+            if(vid0==vid1){
+                return true;
+            }
+        }
+    }
+    return false;
+}
+#include<igl/segment_segment_intersect.h>
+// TODO this is quadratic computation, need use tree structure
+bool get_polyline_intersection(const Eigen::MatrixXd &V, const Eigen::MatrixXi &F,
+                               const std::vector<Eigen::Vector3d> &poly0_e0, const std::vector<Eigen::Vector3d> &poly0_e1,
+                               const std::vector<Eigen::Vector3d> &poly1_e0, const std::vector<Eigen::Vector3d> &poly1_e1,
+                               const std::vector<int> &fid0, const std::vector<int> &fid1, Eigen::Vector3d &result)
+{
+    assert(poly0_e0.size() == poly0_e1.size());
+    assert(poly1_e0.size() == poly1_e1.size());
+    for (int i = 0; i < poly0_e0.size(); i++)
+    {
+        int f0 = fid0[i];
+        Eigen::Vector3d e0 = poly0_e0[i];
+        Eigen::Vector3d dir0 = poly0_e1[i] - poly0_e0[i];
+        for (int j = 0; j < poly1_e0.size(); j++)
+        {
+            Eigen::Vector3d e1 = poly1_e0[i];
+            Eigen::Vector3d dir1 = poly1_e1[i] - poly1_e0[i];
+            int f1 = fid1[j];
+
+            if (!two_triangles_connected(F, f0, f1))
+            {
+                continue;
+            }
+            double u, v;
+            bool intersect = igl::segment_segment_intersect(e0, dir0, e1, dir1, u, v);
+            if (intersect)
+            {
+                result = e0 + u * dir0;
+                return true;
+            }
+        }
+    }
+    return false;
+}
+
+void extract_levelset_web(const CGMesh &lsmesh, const Eigen::MatrixXd &V,
+                          const Eigen::MatrixXi &F, const Eigen::VectorXd &ls0, const Eigen::VectorXd &ls1,
+                          //   const std::vector<std::vector<CGMesh::HalfedgeHandle>> &boundaries,
+                          const int nbr_ls0, const int nbr_ls1,
+                          const int websize0, const int websize1, Eigen::MatrixXd &vers, Eigen::MatrixXd &Faces)
+{
+    std::vector<std::vector<Eigen::Vector3d>> ivs;                                    // the intersection vertices
+    Eigen::MatrixXi gridmat;                                                          // the matrix for vertex
+    Eigen::VectorXd lsv0, lsv1;                                                       // the extracted level set values;
+    std::vector<std::vector<Eigen::Vector3d>> poly0_e0, poly0_e1, poly1_e0, poly1_e1; // polylines
+    std::vector<std::vector<int>> fid0, fid1;                                         // face ids of each polyline segment
+    std::vector<Eigen::Vector3d> verlist;
+
+    ivs.resize(nbr_ls0);
+    verlist.reserve(nbr_ls0 * nbr_ls1);
+    gridmat = Eigen::MatrixXd::Ones(nbr_ls0, nbr_ls1) * -1; // initially there is no quad patterns
+    lsv0.resize(nbr_ls0);
+    lsv1.resize(nbr_ls1);
+    poly0_e0.resize(nbr_ls0);
+    poly0_e1.resize(nbr_ls0);
+    poly1_e0.resize(nbr_ls1);
+    poly1_e1.resize(nbr_ls1);
+    fid0.resize(nbr_ls0);
+    fid1.resize(nbr_ls1);
+    for (int i = 0; i < nbr_ls0; i++)
+    {
+        ivs[i].resize(nbr_ls1);
+        poly0_e0[i].reserve(nbr_ls1);
+        poly0_e1[i].reserve(nbr_ls1);
+        fid0[i].reserve(nbr_ls1);
+    }
+    for (int i = 0; i < nbr_ls1; i++)
+    {
+        poly1_e0[i].reserve(nbr_ls0);
+        poly1_e1[i].reserve(nbr_ls0);
+        fid1[i].reserve(nbr_ls0);
+    }
+    get_level_set_sample_values(ls0, nbr_ls0, lsv0);
+    get_level_set_sample_values(ls1, nbr_ls1, lsv1);
+
+    for (int i = 0; i < nbr_ls0; i++)
+    {
+        double vl = lsv0[i];
+        get_iso_lines(V, F, ls0, vl, poly0_e0[i], poly0_e1[i], fid0[i]);
+    }
+    for (int i = 0; i < nbr_ls1; i++)
+    {
+        double vl = lsv1[i];
+        get_iso_lines(V, F, ls1, vl, poly1_e0[i], poly1_e1[i], fid1[i]);
+    }
+    int vnbr = 0;
+    for (int i = 0; i < nbr_ls0; i++)
+    {
+        for (int j = 0; j < nbr_ls1; j++)
+        {
+            Eigen::Vector3d ipoint;
+            bool intersect = get_polyline_intersection(V, F, poly0_e0[i], poly0_e1[i], poly1_e0[j], poly1_e1[j], fid0[i], fid1[j], ipoint);
+            if (intersect)
+            {
+                verlist.push_back(ipoint);
+                gridmat(i, j) = vnbr;
+                vnbr++;
+            }
+        }
+    }
+    vers=vec_list_to_matrix(verlist);
+    for(int i=0;i<nbr_ls0;i++){
+        for(int j)
+    }
+}

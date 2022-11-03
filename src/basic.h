@@ -34,9 +34,20 @@ class EnergyPrepare{
     double target_min_angle;
     double target_max_angle;
     double max_step_length;
+};
 
+class TracingPrepare{
+    public:
+    TracingPrepare(){};
+    int every_n_edges;
+    int which_boundary_segment;
+    int debug_id_tracing;
+    double target_angle;
+    double start_angle;
+    double threadshold_angel_degree;
 
 };
+
 class NeighbourInfo
 {
 public:
@@ -100,6 +111,7 @@ private:
     std::vector<Eigen::Vector3d> Vdire1;// the outward direction for each ver
     Eigen::VectorXd ActInner; // the active elements in the inner vertices
     std::vector<CGMesh::HalfedgeHandle> Boundary_Edges;
+    std::vector<CGMesh::HalfedgeHandle> tracing_start_edges;
     std::vector<double> pseudo_geodesic_angles_per_ver;
 
     
@@ -288,6 +300,7 @@ public:
         get_all_the_edge_normals();
     }
     void prepare_level_set_solving(const EnergyPrepare &Energy_initializer);
+    
     void show_level_set(Eigen::VectorXd &val);
     // convert the parameters into a mesh, for visulization purpose
     void convert_paras_as_meshes(CGMesh &output);
@@ -313,7 +326,7 @@ public:
     void debug_tool_v2(const std::vector<int> &ids, const std::vector<double> values);
     void debug_tool_v3(int id = 0, int id2 = 0, double value = 0);
     void debug_tool_v4(const std::vector<int> &ids, const std::vector<double> values);
-    void initialize_level_set_by_tracing(const std::vector<int> &ids, const std::vector<double> values);
+    void initialize_level_set_by_tracing(const TracingPrepare& Tracing_initializer);
     void extract_levelset_curves(const int nbr, std::vector<Eigen::MatrixXd> &E0, std::vector<Eigen::MatrixXd> &E1);
     void make_sphere_ls_example(int rowid);
 };

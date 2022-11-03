@@ -248,6 +248,9 @@ namespace lscif
 				// viewer.data().add_points(igl::slice(viewer.data().V, vids, 1), hot_red);
 				viewer.data().set_points(igl::slice(viewer.data().V, vids, 1), lscif::hot_red);
 				viewer.data().add_points(igl::slice(viewer.data().V, vids2, 1), lscif::sea_green);
+				Eigen::MatrixXd pts;
+				lscif::tools.show_current_reference_points(pts);
+				viewer.data().add_points(pts,lscif::sea_green);
 				return true;
 			}
 		}
@@ -541,20 +544,14 @@ int main(int argc, char *argv[])
 				int id = viewer.selected_data_index;
 				CGMesh updatedMesh;
 				CGMesh inputMesh = lscif::Meshes[id];
-				lscif::tools.init(inputMesh);
-				lscif::tools.weight_mass = lscif::weight_mass;
-				lscif::tools.weight_laplacian = lscif::weight_laplacian;
-				lscif::tools.weight_boundary = lscif::weight_boundary;
-				std::vector<int> input_int;
-				std::vector<double> input_dbl;
-				input_int.push_back(lscif::nbr_of_intervals);
-				input_int.push_back(lscif::id_debug_global);
-				input_int.push_back(lscif::which_seg_id);
-				input_dbl.push_back(lscif::target_angle);
-				input_dbl.push_back(lscif::start_angle);
-				input_dbl.push_back(lscif::threadshold_angel_degree);
-				lscif::tools.initialize_mesh_properties();
-				lscif::tools.initialize_level_set_by_tracing(input_int, input_dbl);
+				TracingPrepare Tracing_initializer;
+				Tracing_initializer.debug_id_tracing=lscif::id_debug_global;
+				Tracing_initializer.every_n_edges=lscif::nbr_of_intervals;
+				Tracing_initializer.start_angle=lscif::start_angle;
+				Tracing_initializer.target_angle=lscif::target_angle;
+				Tracing_initializer.threadshold_angel_degree=lscif::threadshold_angel_degree;
+				Tracing_initializer.which_boundary_segment=lscif::which_seg_id;
+				lscif::tools.initialize_level_set_by_tracing(Tracing_initializer);
 				std::cout << "finish tracing" << std::endl;
 				lscif::updateMeshViewer(viewer, inputMesh);
 				lscif::meshFileName.push_back("dbg_" + lscif::meshFileName[id]);
@@ -656,8 +653,6 @@ int main(int argc, char *argv[])
 				lscif::meshFileName.push_back("extracted_" + lscif::meshFileName[id]);
 				lscif::Meshes.push_back(inputMesh);
 
-				Eigen::VectorXd level_set_values;
-				lscif::tools.show_level_set(level_set_values);
 				// viewer.data().set_colors(level_set_values);
 				Eigen::MatrixXd E0, E1;
 				// // lscif::tools.show_gradients(E0,E1, lscif::vector_scaling);

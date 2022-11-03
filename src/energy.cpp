@@ -381,14 +381,16 @@ void lsTools::calculate_pseudo_energy_function_values(const double angle_degree)
 }
 // this function only need be called after initializing the level set
 void lsTools::get_traced_boundary_triangle_direction_derivatives(){
-    int size=trace_vers.size();
+    int size=tracing_start_edges.size();
     
     spMat jacobian;
     jacobian.resize(size,V.rows());
     std::vector<Trip> triplets;
     triplets.reserve(size*3);
+    refids.clear();
+    refids.reserve(size*3);
     for(int i=0;i<size;i++){
-        CGMesh::HalfedgeHandle hd=trace_hehs[i][0];
+        CGMesh::HalfedgeHandle hd=tracing_start_edges[i];
         CGMesh::HalfedgeHandle op=lsmesh.opposite_halfedge_handle(hd);
         // get the face
         int fid=lsmesh.face_handle(hd).idx();
@@ -414,22 +416,27 @@ void lsTools::get_traced_boundary_triangle_direction_derivatives(){
         triplets.push_back(Trip(i,F(fid,0), c1));
         triplets.push_back(Trip(i,F(fid,1), c2));
         triplets.push_back(Trip(i,F(fid,2), c3));
+        refids.push_back(F(fid,0));
+        refids.push_back(F(fid,1));
+        refids.push_back(F(fid,2));
     }
     jacobian.setFromTriplets(triplets.begin(),triplets.end());
     DBdirections=jacobian;
 }
 
 void lsTools::calculate_boundary_direction_energy_function_values(Eigen::VectorXd &lens){
-    int size= trace_hehs.size();
+    int size= tracing_start_edges.size();
     BDEvalue.resize(size);
     lens.resize(size);
     for(int i=0;i<size;i++){
-        CGMesh::HalfedgeHandle hd=trace_hehs[i][0];
+        CGMesh::HalfedgeHandle hd=tracing_start_edges[i];
         CGMesh::HalfedgeHandle op=lsmesh.opposite_halfedge_handle(hd);
+        CGMesh::HalfedgeHandle next=lsmesh.next_halfedge_handle(hd);
         // get the face
         int fid=lsmesh.face_handle(hd).idx();
         if(fid<0){
             fid=lsmesh.face_handle(op).idx();
+            next=lsmesh.next_halfedge_handle(op);
         }
         int idfrom=lsmesh.from_vertex_handle(hd).idx();
         int idto=lsmesh.to_vertex_handle(hd).idx();
@@ -460,6 +467,18 @@ void lsTools::calculate_boundary_direction_energy_function_values(Eigen::VectorX
 
         if(gradient.dot(bdirec)<0){
             std::cout<<"not correct gradient"<<std::endl;
+        }
+        int vop=lsmesh.to_vertex_handle(next).idx();
+        if(vop==idfrom||vop==idto){
+            std::cout<<"wrong wrong"<<std::endl;
+        }
+        Eigen::Vector3d rot=norm.cross(bdirec);
+        Eigen::Vector3d other=V.row(vop)-V.row(idsmall);
+        if(rot.dot(other)<0){
+            std::cout<<"the rot doesnot point to correct "<<i<<std::endl;
+        }
+        if(rot.dot(cross)<0){
+            std::cout<<"wrong cross!, "<<i<<" ang "<<rot.dot(cross)<<std::endl;
         }
     }
 }
@@ -771,10 +790,10 @@ void lsTools::optimize_laplacian_with_traced_boundary_condition(){
             B += weight_boundary * bc_mJTF;
         }
         
-        if (enable_pseudo_geodesic_energy && weight_pseudo_geodesic_energy == 0)
-        {
-            std::cout << "Pseudo-geodesic Energy weight is 0" << std::endl;
-        }
+        // if (enable_pseudo_geodesic_energy && weight_pseudo_geodesic_energy == 0)
+        // {
+        //     std::cout << "Pseudo-geodesic Energy weight is 0" << std::endl;
+        // }
         if (enable_pseudo_geodesic_energy && weight_pseudo_geodesic_energy > 0)
         {
             spMat pg_JTJ;
@@ -804,6 +823,9 @@ void lsTools::optimize_laplacian_with_traced_boundary_condition(){
         // std::cout<<"before solving"<<std::endl;
     }
     double dmax=get_mat_max_diag(H);
+    if(dmax==0){
+        dmax=1;
+    }
     H += 1e-6 * dmax * Eigen::VectorXd::Ones(vnbr).asDiagonal();
     Eigen::SimplicialLLT<Eigen::SparseMatrix<double>> solver(H);
     assert(solver.info() == Eigen::Success);

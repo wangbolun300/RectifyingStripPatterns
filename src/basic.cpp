@@ -33,6 +33,7 @@ void lsTools::init(CGMesh &mesh)
 
     igl::cotmatrix(V, F, Dlps);
     igl::curved_hessian_energy(V, F, QcH);
+    initialize_mesh_properties();
     
 }
 
@@ -971,19 +972,20 @@ void lsTools::initialize_level_set_accroding_to_parametrization(){
 }
 
 
-void lsTools::initialize_level_set_by_tracing(const std::vector<int> &ids, const std::vector<double> values){
+void lsTools::initialize_level_set_by_tracing(const TracingPrepare& Tracing_initializer){
     // cylinder_open_example(5, 10, 50, 30);
     // exit(0);
     trace_vers.clear();
     trace_hehs.clear();
     assigned_trace_ls.clear();
-    double target_angle = values[0];// 
-    double start_angel = values[1];
+    double target_angle = Tracing_initializer.target_angle;// 
+    double start_angel = Tracing_initializer.start_angle;
     trace_start_angle_degree=start_angel;
-    double threadshold_angel_degree = values[2]; // threadshold for checking mesh boundary corners
-    int nbr_itv = ids[0]; // every nbr_itv boundary edges we shoot one curve
-    id_dbg = ids[1];
-    int which_segment=ids[2];
+    double threadshold_angel_degree = Tracing_initializer.threadshold_angel_degree; // threadshold for checking mesh boundary corners
+    int nbr_itv = Tracing_initializer.every_n_edges; // every nbr_itv boundary edges we shoot one curve
+    id_dbg = Tracing_initializer.debug_id_tracing;
+    int which_segment=Tracing_initializer.which_boundary_segment;
+    
     std::vector<std::vector<CGMesh::HalfedgeHandle>> boundaries;
     split_mesh_boundary_by_corner_detection(lsmesh, V, threadshold_angel_degree,Boundary_Edges, boundaries);
     std::cout<<"get the boundary segments, how many: "<<boundaries.size()<<std::endl;
@@ -992,7 +994,12 @@ void lsTools::initialize_level_set_by_tracing(const std::vector<int> &ids, const
         std::cout << "Please set up the parameter nbr_itv " << std::endl;
         return;
     }
+    if(which_segment>=boundaries.size()){
+        std::cout<<"Please set up correct boundary id, the maximal boundary segment number is "<<boundaries.size()<<std::endl;
+        return;
+    }
     std::vector<CGMesh::HalfedgeHandle> boundary_segment=boundaries[which_segment];
+    tracing_start_edges=boundary_segment;
     std::cout<<"the number of edges on this segment "<<boundary_segment.size()<<std::endl;
     OpenMesh::HalfedgeHandle init_edge = boundary_segment[0];
     
@@ -1192,6 +1199,7 @@ void lsTools::print_info(const int vid){
     else{
         std::cout<<"target angle "<<pseudo_geodesic_target_angle_degree<<std::endl;
     }
+    std::cout<<"bnd angles "<<BDEvalue.transpose()<<std::endl;
     // std::cout<<"pew\n"<<PeWeight.transpose()<<std::endl;
     // std::cout<<"peV\n"<<VPEvalue<<std::endl;
     std::cout<<"n(peV) "<<VPEvalue.norm()<<std::endl;
