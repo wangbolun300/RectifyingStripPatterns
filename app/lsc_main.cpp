@@ -39,7 +39,7 @@ namespace lscif
 	bool keyPress_d = false;
 
 	bool enable_functional_degrees = false;
-	bool enable_boundary_angles=false;
+	bool enable_boundary_angles = false;
 	// bool show_
 
 	// Optimization Parameters
@@ -58,8 +58,8 @@ namespace lscif
 	int nbr_of_intervals = 3;
 	int id_debug_global = 5;
 	double target_angle = 60;
-	double target_min_angle=90;// target angle for min function value;
-	double target_max_angle=90;// target angle for max function value;
+	double target_min_angle = 90; // target angle for min function value;
+	double target_max_angle = 90; // target angle for max function value;
 	double start_angle = 60;
 	double threadshold_angel_degree = 150; // the threadshold for detecting boundary corners
 	int dbg_int;
@@ -76,14 +76,13 @@ namespace lscif
 	static bool enable_pg_energy_checkbox = false;
 	static bool enable_strip_width_checkbox = false;
 	static bool fixBoundary_checkbox = false;
-	
+
 	// mesh processing for level set
-	int nbr_lines_first_ls=10;
-	int nbr_lines_second_ls=10;
+	int nbr_lines_first_ls = 10;
+	int nbr_lines_second_ls = 10;
 	Eigen::VectorXd readed_LS1;
 	Eigen::VectorXd readed_LS2;
-	
-	
+
 	static bool selectFEV[30] = {true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true};
 	std::vector<std::string> meshFileName;
 	std::vector<CGMesh> Meshes;
@@ -183,15 +182,15 @@ namespace lscif
 					lscif::meshFileName.erase(lscif::meshFileName.begin() + id);
 					lscif::Meshes.erase(lscif::Meshes.begin() + id);
 				}
-				if(lscif::Meshes.size()>id){
-					viewer.selected_data_index= id;
+				if (lscif::Meshes.size() > id)
+				{
+					viewer.selected_data_index = id;
 				}
-				else{
-					
-					viewer.selected_data_index= id-1;
-					
+				else
+				{
+
+					viewer.selected_data_index = id - 1;
 				}
-				
 			}
 
 			return true;
@@ -258,7 +257,7 @@ namespace lscif
 				viewer.data().add_points(igl::slice(viewer.data().V, vids2, 1), lscif::sea_green);
 				Eigen::MatrixXd pts;
 				lscif::tools.show_current_reference_points(pts);
-				viewer.data().add_points(pts,lscif::sea_green);
+				viewer.data().add_points(pts, lscif::sea_green);
 				return true;
 			}
 		}
@@ -473,7 +472,7 @@ int main(int argc, char *argv[])
 			}
 			lscif::refer_AveEL = refAveEL;
 		}
-		
+
 		// ImGui::Checkbox("Enable PG Energy", &lscif::show_optimizer_checkbox);
 		// show the name of the mesh when printing the info of this mesh
 		if (updateMeshFlag)
@@ -502,13 +501,13 @@ int main(int argc, char *argv[])
 			ImGui::InputDouble("MaxStpLenght(Need PG Enabled)", &lscif::maximal_step_length, 0, 0, "%.4f");
 			ImGui::InputDouble("weight Strip width(Need SW Enabled)", &lscif::weight_strip_width, 0, 0, "%.4f");
 			ImGui::Checkbox("Enable functional Energy", &lscif::enable_functional_degrees);
-			
-			
-			if(lscif::enable_functional_degrees){
+
+			if (lscif::enable_functional_degrees)
+			{
 				ImGui::InputDouble("angle (min func)", &lscif::target_min_angle, 0, 0, "%.4f");
 				ImGui::InputDouble("angle (max func)", &lscif::target_max_angle, 0, 0, "%.4f");
 			}
-			
+
 			// ImGui::InputDouble("Strip Width Ratio", &lscif::strip_width_ratio, 0, 0, "%.4f");
 
 			ImGui::Checkbox("Enable PG Energy", &lscif::enable_pg_energy_checkbox);
@@ -532,7 +531,6 @@ int main(int argc, char *argv[])
 			// ImGui::Checkbox("Fix Boundary", &lscif::fixBoundary_checkbox);
 		}
 		ImGui::Separator();
-		
 
 		if (ImGui::CollapsingHeader("Debug input", ImGuiTreeNodeFlags_CollapsingHeader))
 		{
@@ -553,12 +551,12 @@ int main(int argc, char *argv[])
 				CGMesh updatedMesh;
 				CGMesh inputMesh = lscif::Meshes[id];
 				TracingPrepare Tracing_initializer;
-				Tracing_initializer.debug_id_tracing=lscif::id_debug_global;
-				Tracing_initializer.every_n_edges=lscif::nbr_of_intervals;
-				Tracing_initializer.start_angle=lscif::start_angle;
-				Tracing_initializer.target_angle=lscif::target_angle;
-				Tracing_initializer.threadshold_angel_degree=lscif::threadshold_angel_degree;
-				Tracing_initializer.which_boundary_segment=lscif::which_seg_id;
+				Tracing_initializer.debug_id_tracing = lscif::id_debug_global;
+				Tracing_initializer.every_n_edges = lscif::nbr_of_intervals;
+				Tracing_initializer.start_angle = lscif::start_angle;
+				Tracing_initializer.target_angle = lscif::target_angle;
+				Tracing_initializer.threadshold_angel_degree = lscif::threadshold_angel_degree;
+				Tracing_initializer.which_boundary_segment = lscif::which_seg_id;
 				lscif::tools.initialize_level_set_by_tracing(Tracing_initializer);
 				std::cout << "finish tracing" << std::endl;
 				lscif::updateMeshViewer(viewer, inputMesh);
@@ -610,11 +608,11 @@ int main(int argc, char *argv[])
 				einit.max_step_length = lscif::maximal_step_length;
 				einit.solve_strip_width_on_traced = lscif::enable_strip_width_checkbox;
 				einit.enable_inner_vers_fixed = lscif::enable_inner_vers_fixed;
-				einit.enable_functional_angles=lscif::enable_functional_degrees;
-				einit.target_min_angle=lscif::target_min_angle;
-				einit.target_max_angle=lscif::target_max_angle;
-				einit.start_angle=lscif::start_angle;
-				einit.enable_boundary_angles=lscif::enable_boundary_angles;
+				einit.enable_functional_angles = lscif::enable_functional_degrees;
+				einit.target_min_angle = lscif::target_min_angle;
+				einit.target_max_angle = lscif::target_max_angle;
+				einit.start_angle = lscif::start_angle;
+				einit.enable_boundary_angles = lscif::enable_boundary_angles;
 				lscif::tools.prepare_level_set_solving(einit);
 
 				for (int i = 0; i < lscif::OpIter; i++)
@@ -728,10 +726,10 @@ int main(int argc, char *argv[])
 			if (ImGui::Button("draw binormals", ImVec2(ImGui::GetWindowSize().x * 0.23f, 0.0f)))
 			{
 				Eigen::MatrixXd E0, E1;
-				lscif::tools.show_binormals(E0,E1,lscif::vector_scaling);
+				lscif::tools.show_binormals(E0, E1, lscif::vector_scaling);
 				const Eigen::RowVector3d green(0.2, 0.8, 0.2);
-				
-				viewer.data().add_edges(E0,E1,green);
+
+				viewer.data().add_edges(E0, E1, green);
 			}
 			if (ImGui::Button("MeshUnitScale", ImVec2(ImGui::GetWindowSize().x * 0.23f, 0.0f)))
 			{
@@ -766,13 +764,14 @@ int main(int argc, char *argv[])
 					lscif::meshFileName.erase(lscif::meshFileName.begin() + id);
 					lscif::Meshes.erase(lscif::Meshes.begin() + id);
 				}
-				if(lscif::Meshes.size()>id){
-					viewer.selected_data_index= id;
+				if (lscif::Meshes.size() > id)
+				{
+					viewer.selected_data_index = id;
 				}
-				else{
-					
-					viewer.selected_data_index= id-1;
-					
+				else
+				{
+
+					viewer.selected_data_index = id - 1;
 				}
 			}
 			ImGui::SameLine();
@@ -795,7 +794,7 @@ int main(int argc, char *argv[])
 				viewer.data().set_points(igl::slice(viewer.data().V, vids, 1), lscif::hot_red);
 			}
 		}
-		
+
 		if (ImGui::CollapsingHeader("Closest point projection", ImGuiTreeNodeFlags_DefaultOpen))
 		{
 			ImGui::PushItemWidth(100);
@@ -926,75 +925,77 @@ int main(int argc, char *argv[])
 		ImGui::Begin(
 			"Mesh Optimization", nullptr,
 			ImGuiWindowFlags_NoSavedSettings);
-		if (ImGui::Button("Load First Level Set", ImVec2(ImGui::GetWindowSize().x * 0.25f, 0.0f)))
+		if (ImGui::CollapsingHeader("Quad Mesh Extraction", ImGuiTreeNodeFlags_DefaultOpen))
 		{
-			
-			 read_levelset(lscif::readed_LS1);
-		}
-		ImGui::SameLine();
-		if (ImGui::Button("Load Second Level Set", ImVec2(ImGui::GetWindowSize().x * 0.25f, 0.0f)))
-		{
-			
-			 read_levelset(lscif::readed_LS2);
-		}
-		ImGui::SameLine();
-		if (ImGui::Button("Clear Readed Level Sets", ImVec2(ImGui::GetWindowSize().x * 0.25f, 0.0f)))
-		{
-			lscif::readed_LS1.resize(0);
-			 lscif::readed_LS2.resize(0);
-		}
-		
-		if (ImGui::CollapsingHeader("Mesh Paras", ImGuiTreeNodeFlags_DefaultOpen))
-		{
-			// Expose variable directly ...
-			// ImGui::InputDouble("Closeness", &lscif::weigth_closeness, 0, 0, "%.4f");
-			ImGui::InputInt("Nbr of U lines", &lscif::nbr_lines_first_ls, 0, 0);
-			ImGui::InputInt("Nbr of V lines", &lscif::nbr_lines_second_ls, 0, 0);
-			// ImGui::InputInt("Iteration", &lscif::OpIter, 0, 0);
-			// ImGui::InputDouble("weight ls mass(big)", &lscif::weight_mass, 0, 0, "%.4f");
-			
-			
-			
-			
-			// ImGui::Checkbox("Fix Boundary", &lscif::fixBoundary_checkbox);
-		}
-		// Add a button
-		if (ImGui::Button("Extract Quad Mesh", ImVec2(ImGui::GetWindowSize().x * 0.25f, 0.0f)))
-		{
-			int id = viewer.selected_data_index;
-			CGMesh updatedMesh;
-			CGMesh inputMesh = lscif::Meshes[id];
-			Eigen::MatrixXd VER;
-			Eigen::MatrixXi FAC;
-			if(lscif::readed_LS1.size()>0&&lscif::readed_LS2.size()>0){
-				extract_levelset_web(inputMesh,lscif::tools.V, lscif::tools.F,lscif::readed_LS1,lscif::readed_LS2,lscif::nbr_lines_first_ls,
-				lscif::nbr_lines_second_ls,VER, FAC);
-			}
-			else if(lscif::readed_LS1.size()>0&&lscif::readed_LS2.size()==0){
-				extract_levelset_web(inputMesh,lscif::tools.V, lscif::tools.F,lscif::tools.fvalues,lscif::readed_LS1,
-				lscif::nbr_lines_first_ls, lscif::nbr_lines_second_ls,VER, FAC);
-			}
-			else{
-				std::cout<<"ERROR, Please load level sets"<<std::endl;
-			}
-			std::string fname = igl::file_dialog_save();
-			if (fname.length() == 0)
+			if (ImGui::Button("Load First Level Set", ImVec2(ImGui::GetWindowSize().x * 0.25f, 0.0f)))
 			{
-				ImGui::End();
+
+				read_levelset(lscif::readed_LS1);
 			}
-			else{
-				igl::writeOBJ(fname,VER,FAC);
-				std::cout<<"Quad mesh saved"<<std::endl;
+			ImGui::SameLine();
+			if (ImGui::Button("Load Second Level Set", ImVec2(ImGui::GetWindowSize().x * 0.25f, 0.0f)))
+			{
+
+				read_levelset(lscif::readed_LS2);
 			}
-			
-			
+			ImGui::SameLine();
+			if (ImGui::Button("Clear Readed Level Sets", ImVec2(ImGui::GetWindowSize().x * 0.25f, 0.0f)))
+			{
+				lscif::readed_LS1.resize(0);
+				lscif::readed_LS2.resize(0);
+				std::cout << "The readed Level Sets Got Cleared" << std::endl;
+			}
+
+			if (ImGui::CollapsingHeader(" Quad Mesh Size Paras", ImGuiTreeNodeFlags_DefaultOpen))
+			{
+				// Expose variable directly ...
+				// ImGui::InputDouble("Closeness", &lscif::weigth_closeness, 0, 0, "%.4f");
+				ImGui::InputInt("Nbr of U lines", &lscif::nbr_lines_first_ls, 0, 0);
+				ImGui::InputInt("Nbr of V lines", &lscif::nbr_lines_second_ls, 0, 0);
+				// ImGui::InputInt("Iteration", &lscif::OpIter, 0, 0);
+				// ImGui::InputDouble("weight ls mass(big)", &lscif::weight_mass, 0, 0, "%.4f");
+
+				// ImGui::Checkbox("Fix Boundary", &lscif::fixBoundary_checkbox);
+			}
+			// Add a button
+			if (ImGui::Button("Extract Quad Mesh", ImVec2(ImGui::GetWindowSize().x * 0.25f, 0.0f)))
+			{
+				int id = viewer.selected_data_index;
+				CGMesh updatedMesh;
+				CGMesh inputMesh = lscif::Meshes[id];
+				Eigen::MatrixXd VER;
+				Eigen::MatrixXi FAC;
+				if (lscif::readed_LS1.size() > 0 && lscif::readed_LS2.size() > 0)
+				{
+					extract_levelset_web(inputMesh, lscif::tools.V, lscif::tools.F, lscif::readed_LS1, lscif::readed_LS2, lscif::nbr_lines_first_ls,
+										 lscif::nbr_lines_second_ls, VER, FAC);
+				}
+				else if (lscif::readed_LS1.size() > 0 && lscif::readed_LS2.size() == 0)
+				{
+					extract_levelset_web(inputMesh, lscif::tools.V, lscif::tools.F, lscif::tools.fvalues, lscif::readed_LS1,
+										 lscif::nbr_lines_first_ls, lscif::nbr_lines_second_ls, VER, FAC);
+				}
+				else
+				{
+					std::cout << "ERROR, Please load level sets" << std::endl;
+				}
+				std::string fname = igl::file_dialog_save();
+				if (fname.length() == 0)
+				{
+					ImGui::End();
+				}
+				else
+				{
+					igl::writeOBJ(fname, VER, FAC);
+					std::cout << "Quad mesh saved" << std::endl;
+				}
+			}
 		}
 		ImGui::PushStyleColor(ImGuiCol_Button, (ImVec4)ImColor::HSV(0.0f, 0.6f, 0.6f));
 		ImGui::PushStyleColor(ImGuiCol_ButtonHovered, (ImVec4)ImColor::HSV(0.0f, 0.7f, 0.7f));
 		ImGui::PushStyleColor(ImGuiCol_ButtonActive, (ImVec4)ImColor::HSV(0.0f, 0.8f, 0.8f));
 		ImGui::PopStyleColor(3);
 		ImGui::End();
-
 	};
 
 	// Refresh selected mesh colors
