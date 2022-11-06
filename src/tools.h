@@ -47,6 +47,7 @@ void assign_angles_based_on_funtion_values(const Eigen::VectorXd &fvalues,
                                            std::vector<double>& angle_degree);
 bool find_one_ls_segment_on_triangle(const double value, const Eigen::MatrixXi &F, const Eigen::MatrixXd &V,
                                       const Eigen::VectorXd &fvalues, const int fid, Eigen::Vector3d &E0, Eigen::Vector3d &E1);
-void extract_levelset_web(const CGMesh &lsmesh, const std::vector<std::vector<CGMesh::HalfedgeHandle>> &boundaries,
-                          const int start_bnd0, const int end_bnd0, const int start_bnd1, const int end_bnd1,
-                          const int nbr0, const int nbr1, Eigen::MatrixXd& vers, Eigen::MatrixXd& F);
+void extract_levelset_web(const CGMesh &lsmesh, const Eigen::MatrixXd &V,
+                          const Eigen::MatrixXi &F, const Eigen::VectorXd &ls0, const Eigen::VectorXd &ls1,
+                          const int nbr_ls0, const int nbr_ls1,
+                          Eigen::MatrixXd &vers, Eigen::MatrixXi &Faces);

@@ -918,7 +918,7 @@ bool read_levelset(Eigen::VectorXd &ls){
     {
         std::cerr << "Could not read file " << fname << "\n";
     }
-
+    std::cout<<fname<<" get readed"<<std::endl;
     return true;
 }
 
@@ -1017,6 +1017,7 @@ bool two_triangles_connected(const Eigen::MatrixXi& F, const int fid0, const int
     }
     return false;
 }
+
 #include<igl/segment_segment_intersect.h>
 // TODO this is quadratic computation, need use tree structure
 bool get_polyline_intersection(const Eigen::MatrixXd &V, const Eigen::MatrixXi &F,
@@ -1033,8 +1034,8 @@ bool get_polyline_intersection(const Eigen::MatrixXd &V, const Eigen::MatrixXi &
         Eigen::Vector3d dir0 = poly0_e1[i] - poly0_e0[i];
         for (int j = 0; j < poly1_e0.size(); j++)
         {
-            Eigen::Vector3d e1 = poly1_e0[i];
-            Eigen::Vector3d dir1 = poly1_e1[i] - poly1_e0[i];
+            Eigen::Vector3d e1 = poly1_e0[j];
+            Eigen::Vector3d dir1 = poly1_e1[j] - poly1_e0[j];
             int f1 = fid1[j];
 
             if (!two_triangles_connected(F, f0, f1))
@@ -1053,11 +1054,37 @@ bool get_polyline_intersection(const Eigen::MatrixXd &V, const Eigen::MatrixXi &
     return false;
 }
 
+void extract_web_from_index_mat(const Eigen::MatrixXi& mat, Eigen::MatrixXi& F){
+    std::array<int, 4> face;
+    std::vector<std::array<int,4>> tface; 
+    tface.reserve(mat.rows()*mat.cols());
+    for(int i=0;i<mat.rows()-1;i++){
+        for(int j=0;j<mat.cols()-1;j++){
+            int f0=mat(i,j);
+            int f1=mat(i,j+1);
+            int f2=mat(i+1,j+1);
+            int f3=mat(i+1, j);
+            if(f0<0||f1<0||f2<0||f3<0){
+                continue;
+            }
+            face={f0,f1,f2,f3};
+            tface.push_back(face);
+        }
+    }
+    F.resize(tface.size(),4);
+    for(int i=0;i<tface.size();i++){
+        F(i,0)=tface[i][0];
+        F(i,1)=tface[i][1];
+        F(i,2)=tface[i][2];
+        F(i,3)=tface[i][3];
+
+    }
+}
+
 void extract_levelset_web(const CGMesh &lsmesh, const Eigen::MatrixXd &V,
                           const Eigen::MatrixXi &F, const Eigen::VectorXd &ls0, const Eigen::VectorXd &ls1,
-                          //   const std::vector<std::vector<CGMesh::HalfedgeHandle>> &boundaries,
                           const int nbr_ls0, const int nbr_ls1,
-                          const int websize0, const int websize1, Eigen::MatrixXd &vers, Eigen::MatrixXd &Faces)
+                          Eigen::MatrixXd &vers, Eigen::MatrixXi &Faces)
 {
     std::vector<std::vector<Eigen::Vector3d>> ivs;                                    // the intersection vertices
     Eigen::MatrixXi gridmat;                                                          // the matrix for vertex
@@ -1065,10 +1092,12 @@ void extract_levelset_web(const CGMesh &lsmesh, const Eigen::MatrixXd &V,
     std::vector<std::vector<Eigen::Vector3d>> poly0_e0, poly0_e1, poly1_e0, poly1_e1; // polylines
     std::vector<std::vector<int>> fid0, fid1;                                         // face ids of each polyline segment
     std::vector<Eigen::Vector3d> verlist;
-
+    if(ls0.size()!=ls1.size()){
+        std::cout<<"ERROR, Please use the correct level sets"<<std::endl;
+    }
     ivs.resize(nbr_ls0);
     verlist.reserve(nbr_ls0 * nbr_ls1);
-    gridmat = Eigen::MatrixXd::Ones(nbr_ls0, nbr_ls1) * -1; // initially there is no quad patterns
+    gridmat = Eigen::MatrixXi::Ones(nbr_ls0, nbr_ls1) * -1; // initially there is no quad patterns
     lsv0.resize(nbr_ls0);
     lsv1.resize(nbr_ls1);
     poly0_e0.resize(nbr_ls0);
@@ -1092,16 +1121,18 @@ void extract_levelset_web(const CGMesh &lsmesh, const Eigen::MatrixXd &V,
     }
     get_level_set_sample_values(ls0, nbr_ls0, lsv0);
     get_level_set_sample_values(ls1, nbr_ls1, lsv1);
-
+    // std::cout<<"sp_0 \n"<<lsv0.transpose()<<"\nsp_1\n"<<lsv1.transpose()<<std::endl;
     for (int i = 0; i < nbr_ls0; i++)
     {
         double vl = lsv0[i];
         get_iso_lines(V, F, ls0, vl, poly0_e0[i], poly0_e1[i], fid0[i]);
+        // std::cout<<i<<" size "<<poly0_e0[i].size()<<"\n";
     }
     for (int i = 0; i < nbr_ls1; i++)
     {
         double vl = lsv1[i];
         get_iso_lines(V, F, ls1, vl, poly1_e0[i], poly1_e1[i], fid1[i]);
+        // std::cout<<i<<" size "<<poly1_e0[i].size()<<"\n";
     }
     int vnbr = 0;
     for (int i = 0; i < nbr_ls0; i++)
@@ -1118,8 +1149,7 @@ void extract_levelset_web(const CGMesh &lsmesh, const Eigen::MatrixXd &V,
             }
         }
     }
+    std::cout<<"extracted ver nbr "<<verlist.size()<<std::endl;
     vers=vec_list_to_matrix(verlist);
-    for(int i=0;i<nbr_ls0;i++){
-        for(int j)
-    }
+    extract_web_from_index_mat(gridmat,Faces);
 }

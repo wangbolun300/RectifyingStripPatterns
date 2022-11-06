@@ -76,6 +76,14 @@ namespace lscif
 	static bool enable_pg_energy_checkbox = false;
 	static bool enable_strip_width_checkbox = false;
 	static bool fixBoundary_checkbox = false;
+	
+	// mesh processing for level set
+	int nbr_lines_first_ls=10;
+	int nbr_lines_second_ls=10;
+	Eigen::VectorXd readed_LS1;
+	Eigen::VectorXd readed_LS2;
+	
+	
 	static bool selectFEV[30] = {true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true};
 	std::vector<std::string> meshFileName;
 	std::vector<CGMesh> Meshes;
@@ -899,7 +907,95 @@ int main(int argc, char *argv[])
 		ImGui::PopStyleColor(3);
 		ImGui::End();
 	};
+	igl::opengl::glfw::imgui::ImGuiMenu menu_mp;
+	plugin.widgets.push_back(&menu_mp);
 
+	// Add content to the default menu window
+	menu_mp.callback_draw_viewer_menu = [&]()
+	{
+		// Draw parent menu content
+		menu_mp.draw_viewer_menu();
+	};
+
+	// Draw additional windows
+	menu_mp.callback_draw_custom_window = [&]()
+	{
+		// Define next window position + size
+		ImGui::SetNextWindowPos(ImVec2(600.f * menu_mp.menu_scaling(), 10), ImGuiCond_FirstUseEver);
+		ImGui::SetNextWindowSize(ImVec2(300, 300), ImGuiCond_FirstUseEver);
+		ImGui::Begin(
+			"Mesh Optimization", nullptr,
+			ImGuiWindowFlags_NoSavedSettings);
+		if (ImGui::Button("Load First Level Set", ImVec2(ImGui::GetWindowSize().x * 0.25f, 0.0f)))
+		{
+			
+			 read_levelset(lscif::readed_LS1);
+		}
+		ImGui::SameLine();
+		if (ImGui::Button("Load Second Level Set", ImVec2(ImGui::GetWindowSize().x * 0.25f, 0.0f)))
+		{
+			
+			 read_levelset(lscif::readed_LS2);
+		}
+		ImGui::SameLine();
+		if (ImGui::Button("Clear Readed Level Sets", ImVec2(ImGui::GetWindowSize().x * 0.25f, 0.0f)))
+		{
+			lscif::readed_LS1.resize(0);
+			 lscif::readed_LS2.resize(0);
+		}
+		
+		if (ImGui::CollapsingHeader("Mesh Paras", ImGuiTreeNodeFlags_DefaultOpen))
+		{
+			// Expose variable directly ...
+			// ImGui::InputDouble("Closeness", &lscif::weigth_closeness, 0, 0, "%.4f");
+			ImGui::InputInt("Nbr of U lines", &lscif::nbr_lines_first_ls, 0, 0);
+			ImGui::InputInt("Nbr of V lines", &lscif::nbr_lines_second_ls, 0, 0);
+			// ImGui::InputInt("Iteration", &lscif::OpIter, 0, 0);
+			// ImGui::InputDouble("weight ls mass(big)", &lscif::weight_mass, 0, 0, "%.4f");
+			
+			
+			
+			
+			// ImGui::Checkbox("Fix Boundary", &lscif::fixBoundary_checkbox);
+		}
+		// Add a button
+		if (ImGui::Button("Extract Quad Mesh", ImVec2(ImGui::GetWindowSize().x * 0.25f, 0.0f)))
+		{
+			int id = viewer.selected_data_index;
+			CGMesh updatedMesh;
+			CGMesh inputMesh = lscif::Meshes[id];
+			Eigen::MatrixXd VER;
+			Eigen::MatrixXi FAC;
+			if(lscif::readed_LS1.size()>0&&lscif::readed_LS2.size()>0){
+				extract_levelset_web(inputMesh,lscif::tools.V, lscif::tools.F,lscif::readed_LS1,lscif::readed_LS2,lscif::nbr_lines_first_ls,
+				lscif::nbr_lines_second_ls,VER, FAC);
+			}
+			else if(lscif::readed_LS1.size()>0&&lscif::readed_LS2.size()==0){
+				extract_levelset_web(inputMesh,lscif::tools.V, lscif::tools.F,lscif::tools.fvalues,lscif::readed_LS1,
+				lscif::nbr_lines_first_ls, lscif::nbr_lines_second_ls,VER, FAC);
+			}
+			else{
+				std::cout<<"ERROR, Please load level sets"<<std::endl;
+			}
+			std::string fname = igl::file_dialog_save();
+			if (fname.length() == 0)
+			{
+				ImGui::End();
+			}
+			else{
+				igl::writeOBJ(fname,VER,FAC);
+				std::cout<<"Quad mesh saved"<<std::endl;
+			}
+			
+			
+		}
+		ImGui::PushStyleColor(ImGuiCol_Button, (ImVec4)ImColor::HSV(0.0f, 0.6f, 0.6f));
+		ImGui::PushStyleColor(ImGuiCol_ButtonHovered, (ImVec4)ImColor::HSV(0.0f, 0.7f, 0.7f));
+		ImGui::PushStyleColor(ImGuiCol_ButtonActive, (ImVec4)ImColor::HSV(0.0f, 0.8f, 0.8f));
+		ImGui::PopStyleColor(3);
+		ImGui::End();
+
+	};
 
 	// Refresh selected mesh colors
 	viewer.callback_pre_draw =
