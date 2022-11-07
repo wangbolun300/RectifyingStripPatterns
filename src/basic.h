@@ -109,7 +109,7 @@ private:
     std::vector<CGMesh::HalfedgeHandle> Vheh1;// the outward halfedge of each inner ver
     std::vector<Eigen::Vector3d> Vdire0;// the inward direction for each ver
     std::vector<Eigen::Vector3d> Vdire1;// the outward direction for each ver
-    Eigen::VectorXi ActInner; // the active elements in the inner vertices
+    Eigen::VectorXd ActInner; // the active elements in the inner vertices. Has to be double vector for the convience of computing
     std::vector<CGMesh::HalfedgeHandle> Boundary_Edges;
     std::vector<CGMesh::HalfedgeHandle> tracing_start_edges;
     std::vector<double> pseudo_geodesic_angles_per_ver;
@@ -215,9 +215,15 @@ private:
     void extract_one_curve(const double value, Eigen::MatrixXd& E0, Eigen::MatrixXd &E1);
     void estimate_strip_width_according_to_tracing();
     // Mesh Optimization Part
-
-    // the pairs for compute derivates
-    void compute_derivate_pairs();
+    
+    std::vector<std::array<spMat,3>> MJsimp;// mesh Jocobian coffecient matrices. The simplified version.
+    std::vector<std::array<double,8>> MCt; // mesh coefficients associate with t
+    std::vector<double> Mt1;
+    std::vector<double> Mt2;
+    Eigen::VectorXd MEnergy;
+    void initialize_mesh_optimization();
+    void calculate_mesh_opt_function_values(const double angle_degree,Eigen::VectorXd& lens);
+    void assemble_solver_mesh_opt_part(spMat& H, Eigen::VectorXd &B);
 
 
 public:
