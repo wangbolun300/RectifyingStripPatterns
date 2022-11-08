@@ -74,6 +74,7 @@ void get_alpha_associate_with_cross_pairs(const double t1, const double t2, std:
 void lsTools::initialize_mesh_optimization()
 {
     int ninner=ActInner.size();
+    assert(ninner>0);
     int vsize=V.rows();
     
     MCt.resize(ninner);
@@ -227,6 +228,7 @@ void lsTools::assemble_solver_mesh_opt_part(spMat& H, Eigen::VectorXd &B){
 }
 void lsTools::assemble_solver_mesh_smoothing(const Eigen::VectorXd &vars, spMat& H, Eigen::VectorXd &B){
     spMat JTJ=igl::repdiag(QcH,3);// the matrix size nx3 x nx3
+    std::cout<<"diag repeated, size "<<JTJ.rows()<<" "<<JTJ.cols()<<std::endl;
     Eigen::VectorXd mJTF=-JTJ*vars;
     H=JTJ;
     B=mJTF;
@@ -278,6 +280,8 @@ void lsTools::Run_Mesh_Opt(){
     vars.bottomRows(vnbr)=V.col(2);
     spMat H;
     Eigen::VectorXd B;
+    H.resize(vnbr*3, vnbr*3);
+    B.resize(vnbr*3);
     if(weight_Mesh_smoothness>0)
     {
         spMat Hsmooth;
@@ -309,7 +313,6 @@ void lsTools::Run_Mesh_Opt(){
     }
     Eigen::VectorXd dx = solver.solve(B).eval();
     dx *= 0.75;
-    
     double mesh_opt_step_length = dx.norm();
     // double inf_norm=dx.cwiseAbs().maxCoeff();
     if (mesh_opt_step_length > Mesh_opt_max_step_length)

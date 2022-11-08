@@ -1025,6 +1025,7 @@ int main(int argc, char *argv[])
 				lscif::meshFileName.push_back("Opt_" + lscif::meshFileName[id]);
 				lscif::Meshes.push_back(updatedMesh);
 				viewer.selected_data_index = id;
+				std::cout<<"waiting for instructions"<<std::endl;
 				
 			}
 		ImGui::PushStyleColor(ImGuiCol_Button, (ImVec4)ImColor::HSV(0.0f, 0.6f, 0.6f));
