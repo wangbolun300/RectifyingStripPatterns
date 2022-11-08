@@ -51,3 +51,4 @@ void extract_levelset_web(const CGMesh &lsmesh, const Eigen::MatrixXd &V,
                           const Eigen::MatrixXi &F, const Eigen::VectorXd &ls0, const Eigen::VectorXd &ls1,
                           const int nbr_ls0, const int nbr_ls1,
                           Eigen::MatrixXd &vers, Eigen::MatrixXi &Faces);
+double get_mat_max_diag(spMat& M);

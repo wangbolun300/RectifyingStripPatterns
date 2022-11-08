@@ -245,6 +245,9 @@ void lsTools::calculate_gradient_partial_parts_ver_based(){
         ActInner.resize(ninner);
         first_time_compute = true;
     }
+    if(Last_Opt_Mesh){
+        first_time_compute=true;
+    }
 
     
     for (int i = 0; i < ninner; i++)
@@ -744,7 +747,7 @@ void lsTools::assemble_solver_pesudo_geodesic_energy_part_vertex_baed(spMat &H, 
 
 // before calling this function, please get the traced curves and assign values 
 // for these curves
-void lsTools::optimize_laplacian_with_traced_boundary_condition(){
+void lsTools::Run_Level_Set_Opt(){
     int vnbr = V.rows();
     int fnbr = F.rows();
     assert(assigned_trace_ls.size()&& "Please trace the curves first before solve the energy");
@@ -753,9 +756,12 @@ void lsTools::optimize_laplacian_with_traced_boundary_condition(){
     if (fvalues.size() != vnbr)
     {
         initialize_level_set_accroding_to_parametrization();
-        get_traced_boundary_triangle_direction_derivatives();
         std::cout<<"level set get initialized for smoothing"<<std::endl;
         return;
+    }
+    if (Last_Opt_Mesh || fvalues.size() != vnbr)
+    {
+        get_traced_boundary_triangle_direction_derivatives();
     }
     //  update quantities associated with level set values
     get_gradient_hessian_values();
@@ -828,7 +834,7 @@ void lsTools::optimize_laplacian_with_traced_boundary_condition(){
     }
     H += 1e-6 * dmax * Eigen::VectorXd::Ones(vnbr).asDiagonal();
     Eigen::SimplicialLLT<Eigen::SparseMatrix<double>> solver(H);
-    assert(solver.info() == Eigen::Success);
+    // assert(solver.info() == Eigen::Success);
     if (solver.info() != Eigen::Success)
     {
         // solving failed
@@ -841,7 +847,7 @@ void lsTools::optimize_laplacian_with_traced_boundary_condition(){
     // std::cout << "step length " << dx.norm() << std::endl;
     double level_set_step_length = dx.norm();
     // double inf_norm=dx.cwiseAbs().maxCoeff();
-    if (enable_pseudo_geodesic_energy && level_set_step_length > max_step_length)
+    if (level_set_step_length > max_step_length)
     {
         dx *= max_step_length / level_set_step_length;
     }
@@ -853,7 +859,7 @@ void lsTools::optimize_laplacian_with_traced_boundary_condition(){
     if (enable_pseudo_geodesic_energy)
     {
         double energy_pg = (spMat(PeWeight.asDiagonal()) * spMat(ActInner.asDiagonal()) * VPEvalue).norm();
-        std::cout << "pg, " << energy_pg << ", "<<"AngleDiffMax,"<<PeWeight.maxCoeff()<<",";
+        std::cout << "pg, " << energy_pg << ", "<<"AngleDiffMax,"<<(PeWeight.asDiagonal()*ActInner).maxCoeff()<<",";
         // std::cout<<"PeWeight\n"<<PeWeight<<std::endl;
     }
     if (enable_strip_width_energy)
@@ -875,5 +881,5 @@ void lsTools::optimize_laplacian_with_traced_boundary_condition(){
     step_length=dx.norm();
     std::cout<<"step "<<step_length<<std::endl;
 
-
+    Last_Opt_Mesh=false;
 }

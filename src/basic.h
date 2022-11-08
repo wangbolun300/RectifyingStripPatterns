@@ -35,7 +35,13 @@ class EnergyPrepare{
     double target_max_angle;
     double max_step_length;
 };
-
+class MeshEnergyPrepare{
+    public:
+    MeshEnergyPrepare(){};
+    double weight_Mesh_smoothness;
+    double weight_Mesh_pesudo_geodesic;
+    double Mesh_opt_max_step_length;
+};
 class TracingPrepare{
     public:
     TracingPrepare(){};
@@ -67,7 +73,7 @@ class lsTools
 {
 private:
     MeshProcessing MP;
-    CGMesh lsmesh;                        // the input mesh
+    
     Eigen::MatrixXd norm_f;               // normal per face
     Eigen::MatrixXd norm_v;               // normal perf vertex
     Eigen::MatrixXd angF;                 // angel per vertex of each F. nx3, n is the number of faces
@@ -214,16 +220,24 @@ private:
 
     void extract_one_curve(const double value, Eigen::MatrixXd& E0, Eigen::MatrixXd &E1);
     void estimate_strip_width_according_to_tracing();
+    
     // Mesh Optimization Part
     
     std::vector<std::array<spMat,3>> MJsimp;// mesh Jocobian coffecient matrices. The simplified version.
     std::vector<std::array<double,8>> MCt; // mesh coefficients associate with t
     std::vector<double> Mt1;
     std::vector<double> Mt2;
-    Eigen::VectorXd MEnergy;
+    Eigen::VectorXd MEnergy;// computed energy
+    
+    double weight_Mesh_smoothness;
+    double weight_Mesh_pesudo_geodesic;
+    double Mesh_opt_max_step_length;
+    bool Last_Opt_Mesh=false; // the last step was mesh optimization. need to update all the mesh properties
     void initialize_mesh_optimization();
     void calculate_mesh_opt_function_values(const double angle_degree,Eigen::VectorXd& lens);
     void assemble_solver_mesh_opt_part(spMat& H, Eigen::VectorXd &B);
+    void assemble_solver_mesh_smoothing(const Eigen::VectorXd &vars, spMat &H, Eigen::VectorXd &B);
+    void update_mesh_properties();// the mesh properties (normals, laplacian, etc.) get updated before optimization
 
 
 public:
@@ -231,6 +245,7 @@ public:
     lsTools(CGMesh &mesh);
     lsTools(){};
     void init(CGMesh &mesh);
+    CGMesh lsmesh;                        // the input mesh
     Eigen::MatrixXd V;
     Eigen::MatrixXi F;
     Eigen::MatrixXi E;
@@ -311,7 +326,7 @@ public:
         get_all_the_edge_normals();
     }
     void prepare_level_set_solving(const EnergyPrepare &Energy_initializer);
-    
+    void prepare_mesh_optimization_solving(const MeshEnergyPrepare& initializer);
     void show_level_set(Eigen::VectorXd &val);
     // convert the parameters into a mesh, for visulization purpose
     void convert_paras_as_meshes(CGMesh &output);
@@ -331,7 +346,8 @@ public:
     void initialize_and_optimize_strip_width();
     void initialize_and_optimize_pseudo_geodesic();
     // after tracing, use this function to get smooth level set
-    void optimize_laplacian_with_traced_boundary_condition();
+    void Run_Level_Set_Opt();
+    void Run_Mesh_Opt();
     void initialize_level_set_accroding_to_parametrization();
     void debug_tool(int id = 0, int id2 = 0, double value = 0);
     void debug_tool_v2(const std::vector<int> &ids, const std::vector<double> values);
