@@ -65,6 +65,7 @@ void lsTools::prepare_mesh_optimization_solving(const MeshEnergyPrepare& initial
     Mesh_opt_max_step_length=initializer.Mesh_opt_max_step_length;
     weight_Mesh_pesudo_geodesic=initializer.weight_Mesh_pesudo_geodesic;
     weight_Mesh_smoothness=initializer.weight_Mesh_smoothness;
+    pseudo_geodesic_target_angle_degree=initializer.target_angle;
 }
 void lsTools::convert_paras_as_meshes(CGMesh &output)
 {

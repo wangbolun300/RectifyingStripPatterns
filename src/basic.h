@@ -41,6 +41,7 @@ class MeshEnergyPrepare{
     double weight_Mesh_smoothness;
     double weight_Mesh_pesudo_geodesic;
     double Mesh_opt_max_step_length;
+    double target_angle;
 };
 class TracingPrepare{
     public:

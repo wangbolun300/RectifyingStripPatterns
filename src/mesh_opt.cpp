@@ -4,6 +4,15 @@
 #include <igl/hessian.h>
 #include <igl/curved_hessian_energy.h>
 #include <igl/repdiag.h>
+
+bool vector_contains_NAN(Eigen::VectorXd& B){
+    for(int i=0;i<B.size();i++){
+        if(isnan(B[i])){
+            return true;
+        }
+    }
+    return false;
+}
 // the variables are sorted as v0x, v1x, ...vnx, v0y, v1y,...,vny, v0z, v1z, ..., vnz
 // xyz is 0, 1, or 2
 void location_in_sparse_matrix(const int vnbr, const int vderivate, const int dxyz, const int vcoff, const int cxyz, int& row, int &col){
@@ -102,7 +111,7 @@ void lsTools::initialize_mesh_optimization()
         t2[i]=get_t_of_value(fvalues[vm], fvalues[v3],fvalues[v4]);
         get_alpha_associate_with_cross_pairs(t1[i],t2[i],MCt[i]);
         if(t1[i]<-SCALAR_ZERO||t1[i]>1+SCALAR_ZERO||t2[i]<-SCALAR_ZERO||t2[i]>1+SCALAR_ZERO){
-            std::cout<<"ERROR in Mesh Opt: Using Wrong Triangle For Finding Level Set"<<std::endl;
+            std::cout<<"ERROR in Mesh Opt: Using Wrong Triangle For Finding Level Set, "<<t1[i]<<" "<<t2[i]<<std::endl;
             assert(false);
         }
         // rare special cases
@@ -148,13 +157,15 @@ void lsTools::calculate_mesh_opt_function_values(const double angle_degree,Eigen
     double angle_radian = angle_degree * LSC_PI / 180.; // the angle in radian
     double cos_angle=cos(angle_radian);
     int ninner=ActInner.size();
-    MEnergy.resize(ninner);
-    PeWeight.resize(ninner);
-    lens.resize(ninner);
+    MEnergy = Eigen::VectorXd::Zero(ninner);
+    PeWeight = Eigen::VectorXd::Zero(ninner);
+    lens = Eigen::VectorXd::Zero(ninner);
 
     for (int i = 0; i < ninner; i++)
     {
         if(ActInner[i]==false){
+            PeWeight[i]=0;
+            MEnergy[i]=0;
             continue;
         }
         int vm = IVids[i];
@@ -208,7 +219,7 @@ void lsTools::assemble_solver_mesh_opt_part(spMat& H, Eigen::VectorXd &B){
     spMat JTJ;
     JTJ.resize(vsize*3,vsize*3);
     Eigen::VectorXd mJTF;
-    mJTF.resize(vsize*3);
+    mJTF=Eigen::VectorXd::Zero(vsize*3);
     Eigen::VectorXd lens;
     calculate_mesh_opt_function_values(pseudo_geodesic_target_angle_degree, lens);
     for (int i = 0; i < ninner; i++)
@@ -228,7 +239,6 @@ void lsTools::assemble_solver_mesh_opt_part(spMat& H, Eigen::VectorXd &B){
 }
 void lsTools::assemble_solver_mesh_smoothing(const Eigen::VectorXd &vars, spMat& H, Eigen::VectorXd &B){
     spMat JTJ=igl::repdiag(QcH,3);// the matrix size nx3 x nx3
-    std::cout<<"diag repeated, size "<<JTJ.rows()<<" "<<JTJ.cols()<<std::endl;
     Eigen::VectorXd mJTF=-JTJ*vars;
     H=JTJ;
     B=mJTF;
@@ -265,6 +275,7 @@ void lsTools::update_mesh_properties(){
     get_vertex_rotation_matices();// not useful
     get_all_the_edge_normals();// necessary. In case some one wants to trace again.
 }
+
 void lsTools::Run_Mesh_Opt(){
     
     if(!Last_Opt_Mesh){
@@ -280,29 +291,31 @@ void lsTools::Run_Mesh_Opt(){
     vars.bottomRows(vnbr)=V.col(2);
     spMat H;
     Eigen::VectorXd B;
-    H.resize(vnbr*3, vnbr*3);
-    B.resize(vnbr*3);
-    if(weight_Mesh_smoothness>0)
-    {
-        spMat Hsmooth;
-        Eigen::VectorXd Bsmooth;
-        assemble_solver_mesh_smoothing(vars, Hsmooth, Bsmooth);
-        H+=weight_Mesh_smoothness*Hsmooth;
-        B+=weight_Mesh_smoothness*Bsmooth;
-    }
-    if(weight_Mesh_pesudo_geodesic>0){
-        spMat Hpg;
-        Eigen::VectorXd Bpg;
-        assemble_solver_mesh_opt_part(Hpg, Bpg);
-        H+=weight_Mesh_pesudo_geodesic*Hpg;
-        B+=weight_Mesh_pesudo_geodesic*Bpg;
-    }
+    H.resize(vnbr * 3, vnbr * 3);
+    B = Eigen::VectorXd::Zero(vnbr * 3);
+
+    spMat Hsmooth;
+    Eigen::VectorXd Bsmooth;
+    assemble_solver_mesh_smoothing(vars, Hsmooth, Bsmooth);
+    H += weight_Mesh_smoothness * Hsmooth;
+    B += weight_Mesh_smoothness * Bsmooth;
+
+    spMat Hpg;
+    Eigen::VectorXd Bpg;
+    assemble_solver_mesh_opt_part(Hpg, Bpg);
+    H += weight_Mesh_pesudo_geodesic * Hpg;
+    B += weight_Mesh_pesudo_geodesic * Bpg;
+
     double dmax = get_mat_max_diag(H);
     if (dmax == 0)
     {
         dmax = 1;
     }
     H += 1e-6 * dmax * Eigen::VectorXd::Ones(vnbr*3).asDiagonal();
+    
+    if(vector_contains_NAN(B)){
+        std::cout<<"energy value wrong"<<std::endl;
+    }
     Eigen::SimplicialLLT<Eigen::SparseMatrix<double>> solver(H);
     // assert(solver.info() == Eigen::Success);
     if (solver.info() != Eigen::Success)
@@ -330,5 +343,6 @@ void lsTools::Run_Mesh_Opt(){
     std::cout<<"pg, "<<energy_ls<<", AngleDiffMax, "<<(PeWeight.asDiagonal()*ActInner).maxCoeff()<<", ";
     step_length=dx.norm();
     std::cout<<"step "<<step_length<<std::endl;
+    update_mesh_properties();
     Last_Opt_Mesh=true;
 }

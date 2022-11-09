@@ -596,7 +596,7 @@ int main(int argc, char *argv[])
 				// std::cout<<"acos(1) "<<acos(1.)<<std::endl;
 			}
 			ImGui::SameLine();
-			if (ImGui::Button("smooth+boundary", ImVec2(ImGui::GetWindowSize().x * 0.23f, 0.0f)))
+			if (ImGui::Button("LvlSt Opt", ImVec2(ImGui::GetWindowSize().x * 0.23f, 0.0f)))
 			{
 
 				int id = viewer.selected_data_index;
@@ -651,7 +651,30 @@ int main(int argc, char *argv[])
 
 				viewer.selected_data_index = id;
 			}
-
+			ImGui::SameLine();
+			if (ImGui::Button("Mesh Opt", ImVec2(ImGui::GetWindowSize().x * 0.25f, 0.0f)))
+			{
+				int id = viewer.selected_data_index;
+				CGMesh updatedMesh;
+				CGMesh inputMesh = lscif::Meshes[id];
+				MeshEnergyPrepare initializer;
+				initializer.Mesh_opt_max_step_length=lscif::Mesh_opt_max_step_length;
+				initializer.weight_Mesh_pesudo_geodesic=lscif::weight_Mesh_pesudo_geodesic;
+				initializer.weight_Mesh_smoothness=lscif::weight_Mesh_smoothness;
+				initializer.target_angle=lscif::target_angle;
+				lscif::tools.prepare_mesh_optimization_solving(initializer);
+				for(int i=0;i<lscif::Nbr_Iterations_Mesh_Opt;i++){
+					lscif::tools.Run_Mesh_Opt();
+				}
+				updatedMesh=lscif::tools.lsmesh;
+				lscif::updateMeshViewer(viewer, updatedMesh);
+				lscif::meshFileName.push_back("Opt_" + lscif::meshFileName[id]);
+				lscif::Meshes.push_back(updatedMesh);
+				
+				viewer.selected_data_index = id;
+				std::cout<<"waiting for instructions"<<std::endl;
+				
+			}
 			if (ImGui::Button("draw extracted", ImVec2(ImGui::GetWindowSize().x * 0.23f, 0.0f)))
 			{
 
@@ -1008,26 +1031,7 @@ int main(int argc, char *argv[])
 			// ImGui::InputDouble("weight ls mass(big)", &lscif::weight_mass, 0, 0, "%.4f");
 			// ImGui::Checkbox("Fix Boundary", &lscif::fixBoundary_checkbox);
 		}
-		if (ImGui::Button("Optimize Mesh", ImVec2(ImGui::GetWindowSize().x * 0.25f, 0.0f)))
-			{
-				int id = viewer.selected_data_index;
-				CGMesh updatedMesh;
-				CGMesh inputMesh = lscif::Meshes[id];
-				MeshEnergyPrepare initializer;
-				initializer.Mesh_opt_max_step_length=lscif::Mesh_opt_max_step_length;
-				initializer.weight_Mesh_pesudo_geodesic=lscif::weight_Mesh_pesudo_geodesic;
-				initializer.weight_Mesh_smoothness=lscif::weight_Mesh_smoothness;
-				lscif::tools.prepare_mesh_optimization_solving(initializer);
-				for(int i=0;i<lscif::Nbr_Iterations_Mesh_Opt;i++){
-					lscif::tools.Run_Mesh_Opt();
-				}
-				updatedMesh=lscif::tools.lsmesh;
-				lscif::meshFileName.push_back("Opt_" + lscif::meshFileName[id]);
-				lscif::Meshes.push_back(updatedMesh);
-				viewer.selected_data_index = id;
-				std::cout<<"waiting for instructions"<<std::endl;
-				
-			}
+		
 		ImGui::PushStyleColor(ImGuiCol_Button, (ImVec4)ImColor::HSV(0.0f, 0.6f, 0.6f));
 		ImGui::PushStyleColor(ImGuiCol_ButtonHovered, (ImVec4)ImColor::HSV(0.0f, 0.7f, 0.7f));
 		ImGui::PushStyleColor(ImGuiCol_ButtonActive, (ImVec4)ImColor::HSV(0.0f, 0.8f, 0.8f));
