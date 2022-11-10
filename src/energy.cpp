@@ -847,10 +847,14 @@ void lsTools::Run_Level_Set_Opt(){
     // std::cout << "step length " << dx.norm() << std::endl;
     double level_set_step_length = dx.norm();
     // double inf_norm=dx.cwiseAbs().maxCoeff();
-    if (level_set_step_length > max_step_length)
+    if (enable_boundary_angles && enable_pseudo_geodesic_energy)// only pg energy and boundary angles requires step length
     {
-        dx *= max_step_length / level_set_step_length;
+        if (level_set_step_length > max_step_length)
+        {
+            dx *= max_step_length / level_set_step_length;
+        }
     }
+
     fvalues += dx;
     double energy_laplacian = (Dlps * fvalues).norm();
     double energy_biharmonic = fvalues.transpose() * QcH * fvalues;

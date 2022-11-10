@@ -279,7 +279,8 @@ void lsTools::update_mesh_properties(){
 void lsTools::Run_Mesh_Opt(){
     
     if(!Last_Opt_Mesh){
-        
+        get_gradient_hessian_values();
+        calculate_gradient_partial_parts_ver_based();
         initialize_mesh_optimization();// get the properties associated with level set but not vertices positions
     }
     int vnbr=V.rows();
