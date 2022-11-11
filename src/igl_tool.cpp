@@ -335,7 +335,7 @@ IGL_INLINE double QuadricCalculator::getAverageEdge()
   return (sum / (double)count);
 }
 
-IGL_INLINE void QuadricCalculator::applyProjOnPlane(const Eigen::Vector3d &ppn, const std::vector<int> &vin, std::vector<int> &vout)
+void QuadricCalculator::applyProjOnPlane(const Eigen::Vector3d &ppn, const std::vector<int> &vin, std::vector<int> &vout)
 {
   for (std::vector<int>::const_iterator vpi = vin.begin(); vpi != vin.end(); ++vpi)
     if (vertex_normals.row(*vpi) * ppn > 0.0)

@@ -12,7 +12,7 @@
 #include <igl/unproject_ray.h>
 
 #include <lsc/MeshProcessing.h>
-#include <lsc/OptimizerCheckboard.h>
+
 #include <lsc/basic.h>
 #include <lsc/tools.h>
 // -------------------- OpenMesh
@@ -820,55 +820,6 @@ int main(int argc, char *argv[])
 
 				viewer.data().set_points(igl::slice(viewer.data().V, vids, 1), lscif::hot_red);
 			}
-		}
-
-		if (ImGui::CollapsingHeader("Closest point projection", ImGuiTreeNodeFlags_DefaultOpen))
-		{
-			ImGui::PushItemWidth(100);
-			ImGui::InputDouble("Px", &lscif::InputPx, 0, 0, "%.6f");
-			ImGui::SameLine();
-			ImGui::InputDouble("Py", &lscif::InputPy, 0, 0, "%.6f");
-			ImGui::SameLine();
-			ImGui::InputDouble("Pz", &lscif::InputPz, 0, 0, "%.6f");
-			ImGui::SameLine();
-			if (ImGui::Button("Draw Point", ImVec2(ImGui::GetWindowSize().x * 0.23f, 0.0f)))
-			{
-				int id = viewer.selected_data_index;
-
-				CGMesh inputMesh = lscif::Meshes[id];
-
-				OptimizerCheckboard Optimizer;
-				Optimizer.referenceMesh = inputMesh;
-				CGMesh::Point pt = CGMesh::Point(lscif::InputPx, lscif::InputPy, lscif::InputPz);
-				Eigen::MatrixXd ptM(1, 3);
-				ptM << pt[0], pt[1], pt[2];
-				viewer.data().add_points(ptM, Eigen::RowVector3d(0, 0, 1)); // draw input point
-			}
-			ImGui::SameLine();
-			if (ImGui::Button("Closest Point", ImVec2(ImGui::GetWindowSize().x * 0.23f, 0.0f)))
-			{
-				int id = viewer.selected_data_index;
-
-				CGMesh inputMesh = lscif::Meshes[id];
-
-				OptimizerCheckboard Optimizer;
-				Optimizer.referenceMesh = inputMesh;
-				CGMesh::Point pt = CGMesh::Point(lscif::InputPx, lscif::InputPy, lscif::InputPz);
-				CGMesh::Point Closestpt;
-				double d = Optimizer.closest_point_projection(pt, Closestpt);
-				std::cout << "Input point is (" << pt[0] << "," << pt[1] << "," << pt[2] << ")." << std::endl;
-				std::cout << "Its closest point is (" << Closestpt[0] << "," << Closestpt[1] << "," << Closestpt[2] << ")." << std::endl;
-				std::cout << "The closest distance is " << d << std::endl;
-
-				Eigen::MatrixXd ptM(1, 3);
-				ptM << pt[0], pt[1], pt[2];
-				Eigen::MatrixXd ClosetptM(1, 3);
-				ClosetptM << Closestpt[0], Closestpt[1], Closestpt[2];
-				viewer.data().add_points(ptM, Eigen::RowVector3d(0, 0, 1));			  // draw input point
-				viewer.data().add_points(ClosetptM, Eigen::RowVector3d(1, 0, 0));	  // draw its closest point
-				viewer.data().add_edges(ptM, ClosetptM, Eigen::RowVector3d(1, 0, 0)); // draw connection line
-			}
-			ImGui::PopItemWidth();
 		}
 
 		ImGui::SetNextItemOpen(true);

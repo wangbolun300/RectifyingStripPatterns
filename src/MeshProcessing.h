@@ -6,7 +6,6 @@
 #include <OpenMesh/Core/IO/MeshIO.hh>
 #include <OpenMesh/Core/Mesh/PolyMesh_ArrayKernelT.hh>
 
-#include <ANN/ANN.h>
 
 // ----------------------------------------------------------------------------
 typedef OpenMesh::PolyMesh_ArrayKernelT<>  CGMesh;

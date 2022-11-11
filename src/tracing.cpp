@@ -376,6 +376,7 @@ bool lsTools::find_osculating_plane_intersection_not_geodesic_p1_is_not_ver(cons
         double cosangle = pnorm.dot(dddnorm);
         std::cout << "lower, cos^2 " << cosangle * cosangle << std::endl;
     }
+    return p_end.size();
 }
 
 void extend_vector(std::vector<Eigen::Vector3d> &first, std::vector<Eigen::Vector3d> &second)

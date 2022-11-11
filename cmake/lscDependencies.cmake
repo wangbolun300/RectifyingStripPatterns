@@ -51,32 +51,32 @@ FetchContent_MakeAvailable(libigl)
 
 
   
-    # ANN
-  set(ANN_FILE "${CMAKE_CURRENT_SOURCE_DIR}/external/ann.zip")
-  set(ANN_PATH "${CMAKE_CURRENT_SOURCE_DIR}/external/ann" )
-  if(EXISTS "${ANN_FILE}" OR EXISTS "${ANN_PATH}")
-    message("LSC: ANN source file exists")
-  else()
-    if(NOT EXISTS "${ANN_FILE}")
-      message("LSC: downloading ANN")
-      file(DOWNLOAD https://www.cs.umd.edu/~mount/ANN/Files/1.1.2/ann_1.1.2.zip ${ANN_FILE})
-    endif()
-  endif()
-  if(NOT EXISTS "${ANN_PATH}")
-      message("LSC: ANN unzipping")
-      file(ARCHIVE_EXTRACT INPUT ${ANN_FILE} DESTINATION ${ANN_PATH})
-      message("LSC: ANN is unzipped")
-  else()
-      message("LSC: ANN is already unzipped")
-  endif()
-  message("LSC: ann file: ${ANN_PATH}/ann_1.1.2/")
-  if (WIN32)
-    set(ANN_MAKE gmake) # Windows
-  elseif (APPLE)
-        set(ANN_MAKE make macosx-g++)
-      else ()
-        set(ANN_MAKE make)#linux
-  endif()
+  #   # ANN
+  # set(ANN_FILE "${CMAKE_CURRENT_SOURCE_DIR}/external/ann.zip")
+  # set(ANN_PATH "${CMAKE_CURRENT_SOURCE_DIR}/external/ann" )
+  # if(EXISTS "${ANN_FILE}" OR EXISTS "${ANN_PATH}")
+  #   message("LSC: ANN source file exists")
+  # else()
+  #   if(NOT EXISTS "${ANN_FILE}")
+  #     message("LSC: downloading ANN")
+  #     file(DOWNLOAD https://www.cs.umd.edu/~mount/ANN/Files/1.1.2/ann_1.1.2.zip ${ANN_FILE})
+  #   endif()
+  # endif()
+  # if(NOT EXISTS "${ANN_PATH}")
+  #     message("LSC: ANN unzipping")
+  #     file(ARCHIVE_EXTRACT INPUT ${ANN_FILE} DESTINATION ${ANN_PATH})
+  #     message("LSC: ANN is unzipped")
+  # else()
+  #     message("LSC: ANN is already unzipped")
+  # endif()
+  # message("LSC: ann file: ${ANN_PATH}/ann_1.1.2/")
+  # if (WIN32)
+  #   set(ANN_MAKE gmake) # Windows
+  # elseif (APPLE)
+  #       set(ANN_MAKE make macosx-g++)
+  #     else ()
+  #       set(ANN_MAKE make)#linux
+  # endif()
 
   if(NOT WIN32)
   if (NOT EXISTS "${ANN_PATH}/ann_1.1.2/lib/libANN.a") # TODO add more lib file paths for windows

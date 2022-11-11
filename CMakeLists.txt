@@ -43,10 +43,8 @@ include(${PROJECT_NAME}Dependencies)
 include(PrependCurrentPath)
 include(${PROJECT_NAME}Utils)
 
-
-set(ANN_DIR ${ANN_PATH}/ann_1.1.2)
-include_directories(${ANN_DIR}/include)
-link_directories(${ANN_DIR}/lib)
+include_directories(${OM_PATH}/OpenMesh-9.0.0/src)
+link_directories(${OM_PATH}/OpenMesh-9.0.0/build/Build/lib)
 include_directories(${OM_PATH}/OpenMesh-9.1.0/src)
 link_directories(${OM_PATH}/OpenMesh-9.1.0/build/Build/lib)
 ############################
@@ -66,11 +64,10 @@ igl_include(imgui)
 target_link_libraries(lsc PUBLIC igl::core igl::opengl igl::glfw igl::imgui Eigen3::Eigen)
 
 if(WIN32)
-link_directories(${ANN_DIR}/MS_Win32/dll/Debug)
-link_directories(${ANN_DIR}/MS_Win32/bin)
-target_link_libraries(lsc PUBLIC OpenMeshCored.lib OpenMeshToolsd.lib ANN.lib)
+
+target_link_libraries(lsc PUBLIC OpenMeshCore.lib OpenMeshTools.lib)
 else(WIN32)
-target_link_libraries(lsc PUBLIC libOpenMeshCore.a libOpenMeshTools.a libANN.a)
+target_link_libraries(lsc PUBLIC libOpenMeshCore.a libOpenMeshTools.a)
 endif(WIN32)
 
 
