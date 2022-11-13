@@ -21,7 +21,9 @@ void location_in_sparse_matrix(const int vnbr, const int vderivate, const int dx
     row=dlocation;
     col=clocation;
 }
-
+void location_in_sparse_matrix(const int vnbr, const int vderivate, const int dxyz, int &col){
+    col = vderivate + dxyz * vnbr;
+}
 // the coefficient matrix of the cross pair.
 // the results are 3 sparse matrices M0, M1, M2, where alpha* (nx*M0+ny*M1+nz*M2)*fvalues is the jacobian of 
 // the term alpha*(V(vid0) X V(vid1)).dot(norm)
@@ -276,6 +278,87 @@ void lsTools::update_mesh_properties(){
     get_all_the_edge_normals();// necessary. In case some one wants to trace again.
 }
 
+void solve_mean_value_laplacian_mat(CGMesh& lsmesh,const std::vector<int>& IVids, spMat& mat) {
+    int nbr = lsmesh.n_vertices();
+    std::vector<Trip> triplets;
+    triplets.reserve(nbr * 7);
+    spMat mat2;
+
+    mat2.resize(IVids.size() * 3, nbr * 3);
+    for (int i = 0; i < IVids.size(); i++) {
+        int vid = IVids[i];
+        assert(vid >= 0);
+        CGMesh::VertexHandle vh = lsmesh.vertex_handle(vid);
+        double valence = lsmesh.valence(vh);
+        for (CGMesh::VertexVertexIter vv_it = lsmesh.vv_begin(vh); vv_it != lsmesh.vv_end(vh); ++vv_it)
+        {
+            int id = vv_it.handle().idx();
+            int loc;
+            location_in_sparse_matrix(nbr, id, 0, loc);
+            triplets.push_back(Trip(i, loc, -1 / valence));//x
+
+            location_in_sparse_matrix(nbr, id, 1, loc);
+            triplets.push_back(Trip(i + IVids.size(), loc, -1 / valence));//y
+
+            location_in_sparse_matrix(nbr, id, 2, loc);
+            triplets.push_back(Trip(i + IVids.size() * 2, loc, -1 / valence));//z
+		}
+		int loc;
+		location_in_sparse_matrix(nbr, vid, 0, loc);
+		triplets.push_back(Trip(i, loc, 1));
+		location_in_sparse_matrix(nbr, vid, 1, loc);
+		triplets.push_back(Trip(i + IVids.size(), loc, 1));
+		location_in_sparse_matrix(nbr, vid, 2, loc);
+		triplets.push_back(Trip(i + IVids.size() * 2, loc, 1));
+    }
+    mat2.setFromTriplets(triplets.begin(), triplets.end());
+    mat = mat2;
+
+}
+void lsTools::assemble_solver_mean_value_laplacian(const Eigen::VectorXd& vars, spMat& H, Eigen::VectorXd& B) {
+    spMat JTJ = MVLap.transpose()*MVLap;
+    Eigen::VectorXd mJTF = -JTJ * vars;
+    H = JTJ;
+    B = mJTF;
+}
+
+void lsTools::solve_edge_length_matrix(const Eigen::MatrixXd& V, const Eigen::MatrixXi& E, spMat& mat) {
+    int enbr = E.rows();
+    int nver = V.rows();
+    std::vector<Trip> tripletes;
+    tripletes.reserve(enbr*6);
+    ElStored.resize(enbr * 3);
+    for (int i = 0; i < enbr; i++) {
+        int vid0 = E(i, 0);
+		int vid1 = E(i, 1);
+		tripletes.push_back(Trip(3 * i, vid0, 1));
+		tripletes.push_back(Trip(3 * i, vid1, -1));
+		tripletes.push_back(Trip(3 * i + 1, nver + vid0, 1));
+		tripletes.push_back(Trip(3 * i + 1, nver + vid1, -1));
+		tripletes.push_back(Trip(3 * i + 2, nver * 2 + vid0, 1));
+		tripletes.push_back(Trip(3 * i + 2, nver * 2 + vid1, -1));
+        ElStored[3 * i] = V(vid0, 0) - V(vid1, 0);
+        ElStored[3 * i+1] = V(vid0, 1) - V(vid1, 1);
+        ElStored[3 * i+2] = V(vid0, 2) - V(vid1, 2);
+    }
+    mat.resize(enbr * 3, nver * 3);
+    mat.setFromTriplets(tripletes.begin(), tripletes.end());
+}
+void lsTools::assemble_solver_mesh_edge_length_part(const Eigen::VectorXd vars, spMat& H, Eigen::VectorXd& B) {
+    H = Elmat.transpose() * Elmat;
+    int enbr = E.rows();
+    int nver = V.rows();
+    B.resize(enbr * 3);
+    for (int i = 0; i < enbr; i++) {
+        int vid0 = E(i, 0);
+        int vid1 = E(i, 1);
+        B[i * 3] = vars[vid0] - vars[vid1] - ElStored[i * 3];
+		B[i * 3 + 1] = vars[nver + vid0] - vars[nver + vid1] - ElStored[i * 3 + 1];
+        B[i * 3 + 2] = vars[nver*2 + vid0] - vars[nver*2 + vid1] - ElStored[i * 3 + 2];
+    }
+    ElEnergy = B;
+    B = -Elmat.transpose() * B;
+}
 void lsTools::Run_Mesh_Opt(){
     
     if(!Last_Opt_Mesh){
@@ -298,6 +381,7 @@ void lsTools::Run_Mesh_Opt(){
     spMat Hsmooth;
     Eigen::VectorXd Bsmooth;
     assemble_solver_mesh_smoothing(vars, Hsmooth, Bsmooth);
+    //assemble_solver_mean_value_laplacian(vars, Hsmooth, Bsmooth);
     H += weight_Mesh_smoothness * Hsmooth;
     B += weight_Mesh_smoothness * Bsmooth;
 
@@ -307,12 +391,17 @@ void lsTools::Run_Mesh_Opt(){
     H += weight_Mesh_pesudo_geodesic * Hpg;
     B += weight_Mesh_pesudo_geodesic * Bpg;
 
+    spMat Hel;
+    Eigen::VectorXd Bel;
+    assemble_solver_mesh_edge_length_part(vars, Hel, Bel);
+    H += weight_Mesh_edgelength * Hel;
+    B += weight_Mesh_edgelength * Bel;
     double dmax = get_mat_max_diag(H);
     if (dmax == 0)
     {
         dmax = 1;
     }
-    H += 1e-6 * dmax * Eigen::VectorXd::Ones(vnbr*3).asDiagonal();
+    H += weight_mass* 1e-6 * dmax * Eigen::VectorXd::Ones(vnbr*3).asDiagonal();
     
     if(vector_contains_NAN(B)){
         std::cout<<"energy value wrong"<<std::endl;
@@ -339,9 +428,12 @@ void lsTools::Run_Mesh_Opt(){
     V.col(2)=vars.bottomRows(vnbr);
     
     double energy_smooth=(QcH*V).norm();
-    std::cout<<"Mesh Opt: smooth, "<<energy_smooth<<", ";
+    double energy_mvl = (MVLap * vars).norm();
+    std::cout<<"Mesh Opt: smooth, "<< energy_smooth <<", ";
     double energy_ls=(spMat(PeWeight.asDiagonal()) * spMat(ActInner.asDiagonal()) * MEnergy).norm();
     std::cout<<"pg, "<<energy_ls<<", AngleDiffMax, "<<(PeWeight.asDiagonal()*ActInner).maxCoeff()<<", ";
+    double energy_el = ElEnergy.norm();
+    std::cout << "el, " << energy_el << ", ";
     step_length=dx.norm();
     std::cout<<"step "<<step_length<<std::endl;
     update_mesh_properties();

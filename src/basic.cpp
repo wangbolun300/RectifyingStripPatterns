@@ -15,6 +15,7 @@ void lsTools::init(CGMesh &mesh)
 {
     MP.mesh2Matrix(mesh, V, F);
     MP.meshEdges(mesh, E);
+    solve_edge_length_matrix(V, E, Elmat);
     lsmesh = mesh;
     std::cout << "parametrization start, getting boundary loop, F size " << F.rows() << std::endl;
     igl::boundary_loop(F, bnd);
@@ -34,6 +35,7 @@ void lsTools::init(CGMesh &mesh)
     igl::cotmatrix(V, F, Dlps);
     igl::curved_hessian_energy(V, F, QcH);
     initialize_mesh_properties();
+    
     
 }
 
@@ -66,6 +68,7 @@ void lsTools::prepare_mesh_optimization_solving(const MeshEnergyPrepare& initial
     weight_Mesh_pesudo_geodesic=initializer.weight_Mesh_pesudo_geodesic;
     weight_Mesh_smoothness=initializer.weight_Mesh_smoothness;
     pseudo_geodesic_target_angle_degree=initializer.target_angle;
+    weight_Mesh_edgelength = initializer.weight_Mesh_edgelength;
 }
 void lsTools::convert_paras_as_meshes(CGMesh &output)
 {
@@ -354,6 +357,7 @@ void lsTools::get_bnd_vers_and_handles()
     int fnbr = F.rows();
     std::vector<Trip> triplets;
     triplets.reserve(vnbr);
+    IVids.clear();
     IVids.reserve(vnbr);
     Eigen::VectorXd flags = Eigen::VectorXd::Ones(vnbr); // first by default set all vertices as non-boundary vertices
     for (CGMesh::VertexIter v_it = lsmesh.vertices_begin(); v_it != (lsmesh.vertices_end()); ++v_it)
@@ -388,6 +392,7 @@ void lsTools::get_bnd_vers_and_handles()
         }
     }
     Boundary_Edges = hdls;
+    solve_mean_value_laplacian_mat(lsmesh, IVids, MVLap);
 }
 void lsTools::get_function_gradient_vertex()
 {

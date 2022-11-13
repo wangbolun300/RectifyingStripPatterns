@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 #include <lsc/basic.h>
 std::vector<Trip> to_triplets(spMat &M);
 // convert a vector to a matrix with size 1*n
@@ -52,3 +52,5 @@ void extract_levelset_web(const CGMesh &lsmesh, const Eigen::MatrixXd &V,
                           const int nbr_ls0, const int nbr_ls1,
                           Eigen::MatrixXd &vers, Eigen::MatrixXi &Faces);
 double get_mat_max_diag(spMat& M);
+void solve_mean_value_laplacian_mat(CGMesh& lsmesh, const std::vector<int>& IVids, spMat& mat);
+void solve_edge_length_matrix(const Eigen::MatrixXd& V, const Eigen::MatrixXi& E, spMat& mat);

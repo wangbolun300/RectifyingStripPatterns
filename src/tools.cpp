@@ -429,20 +429,20 @@ spMat dense_mat_list_as_sparse_diagnal(const std::vector<Eigen::MatrixXd> &mlist
     result.setFromTriplets(triplets.begin(), triplets.end());
     return result;
 }
-spMat rib_method_arrange_matrices_rows(const std::vector<spMat> &mats)
-{
-    int nvec = mats.size();
-    int inner_rows = mats[0].rows();
-    int inner_cols = mats[0].cols();
-    spMat result;
-    result.resize(nvec * inner_rows, inner_cols); // the rows get more, the column number remain the same.
-    std::vector<Trip> triplets;
-    triplets.reserve(inner_cols * inner_rows * nvec);
-    for (int i = 0; i < nvec; i++)
-    {
-        // TODO
-    }
-}
+//spMat rib_method_arrange_matrices_rows(const std::vector<spMat> &mats)
+//{
+//    int nvec = mats.size();
+//    int inner_rows = mats[0].rows();
+//    int inner_cols = mats[0].cols();
+//    spMat result;
+//    result.resize(nvec * inner_rows, inner_cols); // the rows get more, the column number remain the same.
+//    std::vector<Trip> triplets;
+//    triplets.reserve(inner_cols * inner_rows * nvec);
+//    for (int i = 0; i < nvec; i++)
+//    {
+//        // TODO
+//    }
+//}
 
 std::vector<double> polynomial_simplify(const std::vector<double> &poly)
 {

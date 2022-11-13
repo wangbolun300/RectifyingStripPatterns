@@ -40,6 +40,7 @@ class MeshEnergyPrepare{
     MeshEnergyPrepare(){};
     double weight_Mesh_smoothness;
     double weight_Mesh_pesudo_geodesic;
+    double weight_Mesh_edgelength;
     double Mesh_opt_max_step_length;
     double target_angle;
 };
@@ -228,16 +229,23 @@ private:
     std::vector<std::array<double,8>> MCt; // mesh coefficients associate with t
     std::vector<double> Mt1;
     std::vector<double> Mt2;
-    Eigen::VectorXd MEnergy;// computed energy
-    
+    Eigen::VectorXd MEnergy;// computed pseudo geodesic energy
+    Eigen::VectorXd ElEnergy; // edge length energy
+    Eigen::VectorXd ElStored; // edge length of the original mesh
+    spMat MVLap; // mean value laplacian
+    spMat Elmat; // the edge length constriant
     double weight_Mesh_smoothness;
     double weight_Mesh_pesudo_geodesic;
+    double weight_Mesh_edgelength;
     double Mesh_opt_max_step_length;
     bool Last_Opt_Mesh=false; // the last step was mesh optimization. need to update all the mesh properties
     void initialize_mesh_optimization();
+    void solve_edge_length_matrix(const Eigen::MatrixXd& V, const Eigen::MatrixXi& E, spMat& mat);
     void calculate_mesh_opt_function_values(const double angle_degree,Eigen::VectorXd& lens);
     void assemble_solver_mesh_opt_part(spMat& H, Eigen::VectorXd &B);
     void assemble_solver_mesh_smoothing(const Eigen::VectorXd &vars, spMat &H, Eigen::VectorXd &B);
+    void assemble_solver_mean_value_laplacian(const Eigen::VectorXd& vars, spMat& H, Eigen::VectorXd& B);
+    void assemble_solver_mesh_edge_length_part(const Eigen::VectorXd vars, spMat& H, Eigen::VectorXd& B);
     void update_mesh_properties();// the mesh properties (normals, laplacian, etc.) get updated before optimization
 
 
@@ -325,6 +333,7 @@ public:
         get_vertex_rotation_matices();
         get_bnd_vers_and_handles();
         get_all_the_edge_normals();
+        
     }
     void prepare_level_set_solving(const EnergyPrepare &Energy_initializer);
     void prepare_mesh_optimization_solving(const MeshEnergyPrepare& initializer);

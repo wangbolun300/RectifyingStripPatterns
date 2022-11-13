@@ -84,6 +84,7 @@ namespace lscif
 	Eigen::VectorXd readed_LS2;
 	int Nbr_Iterations_Mesh_Opt=10;
 	double weight_Mesh_smoothness=1;
+	double weight_Mesh_edgelength = 1;
     double weight_Mesh_pesudo_geodesic=100;
     double Mesh_opt_max_step_length=0.01;
 
@@ -662,6 +663,7 @@ int main(int argc, char *argv[])
 				initializer.weight_Mesh_pesudo_geodesic=lscif::weight_Mesh_pesudo_geodesic;
 				initializer.weight_Mesh_smoothness=lscif::weight_Mesh_smoothness;
 				initializer.target_angle=lscif::target_angle;
+				initializer.weight_Mesh_edgelength = lscif::weight_Mesh_edgelength;
 				lscif::tools.prepare_mesh_optimization_solving(initializer);
 				for(int i=0;i<lscif::Nbr_Iterations_Mesh_Opt;i++){
 					lscif::tools.Run_Mesh_Opt();
@@ -899,7 +901,7 @@ int main(int argc, char *argv[])
 	{
 		// Define next window position + size
 		ImGui::SetNextWindowPos(ImVec2(600.f * menu_mp.menu_scaling(), 10), ImGuiCond_FirstUseEver);
-		ImGui::SetNextWindowSize(ImVec2(300, 300), ImGuiCond_FirstUseEver);
+		ImGui::SetNextWindowSize(ImVec2(300, 600), ImGuiCond_FirstUseEver);
 		ImGui::Begin(
 			"Mesh Optimization", nullptr,
 			ImGuiWindowFlags_NoSavedSettings);
@@ -977,6 +979,7 @@ int main(int argc, char *argv[])
 			ImGui::InputInt("Iteration Mesh Opt", &lscif::Nbr_Iterations_Mesh_Opt, 0, 0);
 			ImGui::InputDouble("Weight Smoothness", &lscif::weight_Mesh_smoothness, 0, 0, "%.4f");
 			ImGui::InputDouble("Weight Mesh Pseudo Geodesic", &lscif::weight_Mesh_pesudo_geodesic, 0, 0, "%.4f");
+			ImGui::InputDouble("Weight Mesh Egdge Length", &lscif::weight_Mesh_edgelength, 0, 0, "%.4f");
 			ImGui::InputDouble("Max Mesh Step Length", &lscif::Mesh_opt_max_step_length, 0, 0, "%.4f");
 			// ImGui::InputInt("Iteration", &lscif::OpIter, 0, 0);
 			// ImGui::InputDouble("weight ls mass(big)", &lscif::weight_mass, 0, 0, "%.4f");
