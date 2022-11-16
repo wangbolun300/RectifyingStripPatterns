@@ -832,7 +832,7 @@ void lsTools::Run_Level_Set_Opt(){
     if(dmax==0){
         dmax=1;
     }
-    H += 1e-6 * dmax*dmax * Eigen::VectorXd::Ones(vnbr).asDiagonal();
+    H += 1e-6 * dmax*dmax*weight_mass * Eigen::VectorXd::Ones(vnbr).asDiagonal();
     Eigen::SimplicialLLT<Eigen::SparseMatrix<double>> solver(H);
     // assert(solver.info() == Eigen::Success);
     if (solver.info() != Eigen::Success)

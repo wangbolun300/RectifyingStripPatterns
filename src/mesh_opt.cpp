@@ -4,6 +4,8 @@
 #include <igl/hessian.h>
 #include <igl/curved_hessian_energy.h>
 #include <igl/repdiag.h>
+#include <igl/Timer.h>
+
 
 bool vector_contains_NAN(Eigen::VectorXd& B){
     for(int i=0;i<B.size();i++){
@@ -119,9 +121,11 @@ void lsTools::initialize_mesh_optimization()
         // rare special cases
         if(v2==v3){
             //TODO
+            std::cout << "bad mesh !" << std::endl;
         }
         if(v1==v4){
             //TODO
+            std::cout << "bad mesh !" << std::endl;
         }
         std::array<spMat, 3> cmats; // the elementary mats for one pair of cross product.
         get_derivate_coeff_cross_pair(v1,vm,vsize,MCt[i][0],cmats);
@@ -211,6 +215,8 @@ const Eigen::Vector3d& norm, const spMat &SMfvalues){
     return result;
 }
 void lsTools::assemble_solver_mesh_opt_part(spMat& H, Eigen::VectorXd &B){
+    igl::Timer timer;
+    double tcal = 0, tmat = 0;
     int ninner=ActInner.size();
     int vsize=V.rows();
     Eigen::MatrixXd Mfunc(vsize*3, 1);
@@ -223,7 +229,10 @@ void lsTools::assemble_solver_mesh_opt_part(spMat& H, Eigen::VectorXd &B){
     Eigen::VectorXd mJTF;
     mJTF=Eigen::VectorXd::Zero(vsize*3);
     Eigen::VectorXd lens;
+    timer.start();
     calculate_mesh_opt_function_values(pseudo_geodesic_target_angle_degree, lens);
+    tcal = timer.getElapsedTimeInSec();
+    timer.start();
     for (int i = 0; i < ninner; i++)
     {
         if (ActInner[i] == false)
@@ -236,8 +245,10 @@ void lsTools::assemble_solver_mesh_opt_part(spMat& H, Eigen::VectorXd &B){
         JTJ += PeWeight[i] * JT * JT.transpose();
         mJTF += -PeWeight[i] * JT * MEnergy[i];
     }
+    tmat= timer.getElapsedTimeInSec();
     H = JTJ;
     B = mJTF;
+    std::cout << "tcal " << tcal << " tmat " << tmat << std::endl;
 }
 void lsTools::assemble_solver_mesh_smoothing(const Eigen::VectorXd &vars, spMat& H, Eigen::VectorXd &B){
     spMat JTJ=igl::repdiag(QcH,3);// the matrix size nx3 x nx3
@@ -360,7 +371,9 @@ void lsTools::assemble_solver_mesh_edge_length_part(const Eigen::VectorXd vars, 
     B = -Elmat.transpose() * B;
 }
 void lsTools::Run_Mesh_Opt(){
-    
+    igl::Timer tmsolver;
+    double ts = 0, tpg = 0, tinit = 0, tel=0, tsolve=0, teval=0;
+    tmsolver.start();
     if(!Last_Opt_Mesh){
         get_gradient_hessian_values();
         calculate_gradient_partial_parts_ver_based();
@@ -377,25 +390,30 @@ void lsTools::Run_Mesh_Opt(){
     Eigen::VectorXd B;
     H.resize(vnbr * 3, vnbr * 3);
     B = Eigen::VectorXd::Zero(vnbr * 3);
-
+    tinit= tmsolver.getElapsedTimeInSec();
+    tmsolver.start();
     spMat Hsmooth;
     Eigen::VectorXd Bsmooth;
     assemble_solver_mesh_smoothing(vars, Hsmooth, Bsmooth);
     //assemble_solver_mean_value_laplacian(vars, Hsmooth, Bsmooth);
     H += weight_Mesh_smoothness * Hsmooth;
     B += weight_Mesh_smoothness * Bsmooth;
-
+    ts = tmsolver.getElapsedTimeInSec();
+    tmsolver.start();
     spMat Hpg;
     Eigen::VectorXd Bpg;
     assemble_solver_mesh_opt_part(Hpg, Bpg);
     H += weight_Mesh_pesudo_geodesic * Hpg;
     B += weight_Mesh_pesudo_geodesic * Bpg;
-
+    tpg = tmsolver.getElapsedTimeInSec();
+    tmsolver.start();
     spMat Hel;
     Eigen::VectorXd Bel;
     assemble_solver_mesh_edge_length_part(vars, Hel, Bel);
     H += weight_Mesh_edgelength * Hel;
     B += weight_Mesh_edgelength * Bel;
+    tel = tmsolver.getElapsedTimeInSec();
+    tmsolver.start();
     double dmax = get_mat_max_diag(H);
     if (dmax == 0)
     {
@@ -414,6 +432,8 @@ void lsTools::Run_Mesh_Opt(){
         std::cout << "solver fail" << std::endl;
         return;
     }
+    tsolve = tmsolver.getElapsedTimeInSec();
+    tmsolver.start();
     Eigen::VectorXd dx = solver.solve(B).eval();
     dx *= 0.75;
     double mesh_opt_step_length = dx.norm();
@@ -438,4 +458,6 @@ void lsTools::Run_Mesh_Opt(){
     std::cout<<"step "<<step_length<<std::endl;
     update_mesh_properties();
     Last_Opt_Mesh=true;
+    teval = tmsolver.getElapsedTimeInSec();
+    std::cout << "ts " << ts << " tpg " << tpg  << " tinit " << tinit << " tel " << tel << " tsolve " << tsolve << " teval " << teval << std::endl;
 }
