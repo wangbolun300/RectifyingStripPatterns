@@ -140,38 +140,38 @@ void lsTools::get_mesh_angles()
 }
 
 // this method use angle of the triangles to get a better smoothness of the mesh
-// void lsTools::get_mesh_normals_per_ver()
-// {
-//     norm_v.resize(V.rows(), 3);
-//     for (int i = 0; i < V.rows(); i++)
-//     {
-//         norm_v.row(i) << 0, 0, 0;
-//         CGMesh::VertexHandle vh = lsmesh.vertex_handle(i); // for each vertex, iterate all the faces
-//         for (CGMesh::VertexFaceIter vf_it = lsmesh.vf_begin(vh); vf_it != lsmesh.vf_end(vh); ++vf_it)
-//         {
-//             int fid = vf_it.handle().idx();
-//             int pinf = -1;
-//             for (int j = 0; j < 3; j++)
-//             {
-//                 if (F(fid, j) == i)
-//                 {
-//                     pinf = j;
-//                     break;
-//                 }
-//             }
-//             if (pinf == -1)
-//             {
-//                 std::cout << "ERROR: no find correct one ring face. \npid: " << vh.idx() << " or " << i << std::endl;
-//                 std::cout << "fid: " << fid << std::endl;
-//                 std::cout << "the vertices of this face: " << F.row(fid) << std::endl
-//                           << std::endl;
-//             }
-//             assert(pinf > -1);
-//             norm_v.row(i) += angF(fid, pinf) * norm_f.row(fid);
-//         }
-//         norm_v.row(i) = Eigen::Vector3d(norm_v.row(i)).normalized();
-//     }
-// }
+void lsTools::get_mesh_normals_per_ver()
+{
+    norm_v.resize(V.rows(), 3);
+    for (int i = 0; i < V.rows(); i++)
+    {
+        norm_v.row(i) << 0, 0, 0;
+        CGMesh::VertexHandle vh = lsmesh.vertex_handle(i); // for each vertex, iterate all the faces
+        for (CGMesh::VertexFaceIter vf_it = lsmesh.vf_begin(vh); vf_it != lsmesh.vf_end(vh); ++vf_it)
+        {
+            int fid = vf_it.handle().idx();
+            int pinf = -1;
+            for (int j = 0; j < 3; j++)
+            {
+                if (F(fid, j) == i)
+                {
+                    pinf = j;
+                    break;
+                }
+            }
+            if (pinf == -1)
+            {
+                std::cout << "ERROR: no find correct one ring face. \npid: " << vh.idx() << " or " << i << std::endl;
+                std::cout << "fid: " << fid << std::endl;
+                std::cout << "the vertices of this face: " << F.row(fid) << std::endl
+                          << std::endl;
+            }
+            assert(pinf > -1);
+            norm_v.row(i) += angF(fid, pinf) * norm_f.row(fid);
+        }
+        norm_v.row(i) = Eigen::Vector3d(norm_v.row(i)).normalized();
+    }
+}
 
 void lsTools::get_face_rotation_matices()
 {
@@ -929,7 +929,9 @@ void lsTools::initialize_level_set_accroding_to_parametrization(){
     result=result-dupvalue;
     fvalues=result;
 }
+void lsTools::Trace_One_Guide_Pseudo_Geodesic() {
 
+}
 
 void lsTools::initialize_level_set_by_tracing(const TracingPrepare& Tracing_initializer){
     // cylinder_open_example(5, 10, 50, 30);

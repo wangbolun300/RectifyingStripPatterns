@@ -126,6 +126,8 @@ private:
     Eigen::MatrixXd norm_e; // normal directions on each edge
     std::vector<std::vector<Eigen::Vector3d>> trace_vers;        // traced vertices
     std::vector<std::vector<CGMesh::HalfedgeHandle>> trace_hehs; // traced half edge handles
+    std::vector<Eigen::Vector3d> guideVers;
+    std::vector<CGMesh::HalfedgeHandle> guideHehs;
     std::vector<double> assigned_trace_ls; // function values for each traced curve.
     double trace_start_angle_degree; //the angle between the first segment and the given boundary
     spMat  DBdirections; // the derivative of boundary directions from tracing 
@@ -139,7 +141,7 @@ private:
     bool derivates_calculated = false;
     void get_mesh_angles();
     void get_mesh_normals_per_face();
-    // void get_mesh_normals_per_ver();
+    void get_mesh_normals_per_ver();
     // This is to calculate the 90 degree rotation matrices in
     // each triangle face. It can be used to calculate gradients.
     void get_face_rotation_matices();
@@ -314,7 +316,7 @@ public:
         // 2
         get_mesh_angles();
         // // 3
-        // get_mesh_normals_per_ver();
+        get_mesh_normals_per_ver();
         // 4
         get_face_rotation_matices();
 
@@ -329,7 +331,7 @@ public:
         // 8
         // get_rotated_parameter_edges();
         // 9
-        get_I_and_II_locally();
+        // get_I_and_II_locally();
         get_vertex_rotation_matices();
         get_bnd_vers_and_handles();
         get_all_the_edge_normals();
@@ -347,14 +349,13 @@ public:
     void show_face_gradients(Eigen::MatrixXd &E0, Eigen::MatrixXd &E1, double ratio);
     void show_current_reference_points(Eigen::MatrixXd &pts);
     void show_1_order_derivate(Eigen::MatrixXd &E0, Eigen::MatrixXd &E1, Eigen::MatrixXd &E2, Eigen::MatrixXd &E3, double ratio);
-    void show_face_1_order_derivate(Eigen::MatrixXd &E0, Eigen::MatrixXd &E1, Eigen::MatrixXd &E2, Eigen::MatrixXd &E3, double ratio);
     void show_vertex_normal(Eigen::MatrixXd &E0, Eigen::MatrixXd &E1, double ratio);
     void show_pseudo_geodesic_curve(std::vector<Eigen::MatrixXd> &E0, std::vector<Eigen::MatrixXd> &E1, Eigen::MatrixXd &vers);
     void show_binormals(Eigen::MatrixXd& E0, Eigen::MatrixXd& E1, double ratio);
     void print_info(const int vid);
     void initialize_and_smooth_level_set_by_laplacian();
     void initialize_and_optimize_strip_width();
-    void initialize_and_optimize_pseudo_geodesic();
+    void Trace_One_Guide_Pseudo_Geodesic();
     // after tracing, use this function to get smooth level set
     void Run_Level_Set_Opt();
     void Run_Mesh_Opt();

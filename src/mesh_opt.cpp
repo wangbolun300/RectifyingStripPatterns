@@ -259,9 +259,9 @@ void lsTools::update_mesh_properties(){
     // 1
     get_mesh_normals_per_face();
     // 2
-    get_mesh_angles();// only useful when computing gradient ver to F. 
-    // // 3
-    // get_mesh_normals_per_ver();
+    get_mesh_angles();// only useful when computing gradient ver to F. and the vertex normals 
+    // // 3 if use this, please don't use get_I_and_II_locally()
+    get_mesh_normals_per_ver();
     // 4
     get_face_rotation_matices();// not useful, just for debug
 
@@ -273,7 +273,7 @@ void lsTools::update_mesh_properties(){
     // 7
     get_function_hessian_vertex();// not useful
 
-    get_I_and_II_locally(); // useful when we consider curvatures
+    // get_I_and_II_locally(); // useful when we consider curvatures
     get_vertex_rotation_matices();// not useful
     get_all_the_edge_normals();// necessary. In case some one wants to trace again.
 }
@@ -401,7 +401,7 @@ void lsTools::Run_Mesh_Opt(){
     {
         dmax = 1;
     }
-    H += weight_mass* 1e-6 * dmax * Eigen::VectorXd::Ones(vnbr*3).asDiagonal();
+    H += weight_mass* 1e-6 * dmax*dmax * Eigen::VectorXd::Ones(vnbr*3).asDiagonal();
     
     if(vector_contains_NAN(B)){
         std::cout<<"energy value wrong"<<std::endl;
