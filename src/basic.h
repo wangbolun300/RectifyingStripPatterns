@@ -244,6 +244,7 @@ private:
     void initialize_mesh_optimization();
     void solve_edge_length_matrix(const Eigen::MatrixXd& V, const Eigen::MatrixXi& E, spMat& mat);
     void calculate_mesh_opt_function_values(const double angle_degree,Eigen::VectorXd& lens);
+    void calculate_mesh_opt_expanded_function_values(const double angle_degree, Eigen::VectorXd& lens);
     void assemble_solver_mesh_opt_part(spMat& H, Eigen::VectorXd &B);
     void assemble_solver_mesh_smoothing(const Eigen::VectorXd &vars, spMat &H, Eigen::VectorXd &B);
     void assemble_solver_mean_value_laplacian(const Eigen::VectorXd& vars, spMat& H, Eigen::VectorXd& B);

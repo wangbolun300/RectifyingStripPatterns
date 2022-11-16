@@ -207,6 +207,124 @@ void lsTools::calculate_mesh_opt_function_values(const double angle_degree,Eigen
     }
 
 }
+void lsTools::calculate_mesh_opt_expanded_function_values(const Eigen::VectorXd &vars,  const double angle_degree,const bool first_compute, Eigen::VectorXd& lens) {
+    
+    double angle_radian = angle_degree * LSC_PI / 180.; // the angle in radian
+    double cos_angle = cos(angle_radian);
+    int ninner = ActInner.size();
+    int vnbr = V.rows();
+    MEnergy = Eigen::VectorXd::Zero(ninner);
+    PeWeight = Eigen::VectorXd::Zero(ninner);
+    lens = Eigen::VectorXd::Zero(ninner);
+    std::vector<Trip> tripletes;
+    tripletes.reserve(ninner * 12 * 4);// the number of rows is ninner*8, the number of cols is vnbr * 3 + ninner * 3 (all the vertices and auxiliary vars)
+	Eigen::VectorXd MTenergy = Eigen::VectorXd::Zero(ninner * 8); // mesh total energy
+    
+
+    for (int i = 0; i < ninner; i++)
+    {
+        if (ActInner[i] == false) {
+            continue;
+        }
+        int vm = IVids[i];
+        CGMesh::HalfedgeHandle inhd = Vheh0[i], outhd = Vheh1[i];
+        int v1 = lsmesh.from_vertex_handle(inhd).idx();
+        int v2 = lsmesh.to_vertex_handle(inhd).idx();
+        int v3 = lsmesh.from_vertex_handle(outhd).idx();
+        int v4 = lsmesh.to_vertex_handle(outhd).idx();
+        Eigen::Vector3d ver0 = V.row(v1) + (V.row(v2) - V.row(v1)) * Mt1[i];
+        Eigen::Vector3d ver1 = V.row(vm);
+        Eigen::Vector3d ver2 = V.row(v3) + (V.row(v4) - V.row(v3)) * Mt2[i];
+        double t1 = Mt1[i];
+        double t2 = Mt2[i];
+        // the locations
+        int lrx = i + vnbr * 3;
+        int lry = i + vnbr * 3 + ninner;
+        int lrz = i + vnbr * 3 + ninner * 2;
+        int lfx = v1;
+        int lfy = v1 + vnbr;
+        int lfz = v1 + vnbr * 2;
+        int ltx = v2;
+        int lty = v2 + vnbr;
+        int ltz = v2 + vnbr * 2;
+        int lmx = vm;
+        int lmy = vm + vnbr;
+        int lmz = vm + vnbr * 2;
+        // r x (vm+(t1-1)*vf-t1*vt)
+        // vf = v1, vt = v2 // TODO this is wrong, should be 
+        tripletes.push_back(i, lrx, vars[lmy] - vars[lmz] + (t1 - 1) * (vars[lfy] - vars[lfz]) - t1 * (vars[lty] - vars[ltz]));
+        tripletes.push_back(i, lry, vars[lmz] - vars[lmx] + (t1 - 1) * (vars[lfz] - vars[lfx]) - t1 * (vars[ltz] - vars[ltx]));
+        tripletes.push_back(i, lrz, vars[lmx] - vars[lmy] + (t1 - 1) * (vars[lfx] - vars[lfy]) - t1 * (vars[ltx] - vars[lty]));
+        MTenergy[i]=
+		tripletes.push_back(i, lmx, vars[lrz] - vars[lry]);
+        tripletes.push_back(i, lmy, vars[lrx] - vars[lrz]);
+        tripletes.push_back(i, lmz, vars[lry] - vars[lrx]);
+
+        tripletes.push_back(i, lfx, (t1-1)*(vars[lrz] - vars[lry]));
+        tripletes.push_back(i, lfy, (t1-1)*(vars[lrx] - vars[lrz]));
+        tripletes.push_back(i, lfz, (t1-1)*(vars[lry] - vars[lrx]));
+
+        tripletes.push_back(i, ltx, -t1*(vars[lrz] - vars[lry]));
+        tripletes.push_back(i, lty, -t1*(vars[lrx] - vars[lrz]));
+        tripletes.push_back(i, ltz, -t1*(vars[lry] - vars[lrx]));
+
+        // vf = v3, vt = v4
+		lfx = v3;
+		lfy = v3 + vnbr;
+		lfz = v3 + vnbr * 2;
+		ltx = v4;
+		lty = v4 + vnbr;
+		ltz = v4 + vnbr * 2;
+		tripletes.push_back(i + ninner, lrx, vars[lmy] - vars[lmz] + (t2 - 1) * (vars[lfy] - vars[lfz]) - t2 * (vars[lty] - vars[ltz]));
+		tripletes.push_back(i + ninner, lry, vars[lmz] - vars[lmx] + (t2 - 1) * (vars[lfz] - vars[lfx]) - t2 * (vars[ltz] - vars[ltx]));
+		tripletes.push_back(i + ninner, lrz, vars[lmx] - vars[lmy] + (t2 - 1) * (vars[lfx] - vars[lfy]) - t2 * (vars[ltx] - vars[lty]));
+
+        tripletes.push_back(i + ninner, lmx, vars[lrz] - vars[lry]);
+        tripletes.push_back(i + ninner, lmy, vars[lrx] - vars[lrz]);
+        tripletes.push_back(i + ninner, lmz, vars[lry] - vars[lrx]);
+
+        tripletes.push_back(i + ninner, lfx, (t2 - 1) * (vars[lrz] - vars[lry]));
+        tripletes.push_back(i + ninner, lfy, (t2 - 1) * (vars[lrx] - vars[lrz]));
+        tripletes.push_back(i + ninner, lfz, (t2 - 1) * (vars[lry] - vars[lrx]));
+
+        tripletes.push_back(i + ninner, ltx, -t2 * (vars[lrz] - vars[lry]));
+        tripletes.push_back(i + ninner, lty, -t2 * (vars[lrx] - vars[lrz]));
+        tripletes.push_back(i + ninner, ltz, -t2 * (vars[lry] - vars[lrx]));
+
+        // r*r=1
+        tripletes.push_back(i + ninner * 2, lrx, 2 * vars(lrx));
+        tripletes.push_back(i + ninner * 2, lry, 2 * vars(lry));
+        tripletes.push_back(i + ninner * 2, lrz, 2 * vars(lrz));
+
+        // r*norm - cos = 0
+        Eigen::Vector3d norm = norm_v.row(vm);
+        tripletes.push_back(i + ninner * 3, lrx, norm(0));
+        tripletes.push_back(i + ninner * 3, lry, norm(1));
+        tripletes.push_back(i + ninner * 3, lrz, norm(2));
+        
+        Eigen::Vector3d cross = (ver1 - ver0).cross(ver2 - ver1);
+        double lg1 = (ver1 - ver0).norm();
+        double lg2 = (ver2 - ver1).norm();
+
+        if (lg1 < 1e-16 || lg2 < 1e-16) {
+            PeWeight[i] = 0;// it means the g1xg2 will not be accurate
+        }
+        else {
+            
+            double cos_real = cross.normalized().dot(norm);
+            double cos_diff = fabs(cos_real - cos_angle) / 2;
+            PeWeight[i] = cos_diff;
+        }
+        lens[i] = cross.norm();
+        if (lens[i] < 1e-16) {// if it is colinear, we prefer to fix this point first
+            lens[i] = 1e6;
+        }
+        Eigen::Vector3d norm = norm_v.row(vm);
+        double value = cross.dot(norm) / lens[i] - cos_angle;
+        MEnergy[i] = value;
+
+    }
+}
 spMat Jacobian_transpose_mesh_opt_on_ver( const std::array<spMat,3> &JC, 
 const Eigen::Vector3d& norm, const spMat &SMfvalues){
 
