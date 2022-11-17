@@ -241,11 +241,19 @@ private:
     double weight_Mesh_edgelength;
     double Mesh_opt_max_step_length;
     bool Last_Opt_Mesh=false; // the last step was mesh optimization. need to update all the mesh properties
+    Eigen::VectorXd Glob_Vars;
     void initialize_mesh_optimization();
     void solve_edge_length_matrix(const Eigen::MatrixXd& V, const Eigen::MatrixXi& E, spMat& mat);
     void calculate_mesh_opt_function_values(const double angle_degree,Eigen::VectorXd& lens);
-    void calculate_mesh_opt_expanded_function_values(const double angle_degree, Eigen::VectorXd& lens);
-    void assemble_solver_mesh_opt_part(spMat& H, Eigen::VectorXd &B);
+    void calculate_mesh_opt_expanded_function_values(const Eigen::VectorXd& Loc_ActInner, Eigen::VectorXd& vars,
+        const std::vector<CGMesh::HalfedgeHandle>& heh0, const std::vector<CGMesh::HalfedgeHandle>& heh1,
+        const std::vector<double>& t1s, const std::vector<double>& t2s,
+        const std::vector<double>& angle_degree,
+        const bool first_compute, const int aux_start_loc, std::vector<Trip>& tripletes, Eigen::VectorXd& MTenergy);
+    void assemble_solver_mesh_opt_part(const Eigen::VectorXd& Loc_ActInner, Eigen::VectorXd& vars,
+        const std::vector<CGMesh::HalfedgeHandle>& heh0, const std::vector<CGMesh::HalfedgeHandle>& heh1,
+        const std::vector<double>& t1s, const std::vector<double>& t2s,
+        const std::vector<double>& angle_degrees, const bool first_compute, const int aux_start_loc, spMat& JTJ, Eigen::VectorXd& B, Eigen::VectorXd& MTEnergy);
     void assemble_solver_mesh_smoothing(const Eigen::VectorXd &vars, spMat &H, Eigen::VectorXd &B);
     void assemble_solver_mean_value_laplacian(const Eigen::VectorXd& vars, spMat& H, Eigen::VectorXd& B);
     void assemble_solver_mesh_edge_length_part(const Eigen::VectorXd vars, spMat& H, Eigen::VectorXd& B);
