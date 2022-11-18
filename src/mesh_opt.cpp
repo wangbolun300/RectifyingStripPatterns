@@ -84,96 +84,6 @@ void get_alpha_associate_with_cross_pairs(const double t1, const double t2, std:
     result[6] = (t1 - 1) * (1 - t2);
     result[7] = t2 * (t1 - 1);
 }
-void lsTools::initialize_mesh_optimization()
-{
-    int ninner=ActInner.size();
-    assert(ninner>0);
-    int vsize=V.rows();
-
-    std::vector<double> t1,t2;
-    t1.resize(ninner);
-    t2.resize(ninner);
-    
-    for (int i = 0; i < ninner; i++)
-    {
-        if(ActInner[i]==false){
-            std::cout << "Singularity Vertex id " << IVids[i] << std::endl;
-            continue;
-        }
-        int vm = IVids[i];
-        CGMesh::HalfedgeHandle inhd = Vheh0[i], outhd=Vheh1[i];
-        int v1=lsmesh.from_vertex_handle(inhd).idx();
-        int v2=lsmesh.to_vertex_handle(inhd).idx();
-        int v3=lsmesh.from_vertex_handle(outhd).idx();
-        int v4=lsmesh.to_vertex_handle(outhd).idx();
-        t1[i]=get_t_of_value(fvalues[vm], fvalues[v1],fvalues[v2]);
-        t2[i]=get_t_of_value(fvalues[vm], fvalues[v3],fvalues[v4]);
-        
-        if(t1[i]<-SCALAR_ZERO||t1[i]>1+SCALAR_ZERO||t2[i]<-SCALAR_ZERO||t2[i]>1+SCALAR_ZERO){
-            std::cout<<"ERROR in Mesh Opt: Using Wrong Triangle For Finding Level Set, "<<t1[i]<<" "<<t2[i]<<std::endl;
-            assert(false);
-        }
-        // rare special cases
-        if(v2==v3){
-            //TODO
-            std::cout << "bad mesh !" << std::endl;
-        }
-        if(v1==v4){
-            //TODO
-            std::cout << "bad mesh !" << std::endl;
-        }
-    }
-    Mt1=t1;
-    Mt2=t2;
-}
-void lsTools::calculate_mesh_opt_function_values(const double angle_degree,Eigen::VectorXd& lens){
-    double angle_radian = angle_degree * LSC_PI / 180.; // the angle in radian
-    double cos_angle=cos(angle_radian);
-    int ninner=ActInner.size();
-    MEnergy = Eigen::VectorXd::Zero(ninner);
-    PeWeight = Eigen::VectorXd::Zero(ninner);
-    lens = Eigen::VectorXd::Zero(ninner);
-
-    for (int i = 0; i < ninner; i++)
-    {
-        if(ActInner[i]==false){
-            PeWeight[i]=0;
-            MEnergy[i]=0;
-            continue;
-        }
-        int vm = IVids[i];
-        CGMesh::HalfedgeHandle inhd = Vheh0[i], outhd=Vheh1[i];
-        int v1=lsmesh.from_vertex_handle(inhd).idx();
-        int v2=lsmesh.to_vertex_handle(inhd).idx();
-        int v3=lsmesh.from_vertex_handle(outhd).idx();
-        int v4=lsmesh.to_vertex_handle(outhd).idx();
-        Eigen::Vector3d ver0=V.row(v1)+(V.row(v2)-V.row(v1))*Mt1[i];
-        Eigen::Vector3d ver1=V.row(vm);
-        Eigen::Vector3d ver2=V.row(v3)+(V.row(v4)-V.row(v3))*Mt2[i];
-        Eigen::Vector3d cross=(ver1-ver0).cross(ver2-ver1);
-        double lg1=(ver1-ver0).norm();
-        double lg2=(ver2-ver1).norm();
-        
-        if(lg1<1e-16 || lg2<1e-16){
-            PeWeight[i]=0;// it means the g1xg2 will not be accurate
-        }
-        else{
-            Eigen::Vector3d norm = norm_v.row(vm);
-            double cos_real = cross.normalized().dot(norm);
-            double cos_diff = fabs(cos_real-cos_angle)/2;
-            PeWeight[i] = cos_diff;
-        }
-        lens[i]=cross.norm();
-        if(lens[i]<1e-16){// if it is colinear, we prefer to fix this point first
-            lens[i]=1e6;
-        }
-        Eigen::Vector3d norm=norm_v.row(vm);
-        double value=cross.dot(norm)/lens[i]-cos_angle;
-        MEnergy[i]=value;
-        
-    }
-
-}
 
 // the size of vars should be nvars, if there is no auxiliary variables, nvars = vnbr*3.
 // The auxiliary vars are located from aux_start_loc to ninner*3+aux_start_loc
@@ -191,11 +101,11 @@ void lsTools::calculate_mesh_opt_expanded_function_values(const Eigen::VectorXd&
     
     int ninner = Loc_ActInner.size();
     int vnbr = V.rows();
-    //MEnergy = Eigen::VectorXd::Zero(ninner);
+
     //PeWeight = Eigen::VectorXd::Zero(ninner);
     //lens = Eigen::VectorXd::Zero(ninner);
     tripletes.clear();
-    tripletes.reserve(ninner * 30);// the number of rows is ninner*4, the number of cols is vnbr * 3 + ninner * 3 (all the vertices and auxiliary vars)
+    tripletes.reserve(ninner * 30);// the number of rows is ninner*4, the number of cols is aux_start_loc + ninner * 3 (all the vertices and auxiliary vars)
 	MTenergy = Eigen::VectorXd::Zero(ninner * 4); // mesh total energy values
 
     for (int i = 0; i < ninner; i++)
@@ -455,28 +365,54 @@ void spmat_on_corner(const spMat& mat, spMat& target, int nmat, int ntarget) {
     tmp.leftCols(nmat) = mat;
     target.leftCols(nmat) = tmp.transpose();
 }
+// they must be symmetric matrices
+spMat sum_uneven_spMats(const spMat& mat_small, const spMat& mat_large) {
+    int snbr = mat_small.rows();
+    int lnbr = mat_large.rows();
+    if (snbr == lnbr) {
+        return mat_small + mat_large;
+    }
+    spMat tmp;
+    tmp.resize(snbr, lnbr);
+    tmp.leftCols(snbr) = mat_small;
+    spMat result;
+    result.resize(lnbr, lnbr);
+    result.leftCols(snbr) = tmp.transpose();
+	return result + mat_large;
+}
+Eigen::VectorXd sum_uneven_vectors(const Eigen::VectorXd& vsmall, const Eigen::VectorXd& vlarge) {
+    int snbr = vsmall.size();
+    int lnbr = vlarge.size();
+    if (snbr == lnbr) {
+        return vsmall + vlarge;
+    }
+    Eigen::VectorXd tmp=Eigen::VectorXd::Zero(lnbr);
+    tmp.topRows(snbr) = vsmall;
+    return tmp + vlarge;
+
+}
 void lsTools::Run_Mesh_Opt(){
     igl::Timer tmsolver;
     double ts = 0, tpg = 0, tinit = 0, tel=0, tsolve=0, teval=0;
     tmsolver.start();
+    bool first_compute = false; // if we need initialize auxiliary vars
     if(!Last_Opt_Mesh){
+        first_compute = true;// if last time opt levelset, we re-compute the auxiliary vars
         get_gradient_hessian_values();
         calculate_gradient_partial_parts_ver_based();
         initialize_mesh_optimization();// get the properties associated with level set but not vertices positions
     }
-    int ninner = ActInner.size();
+    int ninner = Local_ActInner.size();
     int vnbr=V.rows();
-    bool first_compute = false;
+   
     Eigen::VectorXd vars;// the variables feed to the energies without auxiliary variables
     vars.resize(vnbr * 3);
     if (Glob_Vars.size() == 0) {
-        first_compute = true;
-        std::cout << "Initializing Global Variable ... " << std::endl;
+        std::cout << "Initializing Global Variable For Mesh Opt ... " << std::endl;
         Glob_Vars=Eigen::VectorXd::Zero(vnbr * 3 + ninner * 3);// We change the size if opt more than 1 level set
         Glob_Vars.segment(0, vnbr) = V.col(0);
         Glob_Vars.segment(vnbr, vnbr) = V.col(1);
 		Glob_Vars.segment(vnbr * 2, vnbr) = V.col(2);
-        
     }
     vars.topRows(vnbr) = V.col(0);
     vars.middleRows(vnbr, vnbr) = V.col(1);
@@ -517,7 +453,7 @@ void lsTools::Run_Mesh_Opt(){
     angle_degrees[0] = pseudo_geodesic_target_angle_degree;
     int aux_start_loc = vnbr * 3;// the first levelset the auxiliary vars start from vnbr*3
     Eigen::VectorXd MTEnergy;
-    assemble_solver_mesh_opt_part(ActInner, Glob_Vars,
+    assemble_solver_mesh_opt_part(Local_ActInner, Glob_Vars,
 		Vheh0, Vheh1, Mt1, Mt2, angle_degrees, first_compute, aux_start_loc, Hpg, Bpg, MTEnergy);
     spMat Htotal;
     Eigen::VectorXd Btotal = Eigen::VectorXd::Zero(vnbr * 3 + ninner * 3);
@@ -570,7 +506,7 @@ void lsTools::Run_Mesh_Opt(){
     double max_energy_ls = MTEnergy.lpNorm<Eigen::Infinity>();
     std::cout<<"pg, "<<energy_ls<<", MaxEnergy, "<< max_energy_ls<<", ";
     double max_ls_angle_energy = MTEnergy.bottomRows(ninner).norm();
-    std::cout << "max angle energy, " << max_ls_angle_energy << ", ";
+    std::cout << "total angle energy, " << max_ls_angle_energy << ", ";
     double energy_el = ElEnergy.norm();
     std::cout << "el, " << energy_el << ", ";
     step_length=dx.norm();

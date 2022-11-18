@@ -418,143 +418,29 @@ void lsTools::get_function_hessian_vertex()
     }
 }
 
-void lsTools::get_gradient_hessian_values()
+void lsTools::get_gradient_hessian_values(const Eigen::VectorXd& func, Eigen::MatrixXd& Vgrad, Eigen::MatrixXd& Fgrad)
 {
 
     int vsize = V.rows();
     int fsize = F.rows();
-    gvvalue.resize(vsize, 3); // gradient on v
-    gfvalue.resize(fsize, 3); // gradient on f
-    hfvalue.resize(vsize);    // hessian
+    Vgrad.resize(vsize, 3); // gradient on v
+    Fgrad.resize(fsize, 3); // gradient on f
+    
     // gv
-    Eigen::VectorXd gvx = gradV[0] * fvalues;
-    Eigen::VectorXd gvy = gradV[1] * fvalues;
-    Eigen::VectorXd gvz = gradV[2] * fvalues;
-    gvvalue.col(0) = gvx;
-    gvvalue.col(1) = gvy;
-    gvvalue.col(2) = gvz;
+    Eigen::VectorXd gvx = gradV[0] * func;
+    Eigen::VectorXd gvy = gradV[1] * func;
+    Eigen::VectorXd gvz = gradV[2] * func;
+    Vgrad.col(0) = gvx;
+    Vgrad.col(1) = gvy;
+    Vgrad.col(2) = gvz;
 
     // gf
-    Eigen::VectorXd gfx = gradVF[0] * fvalues;
-    Eigen::VectorXd gfy = gradVF[1] * fvalues;
-    Eigen::VectorXd gfz = gradVF[2] * fvalues;
-    gfvalue.col(0) = gfx;
-    gfvalue.col(1) = gfy;
-    gfvalue.col(2) = gfz;
-
-    // hessian
-    std::array<std::array<Eigen::VectorXd, 3>, 3> fii;
-    for (int i = 0; i < 3; i++)
-    {
-        for (int j = 0; j < 3; j++)
-        {
-            fii[i][j] = HessianV[i][j] * fvalues;
-        }
-    }
-    for (int k = 0; k < vsize; k++)
-    {
-        for (int i = 0; i < 3; i++)
-        {
-            for (int j = 0; j < 3; j++)
-            {
-                hfvalue[k](i, j) = fii[i][j](k);
-            }
-        }
-    }
-    get_grad_norm_jacobian();
-}
-
-void lsTools::make_sphere_ls_example(int rowid)
-{
-    int vsize = V.rows();
-    int fsize = F.rows();
-    int rnbr = 20; // # vertices in each row
-    fvalues.resize(vsize);
-
-    for (int i = 0; i < vsize; i++)
-    {
-        fvalues(i) = V(i, 2); // make function value = z
-    }
-    get_gradient_hessian_values();
-    refids.clear();
-    bool writefile = false;
-    std::ofstream fout;
-    std::string filename = std::string("/Users/wangb0d/bolun/D/vs/levelset/level-set-curves/build/") + std::to_string(rowid) + "_info.csv";
-    if (writefile)
-    {
-        fout.open(filename);
-        fout << "angle,kn,kg\n";
-    }
-
-    for (int i = 0; i < rnbr; i++)
-    {
-        int vid = rowid * rnbr + i;
-
-        refids.push_back(vid);
-        Eigen::Matrix2d LmMN;
-        LmMN << II_L[vid], -II_M[vid],
-            -II_M[vid], II_N[vid];
-        Eigen::Matrix<double, 3, 2> rurv, rvru;
-        rurv.col(0) = Deriv1[0].row(vid);
-        rurv.col(1) = Deriv1[1].row(vid);
-        rvru.col(0) = Deriv1[1].row(vid);
-        rvru.col(1) = Deriv1[0].row(vid);
-        Eigen::Vector3d gradient = gvvalue.row(vid);
-        Eigen::Matrix3d hessian = hfvalue[vid];
-        Eigen::Matrix<double, 3, 2> mrvru; // [-rv, ru]
-        mrvru.col(0) = -1 * Deriv1[1].row(vid);
-        mrvru.col(1) = Deriv1[0].row(vid);
-        double normgradf = gradient.norm();
-        Eigen::MatrixXd inner_left = normgradf * rvru * LmMN * rvru.transpose();
-        Eigen::MatrixXd inner_right = mrvru * rurv.transpose() * hessian * rurv * mrvru.transpose();
-        double left = gradient.transpose() * inner_left * gradient;
-        double right = gradient.transpose() * inner_right * gradient;
-        assert(right != 0);
-        double b = right / left;
-        std::cout << "vid " << vid << "\n";
-        std::cout << "the current row nbr " << rowid << " with pid " << i << "\n**b is " << b << "\ngradient, " << gradient.transpose() << "\n";
-        Eigen::Vector3d rotgrad = RotateV[vid] * gradient;
-        Eigen::Vector3d s1 = hessian * rotgrad;
-        double s2 = rotgrad.dot(s1);
-        double kg = -(s2) / (normgradf * normgradf * normgradf);
-        std::cout << "Kg is " << kg << std::endl;
-        std::cout << "Kn (estimate) is " << kg / b << "\n";
-        Eigen::Vector3d ru = Deriv1[0].row(vid);
-        Eigen::Vector3d rv = Deriv1[1].row(vid);
-        double gfrv = gradient.dot(rv);
-        double gfru = gradient.dot(ru);
-        // Eigen::Matrix2d LMN;
-        // LMN << II_L[vid], II_M[vid],
-        //     II_M[vid], II_N[vid];
-        Eigen::Vector2d IIl = Eigen::Vector2d(gfrv, gfru);
-        double up = IIl.transpose() * LmMN * IIl;
-        double cosuv = ru.dot(rv) / (ru.norm() * rv.norm());
-        double sin2 = 1 - cosuv * cosuv;
-        assert(sin2 >= 0);
-        double down = ru.norm() * ru.norm() * rv.norm() * rv.norm() * normgradf * normgradf * sin2;
-        double kn = up / down;
-        std::cout << "Kn (calculate) is " << up / down << std::endl;
-        std::cout << "b recalculate is " << kg / kn << std::endl;
-
-        Eigen::Vector3d q = -(gradient.dot(rv)) * ru + gradient.dot(ru) * rv;
-        Eigen::Vector3d rf_test = q.normalized() * gradient.norm();
-        // std::cout<<"gradf size is "<<gradient.norm()<<"\ngrad test angle diff "<<rf_test.dot(gradient)<<std::endl;
-        std::cout << "qnorm calculated and norm " << gradient.norm() * ru.norm() * rv.norm() * sqrt(sin2) << " " << q.norm() << std::endl;
-        double ang = atan(kg / kn) * 180 / 3.1415926;
-        std::cout << "angle is " << ang << std::endl;
-        std::cout << "angle calculated is " << atan(b) * 180 / 3.1415926 << std::endl;
-        if (writefile)
-        {
-            fout << ang << "," << up / down << "," << kg << "\n";
-        }
-        // std::cout<<"__\nthe"
-        std::cout << "\n";
-    }
-    if (writefile)
-    {
-        fout.close();
-    }
-    std::cout << "__________________________________________________" << std::endl;
+    Eigen::VectorXd gfx = gradVF[0] * func;
+    Eigen::VectorXd gfy = gradVF[1] * func;
+    Eigen::VectorXd gfz = gradVF[2] * func;
+    Fgrad.col(0) = gfx;
+    Fgrad.col(1) = gfy;
+    Fgrad.col(2) = gfz;
 }
 void lsTools::show_level_set(Eigen::VectorXd &val)
 {
@@ -568,21 +454,21 @@ void lsTools::show_gradients(Eigen::MatrixXd &E0, Eigen::MatrixXd &E1, double ra
     E1 = V - gvvalue * ratio;
     assert(V.rows() == gvvalue.rows());
 }
-
-void lsTools::show_hessian(Eigen::MatrixXd &E0, Eigen::MatrixXd &E1, double ratio, int which)
-{
-    Eigen::MatrixXd direction(V.rows(), 3);
-    for (int i = 0; i < V.rows(); i++)
-    {
-        direction.row(i) = hfvalue[i].row(which);
-    }
-    // spMat hess_igl;
-    // igl::hessian(V,F,hess_igl);
-    // std::cout<<"hessian size "<<hess_igl.rows()<<" "<<hess_igl.cols()<<std::endl;
-
-    E0 = V + direction * ratio;
-    E1 = V;
-}
+//
+//void lsTools::show_hessian(Eigen::MatrixXd &E0, Eigen::MatrixXd &E1, double ratio, int which)
+//{
+//    Eigen::MatrixXd direction(V.rows(), 3);
+//    for (int i = 0; i < V.rows(); i++)
+//    {
+//        direction.row(i) = hfvalue[i].row(which);
+//    }
+//    // spMat hess_igl;
+//    // igl::hessian(V,F,hess_igl);
+//    // std::cout<<"hessian size "<<hess_igl.rows()<<" "<<hess_igl.cols()<<std::endl;
+//
+//    E0 = V + direction * ratio;
+//    E1 = V;
+//}
 void lsTools::show_gradient_scalar(Eigen::VectorXd &values, int which)
 {
     values = gvvalue.col(which);
@@ -638,38 +524,6 @@ void lsTools::show_vertex_normal(Eigen::MatrixXd &E0, Eigen::MatrixXd &E1, doubl
     E1 = E0 + norm_v * ratio;
 }
 
-void lsTools::get_grad_norm_jacobian()
-{
-
-    int vsize = V.rows();
-    
-    spMat fx_diag, fy_diag, fz_diag;     // diagnal matrices with gradeint values as matrices
-    Eigen::VectorXd fxvec, fyvec, fzvec; // gradient values, fx, fy, fz
-    fxvec = gvvalue.col(0);
-    fyvec = gvvalue.col(1);
-    fzvec = gvvalue.col(2);
-
-    fx_diag = fxvec.asDiagonal();
-    fy_diag = fyvec.asDiagonal();
-    fz_diag = fzvec.asDiagonal();
-
-    Eigen::VectorXd grad_norm = gvvalue.rowwise().norm(); // take 1/||gradV(i)|| as ith diagnal element
-    // invert grad_norm
-    for (int i = 0; i < vsize; i++)
-    {
-        if (grad_norm(i) > 0)
-        {
-            grad_norm(i) = 1. / grad_norm(i);
-        }
-    }
-    Eigen::MatrixXd grad_norm_mat(vsize, 1);
-    grad_norm_mat.col(0) = grad_norm;
-    Eigen::DiagonalMatrix<double, Eigen::Dynamic, Eigen::Dynamic> grad_norm_diag = grad_norm_mat.asDiagonal();
-    // each row of Dgrad_norm is the jacobian of ||gradV(i)||
-    Dgrad_norm = grad_norm_diag * (fx_diag * gradV[0] + fy_diag * gradV[1] + fz_diag * gradV[2]);
-    derivates_calculated = true;
-}
-
 // this version use libigl
 void lsTools::assemble_solver_laplacian_part(spMat &H, Efunc &B)
 {
@@ -683,133 +537,32 @@ void lsTools::assemble_solver_laplacian_part(spMat &H, Efunc &B)
     assert(B.size() == V.rows());
     assert(H.rows() == H.cols() && H.rows() == V.rows());
 }
-void lsTools::assemble_solver_biharmonic_smoothing(spMat &H, Efunc &B){
-    spMat JTJ=QcH; 
-    Efunc mJTF=dense_vec_to_sparse_vec(-JTJ * fvalues);
-    H = JTJ;
-    B = mJTF;// the mass matrix is already integrated in QcH.
+void lsTools::assemble_solver_biharmonic_smoothing(const Eigen::VectorXd& func, spMat &H, Eigen::VectorXd &B){
+    H = QcH;
+    B = -QcH * func;
     assert(B.size() == V.rows());
     assert(H.rows() == H.cols() && H.rows() == V.rows());
 }
 // assemble matrices for \sum{area(i)*(||gradient(i)||-strip_width)^2}
 // TODO modify it to be a triangle face based method
-void lsTools::assemble_solver_strip_width_part(spMat &H, Efunc &B)
+void lsTools::assemble_solver_strip_width_part(const Eigen::MatrixXd& GradFValue,const std::array<spMat, 3>& GradMatF, spMat &H, Eigen::VectorXd &B)
 {
     int vsize = V.rows();
     int fsize = F.rows();
     // std::cout<<"compute J"<<std::endl;
-    spMat J = (gfvalue.col(0)).asDiagonal() * gradVF[0] + (gfvalue.col(1)).asDiagonal() * gradVF[1] + (gfvalue.col(2)).asDiagonal() * gradVF[2];
+    spMat J = (GradValue.col(0)).asDiagonal() * GradMatF[0] + (GradValue.col(1)).asDiagonal() * GradMatF[1] + (GradValue.col(2)).asDiagonal() * GradMatF[2];
     J *= 2;
     // std::cout<<"compute JTJ"<<std::endl;
     spMat JTJ = J.transpose() *areaF.asDiagonal()* J;
     // std::cout<<"compute f"<<std::endl;
-    Eigen::VectorXd f = gfvalue.col(0).asDiagonal() * gfvalue.col(0) + gfvalue.col(1).asDiagonal() * gfvalue.col(1) + gfvalue.col(2).asDiagonal() * gfvalue.col(2);
+    Eigen::VectorXd f = GradValue.col(0).asDiagonal() * GradValue.col(0) + GradValue.col(1).asDiagonal() * GradValue.col(1) + GradValue.col(2).asDiagonal() * GradValue.col(2);
     f -= Eigen::VectorXd::Ones(fsize) * strip_width * strip_width;
 
     Eigen::VectorXd mJTF_dense = -J.transpose()*areaF.asDiagonal() * f;
     H = JTJ;
-    B = dense_vec_to_sparse_vec(mJTF_dense);
+    B = mJTF_dense;
 }
 
-void lsTools::initialize_and_smooth_level_set_by_laplacian()
-{
-    int vnbr = V.rows();
-    int fnbr = F.rows();
-
-    refids.clear();
-    refids.push_back(F(assign_face_id, 0));
-    refids.push_back(F(assign_face_id, 1));
-    refids.push_back(F(assign_face_id, 2));
-    if (fvalues.size() != vnbr)
-    {
-        fvalues.setZero(vnbr);
-        for (int i = 0; i < 3; i++)
-        {
-            fvalues(F(assign_face_id, i)) = assign_value[i];
-        }
-    }
-    get_gradient_hessian_values();
-
-    // the matrices
-    spMat H;
-    Efunc B;
-    // H*dx=B, H: vnbr*vnbr, B:vnbr.
-    assemble_solver_laplacian_part(H, B);
-
-    for (int i = 0; i < 3; i++)
-    {
-        H.coeffRef(F(assign_face_id, i), F(assign_face_id, i)) += weight_assign_face_value;
-        B.coeffRef(F(assign_face_id, i)) += (assign_value[i] - fvalues(F(assign_face_id, i))) * weight_assign_face_value;
-    }
-    // std::cout << "finish assemble solver with assigned values" << std::endl;
-    // now add mass matrix to make the matrix full rank
-    assert(mass.rows() == vnbr);
-    spMat mass_inverse = mass;
-    for (int i = 0; i < vnbr; i++)
-    {
-        mass_inverse.coeffRef(i, i) = 1 / mass_inverse.coeffRef(i, i);
-    }
-    H += weight_mass * mass_inverse;
-
-    assert(H.rows() == vnbr);
-    assert(H.cols() == vnbr);
-    Eigen::SimplicialLLT<Eigen::SparseMatrix<double>> solver(H);
-    assert(solver.info() == Eigen::Success);
-
-    Eigen::VectorXd dx = solver.solve(B).eval();
-    // std::cout << "step length " << dx.norm() << std::endl;
-    // level_set_step_length = dx.norm();
-    fvalues += dx;
-    // for (int i = 0; i < 3; i++)
-    // {
-    //     fvalues(F(assign_face_id, i)) = assign_value[i];
-    // }
-}
-void lsTools::initialize_and_optimize_strip_width()
-{
-    int vnbr = V.rows();
-    int fnbr = F.rows();
-
-    refids.clear();
-    refids.push_back(F(assign_face_id, 0));
-    refids.push_back(F(assign_face_id, 1));
-    refids.push_back(F(assign_face_id, 2));
-    if (fvalues.size() != vnbr)
-    {
-        fvalues.setZero(vnbr);
-        for (int i = 0; i < 3; i++)
-        {
-            fvalues(F(assign_face_id, i)) = assign_value[i];
-        }
-    }
-    get_gradient_hessian_values();
-
-
-    // the matrices
-    spMat H;
-    Efunc B;
-    assemble_solver_strip_width_part(H, B);
-    H += weight_mass * mass;
-    Eigen::SimplicialLLT<Eigen::SparseMatrix<double>> solver(H);
-    assert(solver.info() == Eigen::Success);
-
-    Eigen::VectorXd dx = solver.solve(B).eval();
-    // level_set_step_length = dx.norm();
-    fvalues += dx;
-    // next check if the energy is getting lower
-    Eigen::VectorXd gnorms = gvvalue.rowwise().norm();
-    double energy = 0;
-    for (int i = 0; i < vnbr; i++)
-    {
-        gnorms(i) -= strip_width;
-    }
-    gnorms = gnorms; // check only the interior points
-    for (int i = 0; i < vnbr; i++)
-    {
-        energy += mass.coeffRef(i, i) * gnorms(i) * gnorms(i);
-    }
-    std::cout << "energy:: " << energy << std::endl;
-}
 void lsTools::get_all_the_edge_normals()
 {
     int ne = lsmesh.n_edges();

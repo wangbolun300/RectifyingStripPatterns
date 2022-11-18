@@ -55,7 +55,15 @@ class TracingPrepare{
     double threadshold_angel_degree;
 
 };
-
+class LSAnalizer {
+public:
+    LSAnalizer() {};
+    Eigen::VectorXd LocalActInner;
+    std::vector<CGMesh::HalfedgeHandle> heh0; 
+    std::vector<CGMesh::HalfedgeHandle> heh1;
+    std::vector<double> t1s;
+    std::vector<double> t2s;
+};
 class NeighbourInfo
 {
 public:
@@ -96,16 +104,13 @@ private:
     std::vector<double> II_L;                     // second fundamental form: L
     std::vector<double> II_M;                     // second fundamental form: M
     std::vector<double> II_N;                     // second fundamental form: N
-    Eigen::MatrixXd gvvalue;                      // the calculated gradient values of f for each vertex.
-    Eigen::MatrixXd gfvalue;                      // the calculated gradient values of f for each face.
-    std::vector<Eigen::Matrix3d> hfvalue;         // the calculated Hessian values of f for each vertex
+    
+    
     std::vector<int> refids;                      // output the ids of current dealing points. just for debug purpose
     // spMat Dlpsqr;                       // the derivates of ||laplacian F||^2 for all the vertices.
     spMat QcH; // curved harmonic energy matrix
     spMat Dlps;       // the derivates of laplacian F for all the vertices.
-    spMat Dgrad_norm; // the derivates of the norm of gradients for all the vertices.
     spMat mass;       // mass(i,i) is the area of the voronoi cell of vertex vi
-    Efunc bcfvalue; // boundary condition function values
     Eigen::VectorXi LsOrient; // orientation of the level set. it gives the orientation of shooting an iso-value line
     Eigen::VectorXd PeWeight; // weight (0~1) of each edge/vertex depending on the neighbouring gradient directions
     
@@ -117,10 +122,10 @@ private:
     std::vector<CGMesh::HalfedgeHandle> Vheh1;// the outward halfedge of each inner ver
     std::vector<Eigen::Vector3d> Vdire0;// the inward direction for each ver
     std::vector<Eigen::Vector3d> Vdire1;// the outward direction for each ver
-    Eigen::VectorXd ActInner; // the active elements in the inner vertices. Has to be double vector for the convience of computing
     std::vector<CGMesh::HalfedgeHandle> Boundary_Edges;
     std::vector<CGMesh::HalfedgeHandle> tracing_start_edges;
     std::vector<double> pseudo_geodesic_angles_per_ver;
+    Eigen::VectorXd Glob_lsvars; // global variables for levelset opt
 
     
     Eigen::MatrixXd norm_e; // normal directions on each edge
@@ -169,17 +174,24 @@ private:
     void get_all_the_edge_normals();// the edge normals and the active edges
     void calculate_gradient_partial_parts();// calculate gradient partial derivatives. Edge based energy part
     void calculate_gradient_partial_parts_ver_based();// calculate gradient partial derivatives. Edge based energy part
-    // pseudo energy values for right side of the Gauss-newton. update weights.
-    void calculate_pseudo_energy_function_values(const double angle_degree);
+    void analysis_pseudo_geodesic_on_vertices(const Eigen::VectorXd& func_values, Eigen::VectorXd& LocalActInner,
+        std::vector<CGMesh::HalfedgeHandle>& heh0, std::vector<CGMesh::HalfedgeHandle>& heh1,
+        std::vector<double>& t1s, std::vector<double>& t2s);
+    void analysis_pseudo_geodesic_on_vertices(const Eigen::VectorXd& func_values, LSAnalizer& analizer);
+    void calculate_pseudo_geodesic_opt_expanded_function_values(const Eigen::VectorXd& vars, const std::vector<double>& angle_degree,
+        const Eigen::VectorXd& LocalActInner, const std::vector<CGMesh::HalfedgeHandle>& heh0, const std::vector<CGMesh::HalfedgeHandle>& heh1,
+        const std::vector<double>& t1s, const std::vector<double>& t2s, const bool first_compute, const int aux_start_loc, std::vector<Trip>& tripletes, Eigen::VectorXd& Energy);
     void calculate_pseudo_energy_function_values_vertex_based(const double angle_degree, Eigen::VectorXd& lens);
     void calculate_pseudo_energy_function_values_vertex_based(const std::vector<double>& angle_degree, Eigen::VectorXd& lens);
     void calculate_boundary_direction_energy_function_values(Eigen::VectorXd &lens);
-    void assemble_solver_boundary_condition_part(spMat& H, Efunc& B);
+    void assemble_solver_boundary_condition_part(const Eigen::VectorXd& func, spMat& H, Eigen::VectorXd& B);
     void assemble_solver_laplacian_part(spMat &H, Efunc &B);
-    void assemble_solver_biharmonic_smoothing(spMat &H, Efunc &B); //Biharmonic smoothing (natural curved Hessian boundary)
-    void assemble_solver_pesudo_geodesic_energy_part(spMat &H, Efunc &B);
-    void assemble_solver_pesudo_geodesic_energy_part_vertex_baed(spMat &H, Efunc &B);
-    void assemble_solver_strip_width_part(spMat &H, Efunc &B);
+    void assemble_solver_biharmonic_smoothing(const Eigen::VectorXd& func, spMat &H, Eigen::VectorXd &B); //Biharmonic smoothing (natural curved Hessian boundary)
+    
+    void assemble_solver_pesudo_geodesic_energy_part_vertex_based(const Eigen::VectorXd& vars, const std::vector<double>& angle_degree, Eigen::VectorXd& LocalActInner,
+        std::vector<CGMesh::HalfedgeHandle>& heh0, std::vector<CGMesh::HalfedgeHandle>& heh1,
+        std::vector<double>& t1s, std::vector<double>& t2s, const bool first_compute, const int aux_start_loc, spMat& H, Eigen::VectorXd& B, Eigen::VectorXd& energy);
+    void assemble_solver_strip_width_part(const Eigen::MatrixXd& GradValue, const std::array<spMat, 3>& GradMatF, spMat& H, Eigen::VectorXd& B);
     void assemble_solver_fixed_boundary_direction_part(spMat &H, Efunc &B);
 
     // void assemble_solver_pseudo_geodesic_part(spMat &H, Efunc& B);
@@ -227,11 +239,6 @@ private:
     
     // Mesh Optimization Part
     
-    std::vector<std::array<spMat,3>> MJsimp;// mesh Jocobian coffecient matrices. The simplified version.
-    std::vector<std::array<double,8>> MCt; // mesh coefficients associate with t
-    std::vector<double> Mt1;
-    std::vector<double> Mt2;
-    Eigen::VectorXd MEnergy;// computed pseudo geodesic energy
     Eigen::VectorXd ElEnergy; // edge length energy
     Eigen::VectorXd ElStored; // edge length of the original mesh
     spMat MVLap; // mean value laplacian
@@ -244,7 +251,6 @@ private:
     Eigen::VectorXd Glob_Vars;
     void initialize_mesh_optimization();
     void solve_edge_length_matrix(const Eigen::MatrixXd& V, const Eigen::MatrixXi& E, spMat& mat);
-    void calculate_mesh_opt_function_values(const double angle_degree,Eigen::VectorXd& lens);
     void calculate_mesh_opt_expanded_function_values(const Eigen::VectorXd& Loc_ActInner, Eigen::VectorXd& vars,
         const std::vector<CGMesh::HalfedgeHandle>& heh0, const std::vector<CGMesh::HalfedgeHandle>& heh1,
         const std::vector<double>& t1s, const std::vector<double>& t2s,
