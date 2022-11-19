@@ -342,7 +342,8 @@ void lsTools::solve_edge_length_matrix(const Eigen::MatrixXd& V, const Eigen::Ma
     mat.resize(enbr * 3, nver * 3);
     mat.setFromTriplets(tripletes.begin(), tripletes.end());
 }
-void lsTools::assemble_solver_mesh_edge_length_part(const Eigen::VectorXd vars, spMat& H, Eigen::VectorXd& B) {
+void lsTools::assemble_solver_mesh_edge_length_part(const Eigen::VectorXd vars, spMat& H, Eigen::VectorXd& B, 
+Eigen::VectorXd& ElEnergy) {
     H = Elmat.transpose() * Elmat;
     int enbr = E.rows();
     int nver = V.rows();
@@ -380,6 +381,7 @@ spMat sum_uneven_spMats(const spMat& mat_small, const spMat& mat_large) {
     result.leftCols(snbr) = tmp.transpose();
 	return result + mat_large;
 }
+
 Eigen::VectorXd sum_uneven_vectors(const Eigen::VectorXd& vsmall, const Eigen::VectorXd& vlarge) {
     int snbr = vsmall.size();
     int lnbr = vlarge.size();
@@ -392,24 +394,31 @@ Eigen::VectorXd sum_uneven_vectors(const Eigen::VectorXd& vsmall, const Eigen::V
 
 }
 void lsTools::Run_Mesh_Opt(){
-    igl::Timer tmsolver;
-    double ts = 0, tpg = 0, tinit = 0, tel=0, tsolve=0, teval=0;
-    tmsolver.start();
-    bool first_compute = false; // if we need initialize auxiliary vars
+    
+    
+    Eigen::VectorXd func = fvalues;
+
+    std::vector < double > angle_degrees(1);
+    angle_degrees[0] = pseudo_geodesic_target_angle_degree;
+    Eigen::MatrixXd GradValueF, GradValueV;
+    std::array<spMat, 3> GradMatF;
+
+    
+    get_gradient_hessian_values(func, GradValueV, GradValueF);
+    bool first_compute = true; // if we need initialize auxiliary vars
     if(!Last_Opt_Mesh){
+        analysis_pseudo_geodesic_on_vertices(func, anas[0]);
         first_compute = true;// if last time opt levelset, we re-compute the auxiliary vars
-        get_gradient_hessian_values();
-        calculate_gradient_partial_parts_ver_based();
-        initialize_mesh_optimization();// get the properties associated with level set but not vertices positions
     }
-    int ninner = Local_ActInner.size();
+    int ninner = anas[0].LocalActInner.size();
     int vnbr=V.rows();
+	int final_size = ninner * 3 + vnbr * 3;// Change this when using more auxilary vars
    
     Eigen::VectorXd vars;// the variables feed to the energies without auxiliary variables
     vars.resize(vnbr * 3);
     if (Glob_Vars.size() == 0) {
         std::cout << "Initializing Global Variable For Mesh Opt ... " << std::endl;
-        Glob_Vars=Eigen::VectorXd::Zero(vnbr * 3 + ninner * 3);// We change the size if opt more than 1 level set
+        Glob_Vars=Eigen::VectorXd::Zero(final_size);// We change the size if opt more than 1 level set
         Glob_Vars.segment(0, vnbr) = V.col(0);
         Glob_Vars.segment(vnbr, vnbr) = V.col(1);
 		Glob_Vars.segment(vnbr * 2, vnbr) = V.col(2);
@@ -423,67 +432,50 @@ void lsTools::Run_Mesh_Opt(){
     Eigen::VectorXd B;
     H.resize(vnbr * 3, vnbr * 3);
     B = Eigen::VectorXd::Zero(vnbr * 3);
-    tinit= tmsolver.getElapsedTimeInSec();
-    tmsolver.start();
+    
+    
     spMat Hsmooth;
     Eigen::VectorXd Bsmooth;
     assemble_solver_mesh_smoothing(vars, Hsmooth, Bsmooth);
     //assemble_solver_mean_value_laplacian(vars, Hsmooth, Bsmooth);
     H += weight_Mesh_smoothness * Hsmooth;
     B += weight_Mesh_smoothness * Bsmooth;
-    ts = tmsolver.getElapsedTimeInSec();
     
-    tmsolver.start();
+    
+    
     spMat Hel;
     Eigen::VectorXd Bel;
-    assemble_solver_mesh_edge_length_part(vars, Hel, Bel);
+    Eigen::VectorXd ElEnergy;
+    assemble_solver_mesh_edge_length_part(vars, Hel, Bel, ElEnergy);
     H += weight_Mesh_edgelength * Hel;
     B += weight_Mesh_edgelength * Bel;
-    tel = tmsolver.getElapsedTimeInSec();
     
-    /*double dmax = get_mat_max_diag(H);
-    if (dmax == 0)
-    {
-        dmax = 1;
-    }*/
-    tmsolver.start();
+
+    
     spMat Hpg;
     Eigen::VectorXd Bpg;
-    std::vector < double > angle_degrees(1);
-    angle_degrees[0] = pseudo_geodesic_target_angle_degree;
     int aux_start_loc = vnbr * 3;// the first levelset the auxiliary vars start from vnbr*3
     Eigen::VectorXd MTEnergy;
-    assemble_solver_mesh_opt_part(Local_ActInner, Glob_Vars,
-		Vheh0, Vheh1, Mt1, Mt2, angle_degrees, first_compute, aux_start_loc, Hpg, Bpg, MTEnergy);
+    assemble_solver_mesh_opt_part(anas[0].LocalActInner, Glob_Vars,
+		anas[0].heh0, anas[0].heh1, anas[0].t1s, anas[0].t2s, angle_degrees, first_compute, aux_start_loc, Hpg, Bpg, MTEnergy);
     spMat Htotal;
-    Eigen::VectorXd Btotal = Eigen::VectorXd::Zero(vnbr * 3 + ninner * 3);
-    //Htmp.resize(vnbr * 3, vnbr * 3 + ninner * 3);
-    Htotal.resize(vnbr * 3 + ninner * 3, vnbr * 3 + ninner * 3);
-    spmat_on_corner(H, Htotal, vnbr * 3, vnbr * 3 + ninner * 3);
-    Htotal += weight_Mesh_pesudo_geodesic * Hpg;
-    Btotal.topRows(vnbr * 3) = B;
-    Btotal += weight_Mesh_pesudo_geodesic * Bpg;
-    tpg = tmsolver.getElapsedTimeInSec();
+    Eigen::VectorXd Btotal;
+    Htotal = sum_uneven_spMats(H, weight_Mesh_pesudo_geodesic * Hpg);
+    Btotal = sum_uneven_vectors(B, weight_Mesh_pesudo_geodesic * Bpg);    
     
-	Htotal += weight_mass * 1e-6 * Eigen::VectorXd::Ones(vnbr * 3 + ninner * 3).asDiagonal();
+	Htotal += weight_mass * 1e-6 * Eigen::VectorXd::Ones(final_size).asDiagonal();
     
     if(vector_contains_NAN(Btotal)){
         std::cout<<"energy value wrong"<<std::endl;
     }
-    tmsolver.start();
+    
     Eigen::SimplicialLLT<Eigen::SparseMatrix<double>> solver(Htotal);
-    // assert(solver.info() == Eigen::Success);
     if (solver.info() != Eigen::Success)
     {
-        // solving failed
         std::cout << "solver fail" << std::endl;
         return;
     }
-    
-    
-    Eigen::VectorXd dx = solver.solve(Btotal).eval();
-    tsolve = tmsolver.getElapsedTimeInSec();
-    tmsolver.start();
+    Eigen::VectorXd dx = solver.solve(Btotal).eval(); 
     dx *= 0.75;
     double mesh_opt_step_length = dx.norm();
     // double inf_norm=dx.cwiseAbs().maxCoeff();
@@ -499,7 +491,7 @@ void lsTools::Run_Mesh_Opt(){
     if (vars != Glob_Vars.topRows(vnbr * 3)) {
         std::cout << "vars diff from glob vars" << std::endl;
     }
-    double energy_smooth=(QcH*V).norm();
+    double energy_smooth=(V.transpose()*QcH*V).norm();
     /*double energy_mvl = (MVLap * vars).norm();*/
     std::cout<<"Mesh Opt: smooth, "<< energy_smooth <<", ";
     double energy_ls= MTEnergy.norm();
@@ -513,6 +505,5 @@ void lsTools::Run_Mesh_Opt(){
     std::cout<<"step "<<step_length<<std::endl;
     update_mesh_properties();
     Last_Opt_Mesh=true;
-    teval = tmsolver.getElapsedTimeInSec();
-    //std::cout << "ts " << ts << " tpg " << tpg  << " tinit " << tinit << " tel " << tel << " tsolve " << tsolve << " teval " << teval << std::endl<<std::endl;
+
 }

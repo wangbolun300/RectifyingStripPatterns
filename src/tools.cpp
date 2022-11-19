@@ -929,11 +929,7 @@ std::array<int,4> get_vers_around_edge(CGMesh& lsmesh, int edgeid, int& fid1, in
     CGMesh::HalfedgeHandle he = lsmesh.halfedge_handle(edge_middle, 0);
     int vid1 = lsmesh.to_vertex_handle(he).idx();
     int vid2 = lsmesh.from_vertex_handle(he).idx();
-    // if(fvalues[vid1]<fvalues[vid2]){
-    //     he = lsmesh.halfedge_handle(edge_middle, 1);
-    //     vid1 = lsmesh.to_vertex_handle(he).idx();
-    //     vid2 = lsmesh.from_vertex_handle(he).idx();
-    // }
+    
     CGMesh::HalfedgeHandle nexthandle=lsmesh.next_halfedge_handle(he);
     int vidA=lsmesh.to_vertex_handle(nexthandle).idx();
     CGMesh::HalfedgeHandle oppohandle=lsmesh.opposite_halfedge_handle(he);
@@ -947,30 +943,6 @@ std::array<int,4> get_vers_around_edge(CGMesh& lsmesh, int edgeid, int& fid1, in
     result[2]=vidA;
     result[3]=vidB;
     return result;
-}
-void lsTools::show_binormals(Eigen::MatrixXd& E0, Eigen::MatrixXd& E1, double ratio){
-    std::cout<<"show binormals "<<std::endl;
-    int ninner=IVids.size();
-    if(ninner<=0){
-        std::cout<<"please optimize pseudo-geodesic energy first"<<std::endl;
-        return;
-    }
-    std::cout<<"there are "<<ninner<<" bi-normals"<<std::endl;
-    E0.resize(ninner,3);
-    E1.resize(ninner,3);
-    for (int i = 0; i < ninner; i++)
-    {
-        int vid = IVids[i];
-        Eigen::Vector3d ver=V.row(vid);
-        if(ActInner[i] == false){// this is a singularity
-            E0.row(vid)=ver;
-            E1.row(vid)=ver;
-            continue;
-        }
-        E0.row(i)=ver;
-        E1.row(i)=ver+ratio*Eigen::Vector3d(vBinormal.row(i));
-
-    }
 }
 
 void get_level_set_sample_values(const Eigen::VectorXd &ls, const int nbr, Eigen::VectorXd &values){

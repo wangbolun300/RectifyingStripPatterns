@@ -447,32 +447,7 @@ void lsTools::show_level_set(Eigen::VectorXd &val)
     val = fvalues;
 }
 
-void lsTools::show_gradients(Eigen::MatrixXd &E0, Eigen::MatrixXd &E1, double ratio)
-{
 
-    E0 = V + gvvalue * ratio;
-    E1 = V - gvvalue * ratio;
-    assert(V.rows() == gvvalue.rows());
-}
-//
-//void lsTools::show_hessian(Eigen::MatrixXd &E0, Eigen::MatrixXd &E1, double ratio, int which)
-//{
-//    Eigen::MatrixXd direction(V.rows(), 3);
-//    for (int i = 0; i < V.rows(); i++)
-//    {
-//        direction.row(i) = hfvalue[i].row(which);
-//    }
-//    // spMat hess_igl;
-//    // igl::hessian(V,F,hess_igl);
-//    // std::cout<<"hessian size "<<hess_igl.rows()<<" "<<hess_igl.cols()<<std::endl;
-//
-//    E0 = V + direction * ratio;
-//    E1 = V;
-//}
-void lsTools::show_gradient_scalar(Eigen::VectorXd &values, int which)
-{
-    values = gvvalue.col(which);
-}
 void lsTools::show_current_reference_points(Eigen::MatrixXd &pts)
 {
     int size = refids.size();
@@ -481,32 +456,6 @@ void lsTools::show_current_reference_points(Eigen::MatrixXd &pts)
     {
         pts.row(i) = V.row(refids[i]);
     }
-}
-void lsTools::show_face_gradients(Eigen::MatrixXd &E0, Eigen::MatrixXd &E1, double ratio)
-{
-    Eigen::MatrixXd fcent(F.rows(), 3);
-    for (int i = 0; i < F.rows(); i++)
-    {
-        fcent.row(i) = (V.row(F(i, 0)) + V.row(F(i, 1)) + V.row(F(i, 2))) / 3;
-    }
-    Eigen::MatrixXd dirc(F.rows(), 3);
-    // spMat G;
-    // igl::grad(V,F,G);
-    // Eigen::VectorXd total;
-    // total=G*fvalues;
-    // int counter=0;
-    // for(int j=0;j<3;j++){
-    // for(int i=0;i<F.rows();i++){
-
-    //         dirc(i,j)=total(counter);
-    //         counter++;
-    //     }
-    // }
-    dirc = gfvalue;
-
-    E0 = fcent + dirc * ratio;
-    E1 = fcent - dirc * ratio;
-    assert(fcent.rows() == dirc.rows());
 }
 void lsTools::show_1_order_derivate(Eigen::MatrixXd &E0, Eigen::MatrixXd &E1, Eigen::MatrixXd &E2, Eigen::MatrixXd &E3, double ratio)
 {
@@ -545,17 +494,17 @@ void lsTools::assemble_solver_biharmonic_smoothing(const Eigen::VectorXd& func, 
 }
 // assemble matrices for \sum{area(i)*(||gradient(i)||-strip_width)^2}
 // TODO modify it to be a triangle face based method
-void lsTools::assemble_solver_strip_width_part(const Eigen::MatrixXd& GradFValue,const std::array<spMat, 3>& GradMatF, spMat &H, Eigen::VectorXd &B)
+void lsTools::assemble_solver_strip_width_part(const Eigen::MatrixXd& GradFValue, spMat &H, Eigen::VectorXd &B)
 {
     int vsize = V.rows();
     int fsize = F.rows();
     // std::cout<<"compute J"<<std::endl;
-    spMat J = (GradValue.col(0)).asDiagonal() * GradMatF[0] + (GradValue.col(1)).asDiagonal() * GradMatF[1] + (GradValue.col(2)).asDiagonal() * GradMatF[2];
+    spMat J = (GradFValue.col(0)).asDiagonal() * gradVF[0] + (GradFValue.col(1)).asDiagonal() * gradVF[1] + (GradFValue.col(2)).asDiagonal() * gradVF[2];
     J *= 2;
     // std::cout<<"compute JTJ"<<std::endl;
     spMat JTJ = J.transpose() *areaF.asDiagonal()* J;
     // std::cout<<"compute f"<<std::endl;
-    Eigen::VectorXd f = GradValue.col(0).asDiagonal() * GradValue.col(0) + GradValue.col(1).asDiagonal() * GradValue.col(1) + GradValue.col(2).asDiagonal() * GradValue.col(2);
+    Eigen::VectorXd f = GradFValue.col(0).asDiagonal() * GradFValue.col(0) + GradFValue.col(1).asDiagonal() * GradFValue.col(1) + GradFValue.col(2).asDiagonal() * GradFValue.col(2);
     f -= Eigen::VectorXd::Ones(fsize) * strip_width * strip_width;
 
     Eigen::VectorXd mJTF_dense = -J.transpose()*areaF.asDiagonal() * f;
@@ -662,7 +611,6 @@ void lsTools::initialize_level_set_accroding_to_parametrization(){
     Eigen::Vector2d ver2d1=paras.row(ver1id);
     Eigen::Vector2d ver2d2=paras.row(ver2id);
     Eigen::Vector2d ver2d3=paras.row(ver3id);
-    std::cout<<"test 1 "<<std::endl;
     Eigen::Vector3d ver_value0=trace_vers[0][0];
     Eigen::Vector3d ver_value1=trace_vers[lssize-1][0];
 
@@ -670,13 +618,9 @@ void lsTools::initialize_level_set_accroding_to_parametrization(){
     double t2=get_t_of_segment(ver_value1,ver2,ver3);
     Eigen::Vector2d para_value0=get_2d_ver_from_t(t1,ver2d0,ver2d1);
     Eigen::Vector2d para_value1=get_2d_ver_from_t(t1,ver2d2,ver2d3);
-    std::cout<<"test 2 "<<std::endl;
     Eigen::Vector2d trans=(value1-value0)*(para_value1-para_value0)/(para_value1-para_value0).dot(para_value1-para_value0);
-    std::cout<<"test 4 "<<std::endl;
     Eigen::VectorXd dupvalue=duplicate_valus(value0,V.rows());
-    std::cout<<"test 5 "<<std::endl;
     Eigen::MatrixXd dupmatrix=duplicate_vector(para_value0,V.rows());
-    std::cout<<"test 3 "<<std::endl;
     Eigen::MatrixXd tmp=paras-dupmatrix;// matrix of Vi-V0
     Eigen::VectorXd result=tmp*trans;
     result=result-dupvalue;
@@ -853,69 +797,5 @@ void lsTools::estimate_strip_width_according_to_tracing(){
     strip_width=function_value_diff/dis_real;
 }
 void lsTools::print_info(const int vid){
-    int i=-1;
-    int ninner=IVids.size();
-    if(ActInner.size()<=0){
-        std::cout<<"please opt pseudo-geodesic energy"<<std::endl;
-        return;
-    }
-    for (int j = 0; j < ninner; j++)
-    {
-        if(IVids[j]==vid){
-            i=j;
-            break;
-        }
-    }
-    if(i==-1){
-        std::cout<<"please check inner vers"<<std::endl;
-        return;
-    }
-    if (ActInner[i] == false)
-    { // this is a singularity
-        std::cout<<"singularity"<<std::endl;
-        return;
-    }
-
-    CGMesh::HalfedgeHandle heh1 = Vheh0[i];
-    CGMesh::HalfedgeHandle heh2 = Vheh1[i];
-    int fid1, fid2;
-    fid1 = lsmesh.face_handle(heh1).idx();
-    fid2 = lsmesh.face_handle(heh2).idx();
-    assert(fid1 != fid2);
-    Eigen::Vector3d norm = norm_v.row(vid);
-    Eigen::Vector3d norm1 = norm_f.row(fid1);
-    Eigen::Vector3d norm2 = norm_f.row(fid2);
-    Eigen::Vector3d g1 = gfvalue.row(fid1);
-    Eigen::Vector3d g2 = gfvalue.row(fid2);
-    std::cout<<"gradients "<<g1.transpose()<<"\n"<<g2.transpose()<<std::endl;
-    // rotate gradients to get iso-curve directions
-    g1 = norm1.cross(g1);
-    g2 = norm2.cross(g2);
-    std::cout<<"iso-line \n"<<g1.transpose()<<"\n"<<g2.transpose()<<std::endl;
-    Eigen::Vector3d g1xg2 = g1.cross(g2);
-    
-    std::cout<<"g1xg2 "<<g1xg2.transpose()<<", norm, "<<g1xg2.norm()<<"\n";
-    // std::cout<<"energy, "<<g1xg2.dot(norm) / g1xg2.norm() - cos_angle
-    Eigen::Vector3d binormal=LsOrient[i]*g1xg2.normalized();
-    std::cout<<"binormal "<<binormal.transpose()<<"\n";
-    std::cout<<"vBinormal "<<vBinormal.row(i)<<"\n";
-    double cos_real=norm.dot(binormal);
-    std::cout<<"Vnorm "<<norm.transpose()<<"\ncos_real "<<cos_real<<std::endl;
-    std::cout<<"energy value "<<VPEvalue.coeffRef(i)<<std::endl;
-    
-    if(enable_functional_angles){
-        std::cout<<"target angle "<<pseudo_geodesic_angles_per_ver[vid]<<std::endl;
-        double angle_radian = pseudo_geodesic_angles_per_ver[vid] * LSC_PI / 180.; // the angle in radian
-        double cos_angle = cos(angle_radian);
-        std::cout<<"energy recomput "<<LsOrient[i] * g1xg2.dot(norm) / g1xg2.norm() - cos_angle<<std::endl;
-
-    }
-    else{
-        std::cout<<"target angle "<<pseudo_geodesic_target_angle_degree<<std::endl;
-    }
-    std::cout<<"bnd angles "<<BDEvalue.transpose()<<std::endl;
-    // std::cout<<"pew\n"<<PeWeight.transpose()<<std::endl;
-    // std::cout<<"peV\n"<<VPEvalue<<std::endl;
-    std::cout<<"n(peV) "<<VPEvalue.norm()<<std::endl;
     
 }

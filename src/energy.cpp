@@ -200,122 +200,6 @@ std::vector<Trip> get_triplets_for_gradient_partial_parts_edge_based(std::array<
 	triplets.push_back(Trip(vB, vA, cfafb));
 	return triplets;
 }
-// calculate vector of matrix A, A[i]*f is the jacobian of (g1xg2).dot(norm).
-// here g1, g2 are the rotated gradients
-void lsTools::calculate_gradient_partial_parts() {
-
-	int act_size = Actid.size();
-	PEJC.resize(act_size);
-	for (int i = 0; i < act_size; i++) {
-		PEJC[i].resize(V.rows(), V.rows());
-	}
-	// std::array<Eigen::MatrixXd,8> 
-	for (int i = 0; i < act_size; i++) {
-		int fid1, fid2;
-		std::array<int, 4> vids;
-		// get the v1, v2, vA, vB.
-		vids = get_vers_around_edge(lsmesh, Actid[i], fid1, fid2);
-		int v1 = vids[0];
-		int v2 = vids[1];
-		int vA = vids[2];
-		int vB = vids[3];
-
-		Eigen::Vector3d norm = norm_e.row(Actid[i]);
-		Eigen::Vector3d norm1 = norm_f.row(fid1);
-		Eigen::Vector3d norm2 = norm_f.row(fid2);
-		std::vector<Trip> triplets = get_triplets_for_gradient_partial_parts_edge_based(gradVF, v1, v2, vA, vB,
-			fid1, fid2, norm, norm1, norm2);
-
-		PEJC[i].setFromTriplets(triplets.begin(), triplets.end());
-	}
-}
-// calculate vector of matrix A, A[i]*f is the jacobian of (g1xg2).dot(norm).
-// here g1, g2 are the rotated gradients
-void lsTools::calculate_gradient_partial_parts_ver_based() {
-	int ninner = IVids.size();
-	int vnbr = V.rows();
-	bool first_time_compute = false; // if it is first time, we need to compute all; otherwise we just need to update
-	if (VPEJC.empty())
-	{
-		VPEJC.resize(ninner);
-		Vheh0.resize(ninner);
-		Vheh1.resize(ninner);
-		Vdire0.resize(ninner);
-		Vdire1.resize(ninner);
-		ActInner.resize(ninner);
-		first_time_compute = true;
-	}
-	if (Last_Opt_Mesh) {
-		first_time_compute = true;
-	}
-
-
-	for (int i = 0; i < ninner; i++)
-	{
-		int vid = IVids[i];
-		std::array<Eigen::Vector3d, 2> directions;
-		std::array<bool, 2> l2s; // if the halfedge handle is from large to small
-		std::array<CGMesh::HalfedgeHandle, 2> handles;
-		bool active = find_active_faces_and_directions_around_ver(lsmesh, fvalues, V, norm_v.row(vid), vid, directions,
-			l2s, handles);
-		if (active)
-		{
-			ActInner[i] = true;
-		}
-		else
-		{
-			ActInner[i] = false;
-			continue;
-		}
-		CGMesh::HalfedgeHandle hd1 = handles[0]; // the inward edge
-		CGMesh::HalfedgeHandle hd2 = handles[1]; // the outward edge
-		int v1 = lsmesh.from_vertex_handle(hd1).idx();
-		int v2 = lsmesh.to_vertex_handle(hd1).idx();
-		int v3 = lsmesh.from_vertex_handle(hd2).idx();
-		int v4 = lsmesh.to_vertex_handle(hd2).idx();
-		int fid1 = lsmesh.face_handle(hd1).idx();
-		int fid2 = lsmesh.face_handle(hd2).idx();
-		assert(fid1 != fid2);
-		bool need_update = false;
-		if (first_time_compute)
-		{
-			need_update = true;
-		}
-		else
-		{
-			if (hd1 == Vheh0[i] && hd2 == Vheh1[i])
-			{ // if the active information is the same as the last iteration, no need to update the matrices
-				continue;
-			}
-			need_update = true;
-		}
-		if (need_update)
-		{
-			Eigen::Vector3d norm = norm_v.row(vid);
-			Eigen::Vector3d norm1 = norm_f.row(fid1);
-			Eigen::Vector3d norm2 = norm_f.row(fid2);
-			std::vector<Trip> triplets;
-			if (v2 == v3)
-			{
-				triplets = get_triplets_for_gradient_partial_parts_edge_based(gradVF, vid, v2, v1, v4, fid1, fid2, norm, norm1, norm2);
-			}
-			else if (v1 == v4)
-			{
-				triplets = get_triplets_for_gradient_partial_parts_edge_based(gradVF, v1, vid, v2, v3, fid1, fid2, norm, norm1, norm2);
-			}
-			else
-			{
-				triplets = get_triplets_for_gradient_partial_parts_vertex_based(gradVF, v1, v2, v3, v4, vid, fid1, fid2, norm, norm1, norm2);
-			}
-			VPEJC[i].resize(vnbr, vnbr);
-			VPEJC[i].setFromTriplets(triplets.begin(), triplets.end());
-			Vheh0[i] = hd1;
-			Vheh1[i] = hd2;
-			Vdire0[i] = directions[0];
-			Vdire1[i] = directions[1];
-		}
-	}
-}
 void lsTools::analysis_pseudo_geodesic_on_vertices(const Eigen::VectorXd& func_values, Eigen::VectorXd& LocalActInner,
 	std::vector<CGMesh::HalfedgeHandle>& heh0, std::vector<CGMesh::HalfedgeHandle>& heh1,
 	std::vector<double>& t1s, std::vector<double>& t2s) {
@@ -358,6 +242,7 @@ void lsTools::analysis_pseudo_geodesic_on_vertices(const Eigen::VectorXd& func_v
 		double t2 = get_t_of_value(func_values[vid], func_values[v3], func_values[v4]);
 
 		assert(func_values[v1] > func_values[v2]);
+		assert(func_values[v4] > func_values[v3]);
 		assert(fid1 != fid2);
 		heh0[i] = hd1;
 		heh1[i] = hd2;
@@ -368,16 +253,18 @@ void lsTools::analysis_pseudo_geodesic_on_vertices(const Eigen::VectorXd& func_v
 void lsTools::analysis_pseudo_geodesic_on_vertices(const Eigen::VectorXd& func_values, LSAnalizer& ana) {
 	analysis_pseudo_geodesic_on_vertices(func_values, ana.LocalActInner, ana.heh0, ana.heh1, ana.t1s, ana.t2s);
 }
-void lsTools::calculate_pseudo_geodesic_opt_expanded_function_values(const Eigen::VectorXd& vars, const std::vector<double>& angle_degree,
+void lsTools::calculate_pseudo_geodesic_opt_expanded_function_values(Eigen::VectorXd& vars, const std::vector<double>& angle_degree,
 	const Eigen::VectorXd& LocalActInner, const std::vector<CGMesh::HalfedgeHandle>& heh0, const std::vector<CGMesh::HalfedgeHandle>& heh1,
 	const std::vector<double>& t1s, const std::vector<double>& t2s, const bool first_compute, const int aux_start_loc, std::vector<Trip>& tripletes, Eigen::VectorXd& Energy) {
 	double cos_angle;
+	int vnbr = V.rows();
+	int ninner = LocalActInner.size();
 	if (angle_degree.size() == 1) {
 		double angle_radian = angle_degree[0] * LSC_PI / 180.; // the angle in radian
 		cos_angle = cos(angle_radian);
 	}
-	int vnbr = V.rows();
-	int ninner = LocalActInner.size();
+	assert(angle_degree.size() == 1 || angle_degree.size() == vnbr);
+	
 	tripletes.clear();
 	tripletes.reserve(ninner * 20); // the number of rows is ninner*4, the number of cols is aux_start_loc + ninner * 3 (all the function values and auxiliary vars)
 	Energy = Eigen::VectorXd::Zero(ninner * 4); // mesh total energy values
@@ -385,6 +272,7 @@ void lsTools::calculate_pseudo_geodesic_opt_expanded_function_values(const Eigen
 	for (int i = 0; i < ninner; i++)
 	{
 		if (LocalActInner[i] == false) {
+			std::cout << "singularity" << std::endl;
 			continue;
 		}
 		int vm = IVids[i];
@@ -397,6 +285,9 @@ void lsTools::calculate_pseudo_geodesic_opt_expanded_function_values(const Eigen
 		int v2 = lsmesh.to_vertex_handle(inhd).idx();
 		int v3 = lsmesh.from_vertex_handle(outhd).idx();
 		int v4 = lsmesh.to_vertex_handle(outhd).idx();
+		assert(vars[v1] > vars[vm] && vars[vm] > vars[v2]);
+		assert(vars[v4] > vars[vm] && vars[vm] > vars[v3]);
+		
 		double t1 = t1s[i];
 		double t2 = t2s[i];
 		Eigen::Vector3d ver0 = V.row(v1) + (V.row(v2) - V.row(v1)) * t1;
@@ -429,9 +320,9 @@ void lsTools::calculate_pseudo_geodesic_opt_expanded_function_values(const Eigen
 		Energy[i] = r12 * vars[vm] + rm1 * vars[v2] + r2m * vars[v1];
 
 		// vf = v3, vt = v4 
-		tripletes.push_back(Trip(i + ninner, lrx, (V(v3, 0) - V(v4, 0)) * vars[vm] + (V(v4, 0) - V(vm, 0)) * vars[v1] + (V(vm, 0) - V(v3, 0)) * vars[v4]));
-		tripletes.push_back(Trip(i + ninner, lry, (V(v3, 1) - V(v4, 1)) * vars[vm] + (V(v4, 1) - V(vm, 1)) * vars[v1] + (V(vm, 1) - V(v3, 1)) * vars[v4]));
-		tripletes.push_back(Trip(i + ninner, lrz, (V(v3, 2) - V(v4, 2)) * vars[vm] + (V(v4, 2) - V(vm, 2)) * vars[v1] + (V(vm, 2) - V(v3, 2)) * vars[v4]));
+		tripletes.push_back(Trip(i + ninner, lrx, (V(v3, 0) - V(v4, 0)) * vars[vm] + (V(v4, 0) - V(vm, 0)) * vars[v3] + (V(vm, 0) - V(v3, 0)) * vars[v4]));
+		tripletes.push_back(Trip(i + ninner, lry, (V(v3, 1) - V(v4, 1)) * vars[vm] + (V(v4, 1) - V(vm, 1)) * vars[v3] + (V(vm, 1) - V(v3, 1)) * vars[v4]));
+		tripletes.push_back(Trip(i + ninner, lrz, (V(v3, 2) - V(v4, 2)) * vars[vm] + (V(v4, 2) - V(vm, 2)) * vars[v3] + (V(vm, 2) - V(v3, 2)) * vars[v4]));
 
 		r12 = (V.row(v3) - V.row(v4)).dot(r);
 		rm1 = (V.row(vm) - V.row(v3)).dot(r);
@@ -451,6 +342,9 @@ void lsTools::calculate_pseudo_geodesic_opt_expanded_function_values(const Eigen
 
 		// r*norm - cos = 0
 		Eigen::Vector3d norm = norm_v.row(vm);
+		Eigen::Vector3d v12 = V.row(v2) - V.row(v1);
+		Eigen::Vector3d v2m = V.row(vm) - V.row(v2);
+		assert((v12.cross(v2m)).dot(norm) > 0);
 		tripletes.push_back(Trip(i + ninner * 3, lrx, norm(0)));
 		tripletes.push_back(Trip(i + ninner * 3, lry, norm(1)));
 		tripletes.push_back(Trip(i + ninner * 3, lrz, norm(2)));
@@ -573,100 +467,6 @@ void lsTools::assemble_solver_fixed_boundary_direction_part(const Eigen::MatrixX
 	B = -J.transpose() * BDEvalue;
 	H = JTJ;
 }
-void lsTools::calculate_pseudo_energy_function_values_vertex_based(const double angle_degree, Eigen::VectorXd& lens)
-{
-	int ninner = IVids.size();
-	VPEvalue.resize(ninner);
-	LsOrient.resize(ninner);// first make g1 g2 same direction, then check if g1xg2 or g2xg1.
-	PeWeight.resize(ninner);
-	lens.resize(ninner);
-	vBinormal.resize(ninner, 3);
-	double angle_radian = angle_degree * LSC_PI / 180.; // the angle in radian
-	double cos_angle = cos(angle_radian);
-
-	for (int i = 0; i < ninner; i++)
-	{
-		if (ActInner[i] == false) {// this is a singularity
-			continue;
-		}
-		int vid = IVids[i];
-		CGMesh::HalfedgeHandle heh1 = Vheh0[i];
-		CGMesh::HalfedgeHandle heh2 = Vheh1[i];
-		int fid1, fid2;
-		fid1 = lsmesh.face_handle(heh1).idx();
-		fid2 = lsmesh.face_handle(heh2).idx();
-		assert(fid1 != fid2);
-		Eigen::Vector3d norm = norm_v.row(vid);
-		Eigen::Vector3d norm1 = norm_f.row(fid1);
-		Eigen::Vector3d norm2 = norm_f.row(fid2);
-		Eigen::Vector3d g1 = gfvalue.row(fid1);
-		Eigen::Vector3d g2 = gfvalue.row(fid2);
-		// rotate gradients to get iso-curve directions
-		g1 = norm1.cross(g1);
-		g2 = norm2.cross(g2);
-		Eigen::Vector3d g1xg2 = g1.cross(g2);
-		// deal with the orientation of the level set: the left of the curve should be bigger value
-		double flag1 = g1.dot(Vdire0[i]);
-		double flag2 = g2.dot(Vdire1[i]);
-		double flag = flag1 * flag2;
-		if (flag >= 0) {
-			LsOrient[i] = 1;
-		}
-		else {
-			LsOrient[i] = -1;
-		}
-
-		// deal with PeWeight
-		double lg1 = g1.norm();
-		double lg2 = g2.norm();
-		if (lg1 < 1e-16 || lg2 < 1e-16) {
-			PeWeight[i] = 0;// it means the g1xg2 will not be accurate
-		}
-		else {
-			Eigen::Vector3d g1n = g1.normalized();
-			Eigen::Vector3d g2n = LsOrient[i] * g2.normalized();// get the oriented g2, to make g1 g2 goes to the same direction
-			vBinormal.row(i) = g1n.cross(g2n).normalized();
-			double cos_real = g1n.cross(g2n).normalized().dot(norm);// angle between the binormal and the surface normal
-			if (cos_real < -1 || cos_real>1) {
-				std::cout << "angle is wrong" << std::endl;
-			}
-			if (cos_angle < -1 || cos_angle>1) {
-				std::cout << "angle is wrong1" << std::endl;
-			}
-			double cos_diff = fabs(cos_real - cos_angle) / 2;
-			double angle_real = acos(g1n.dot(g2n)) * 180 / LSC_PI;// the angle between the two iso-lines
-			// cos = 1, weight is 1; cos = -1, means it is very sharp turn, weight = 0
-			// it is still resonable for vertex-based method. since there can be multiple intersections between the
-			// osculating plane and the one-ring of vertex
-			//std::cout<<"angle is "<<angle_real<<std::endl;
-			// if the triangles are coplanar, or the segment is too straight, there is no room for optimization
-			if (triangles_coplanar(V, F, fid1, fid2) || segments_colinear(g1n, g2n))
-			{
-
-				PeWeight[i] = 0;
-			}
-			else
-			{
-				PeWeight[i] = cos_diff;
-			}
-		}
-
-		// if(fvalues[v1]<fvalues[v2]){ // orient g1xg2 or g2xg1
-		//     LsOrient[i]*=-1;
-		// }// we don't need it for vertex based method, since it is implicitly given by Vheh0 and Vheh1
-		double length = g1xg2.norm();
-		double value;
-		if (length < 1e-16) {
-			value = 1e6;// if it is really small, we set the value very big
-		}
-		else// divided by the length to avoid straight lines
-		{
-			value = LsOrient[i] * g1xg2.dot(norm) / length - cos_angle;
-		}
-		VPEvalue.coeffRef(i) = value;
-		lens[i] = length;
-	}
-}
 void lsTools::assemble_solver_boundary_condition_part(const Eigen::VectorXd& func, spMat& H, Eigen::VectorXd& B, Eigen::VectorXd &bcfvalue) {
 	spMat bcJacobian;
 	assert(trace_vers.size() == trace_hehs.size());
@@ -732,7 +532,7 @@ double get_mat_max_diag(spMat& M) {
 	}
 	return value;
 }
-void lsTools::assemble_solver_pesudo_geodesic_energy_part_vertex_based(const Eigen::VectorXd& vars, const std::vector<double>& angle_degree, Eigen::VectorXd& LocalActInner,
+void lsTools::assemble_solver_pesudo_geodesic_energy_part_vertex_based(Eigen::VectorXd& vars, const std::vector<double>& angle_degree, Eigen::VectorXd& LocalActInner,
 	std::vector<CGMesh::HalfedgeHandle>& heh0, std::vector<CGMesh::HalfedgeHandle>& heh1,
 	std::vector<double>& t1s, std::vector<double>& t2s, const bool first_compute, const int aux_start_loc, spMat& H, Eigen::VectorXd& B, Eigen::VectorXd& energy)
 {
@@ -757,29 +557,32 @@ void lsTools::assemble_solver_pesudo_geodesic_energy_part_vertex_based(const Eig
 // for these curves
 void lsTools::Run_Level_Set_Opt() {
 	
-	LSAnalizer ana;
+	
 	Eigen::MatrixXd GradValueF, GradValueV;
-	std::array<spMat, 3> GradMatF;
 	Eigen::VectorXd PGenergy;
 	Eigen::VectorXd func = fvalues;
 	std::vector<double> angle_degree;
+	angle_degree.resize(1);
+	angle_degree[0] = pseudo_geodesic_target_angle_degree;
 	
 	int vnbr = V.rows();
 	int fnbr = F.rows();
-	bool first_compute = false; // if we need initialize auxiliary vars
-	analysis_pseudo_geodesic_on_vertices(func, ana);
-	int ninner = ana.LocalActInner.size();
-	int final_size = ninner * 3 + vnbr;// Change this when using more auxilary vars
-
+	bool first_compute = true; // if we need initialize auxiliary vars
+	
+	
+	
 	assert(assigned_trace_ls.size() && "Please trace the curves first before solve the energy");
 	assert(assigned_trace_ls.size() == trace_vers.size());
 	// initialize the level set with some number
 	if (func.size() != vnbr)
 	{
 		initialize_level_set_accroding_to_parametrization();
-		std::cout << "level set get initialized for smoothing" << std::endl;
+		std::cout << "level set get initialized" << std::endl;
 		return;
 	}
+	analysis_pseudo_geodesic_on_vertices(func, anas[0]);
+	int ninner = anas[0].LocalActInner.size();
+	int final_size = ninner * 3 + vnbr;// Change this when using more auxilary vars
 	if (Last_Opt_Mesh || func.size() != vnbr)
 	{
 		get_traced_boundary_triangle_direction_derivatives();
@@ -787,7 +590,7 @@ void lsTools::Run_Level_Set_Opt() {
 	//  update quantities associated with level set values
 	
 	
-	get_gradient_hessian_values(func, GradValueV, GradValueF);// TODO may not need this
+	get_gradient_hessian_values(func, GradValueV, GradValueF);
 	if (Glob_lsvars.size() == 0) {
 		first_compute = true;
 		std::cout << "Initializing Global Variable For LevelSet Opt ... " << std::endl;
@@ -795,7 +598,7 @@ void lsTools::Run_Level_Set_Opt() {
 		Glob_lsvars.segment(0, vnbr) = func;
 	}
 	
-
+	
 	spMat H;
 	H.resize(vnbr, vnbr);
 	Eigen::VectorXd B=Eigen::VectorXd::Zero(vnbr);
@@ -827,7 +630,7 @@ void lsTools::Run_Level_Set_Opt() {
 	{
 		spMat sw_JTJ;
 		Eigen::VectorXd sw_mJTF;
-		assemble_solver_strip_width_part(GradValueF, GradMatF, sw_JTJ, sw_mJTF);
+		assemble_solver_strip_width_part(GradValueF, sw_JTJ, sw_mJTF);
 		H += weight_strip_width * sw_JTJ;
 		B += weight_strip_width * sw_mJTF;
 	}
@@ -843,7 +646,6 @@ void lsTools::Run_Level_Set_Opt() {
 	}
 	assert(H.rows() == vnbr);
 	assert(H.cols() == vnbr);
-
 	// pseudo geodesic
 	spMat Hlarge;
 	Eigen::VectorXd Blarge;
@@ -853,18 +655,27 @@ void lsTools::Run_Level_Set_Opt() {
 	if (enable_pseudo_geodesic_energy && weight_pseudo_geodesic_energy > 0)
 	{
 		spMat pg_JTJ;
-		Efunc pg_mJTF;
+		Eigen::VectorXd pg_mJTF;
 		int aux_start_loc = vnbr;
-		assemble_solver_pesudo_geodesic_energy_part_vertex_based(Glob_lsvars, angle_degree, ana.LocalActInner,
-			ana.heh0, ana.heh1,
-			ana.t1s, ana.t2s, first_compute, aux_start_loc, pg_JTJ, pg_mJTF, PGEnergy);
+		assemble_solver_pesudo_geodesic_energy_part_vertex_based(Glob_lsvars, angle_degree, anas[0].LocalActInner,
+			anas[0].heh0, anas[0].heh1,
+			anas[0].t1s, anas[0].t2s, first_compute, aux_start_loc, pg_JTJ, pg_mJTF, PGEnergy);
+
 		Hlarge = sum_uneven_spMats(H, weight_pseudo_geodesic_energy * pg_JTJ);
+
 		Blarge = sum_uneven_vectors(B, weight_pseudo_geodesic_energy * pg_mJTF);
+
 		
 	}
+	else {
+		Hlarge = sum_uneven_spMats(H, Hlarge);
+		Blarge = sum_uneven_vectors(B, Blarge);
+	}
 	
-	Hlarge += 1e-6 * weight_mass * Eigen::VectorXd::Ones(vnbr).asDiagonal();
+	Hlarge += 1e-6 * weight_mass * spMat(Eigen::VectorXd::Ones(final_size).asDiagonal());
+
 	Eigen::SimplicialLLT<Eigen::SparseMatrix<double>> solver(Hlarge);
+
 	// assert(solver.info() == Eigen::Success);
 	if (solver.info() != Eigen::Success)
 	{
@@ -887,6 +698,8 @@ void lsTools::Run_Level_Set_Opt() {
 	}
 
 	func += dx.topRows(vnbr);
+	fvalues = func;
+	Glob_lsvars += dx;
 	double energy_biharmonic = func.transpose() * QcH * func;
 	double energy_boundary = (bcfvalue).norm();
 	std::cout << "energy: harm " << energy_biharmonic << ", bnd " << energy_boundary << ", ";
@@ -894,11 +707,12 @@ void lsTools::Run_Level_Set_Opt() {
 	{
 		double energy_pg = PGEnergy.norm();
 		double max_energy_ls = PGEnergy.lpNorm<Eigen::Infinity>();
-		std::cout << "pg, " << energy_pg << ", " << "AngleDiffMax," << max_energy_ls << ",";
+		std::cout << "pg, " << energy_pg << ", " << "lsmax," << max_energy_ls << ",";
 		double max_ls_angle_energy = PGEnergy.bottomRows(ninner).norm();
 		std::cout << "total angle energy, " << max_ls_angle_energy << ", ";
 		// std::cout<<"PeWeight\n"<<PeWeight<<std::endl;
 	}
+
 	if (enable_strip_width_energy)
 	{
 
@@ -917,6 +731,6 @@ void lsTools::Run_Level_Set_Opt() {
 	}
 	step_length = dx.norm();
 	std::cout << "step " << step_length << std::endl;
-
+	
 	Last_Opt_Mesh = false;
 }

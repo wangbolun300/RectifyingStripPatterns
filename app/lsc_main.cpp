@@ -751,7 +751,7 @@ int main(int argc, char *argv[])
 				viewer.data().set_colormap(CM);
 				viewer.data().set_data(level_set_values);
 			}
-			ImGui::SameLine();
+			/*ImGui::SameLine();
 			if (ImGui::Button("draw binormals", ImVec2(ImGui::GetWindowSize().x * 0.23f, 0.0f)))
 			{
 				Eigen::MatrixXd E0, E1;
@@ -759,7 +759,7 @@ int main(int argc, char *argv[])
 				const Eigen::RowVector3d green(0.2, 0.8, 0.2);
 
 				viewer.data().add_edges(E0, E1, green);
-			}
+			}*/
 			if (ImGui::Button("MeshUnitScale", ImVec2(ImGui::GetWindowSize().x * 0.23f, 0.0f)))
 			{
 				int id = viewer.selected_data_index;
