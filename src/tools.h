@@ -53,6 +53,5 @@ void extract_levelset_web(const CGMesh &lsmesh, const Eigen::MatrixXd &V,
                           Eigen::MatrixXd &vers, Eigen::MatrixXi &Faces);
 double get_mat_max_diag(spMat& M);
 void solve_mean_value_laplacian_mat(CGMesh& lsmesh, const std::vector<int>& IVids, spMat& mat);
-void solve_edge_length_matrix(const Eigen::MatrixXd& V, const Eigen::MatrixXi& E, spMat& mat);
 spMat sum_uneven_spMats(const spMat& mat_small, const spMat& mat_large);
 Eigen::VectorXd sum_uneven_vectors(const Eigen::VectorXd& vsmall, const Eigen::VectorXd& vlarge);

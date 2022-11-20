@@ -62,6 +62,7 @@ void lsTools::prepare_level_set_solving(const EnergyPrepare &Energy_initializer)
     }
     pseudo_geodesic_start_angle_degree=Energy_initializer.start_angle;
     enable_boundary_angles=Energy_initializer.enable_boundary_angles;
+    enable_asymptotic_condition = Energy_initializer.enable_asymptotic_condition;
 }
 void lsTools::prepare_mesh_optimization_solving(const MeshEnergyPrepare& initializer){
     Mesh_opt_max_step_length=initializer.Mesh_opt_max_step_length;

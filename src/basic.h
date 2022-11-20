@@ -29,6 +29,7 @@ class EnergyPrepare{
     bool enable_inner_vers_fixed;
     bool enable_functional_angles;
     bool enable_boundary_angles;
+    bool enable_asymptotic_condition;
     double target_angle;
     double start_angle;
     double target_min_angle;
@@ -168,7 +169,9 @@ private:
     void calculate_pseudo_geodesic_opt_expanded_function_values(Eigen::VectorXd& vars, const std::vector<double>& angle_degree,
         const Eigen::VectorXd& LocalActInner, const std::vector<CGMesh::HalfedgeHandle>& heh0, const std::vector<CGMesh::HalfedgeHandle>& heh1,
         const std::vector<double>& t1s, const std::vector<double>& t2s, const bool first_compute, const int aux_start_loc, std::vector<Trip>& tripletes, Eigen::VectorXd& Energy);
-
+    void calculate_asymptotic_function_values(Eigen::VectorXd& vars,
+        const Eigen::VectorXd& LocalActInner, const std::vector<CGMesh::HalfedgeHandle>& heh0, const std::vector<CGMesh::HalfedgeHandle>& heh1,
+        const std::vector<double>& t1s, const std::vector<double>& t2s, std::vector<Trip>& tripletes, Eigen::VectorXd& Energy);
     void calculate_boundary_direction_energy_function_values(const Eigen::MatrixXd& GradFValue,
         const std::vector<CGMesh::HalfedgeHandle>& edges, const Eigen::VectorXd& func, Eigen::VectorXd& lens, Eigen::VectorXd& energy);
     void assemble_solver_laplacian_part(spMat &H, Efunc &B);
@@ -178,6 +181,9 @@ private:
         std::vector<CGMesh::HalfedgeHandle>& heh0, std::vector<CGMesh::HalfedgeHandle>& heh1,
         std::vector<double>& t1s, std::vector<double>& t2s, const bool first_compute, const int aux_start_loc, spMat& H, Eigen::VectorXd& B, Eigen::VectorXd& energy);
     void assemble_solver_strip_width_part(const Eigen::MatrixXd& GradValue,  spMat& H, Eigen::VectorXd& B);
+    void assemble_solver_asymptotic_condition_part_vertex_based(Eigen::VectorXd& vars, Eigen::VectorXd& LocalActInner,
+        std::vector<CGMesh::HalfedgeHandle>& heh0, std::vector<CGMesh::HalfedgeHandle>& heh1,
+        std::vector<double>& t1s, std::vector<double>& t2s, spMat& H, Eigen::VectorXd& B, Eigen::VectorXd& energy);
     void assemble_solver_fixed_boundary_direction_part(const Eigen::MatrixXd& GradFValue, const std::vector<CGMesh::HalfedgeHandle>& edges,
         const Eigen::VectorXd& func,
         spMat& H, Eigen::VectorXd& B, Eigen::VectorXd& energy);
@@ -244,6 +250,9 @@ private:
         const std::vector<double>& t1s, const std::vector<double>& t2s,
         const std::vector<double>& angle_degree,
         const bool first_compute, const int aux_start_loc, std::vector<Trip>& tripletes, Eigen::VectorXd& MTenergy);
+    void calculate_mesh_opt_asymptotic_values(const Eigen::VectorXd& Loc_ActInner, const Eigen::VectorXd& func,
+        const std::vector<CGMesh::HalfedgeHandle>& heh0, const std::vector<CGMesh::HalfedgeHandle>& heh1,
+        const std::vector<double>& t1s, const std::vector<double>& t2s, std::vector<Trip>& tripletes, Eigen::VectorXd& MTenergy);
     void assemble_solver_mesh_opt_part(const Eigen::VectorXd& Loc_ActInner, Eigen::VectorXd& vars,
         const std::vector<CGMesh::HalfedgeHandle>& heh0, const std::vector<CGMesh::HalfedgeHandle>& heh1,
         const std::vector<double>& t1s, const std::vector<double>& t2s,
@@ -252,6 +261,10 @@ private:
     void assemble_solver_mean_value_laplacian(const Eigen::VectorXd& vars, spMat& H, Eigen::VectorXd& B);
     void assemble_solver_mesh_edge_length_part(const Eigen::VectorXd vars, spMat& H, Eigen::VectorXd& B, 
     Eigen::VectorXd& energy);
+    void assemble_solver_mesh_asymptotic(const Eigen::VectorXd& Loc_ActInner, const Eigen::VectorXd& func,
+        const std::vector<CGMesh::HalfedgeHandle>& heh0, const std::vector<CGMesh::HalfedgeHandle>& heh1,
+        const std::vector<double>& t1s, const std::vector<double>& t2s,
+		spMat& JTJ, Eigen::VectorXd& B, Eigen::VectorXd& MTEnergy);
     void update_mesh_properties();// the mesh properties (normals, laplacian, etc.) get updated before optimization
 
 
@@ -283,6 +296,7 @@ public:
     bool enable_inner_vers_fixed=false;// decide if we enables fixing the inner vers and optimize boundary laplacian
     bool enable_functional_angles=false;// decide if we enable functional angle variation
     bool enable_boundary_angles=false;
+    bool enable_asymptotic_condition = false; // osculating plane othogonal to the normal direction
 
 
     double pseudo_geodesic_target_angle_degree; // the target pseudo-geodesic angle

@@ -52,6 +52,7 @@ namespace lscif
 	double weight_strip_width = 1;
 	double maximal_step_length = 0.5;
 	bool enable_inner_vers_fixed = false;
+	bool enable_asymptotic_condition;
 
 	// Tracing Parameters
 	int which_seg_id = 0; // the face id of which we will assign value to
@@ -70,7 +71,7 @@ namespace lscif
 	int extracted_nbr = 5;
 	std::vector<int> fixedVertices;
 
-	int OpIter = 100;
+	int OpIter = 10;
 	CGMesh mesh;
 	CGMesh RefMesh;
 	static bool enable_pg_energy_checkbox = false;
@@ -83,9 +84,9 @@ namespace lscif
 	Eigen::VectorXd readed_LS1;
 	Eigen::VectorXd readed_LS2;
 	int Nbr_Iterations_Mesh_Opt=10;
-	double weight_Mesh_smoothness=1;
+	double weight_Mesh_smoothness=0.01;
 	double weight_Mesh_edgelength = 1;
-    double weight_Mesh_pesudo_geodesic=100;
+    double weight_Mesh_pesudo_geodesic=30;
     double Mesh_opt_max_step_length=0.01;
 
 	static bool selectFEV[30] = {true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true};
@@ -506,6 +507,9 @@ int main(int argc, char *argv[])
 			ImGui::InputDouble("MaxStpLenght(Need PG Enabled)", &lscif::maximal_step_length, 0, 0, "%.4f");
 			ImGui::InputDouble("weight Strip width(Need SW Enabled)", &lscif::weight_strip_width, 0, 0, "%.4f");
 			ImGui::Checkbox("Enable functional Energy", &lscif::enable_functional_degrees);
+			ImGui::SameLine();
+			ImGui::Checkbox("Enable Asymptotic Energy", &lscif::enable_asymptotic_condition);
+			
 
 			if (lscif::enable_functional_degrees)
 			{
@@ -614,6 +618,7 @@ int main(int argc, char *argv[])
 				einit.solve_strip_width_on_traced = lscif::enable_strip_width_checkbox;
 				einit.enable_inner_vers_fixed = lscif::enable_inner_vers_fixed;
 				einit.enable_functional_angles = lscif::enable_functional_degrees;
+				einit.enable_asymptotic_condition = lscif::enable_asymptotic_condition;
 				einit.target_min_angle = lscif::target_min_angle;
 				einit.target_max_angle = lscif::target_max_angle;
 				einit.start_angle = lscif::start_angle;

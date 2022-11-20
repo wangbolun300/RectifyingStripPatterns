@@ -353,6 +353,58 @@ void lsTools::calculate_pseudo_geodesic_opt_expanded_function_values(Eigen::Vect
 	}
 
 }
+void lsTools::calculate_asymptotic_function_values(Eigen::VectorXd& vars,
+	const Eigen::VectorXd& LocalActInner, const std::vector<CGMesh::HalfedgeHandle>& heh0, const std::vector<CGMesh::HalfedgeHandle>& heh1,
+	const std::vector<double>& t1s, const std::vector<double>& t2s, std::vector<Trip>& tripletes, Eigen::VectorXd& Energy) {
+	int vnbr = V.rows();
+	int ninner = LocalActInner.size();
+
+	tripletes.clear();
+	tripletes.reserve(ninner * 6); // the number of rows is ninner*4, the number of cols is aux_start_loc + ninner * 3 (all the function values and auxiliary vars)
+	Energy = Eigen::VectorXd::Zero(ninner * 2); // mesh total energy values
+
+	for (int i = 0; i < ninner; i++)
+	{
+		if (LocalActInner[i] == false) {
+			std::cout << "singularity" << std::endl;
+			continue;
+		}
+		int vm = IVids[i];
+		
+		CGMesh::HalfedgeHandle inhd = heh0[i], outhd = heh1[i];
+		int v1 = lsmesh.from_vertex_handle(inhd).idx();
+		int v2 = lsmesh.to_vertex_handle(inhd).idx();
+		int v3 = lsmesh.from_vertex_handle(outhd).idx();
+		int v4 = lsmesh.to_vertex_handle(outhd).idx();
+		assert(vars[v1] > vars[vm] && vars[vm] > vars[v2]);
+		assert(vars[v4] > vars[vm] && vars[vm] > vars[v3]);
+
+		double t1 = t1s[i];
+		double t2 = t2s[i];
+		Eigen::Vector3d ver0 = V.row(v1) + (V.row(v2) - V.row(v1)) * t1;
+		Eigen::Vector3d ver1 = V.row(vm);
+		Eigen::Vector3d ver2 = V.row(v3) + (V.row(v4) - V.row(v3)) * t2;
+		// the locations
+		
+		Eigen::Vector3d norm = norm_v.row(vm);
+		double r12 = (V.row(v1) - V.row(v2)).dot(norm);
+		double rm1 = (V.row(vm) - V.row(v1)).dot(norm);
+		double r2m = (V.row(v2) - V.row(vm)).dot(norm);
+		tripletes.push_back(Trip(i, vm, r12));
+		tripletes.push_back(Trip(i, v1, r2m));
+		tripletes.push_back(Trip(i, v2, rm1));
+		Energy[i] = r12 * vars[vm] + rm1 * vars[v2] + r2m * vars[v1];
+
+		r12 = (V.row(v3) - V.row(v4)).dot(norm);
+		rm1 = (V.row(vm) - V.row(v3)).dot(norm);
+		r2m = (V.row(v4) - V.row(vm)).dot(norm);
+		tripletes.push_back(Trip(i + ninner, vm, r12));
+		tripletes.push_back(Trip(i + ninner, v3, r2m));
+		tripletes.push_back(Trip(i + ninner, v4, rm1));
+		Energy[i + ninner] = r12 * vars[vm] + rm1 * vars[v4] + r2m * vars[v3];
+
+	}
+}
 // this function only need be called after initializing the level set
 void lsTools::get_traced_boundary_triangle_direction_derivatives() {
 	int size = tracing_start_edges.size();
@@ -549,6 +601,23 @@ void lsTools::assemble_solver_pesudo_geodesic_energy_part_vertex_based(Eigen::Ve
 	H = J.transpose() * J;
 	B = -J.transpose() * energy;
 }
+void lsTools::assemble_solver_asymptotic_condition_part_vertex_based(Eigen::VectorXd& vars, Eigen::VectorXd& LocalActInner,
+	std::vector<CGMesh::HalfedgeHandle>& heh0, std::vector<CGMesh::HalfedgeHandle>& heh1,
+	std::vector<double>& t1s, std::vector<double>& t2s, spMat& H, Eigen::VectorXd& B, Eigen::VectorXd& energy)
+{
+	std::vector<Trip> tripletes;
+	int vsize = V.rows();
+	int ninner = LocalActInner.size();
+	calculate_asymptotic_function_values(vars,
+		LocalActInner, heh0, heh1, t1s, t2s, tripletes, energy);
+	int nvars = vars.size();
+	int ncondi = ninner * 2;
+	spMat J;
+	J.resize(ncondi, nvars);
+	J.setFromTriplets(tripletes.begin(), tripletes.end());
+	H = J.transpose() * J;
+	B = -J.transpose() * energy;
+}
 // check if active faces exist around one vertex
 // the information can be used to construct pseudo-geodesic energy
 
@@ -651,25 +720,31 @@ void lsTools::Run_Level_Set_Opt() {
 	Eigen::VectorXd Blarge;
 	Hlarge.resize(final_size, final_size);
 	Blarge = Eigen::VectorXd::Zero(final_size);
+	
+	Hlarge = sum_uneven_spMats(H, Hlarge);
+	Blarge = sum_uneven_vectors(B, Blarge);
 	Eigen::VectorXd PGEnergy;
 	if (enable_pseudo_geodesic_energy && weight_pseudo_geodesic_energy > 0)
 	{
+
 		spMat pg_JTJ;
 		Eigen::VectorXd pg_mJTF;
-		int aux_start_loc = vnbr;
-		assemble_solver_pesudo_geodesic_energy_part_vertex_based(Glob_lsvars, angle_degree, anas[0].LocalActInner,
-			anas[0].heh0, anas[0].heh1,
-			anas[0].t1s, anas[0].t2s, first_compute, aux_start_loc, pg_JTJ, pg_mJTF, PGEnergy);
+		if (!enable_asymptotic_condition) {
+			int aux_start_loc = vnbr;
+			assemble_solver_pesudo_geodesic_energy_part_vertex_based(Glob_lsvars, angle_degree, anas[0].LocalActInner,
+				anas[0].heh0, anas[0].heh1,
+				anas[0].t1s, anas[0].t2s, first_compute, aux_start_loc, pg_JTJ, pg_mJTF, PGEnergy);
+		}
+		else {
+			assemble_solver_asymptotic_condition_part_vertex_based(Glob_lsvars, anas[0].LocalActInner,
+				anas[0].heh0, anas[0].heh1,
+				anas[0].t1s, anas[0].t2s, pg_JTJ, pg_mJTF, PGEnergy);
+		}
 
-		Hlarge = sum_uneven_spMats(H, weight_pseudo_geodesic_energy * pg_JTJ);
-
-		Blarge = sum_uneven_vectors(B, weight_pseudo_geodesic_energy * pg_mJTF);
+		Hlarge = sum_uneven_spMats(Hlarge, weight_pseudo_geodesic_energy * pg_JTJ);
+		Blarge = sum_uneven_vectors(Blarge, weight_pseudo_geodesic_energy * pg_mJTF);
 
 		
-	}
-	else {
-		Hlarge = sum_uneven_spMats(H, Hlarge);
-		Blarge = sum_uneven_vectors(B, Blarge);
 	}
 	
 	Hlarge += 1e-6 * weight_mass * spMat(Eigen::VectorXd::Ones(final_size).asDiagonal());
@@ -705,12 +780,17 @@ void lsTools::Run_Level_Set_Opt() {
 	std::cout << "energy: harm " << energy_biharmonic << ", bnd " << energy_boundary << ", ";
 	if (enable_pseudo_geodesic_energy)
 	{
-		double energy_pg = PGEnergy.norm();
-		double max_energy_ls = PGEnergy.lpNorm<Eigen::Infinity>();
-		std::cout << "pg, " << energy_pg << ", " << "lsmax," << max_energy_ls << ",";
-		double max_ls_angle_energy = PGEnergy.bottomRows(ninner).norm();
-		std::cout << "total angle energy, " << max_ls_angle_energy << ", ";
-		// std::cout<<"PeWeight\n"<<PeWeight<<std::endl;
+		if (!enable_asymptotic_condition) {
+			double energy_pg = PGEnergy.norm();
+			double max_energy_ls = PGEnergy.lpNorm<Eigen::Infinity>();
+			std::cout << "pg, " << energy_pg << ", " << "lsmax," << max_energy_ls << ",";
+			double max_ls_angle_energy = PGEnergy.bottomRows(ninner).norm();
+			std::cout << "total angle energy, " << max_ls_angle_energy << ", ";
+		}
+		else {
+			double planar_energy = PGEnergy.norm();
+			std::cout << "Asymp, " << planar_energy << ", ";
+		}
 	}
 
 	if (enable_strip_width_energy)
