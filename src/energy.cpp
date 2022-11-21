@@ -290,9 +290,13 @@ void lsTools::calculate_pseudo_geodesic_opt_expanded_function_values(Eigen::Vect
 		
 		double t1 = t1s[i];
 		double t2 = t2s[i];
+		// the weights 
+		double dis0 = ((V.row(v1) - V.row(v2)) * vars[vm] + (V.row(v2) - V.row(vm)) * vars[v1] + (V.row(vm) - V.row(v1)) * vars[v2]).norm();
+		double dis1 = ((V.row(v3) - V.row(v4)) * vars[vm] + (V.row(v4) - V.row(vm)) * vars[v3] + (V.row(vm) - V.row(v3)) * vars[v4]).norm();
 		Eigen::Vector3d ver0 = V.row(v1) + (V.row(v2) - V.row(v1)) * t1;
 		Eigen::Vector3d ver1 = V.row(vm);
 		Eigen::Vector3d ver2 = V.row(v3) + (V.row(v4) - V.row(v3)) * t2;
+		
 		// the locations
 		int lrx = i + aux_start_loc;
 		int lry = i + aux_start_loc + ninner;
@@ -306,32 +310,33 @@ void lsTools::calculate_pseudo_geodesic_opt_expanded_function_values(Eigen::Vect
 		}
 		Eigen::Vector3d r = Eigen::Vector3d(vars[lrx], vars[lry], vars[lrz]);
 		// r dot (vm+(t1-1)*vf-t1*vt)
-		// vf = v1, vt = v2 
-		tripletes.push_back(Trip(i, lrx, (V(v1, 0) - V(v2, 0)) * vars[vm] + (V(v2, 0) - V(vm, 0)) * vars[v1] + (V(vm, 0) - V(v1, 0)) * vars[v2]));
-		tripletes.push_back(Trip(i, lry, (V(v1, 1) - V(v2, 1)) * vars[vm] + (V(v2, 1) - V(vm, 1)) * vars[v1] + (V(vm, 1) - V(v1, 1)) * vars[v2]));
-		tripletes.push_back(Trip(i, lrz, (V(v1, 2) - V(v2, 2)) * vars[vm] + (V(v2, 2) - V(vm, 2)) * vars[v1] + (V(vm, 2) - V(v1, 2)) * vars[v2]));
+
+		// vf = v1, vt = v2
+		tripletes.push_back(Trip(i, lrx, ((V(v1, 0) - V(v2, 0)) * vars[vm] + (V(v2, 0) - V(vm, 0)) * vars[v1] + (V(vm, 0) - V(v1, 0)) * vars[v2]) / dis0));
+		tripletes.push_back(Trip(i, lry, ((V(v1, 1) - V(v2, 1)) * vars[vm] + (V(v2, 1) - V(vm, 1)) * vars[v1] + (V(vm, 1) - V(v1, 1)) * vars[v2]) / dis0));
+		tripletes.push_back(Trip(i, lrz, ((V(v1, 2) - V(v2, 2)) * vars[vm] + (V(v2, 2) - V(vm, 2)) * vars[v1] + (V(vm, 2) - V(v1, 2)) * vars[v2]) / dis0));
 
 		double r12 = (V.row(v1) - V.row(v2)).dot(r);
 		double rm1 = (V.row(vm) - V.row(v1)).dot(r);
 		double r2m = (V.row(v2) - V.row(vm)).dot(r);
-		tripletes.push_back(Trip(i, vm, r12));
-		tripletes.push_back(Trip(i, v1, r2m));
-		tripletes.push_back(Trip(i, v2, rm1));
-		Energy[i] = r12 * vars[vm] + rm1 * vars[v2] + r2m * vars[v1];
+		tripletes.push_back(Trip(i, vm, r12 / dis0));
+		tripletes.push_back(Trip(i, v1, r2m / dis0));
+		tripletes.push_back(Trip(i, v2, rm1 / dis0));
+		Energy[i] = (r12 * vars[vm] + rm1 * vars[v2] + r2m * vars[v1]) / dis0;
 
-		// vf = v3, vt = v4 
-		tripletes.push_back(Trip(i + ninner, lrx, (V(v3, 0) - V(v4, 0)) * vars[vm] + (V(v4, 0) - V(vm, 0)) * vars[v3] + (V(vm, 0) - V(v3, 0)) * vars[v4]));
-		tripletes.push_back(Trip(i + ninner, lry, (V(v3, 1) - V(v4, 1)) * vars[vm] + (V(v4, 1) - V(vm, 1)) * vars[v3] + (V(vm, 1) - V(v3, 1)) * vars[v4]));
-		tripletes.push_back(Trip(i + ninner, lrz, (V(v3, 2) - V(v4, 2)) * vars[vm] + (V(v4, 2) - V(vm, 2)) * vars[v3] + (V(vm, 2) - V(v3, 2)) * vars[v4]));
+		// vf = v3, vt = v4
+		tripletes.push_back(Trip(i + ninner, lrx, ((V(v3, 0) - V(v4, 0)) * vars[vm] + (V(v4, 0) - V(vm, 0)) * vars[v3] + (V(vm, 0) - V(v3, 0)) * vars[v4]) / dis1));
+		tripletes.push_back(Trip(i + ninner, lry, ((V(v3, 1) - V(v4, 1)) * vars[vm] + (V(v4, 1) - V(vm, 1)) * vars[v3] + (V(vm, 1) - V(v3, 1)) * vars[v4]) / dis1));
+		tripletes.push_back(Trip(i + ninner, lrz, ((V(v3, 2) - V(v4, 2)) * vars[vm] + (V(v4, 2) - V(vm, 2)) * vars[v3] + (V(vm, 2) - V(v3, 2)) * vars[v4]) / dis1));
 
 		r12 = (V.row(v3) - V.row(v4)).dot(r);
 		rm1 = (V.row(vm) - V.row(v3)).dot(r);
 		r2m = (V.row(v4) - V.row(vm)).dot(r);
-		tripletes.push_back(Trip(i + ninner, vm, r12));
-		tripletes.push_back(Trip(i + ninner, v3, r2m));
-		tripletes.push_back(Trip(i + ninner, v4, rm1));
+		tripletes.push_back(Trip(i + ninner, vm, r12 / dis1));
+		tripletes.push_back(Trip(i + ninner, v3, r2m / dis1));
+		tripletes.push_back(Trip(i + ninner, v4, rm1 / dis1));
 
-		Energy[i + ninner] = r12 * vars[vm] + rm1 * vars[v4] + r2m * vars[v3];
+		Energy[i + ninner] = (r12 * vars[vm] + rm1 * vars[v4] + r2m * vars[v3]) / dis1;
 
 		// r*r=1
 		tripletes.push_back(Trip(i + ninner * 2, lrx, 2 * vars(lrx)));
@@ -381,6 +386,9 @@ void lsTools::calculate_asymptotic_function_values(Eigen::VectorXd& vars,
 
 		double t1 = t1s[i];
 		double t2 = t2s[i];
+		// the weights
+		double dis0 = ((V.row(v1) - V.row(v2)) * vars[vm] + (V.row(v2) - V.row(vm)) * vars[v1] + (V.row(vm) - V.row(v1)) * vars[v2]).norm();
+		double dis1 = ((V.row(v3) - V.row(v4)) * vars[vm] + (V.row(v4) - V.row(vm)) * vars[v3] + (V.row(vm) - V.row(v3)) * vars[v4]).norm();
 		Eigen::Vector3d ver0 = V.row(v1) + (V.row(v2) - V.row(v1)) * t1;
 		Eigen::Vector3d ver1 = V.row(vm);
 		Eigen::Vector3d ver2 = V.row(v3) + (V.row(v4) - V.row(v3)) * t2;
@@ -390,19 +398,18 @@ void lsTools::calculate_asymptotic_function_values(Eigen::VectorXd& vars,
 		double r12 = (V.row(v1) - V.row(v2)).dot(norm);
 		double rm1 = (V.row(vm) - V.row(v1)).dot(norm);
 		double r2m = (V.row(v2) - V.row(vm)).dot(norm);
-		tripletes.push_back(Trip(i, vm, r12));
-		tripletes.push_back(Trip(i, v1, r2m));
-		tripletes.push_back(Trip(i, v2, rm1));
-		Energy[i] = r12 * vars[vm] + rm1 * vars[v2] + r2m * vars[v1];
+		tripletes.push_back(Trip(i, vm, r12/dis0));
+		tripletes.push_back(Trip(i, v1, r2m/dis0));
+		tripletes.push_back(Trip(i, v2, rm1/dis0));
+		Energy[i] = (r12 * vars[vm] + rm1 * vars[v2] + r2m * vars[v1]) / dis0;
 
 		r12 = (V.row(v3) - V.row(v4)).dot(norm);
 		rm1 = (V.row(vm) - V.row(v3)).dot(norm);
 		r2m = (V.row(v4) - V.row(vm)).dot(norm);
-		tripletes.push_back(Trip(i + ninner, vm, r12));
-		tripletes.push_back(Trip(i + ninner, v3, r2m));
-		tripletes.push_back(Trip(i + ninner, v4, rm1));
-		Energy[i + ninner] = r12 * vars[vm] + rm1 * vars[v4] + r2m * vars[v3];
-
+		tripletes.push_back(Trip(i + ninner, vm, r12 / dis1));
+		tripletes.push_back(Trip(i + ninner, v3, r2m / dis1));
+		tripletes.push_back(Trip(i + ninner, v4, rm1 / dis1));
+		Energy[i + ninner] = (r12 * vars[vm] + rm1 * vars[v4] + r2m * vars[v3]) / dis1;
 	}
 }
 // this function only need be called after initializing the level set
