@@ -638,10 +638,6 @@ void lsTools::Run_Level_Set_Opt() {
 	int fnbr = F.rows();
 	bool first_compute = true; // if we need initialize auxiliary vars
 	
-	
-	
-	assert(assigned_trace_ls.size() && "Please trace the curves first before solve the energy");
-	assert(assigned_trace_ls.size() == trace_vers.size());
 	// initialize the level set with some number
 	if (func.size() != vnbr)
 	{
@@ -652,8 +648,11 @@ void lsTools::Run_Level_Set_Opt() {
 	analysis_pseudo_geodesic_on_vertices(func, anas[0]);
 	int ninner = anas[0].LocalActInner.size();
 	int final_size = ninner * 3 + vnbr;// Change this when using more auxilary vars
-	if (Last_Opt_Mesh || func.size() != vnbr)
+
+	bool need_update_trace_info = (DBdirections.rows() == 0 && trace_hehs.size() > 0) || (Last_Opt_Mesh && trace_hehs.size() > 0); // traced but haven't compute the info
+	if (need_update_trace_info)
 	{
+
 		get_traced_boundary_triangle_direction_derivatives();
 	}
 	//  update quantities associated with level set values
@@ -675,8 +674,8 @@ void lsTools::Run_Level_Set_Opt() {
 	spMat LTL;  // left of laplacian
 	Eigen::VectorXd mLTF; // right of laplacian
 	assemble_solver_biharmonic_smoothing(func, LTL, mLTF);
-	H = weight_laplacian * LTL;
-	B = weight_laplacian * mLTF;
+	H += weight_laplacian * LTL;
+	B += weight_laplacian * mLTF;
 	assert(mass.rows() == vnbr);
 
 	// fix inner vers and smooth boundary
@@ -684,35 +683,41 @@ void lsTools::Run_Level_Set_Opt() {
 	{
 		H += weight_mass * InnerV.asDiagonal();
 	}
-	Eigen::VectorXd bcfvalue;
+	Eigen::VectorXd bcfvalue = Eigen::VectorXd::Zero(vnbr);
+	Eigen::VectorXd fbdenergy = Eigen::VectorXd::Zero(vnbr);
 	// boundary condition (traced as boundary condition)
-	if (!enable_boundary_angles) {
-		spMat bc_JTJ;
-		Eigen::VectorXd bc_mJTF;
-		assemble_solver_boundary_condition_part(func, bc_JTJ, bc_mJTF, bcfvalue);
-		H += weight_boundary * bc_JTJ;
-		B += weight_boundary * bc_mJTF;
+	if(trace_hehs.size()>0){// if traced, we count the related energies in
+		if (!enable_boundary_angles)
+		{
+			spMat bc_JTJ;
+			Eigen::VectorXd bc_mJTF;
+			assemble_solver_boundary_condition_part(func, bc_JTJ, bc_mJTF, bcfvalue);
+			H += weight_boundary * bc_JTJ;
+			B += weight_boundary * bc_mJTF;
+		}
+		// boundary edge angles
+		if (enable_boundary_angles)
+		{
+			spMat JTJ;
+			Eigen::VectorXd mJTF;
+			assemble_solver_fixed_boundary_direction_part(GradValueF, tracing_start_edges, func, JTJ, mJTF, fbdenergy);
+			H += weight_boundary * JTJ;
+			B += weight_boundary * mJTF;
+		}
 	}
+	
 
 	// strip width condition
 	if (enable_strip_width_energy)
 	{
 		spMat sw_JTJ;
 		Eigen::VectorXd sw_mJTF;
-		assemble_solver_strip_width_part(GradValueF, sw_JTJ, sw_mJTF);
+		assemble_solver_strip_width_part(GradValueF, sw_JTJ, sw_mJTF);// by default the strip width is 1. Unless tracing info updated the info
 		H += weight_strip_width * sw_JTJ;
 		B += weight_strip_width * sw_mJTF;
 	}
 
-	// boundary edge angles 
-	Eigen::VectorXd fbdenergy;
-	if (enable_boundary_angles) {
-		spMat JTJ;
-		Eigen::VectorXd mJTF;
-		assemble_solver_fixed_boundary_direction_part(GradValueF, tracing_start_edges, func, JTJ, mJTF, fbdenergy);
-		H += weight_boundary * JTJ;
-		B += weight_boundary * mJTF;
-	}
+	
 	assert(H.rows() == vnbr);
 	assert(H.cols() == vnbr);
 	// pseudo geodesic

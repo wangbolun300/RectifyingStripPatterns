@@ -42,7 +42,9 @@ class MeshEnergyPrepare{
     double weight_Mesh_smoothness;
     double weight_Mesh_pesudo_geodesic;
     double weight_Mesh_edgelength;
+    double weight_mass;
     double Mesh_opt_max_step_length;
+    bool enable_asymptotic_condition;
     double target_angle;
 };
 class TracingPrepare{
@@ -287,7 +289,7 @@ public:
     double weight_pseudo_geodesic_energy;// weight of the pseudo-geodesic energy
     double weight_strip_width;
     // Don't Use Strip Width Condition When Opt Multiple Functions
-    double strip_width = 0;       // strip width, defined as h/w, h: level set function value difference. w: distance between two points on the surface
+    double strip_width = 1;       // strip width, defined as h/w, h: level set function value difference. w: distance between two points on the surface
     double max_step_length;
     double step_length;
     

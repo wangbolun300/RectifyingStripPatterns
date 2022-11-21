@@ -70,6 +70,8 @@ void lsTools::prepare_mesh_optimization_solving(const MeshEnergyPrepare& initial
     weight_Mesh_smoothness=initializer.weight_Mesh_smoothness;
     pseudo_geodesic_target_angle_degree=initializer.target_angle;
     weight_Mesh_edgelength = initializer.weight_Mesh_edgelength;
+    enable_asymptotic_condition = initializer.enable_asymptotic_condition;
+    weight_mass=initializer.weight_mass;
 }
 void lsTools::convert_paras_as_meshes(CGMesh &output)
 {

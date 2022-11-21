@@ -504,8 +504,9 @@ int main(int argc, char *argv[])
 			ImGui::InputDouble("weight boundary (big)", &lscif::weight_boundary, 0, 0, "%.4f");
 			ImGui::InputDouble("weight laplacian (small)", &lscif::weight_laplacian, 0, 0, "%.4f");
 			ImGui::InputDouble("weight pseudo-geodesic", &lscif::weight_pseudo_geodesic, 0, 0, "%.4f");
-			ImGui::InputDouble("MaxStpLenght(Need PG Enabled)", &lscif::maximal_step_length, 0, 0, "%.4f");
 			ImGui::InputDouble("weight Strip width(Need SW Enabled)", &lscif::weight_strip_width, 0, 0, "%.4f");
+			ImGui::InputDouble("MaxStpLenght(Need PG Enabled)", &lscif::maximal_step_length, 0, 0, "%.4f");
+			
 			ImGui::Checkbox("Enable functional Energy", &lscif::enable_functional_degrees);
 			ImGui::SameLine();
 			ImGui::Checkbox("Enable Asymptotic Energy", &lscif::enable_asymptotic_condition);
@@ -667,8 +668,11 @@ int main(int argc, char *argv[])
 				initializer.Mesh_opt_max_step_length=lscif::Mesh_opt_max_step_length;
 				initializer.weight_Mesh_pesudo_geodesic=lscif::weight_Mesh_pesudo_geodesic;
 				initializer.weight_Mesh_smoothness=lscif::weight_Mesh_smoothness;
+				initializer.weight_mass=lscif::weight_mass;
 				initializer.target_angle=lscif::target_angle;
 				initializer.weight_Mesh_edgelength = lscif::weight_Mesh_edgelength;
+				initializer.enable_asymptotic_condition=lscif::enable_asymptotic_condition;
+
 				lscif::tools.prepare_mesh_optimization_solving(initializer);
 				for(int i=0;i<lscif::Nbr_Iterations_Mesh_Opt;i++){
 					lscif::tools.Run_Mesh_Opt();

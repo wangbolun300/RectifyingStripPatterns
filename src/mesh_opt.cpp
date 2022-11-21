@@ -222,10 +222,10 @@ void lsTools::calculate_mesh_opt_asymptotic_values(const Eigen::VectorXd& Loc_Ac
     tripletes.clear();
     tripletes.reserve(ninner * 18);
     MTenergy = Eigen::VectorXd::Zero(ninner * 2); // mesh total energy values
-
     for (int i = 0; i < ninner; i++)
     {
         if (Loc_ActInner[i] == false) {
+            std::cout<<"Singularity" <<std::endl;
             continue;
         }
         int vm = IVids[i];
@@ -528,7 +528,6 @@ void lsTools::Run_Mesh_Opt(){
     vars.middleRows(vnbr, vnbr) = V.col(1);
     vars.bottomRows(vnbr) = V.col(2);
     
-    
     spMat H;
     Eigen::VectorXd B;
     H.resize(vnbr * 3, vnbr * 3);
@@ -542,16 +541,12 @@ void lsTools::Run_Mesh_Opt(){
     H += weight_Mesh_smoothness * Hsmooth;
     B += weight_Mesh_smoothness * Bsmooth;
     
-    
-    
     spMat Hel;
     Eigen::VectorXd Bel;
     Eigen::VectorXd ElEnergy;
     assemble_solver_mesh_edge_length_part(vars, Hel, Bel, ElEnergy);
     H += weight_Mesh_edgelength * Hel;
     B += weight_Mesh_edgelength * Bel;
-    
-
     
 	spMat Hpg;
     Eigen::VectorXd Bpg;
@@ -564,7 +559,6 @@ void lsTools::Run_Mesh_Opt(){
     else {
         assemble_solver_mesh_asymptotic(anas[0].LocalActInner, func, anas[0].heh0, anas[0].heh1, anas[0].t1s, anas[0].t2s, Hpg, Bpg, MTEnergy);
     }
-    
     spMat Htotal(final_size, final_size);
     Eigen::VectorXd Btotal=Eigen::VectorXd::Zero(final_size);
     // first make the naive energies the correct size
@@ -572,22 +566,24 @@ void lsTools::Run_Mesh_Opt(){
     Btotal = sum_uneven_vectors(B, Btotal);
 
     // add the PG energy
-    Htotal = sum_uneven_spMats(H, weight_Mesh_pesudo_geodesic * Hpg);
-    Btotal = sum_uneven_vectors(B, weight_Mesh_pesudo_geodesic * Bpg);    
-    
-	Htotal += weight_mass * 1e-6 * Eigen::VectorXd::Ones(final_size).asDiagonal();
-    
+    Htotal = sum_uneven_spMats(weight_Mesh_pesudo_geodesic * Hpg, Htotal);
+    Btotal = sum_uneven_vectors(weight_Mesh_pesudo_geodesic * Bpg, Btotal);    
+    Htotal += spMat(weight_mass * 1e-6 * Eigen::VectorXd::Ones(final_size).asDiagonal());
+
     if(vector_contains_NAN(Btotal)){
         std::cout<<"energy contains NAN"<<std::endl;
     }
-    
+
     Eigen::SimplicialLLT<Eigen::SparseMatrix<double>> solver(Htotal);
+
     if (solver.info() != Eigen::Success)
     {
         std::cout << "solver fail" << std::endl;
         return;
     }
+
     Eigen::VectorXd dx = solver.solve(Btotal).eval(); 
+
     dx *= 0.75;
     double mesh_opt_step_length = dx.norm();
     // double inf_norm=dx.cwiseAbs().maxCoeff();
