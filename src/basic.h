@@ -170,10 +170,10 @@ private:
     void analysis_pseudo_geodesic_on_vertices(const Eigen::VectorXd& func_values, LSAnalizer& analizer);
     void calculate_pseudo_geodesic_opt_expanded_function_values(Eigen::VectorXd& vars, const std::vector<double>& angle_degree,
         const Eigen::VectorXd& LocalActInner, const std::vector<CGMesh::HalfedgeHandle>& heh0, const std::vector<CGMesh::HalfedgeHandle>& heh1,
-        const std::vector<double>& t1s, const std::vector<double>& t2s, const bool first_compute, const int aux_start_loc, std::vector<Trip>& tripletes, Eigen::VectorXd& Energy);
+        const std::vector<double>& t1s, const std::vector<double>& t2s, const bool first_compute,const int vars_start_loc, const int aux_start_loc, std::vector<Trip>& tripletes, Eigen::VectorXd& Energy);
     void calculate_asymptotic_function_values(Eigen::VectorXd& vars,
         const Eigen::VectorXd& LocalActInner, const std::vector<CGMesh::HalfedgeHandle>& heh0, const std::vector<CGMesh::HalfedgeHandle>& heh1,
-        const std::vector<double>& t1s, const std::vector<double>& t2s, std::vector<Trip>& tripletes, Eigen::VectorXd& Energy);
+        const std::vector<double>& t1s, const std::vector<double>& t2s, const int vars_start_loc, std::vector<Trip>& tripletes, Eigen::VectorXd& Energy);
     void calculate_boundary_direction_energy_function_values(const Eigen::MatrixXd& GradFValue,
         const std::vector<CGMesh::HalfedgeHandle>& edges, const Eigen::VectorXd& func, Eigen::VectorXd& lens, Eigen::VectorXd& energy);
     void assemble_solver_laplacian_part(spMat &H, Efunc &B);
@@ -181,11 +181,11 @@ private:
     void assemble_solver_boundary_condition_part(const Eigen::VectorXd& func, spMat& H, Eigen::VectorXd& B, Eigen::VectorXd& bcfvalue);
     void assemble_solver_pesudo_geodesic_energy_part_vertex_based(Eigen::VectorXd& vars, const std::vector<double>& angle_degree, Eigen::VectorXd& LocalActInner,
         std::vector<CGMesh::HalfedgeHandle>& heh0, std::vector<CGMesh::HalfedgeHandle>& heh1,
-        std::vector<double>& t1s, std::vector<double>& t2s, const bool first_compute, const int aux_start_loc, spMat& H, Eigen::VectorXd& B, Eigen::VectorXd& energy);
+        std::vector<double>& t1s, std::vector<double>& t2s, const bool first_compute, const int vars_start_loc, const int aux_start_loc, spMat& H, Eigen::VectorXd& B, Eigen::VectorXd& energy);
     void assemble_solver_strip_width_part(const Eigen::MatrixXd& GradValue,  spMat& H, Eigen::VectorXd& B);
-    void assemble_solver_asymptotic_condition_part_vertex_based(Eigen::VectorXd& vars, Eigen::VectorXd& LocalActInner,
-        std::vector<CGMesh::HalfedgeHandle>& heh0, std::vector<CGMesh::HalfedgeHandle>& heh1,
-        std::vector<double>& t1s, std::vector<double>& t2s, spMat& H, Eigen::VectorXd& B, Eigen::VectorXd& energy);
+    void assemble_solver_asymptotic_condition_part_vertex_based(Eigen::VectorXd &vars, Eigen::VectorXd &LocalActInner,
+                                                                std::vector<CGMesh::HalfedgeHandle> &heh0, std::vector<CGMesh::HalfedgeHandle> &heh1,
+                                                                std::vector<double> &t1s, std::vector<double> &t2s, const int vars_start_loc, spMat &H, Eigen::VectorXd &B, Eigen::VectorXd &energy);
     void assemble_solver_fixed_boundary_direction_part(const Eigen::MatrixXd& GradFValue, const std::vector<CGMesh::HalfedgeHandle>& edges,
         const Eigen::VectorXd& func,
         spMat& H, Eigen::VectorXd& B, Eigen::VectorXd& energy);
@@ -376,6 +376,7 @@ public:
     // after tracing, use this function to get smooth level set
     void Run_Level_Set_Opt();
     void Run_Mesh_Opt();
+    void Run_AAG(Eigen::VectorXd& func0, Eigen::VectorXd& func1, Eigen::VectorXd& func2);
     void initialize_level_set_accroding_to_parametrization();
     void debug_tool(int id = 0, int id2 = 0, double value = 0);
     void debug_tool_v2(const std::vector<int> &ids, const std::vector<double> values);

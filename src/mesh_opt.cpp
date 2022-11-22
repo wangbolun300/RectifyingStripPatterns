@@ -212,16 +212,18 @@ void lsTools::calculate_mesh_opt_expanded_function_values(const Eigen::VectorXd&
 		MTenergy[i + ninner * 3] = norm.dot(r)-cos_angle;
     }
 }
-void lsTools::calculate_mesh_opt_asymptotic_values(const Eigen::VectorXd& Loc_ActInner, const Eigen::VectorXd& func,
-    const std::vector<CGMesh::HalfedgeHandle>& heh0, const std::vector<CGMesh::HalfedgeHandle>& heh1,
-    const std::vector<double>& t1s, const std::vector<double>& t2s, std::vector<Trip>& tripletes, Eigen::VectorXd& MTenergy) {
-  
+void lsTools::calculate_mesh_opt_asymptotic_values(const Eigen::VectorXd &Loc_ActInner, const Eigen::VectorXd &func,
+                                                   const std::vector<CGMesh::HalfedgeHandle> &heh0, const std::vector<CGMesh::HalfedgeHandle> &heh1,
+                                                   const std::vector<double> &t1s, const std::vector<double> &t2s, std::vector<Trip> &tripletes, Eigen::VectorXd &MTenergy)
+{
+
     int ninner = Loc_ActInner.size();
     int vnbr = V.rows();
 
     tripletes.clear();
     tripletes.reserve(ninner * 18);
     MTenergy = Eigen::VectorXd::Zero(ninner * 2); // mesh total energy values
+    
     for (int i = 0; i < ninner; i++)
     {
         if (Loc_ActInner[i] == false) {
@@ -234,6 +236,8 @@ void lsTools::calculate_mesh_opt_asymptotic_values(const Eigen::VectorXd& Loc_Ac
         int v2 = lsmesh.to_vertex_handle(inhd).idx();
         int v3 = lsmesh.from_vertex_handle(outhd).idx();
         int v4 = lsmesh.to_vertex_handle(outhd).idx();
+        double dis0 = ((V.row(v1) - V.row(v2)) * func[vm] + (V.row(v2) - V.row(vm)) * func[v1] + (V.row(vm) - V.row(v1)) * func[v2]).norm();
+		double dis1 = ((V.row(v3) - V.row(v4)) * func[vm] + (V.row(v4) - V.row(vm)) * func[v3] + (V.row(vm) - V.row(v3)) * func[v4]).norm();
         double t1 = t1s[i];
         double t2 = t2s[i];
         Eigen::Vector3d ver0 = V.row(v1) + (V.row(v2) - V.row(v1)) * t1;
@@ -256,19 +260,19 @@ void lsTools::calculate_mesh_opt_asymptotic_values(const Eigen::VectorXd& Loc_Ac
         Eigen::Vector3d rm1 = (func[vm] - func[v1]) * norm;
         Eigen::Vector3d r2m = (func[v2] - func[vm]) * norm;
 
-		tripletes.push_back(Trip(i, lmx, r12[0]));
-        tripletes.push_back(Trip(i, lmy, r12[1]));
-        tripletes.push_back(Trip(i, lmz, r12[2]));
+		tripletes.push_back(Trip(i, lmx, r12[0]/dis0));
+        tripletes.push_back(Trip(i, lmy, r12[1]/dis0));
+        tripletes.push_back(Trip(i, lmz, r12[2]/dis0));
 
-        tripletes.push_back(Trip(i, lfx, r2m[0]));
-        tripletes.push_back(Trip(i, lfy, r2m[1]));
-        tripletes.push_back(Trip(i, lfz, r2m[2]));
+        tripletes.push_back(Trip(i, lfx, r2m[0]/dis0));
+        tripletes.push_back(Trip(i, lfy, r2m[1]/dis0));
+        tripletes.push_back(Trip(i, lfz, r2m[2]/dis0));
 
-        tripletes.push_back(Trip(i, ltx, rm1[0]));
-        tripletes.push_back(Trip(i, lty, rm1[1]));
-        tripletes.push_back(Trip(i, ltz, rm1[2]));
+        tripletes.push_back(Trip(i, ltx, rm1[0]/dis0));
+        tripletes.push_back(Trip(i, lty, rm1[1]/dis0));
+        tripletes.push_back(Trip(i, ltz, rm1[2]/dis0));
        
-		MTenergy[i] = V.row(vm).dot(r12) + V.row(v1).dot(r2m) + V.row(v2).dot(rm1);
+		MTenergy[i] = (V.row(vm).dot(r12) + V.row(v1).dot(r2m) + V.row(v2).dot(rm1))/dis0;
 
         // vf = v3, vt = v4
         lfx = v3;
@@ -282,19 +286,19 @@ void lsTools::calculate_mesh_opt_asymptotic_values(const Eigen::VectorXd& Loc_Ac
         rm1 = (func[vm] - func[v3]) * norm;
         r2m = (func[v4] - func[vm]) * norm;
 
-        tripletes.push_back(Trip(i + ninner, lmx, r12[0]));
-        tripletes.push_back(Trip(i + ninner, lmy, r12[1]));
-        tripletes.push_back(Trip(i + ninner, lmz, r12[2]));
+        tripletes.push_back(Trip(i + ninner, lmx, r12[0]/dis1));
+        tripletes.push_back(Trip(i + ninner, lmy, r12[1]/dis1));
+        tripletes.push_back(Trip(i + ninner, lmz, r12[2]/dis1));
 
-        tripletes.push_back(Trip(i + ninner, lfx, r2m[0]));
-        tripletes.push_back(Trip(i + ninner, lfy, r2m[1]));
-        tripletes.push_back(Trip(i + ninner, lfz, r2m[2]));
+        tripletes.push_back(Trip(i + ninner, lfx, r2m[0]/dis1));
+        tripletes.push_back(Trip(i + ninner, lfy, r2m[1]/dis1));
+        tripletes.push_back(Trip(i + ninner, lfz, r2m[2]/dis1));
 
-        tripletes.push_back(Trip(i + ninner, ltx, rm1[0]));
-        tripletes.push_back(Trip(i + ninner, lty, rm1[1]));
-        tripletes.push_back(Trip(i + ninner, ltz, rm1[2]));
+        tripletes.push_back(Trip(i + ninner, ltx, rm1[0]/dis1));
+        tripletes.push_back(Trip(i + ninner, lty, rm1[1]/dis1));
+        tripletes.push_back(Trip(i + ninner, ltz, rm1[2]/dis1));
 
-        MTenergy[i + ninner] = V.row(vm).dot(r12) + V.row(v3).dot(r2m) + V.row(v4).dot(rm1);
+        MTenergy[i + ninner] = (V.row(vm).dot(r12) + V.row(v3).dot(r2m) + V.row(v4).dot(rm1))/dis1;
     }
 }
 spMat Jacobian_transpose_mesh_opt_on_ver(const std::array<spMat, 3>& JC,
@@ -481,6 +485,29 @@ spMat sum_uneven_spMats(const spMat& mat_small, const spMat& mat_large) {
     result.resize(lnbr, lnbr);
     result.leftCols(snbr) = tmp.transpose();
 	return result + mat_large;
+}
+spMat three_spmat_in_diag(const spMat& mat0, const spMat& mat1, const spMat& mat2, const int ntarget){
+    int ns=mat0.rows();
+    spMat tmp0(ns, ntarget), tmp1(ns, ntarget), tmp2(ns, ntarget);
+    tmp0.leftCols(ns)=mat0;
+    tmp1.middleCols(ns,ns)=mat1;
+    tmp2.middleCols(ns*2, ns)=mat2;
+    tmp0=tmp0.transpose();
+    tmp1=tmp1.transpose();
+    tmp2=tmp2.transpose();
+    spMat result(ntarget, ntarget);
+    result.leftCols(ns)=tmp0;
+    result.middleCols(ns, ns)=tmp1;
+    result.middleCols(ns*2, ns)= tmp2;
+    return result;
+}
+Eigen::VectorXd three_vec_in_row(const Eigen::VectorXd& ve0, const Eigen::VectorXd& ve1, const Eigen::VectorXd& ve2, const int ntarget){
+    int nsize= ve0.size();
+    Eigen::VectorXd result=Eigen::VectorXd::Zero(ntarget);
+    result.segment(0,nsize)=ve0;
+    result.segment(nsize,nsize)=ve1;
+    result.segment(nsize*2, nsize)=ve2;
+    return result;
 }
 
 Eigen::VectorXd sum_uneven_vectors(const Eigen::VectorXd& vsmall, const Eigen::VectorXd& vlarge) {

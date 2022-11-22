@@ -255,7 +255,7 @@ void lsTools::analysis_pseudo_geodesic_on_vertices(const Eigen::VectorXd& func_v
 }
 void lsTools::calculate_pseudo_geodesic_opt_expanded_function_values(Eigen::VectorXd& vars, const std::vector<double>& angle_degree,
 	const Eigen::VectorXd& LocalActInner, const std::vector<CGMesh::HalfedgeHandle>& heh0, const std::vector<CGMesh::HalfedgeHandle>& heh1,
-	const std::vector<double>& t1s, const std::vector<double>& t2s, const bool first_compute, const int aux_start_loc, std::vector<Trip>& tripletes, Eigen::VectorXd& Energy) {
+	const std::vector<double>& t1s, const std::vector<double>& t2s, const bool first_compute, const int vars_start_loc, const int aux_start_loc, std::vector<Trip>& tripletes, Eigen::VectorXd& Energy) {
 	double cos_angle;
 	int vnbr = V.rows();
 	int ninner = LocalActInner.size();
@@ -285,19 +285,21 @@ void lsTools::calculate_pseudo_geodesic_opt_expanded_function_values(Eigen::Vect
 		int v2 = lsmesh.to_vertex_handle(inhd).idx();
 		int v3 = lsmesh.from_vertex_handle(outhd).idx();
 		int v4 = lsmesh.to_vertex_handle(outhd).idx();
-		assert(vars[v1] > vars[vm] && vars[vm] > vars[v2]);
-		assert(vars[v4] > vars[vm] && vars[vm] > vars[v3]);
 		
 		double t1 = t1s[i];
 		double t2 = t2s[i];
-		// the weights 
-		double dis0 = ((V.row(v1) - V.row(v2)) * vars[vm] + (V.row(v2) - V.row(vm)) * vars[v1] + (V.row(vm) - V.row(v1)) * vars[v2]).norm();
-		double dis1 = ((V.row(v3) - V.row(v4)) * vars[vm] + (V.row(v4) - V.row(vm)) * vars[v3] + (V.row(vm) - V.row(v3)) * vars[v4]).norm();
+		
 		Eigen::Vector3d ver0 = V.row(v1) + (V.row(v2) - V.row(v1)) * t1;
 		Eigen::Vector3d ver1 = V.row(vm);
 		Eigen::Vector3d ver2 = V.row(v3) + (V.row(v4) - V.row(v3)) * t2;
 		
 		// the locations
+		int lvm = vars_start_loc + vm;
+		int lv1 = vars_start_loc + v1;
+		int lv2 = vars_start_loc + v2;
+		int lv3 = vars_start_loc + v3;
+		int lv4 = vars_start_loc + v4;
+
 		int lrx = i + aux_start_loc;
 		int lry = i + aux_start_loc + ninner;
 		int lrz = i + aux_start_loc + ninner * 2;
@@ -309,34 +311,37 @@ void lsTools::calculate_pseudo_geodesic_opt_expanded_function_values(Eigen::Vect
 			vars[lrz] = real_r[2];
 		}
 		Eigen::Vector3d r = Eigen::Vector3d(vars[lrx], vars[lry], vars[lrz]);
-		// r dot (vm+(t1-1)*vf-t1*vt)
+		// the weights 
+		double dis0 = ((V.row(v1) - V.row(v2)) * vars[lvm] + (V.row(v2) - V.row(vm)) * vars[lv1] + (V.row(vm) - V.row(v1)) * vars[lv2]).norm();
+		double dis1 = ((V.row(v3) - V.row(v4)) * vars[lvm] + (V.row(v4) - V.row(vm)) * vars[lv3] + (V.row(vm) - V.row(v3)) * vars[lv4]).norm();
 
+		// r dot (vm+(t1-1)*vf-t1*vt)
 		// vf = v1, vt = v2
-		tripletes.push_back(Trip(i, lrx, ((V(v1, 0) - V(v2, 0)) * vars[vm] + (V(v2, 0) - V(vm, 0)) * vars[v1] + (V(vm, 0) - V(v1, 0)) * vars[v2])));
-		tripletes.push_back(Trip(i, lry, ((V(v1, 1) - V(v2, 1)) * vars[vm] + (V(v2, 1) - V(vm, 1)) * vars[v1] + (V(vm, 1) - V(v1, 1)) * vars[v2])));
-		tripletes.push_back(Trip(i, lrz, ((V(v1, 2) - V(v2, 2)) * vars[vm] + (V(v2, 2) - V(vm, 2)) * vars[v1] + (V(vm, 2) - V(v1, 2)) * vars[v2])));
+		tripletes.push_back(Trip(i, lrx, ((V(v1, 0) - V(v2, 0)) * vars[lvm] + (V(v2, 0) - V(vm, 0)) * vars[lv1] + (V(vm, 0) - V(v1, 0)) * vars[lv2])));
+		tripletes.push_back(Trip(i, lry, ((V(v1, 1) - V(v2, 1)) * vars[lvm] + (V(v2, 1) - V(vm, 1)) * vars[lv1] + (V(vm, 1) - V(v1, 1)) * vars[lv2])));
+		tripletes.push_back(Trip(i, lrz, ((V(v1, 2) - V(v2, 2)) * vars[lvm] + (V(v2, 2) - V(vm, 2)) * vars[lv1] + (V(vm, 2) - V(v1, 2)) * vars[lv2])));
 
 		double r12 = (V.row(v1) - V.row(v2)).dot(r);
 		double rm1 = (V.row(vm) - V.row(v1)).dot(r);
 		double r2m = (V.row(v2) - V.row(vm)).dot(r);
-		tripletes.push_back(Trip(i, vm, r12));
-		tripletes.push_back(Trip(i, v1, r2m));
-		tripletes.push_back(Trip(i, v2, rm1));
-		Energy[i] = (r12 * vars[vm] + rm1 * vars[v2] + r2m * vars[v1]);
+		tripletes.push_back(Trip(i, lvm, r12));
+		tripletes.push_back(Trip(i, lv1, r2m));
+		tripletes.push_back(Trip(i, lv2, rm1));
+		Energy[i] = (r12 * vars[lvm] + rm1 * vars[lv2] + r2m * vars[lv1]);
 
 		// vf = v3, vt = v4
-		tripletes.push_back(Trip(i + ninner, lrx, ((V(v3, 0) - V(v4, 0)) * vars[vm] + (V(v4, 0) - V(vm, 0)) * vars[v3] + (V(vm, 0) - V(v3, 0)) * vars[v4])));
-		tripletes.push_back(Trip(i + ninner, lry, ((V(v3, 1) - V(v4, 1)) * vars[vm] + (V(v4, 1) - V(vm, 1)) * vars[v3] + (V(vm, 1) - V(v3, 1)) * vars[v4])));
-		tripletes.push_back(Trip(i + ninner, lrz, ((V(v3, 2) - V(v4, 2)) * vars[vm] + (V(v4, 2) - V(vm, 2)) * vars[v3] + (V(vm, 2) - V(v3, 2)) * vars[v4])));
+		tripletes.push_back(Trip(i + ninner, lrx, ((V(v3, 0) - V(v4, 0)) * vars[lvm] + (V(v4, 0) - V(vm, 0)) * vars[lv3] + (V(vm, 0) - V(v3, 0)) * vars[lv4])));
+		tripletes.push_back(Trip(i + ninner, lry, ((V(v3, 1) - V(v4, 1)) * vars[lvm] + (V(v4, 1) - V(vm, 1)) * vars[lv3] + (V(vm, 1) - V(v3, 1)) * vars[lv4])));
+		tripletes.push_back(Trip(i + ninner, lrz, ((V(v3, 2) - V(v4, 2)) * vars[lvm] + (V(v4, 2) - V(vm, 2)) * vars[lv3] + (V(vm, 2) - V(v3, 2)) * vars[lv4])));
 
 		r12 = (V.row(v3) - V.row(v4)).dot(r);
 		rm1 = (V.row(vm) - V.row(v3)).dot(r);
 		r2m = (V.row(v4) - V.row(vm)).dot(r);
-		tripletes.push_back(Trip(i + ninner, vm, r12));
-		tripletes.push_back(Trip(i + ninner, v3, r2m));
-		tripletes.push_back(Trip(i + ninner, v4, rm1));
+		tripletes.push_back(Trip(i + ninner, lvm, r12));
+		tripletes.push_back(Trip(i + ninner, lv3, r2m));
+		tripletes.push_back(Trip(i + ninner, lv4, rm1));
 
-		Energy[i + ninner] = (r12 * vars[vm] + rm1 * vars[v4] + r2m * vars[v3]);
+		Energy[i + ninner] = (r12 * vars[lvm] + rm1 * vars[lv4] + r2m * vars[lv3]);
 
 		// r*r=1
 		tripletes.push_back(Trip(i + ninner * 2, lrx, 2 * vars(lrx)));
@@ -360,7 +365,7 @@ void lsTools::calculate_pseudo_geodesic_opt_expanded_function_values(Eigen::Vect
 }
 void lsTools::calculate_asymptotic_function_values(Eigen::VectorXd& vars,
 	const Eigen::VectorXd& LocalActInner, const std::vector<CGMesh::HalfedgeHandle>& heh0, const std::vector<CGMesh::HalfedgeHandle>& heh1,
-	const std::vector<double>& t1s, const std::vector<double>& t2s, std::vector<Trip>& tripletes, Eigen::VectorXd& Energy) {
+	const std::vector<double>& t1s, const std::vector<double>& t2s,const int vars_start_loc, std::vector<Trip>& tripletes, Eigen::VectorXd& Energy) {
 	int vnbr = V.rows();
 	int ninner = LocalActInner.size();
 
@@ -381,35 +386,39 @@ void lsTools::calculate_asymptotic_function_values(Eigen::VectorXd& vars,
 		int v2 = lsmesh.to_vertex_handle(inhd).idx();
 		int v3 = lsmesh.from_vertex_handle(outhd).idx();
 		int v4 = lsmesh.to_vertex_handle(outhd).idx();
-		assert(vars[v1] > vars[vm] && vars[vm] > vars[v2]);
-		assert(vars[v4] > vars[vm] && vars[vm] > vars[v3]);
 
 		double t1 = t1s[i];
 		double t2 = t2s[i];
-		// the weights
-		double dis0 = ((V.row(v1) - V.row(v2)) * vars[vm] + (V.row(v2) - V.row(vm)) * vars[v1] + (V.row(vm) - V.row(v1)) * vars[v2]).norm();
-		double dis1 = ((V.row(v3) - V.row(v4)) * vars[vm] + (V.row(v4) - V.row(vm)) * vars[v3] + (V.row(vm) - V.row(v3)) * vars[v4]).norm();
+		
 		Eigen::Vector3d ver0 = V.row(v1) + (V.row(v2) - V.row(v1)) * t1;
 		Eigen::Vector3d ver1 = V.row(vm);
 		Eigen::Vector3d ver2 = V.row(v3) + (V.row(v4) - V.row(v3)) * t2;
 		// the locations
-		
+		int lvm = vars_start_loc + vm;
+		int lv1 = vars_start_loc + v1;
+		int lv2 = vars_start_loc + v2;
+		int lv3 = vars_start_loc + v3;
+		int lv4 = vars_start_loc + v4;
+
+		// the weights
+		double dis0 = ((V.row(v1) - V.row(v2)) * vars[lvm] + (V.row(v2) - V.row(vm)) * vars[lv1] + (V.row(vm) - V.row(v1)) * vars[lv2]).norm();
+		double dis1 = ((V.row(v3) - V.row(v4)) * vars[lvm] + (V.row(v4) - V.row(vm)) * vars[lv3] + (V.row(vm) - V.row(v3)) * vars[lv4]).norm();
 		Eigen::Vector3d norm = norm_v.row(vm);
 		double r12 = (V.row(v1) - V.row(v2)).dot(norm);
 		double rm1 = (V.row(vm) - V.row(v1)).dot(norm);
 		double r2m = (V.row(v2) - V.row(vm)).dot(norm);
-		tripletes.push_back(Trip(i, vm, r12));
-		tripletes.push_back(Trip(i, v1, r2m));
-		tripletes.push_back(Trip(i, v2, rm1));
-		Energy[i] = (r12 * vars[vm] + rm1 * vars[v2] + r2m * vars[v1]);
+		tripletes.push_back(Trip(i, lvm, r12 / dis0));
+		tripletes.push_back(Trip(i, lv1, r2m / dis0));
+		tripletes.push_back(Trip(i, lv2, rm1 / dis0));
+		Energy[i] = (r12 * vars[lvm] + rm1 * vars[lv2] + r2m * vars[lv1]) / dis0;
 
 		r12 = (V.row(v3) - V.row(v4)).dot(norm);
 		rm1 = (V.row(vm) - V.row(v3)).dot(norm);
 		r2m = (V.row(v4) - V.row(vm)).dot(norm);
-		tripletes.push_back(Trip(i + ninner, vm, r12));
-		tripletes.push_back(Trip(i + ninner, v3, r2m));
-		tripletes.push_back(Trip(i + ninner, v4, rm1));
-		Energy[i + ninner] = (r12 * vars[vm] + rm1 * vars[v4] + r2m * vars[v3]);
+		tripletes.push_back(Trip(i + ninner, lvm, r12/dis1));
+		tripletes.push_back(Trip(i + ninner, lv3, r2m/dis1));
+		tripletes.push_back(Trip(i + ninner, lv4, rm1/dis1));
+		Energy[i + ninner] = (r12 * vars[lvm] + rm1 * vars[lv4] + r2m * vars[lv3])/dis1;
 	}
 }
 // this function only need be called after initializing the level set
@@ -593,13 +602,13 @@ double get_mat_max_diag(spMat& M) {
 }
 void lsTools::assemble_solver_pesudo_geodesic_energy_part_vertex_based(Eigen::VectorXd& vars, const std::vector<double>& angle_degree, Eigen::VectorXd& LocalActInner,
 	std::vector<CGMesh::HalfedgeHandle>& heh0, std::vector<CGMesh::HalfedgeHandle>& heh1,
-	std::vector<double>& t1s, std::vector<double>& t2s, const bool first_compute, const int aux_start_loc, spMat& H, Eigen::VectorXd& B, Eigen::VectorXd& energy)
+	std::vector<double>& t1s, std::vector<double>& t2s, const bool first_compute, const int vars_start_loc, const int aux_start_loc, spMat& H, Eigen::VectorXd& B, Eigen::VectorXd& energy)
 {
 	std::vector<Trip> tripletes;
 	int vsize = V.rows();
 	int ninner = LocalActInner.size();
 	calculate_pseudo_geodesic_opt_expanded_function_values(vars, angle_degree,
-		LocalActInner, heh0, heh1, t1s, t2s, first_compute, aux_start_loc, tripletes, energy);
+		LocalActInner, heh0, heh1, t1s, t2s, first_compute, vars_start_loc, aux_start_loc, tripletes, energy);
 	int nvars = vars.size();
 	int ncondi = ninner * 4;
 	spMat J;
@@ -610,13 +619,13 @@ void lsTools::assemble_solver_pesudo_geodesic_energy_part_vertex_based(Eigen::Ve
 }
 void lsTools::assemble_solver_asymptotic_condition_part_vertex_based(Eigen::VectorXd& vars, Eigen::VectorXd& LocalActInner,
 	std::vector<CGMesh::HalfedgeHandle>& heh0, std::vector<CGMesh::HalfedgeHandle>& heh1,
-	std::vector<double>& t1s, std::vector<double>& t2s, spMat& H, Eigen::VectorXd& B, Eigen::VectorXd& energy)
+	std::vector<double>& t1s, std::vector<double>& t2s, const int vars_start_loc, spMat& H, Eigen::VectorXd& B, Eigen::VectorXd& energy)
 {
 	std::vector<Trip> tripletes;
 	int vsize = V.rows();
 	int ninner = LocalActInner.size();
 	calculate_asymptotic_function_values(vars,
-		LocalActInner, heh0, heh1, t1s, t2s, tripletes, energy);
+		LocalActInner, heh0, heh1, t1s, t2s, vars_start_loc, tripletes, energy);
 	int nvars = vars.size();
 	int ncondi = ninner * 2;
 	spMat J;
@@ -625,17 +634,36 @@ void lsTools::assemble_solver_asymptotic_condition_part_vertex_based(Eigen::Vect
 	H = J.transpose() * J;
 	B = -J.transpose() * energy;
 }
-// check if active faces exist around one vertex
-// the information can be used to construct pseudo-geodesic energy
 
+// the condition that f0+f1+f2=0;
+void assemble_AAG_extra_condition(const int mat_size, const int vnbr,
+								  const Eigen::VectorXd &func0, const Eigen::VectorXd &func1, const Eigen::VectorXd &func2,
+								  spMat &H, Eigen::VectorXd &B, Eigen::VectorXd& energy)
+{
+	
+	
+	energy.resize(vnbr); // the nbr of conditions
+	std::vector<Trip> tripletes;
+	tripletes.reserve(vnbr * 3);
+	for(int i=0;i<vnbr;i++){
+		tripletes.push_back(Trip(i, i, 1));
+		tripletes.push_back(Trip(i, i + vnbr, 1));
+		tripletes.push_back(Trip(i, i + vnbr * 2, 1));
+		energy[i] = func0[i] + func1[i] + func2[i];
+	}
+	spMat J;
+	J.resize(vnbr, mat_size);
+	J.setFromTriplets(tripletes.begin(), tripletes.end());
+	H=J.transpose()*J;
+	B=-J.transpose()*energy;
 
-// before calling this function, please get the traced curves and assign values 
-// for these curves
+}
+
 void lsTools::Run_Level_Set_Opt() {
 	
 	
 	Eigen::MatrixXd GradValueF, GradValueV;
-	Eigen::VectorXd PGenergy;
+	Eigen::VectorXd PGEnergy;
 	Eigen::VectorXd func = fvalues;
 	std::vector<double> angle_degree;
 	angle_degree.resize(1);
@@ -735,22 +763,23 @@ void lsTools::Run_Level_Set_Opt() {
 	
 	Hlarge = sum_uneven_spMats(H, Hlarge);
 	Blarge = sum_uneven_vectors(B, Blarge);
-	Eigen::VectorXd PGEnergy;
 	if (enable_pseudo_geodesic_energy && weight_pseudo_geodesic_energy > 0)
 	{
 
 		spMat pg_JTJ;
 		Eigen::VectorXd pg_mJTF;
+		int vars_start_loc = 0;
+		int aux_start_loc = vnbr;
 		if (!enable_asymptotic_condition) {
-			int aux_start_loc = vnbr;
+			
 			assemble_solver_pesudo_geodesic_energy_part_vertex_based(Glob_lsvars, angle_degree, anas[0].LocalActInner,
 				anas[0].heh0, anas[0].heh1,
-				anas[0].t1s, anas[0].t2s, first_compute, aux_start_loc, pg_JTJ, pg_mJTF, PGEnergy);
+				anas[0].t1s, anas[0].t2s, first_compute,vars_start_loc, aux_start_loc, pg_JTJ, pg_mJTF, PGEnergy);
 		}
 		else {
 			assemble_solver_asymptotic_condition_part_vertex_based(Glob_lsvars, anas[0].LocalActInner,
 				anas[0].heh0, anas[0].heh1,
-				anas[0].t1s, anas[0].t2s, pg_JTJ, pg_mJTF, PGEnergy);
+				anas[0].t1s, anas[0].t2s,vars_start_loc, pg_JTJ, pg_mJTF, PGEnergy);
 		}
 
 		Hlarge = sum_uneven_spMats(Hlarge, weight_pseudo_geodesic_energy * pg_JTJ);
@@ -821,6 +850,163 @@ void lsTools::Run_Level_Set_Opt() {
 		std::cout << "bound_dirc, " << energy << ", ";
 
 	}
+	step_length = dx.norm();
+	std::cout << "step " << step_length << std::endl;
+	
+	Last_Opt_Mesh = false;
+}
+
+void lsTools::Run_AAG(Eigen::VectorXd& func0, Eigen::VectorXd& func1, Eigen::VectorXd& func2){
+	Eigen::MatrixXd GradValueF[3], GradValueV[3];
+	Eigen::VectorXd PGEnergy[3];
+
+	int vnbr = V.rows();
+	int fnbr = F.rows();
+	bool first_compute = true; // if we need initialize auxiliary vars
+	
+	// initialize the level set with some number
+	
+	analysis_pseudo_geodesic_on_vertices(func0, anas[0]);
+	analysis_pseudo_geodesic_on_vertices(func1, anas[1]);
+	analysis_pseudo_geodesic_on_vertices(func2, anas[2]);
+	int ninner = anas[0].LocalActInner.size();
+	int final_size = ninner * 3 + vnbr * 3; // Change this when using more auxilary vars
+
+	
+	
+	get_gradient_hessian_values(func0, GradValueV[0], GradValueF[0]);
+	get_gradient_hessian_values(func1, GradValueV[1], GradValueF[1]);
+	get_gradient_hessian_values(func2, GradValueV[2], GradValueF[2]);
+	if (Glob_lsvars.size() == 0) {
+		func2 = -func0 - func1; // func0 + func1 + func2 = 0
+		first_compute = true;
+		std::cout << "Initializing Global Variable For LevelSet Opt ... " << std::endl;
+		Glob_lsvars = Eigen::VectorXd::Zero(final_size);// We change the size if opt more than 1 level set
+		Glob_lsvars.segment(0, vnbr) = func0;
+		Glob_lsvars.segment(vnbr, vnbr) = func1;
+		Glob_lsvars.segment(vnbr * 2, vnbr) = func2;
+	}
+	
+	
+	spMat H;
+	H.resize(final_size, final_size);
+	Eigen::VectorXd B=Eigen::VectorXd::Zero(final_size);
+
+	spMat LTL0, LTL1, LTL2;				 // left of laplacian
+	Eigen::VectorXd mLTF0, mLTF1, mLTF2; // right of laplacian
+	assemble_solver_biharmonic_smoothing(func0, LTL0, mLTF0);
+	assemble_solver_biharmonic_smoothing(func1, LTL1, mLTF1);
+	assemble_solver_biharmonic_smoothing(func2, LTL2, mLTF2);
+	H += weight_laplacian * three_spmat_in_diag(LTL0, LTL1, LTL2, final_size);
+	B += weight_laplacian * three_vec_in_row(mLTF0, mLTF1, mLTF2, final_size);
+
+	// strip width condition
+	
+	if (enable_strip_width_energy)
+	{
+		spMat sw_JTJ[3];
+		Eigen::VectorXd sw_mJTF[3];
+		assemble_solver_strip_width_part(GradValueF[0], sw_JTJ[0], sw_mJTF[0]);// by default the strip width is 1. Unless tracing info updated the info
+		assemble_solver_strip_width_part(GradValueF[1], sw_JTJ[1], sw_mJTF[1]);// by default the strip width is 1. Unless tracing info updated the info
+		assemble_solver_strip_width_part(GradValueF[2], sw_JTJ[2], sw_mJTF[2]);// by default the strip width is 1. Unless tracing info updated the info
+		H += weight_strip_width * three_spmat_in_diag(sw_JTJ[0], sw_JTJ[1], sw_JTJ[2], final_size);
+		B += weight_strip_width * three_vec_in_row(sw_mJTF[0], sw_mJTF[1], sw_mJTF[2], final_size);
+	}
+	spMat extraH;
+	Eigen::VectorXd extraB;
+	Eigen::VectorXd extra_energy;
+	assemble_AAG_extra_condition(final_size, vnbr, func0, func1, func2, extraH, extraB, extra_energy);
+	H += weight_boundary * extraH;
+	B += weight_boundary * extraB;
+	if (enable_pseudo_geodesic_energy && weight_pseudo_geodesic_energy > 0)
+	{
+
+		spMat pg_JTJ[3];
+		Eigen::VectorXd pg_mJTF[3];
+		int vars_start_loc = 0;
+		
+		assemble_solver_asymptotic_condition_part_vertex_based(Glob_lsvars, anas[0].LocalActInner,
+															   anas[0].heh0, anas[0].heh1,
+															   anas[0].t1s, anas[0].t2s, vars_start_loc, pg_JTJ[0], pg_mJTF[0], PGEnergy[0]);
+		vars_start_loc = vnbr;
+		assemble_solver_asymptotic_condition_part_vertex_based(Glob_lsvars, anas[1].LocalActInner,
+															   anas[1].heh0, anas[1].heh1,
+															   anas[1].t1s, anas[1].t2s, vars_start_loc, pg_JTJ[1], pg_mJTF[1], PGEnergy[1]);
+		vars_start_loc = vnbr * 2;
+		int aux_start_loc = vnbr * 3;
+		std::vector<double> angle_degree(1);
+		angle_degree[0]=90;
+		assemble_solver_pesudo_geodesic_energy_part_vertex_based(Glob_lsvars, angle_degree, anas[2].LocalActInner,
+																 anas[2].heh0, anas[2].heh1,
+																 anas[2].t1s, anas[2].t2s, first_compute, vars_start_loc, aux_start_loc, 
+																 pg_JTJ[2], pg_mJTF[2], PGEnergy[2]);
+		H += weight_pseudo_geodesic_energy * (pg_JTJ[0] + pg_JTJ[1] + pg_JTJ[2]);
+		B += weight_pseudo_geodesic_energy * (pg_mJTF[0] + pg_mJTF[1] + pg_mJTF[2]);
+	}
+	
+	H += 1e-6 * weight_mass * spMat(Eigen::VectorXd::Ones(final_size).asDiagonal());
+
+	Eigen::SimplicialLLT<Eigen::SparseMatrix<double>> solver(H);
+
+	// assert(solver.info() == Eigen::Success);
+	if (solver.info() != Eigen::Success)
+	{
+		// solving failed
+		std::cout << "solver fail" << std::endl;
+		return;
+	}
+	// std::cout<<"solved successfully"<<std::endl;
+	Eigen::VectorXd dx = solver.solve(B).eval();
+	dx *= 0.75;
+	// std::cout << "step length " << dx.norm() << std::endl;
+	double level_set_step_length = dx.norm();
+	if (level_set_step_length > max_step_length)
+	{
+		dx *= max_step_length / level_set_step_length;
+	}
+	func0 += dx.topRows(vnbr);
+	func1 += dx.middleRows(vnbr,vnbr);
+	func2 += dx.middleRows(vnbr * 2, vnbr);
+	Glob_lsvars += dx;
+
+	// energy evaluation
+	double energy_biharmonic[3];
+	energy_biharmonic[0] = func0.transpose() * QcH * func0;
+	energy_biharmonic[1] = func1.transpose() * QcH * func1;
+	energy_biharmonic[2] = func2.transpose() * QcH * func2;
+	std::cout << "energy: harm " << energy_biharmonic[0] << ", "<<energy_biharmonic[1] << ", "<<energy_biharmonic[2] << ", ";
+	if (enable_pseudo_geodesic_energy)
+	{
+		double energy_pg[3];
+		energy_pg[0]=PGEnergy[0].norm();
+		energy_pg[1]=PGEnergy[1].norm();
+		energy_pg[2]=PGEnergy[2].norm();
+		std::cout << "pg, " << energy_pg[0]<<", "<< energy_pg[1]<<", "<< energy_pg[2]<<", pgmax, "<<PGEnergy[0].lpNorm<Eigen::Infinity>()
+		<<", "<<PGEnergy[1].lpNorm<Eigen::Infinity>()<<", "<<PGEnergy[2].lpNorm<Eigen::Infinity>()<<", ";
+	}
+
+	if (enable_strip_width_energy)
+	{
+
+		Eigen::VectorXd ener0, ener1, ener2; 
+		ener0= GradValueF[0].rowwise().norm();
+		ener1= GradValueF[1].rowwise().norm();
+		ener2= GradValueF[2].rowwise().norm();
+		ener0 = ener0.asDiagonal() * ener0;
+		ener1 = ener1.asDiagonal() * ener1;
+		ener2 = ener2.asDiagonal() * ener2;
+		Eigen::VectorXd wds = Eigen::VectorXd::Ones(fnbr) * strip_width * strip_width;
+
+		ener0 -= wds;
+		ener1 -= wds;
+		ener2 -= wds;
+		double stp_energy[3];
+		stp_energy[0] = Eigen::VectorXd(ener0).dot(ener0);
+		stp_energy[1] = Eigen::VectorXd(ener1).dot(ener1);
+		stp_energy[2] = Eigen::VectorXd(ener2).dot(ener2);
+		std::cout << "strip, " << stp_energy[0] << ", "<< stp_energy[1] << ", "<< stp_energy[2] << ", ";
+	}
+	std::cout<<"extra, "<<extra_energy.norm()<<std::endl;
 	step_length = dx.norm();
 	std::cout << "step " << step_length << std::endl;
 	
