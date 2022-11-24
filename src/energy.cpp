@@ -365,11 +365,11 @@ void lsTools::calculate_pseudo_geodesic_opt_expanded_function_values(Eigen::Vect
 
 		// r*u - sin = 0
 
-		if (angle_degree.size() == vnbr && angle_degree[i] == 90)
+		if (angle_degree.size() == vnbr && angle_degree[vm] == 90)
 		{
 			continue;
 		}
-		if (angle_degree.size() == 1 && angle_degree[0] = 90)
+		if (angle_degree.size() == 1 && angle_degree[0] == 90)
 		{
 			continue;
 		}
