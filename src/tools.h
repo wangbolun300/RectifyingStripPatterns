@@ -50,7 +50,11 @@ bool find_one_ls_segment_on_triangle(const double value, const Eigen::MatrixXi &
 void extract_levelset_web(const CGMesh &lsmesh, const Eigen::MatrixXd &V,
                           const Eigen::MatrixXi &F, const Eigen::VectorXd &ls0, const Eigen::VectorXd &ls1,
                           const int nbr_ls0, const int nbr_ls1,
-                          Eigen::MatrixXd &vers, Eigen::MatrixXi &Faces);
+                          Eigen::MatrixXd &vers, Eigen::MatrixXi &Faces, bool even_pace);
+void extract_Origami_web(const CGMesh &lsmesh, const Eigen::MatrixXd &V,const std::vector<CGMesh::HalfedgeHandle>& loop,
+                         const Eigen::MatrixXi &F, const Eigen::VectorXd &ls,
+                         const int expect_nbr_ls, const int expect_nbr_dis,
+                         Eigen::MatrixXd &vers, Eigen::MatrixXi &Faces);
 double get_mat_max_diag(spMat& M);
 void solve_mean_value_laplacian_mat(CGMesh& lsmesh, const std::vector<int>& IVids, spMat& mat);
 spMat sum_uneven_spMats(const spMat& mat_small, const spMat& mat_large);

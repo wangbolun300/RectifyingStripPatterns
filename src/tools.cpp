@@ -955,6 +955,21 @@ void get_level_set_sample_values(const Eigen::VectorXd &ls, const int nbr, Eigen
     }
     return;
 }
+void get_level_set_sample_values_even_pace(const Eigen::VectorXd &ls, const int nbr, const double pace, Eigen::VectorXd &values){
+    double vmax=ls.maxCoeff();
+    double vmin=ls.minCoeff();
+    double remain=(vmax-vmin)-(nbr-1)*pace;
+    remain/=2; 
+    if(remain<0){
+        std::cout<<"computing wrong"<<std::endl;
+    }
+    values.resize(nbr);
+    for(int i=0;i<nbr;i++){
+        values[i] = remain + vmin + i * pace;
+    }
+    return;
+}
+
 
 // 
 void get_iso_lines(const Eigen::MatrixXd &V,
@@ -973,6 +988,126 @@ void get_iso_lines(const Eigen::MatrixXd &V,
             fids.push_back(i);
         }
     }
+}
+bool halfedge_has_value(const CGMesh &lsmesh, const Eigen::MatrixXd &V,
+                         const Eigen::VectorXd &ls, const CGMesh::HalfedgeHandle &hd, const double value, Eigen::Vector3d &pt)
+{
+    int id_f=lsmesh.from_vertex_handle(hd).idx();
+    int id_t=lsmesh.to_vertex_handle(hd).idx();
+    double value_f=ls[id_f];
+    double value_t=ls[id_t];
+    double t=get_t_of_value(value, value_f, value_t);
+    if(t<0||t>1){
+        return false;
+    }
+    Eigen::Vector3d ver_f=V.row(id_f);
+    Eigen::Vector3d ver_t= V.row(id_t);
+    pt=get_3d_ver_from_t(t, ver_f, ver_t);
+    // std::cout<<"has value "<<value<<", vf "<<value_f<<" vt "<<value_t<<", idf "<<id_f<<", idt "<<id_t<<std::endl;
+    return true;
+}
+
+// the mesh provides the connectivity, loop is the boundary loop
+// left_large indicates if the from ver of each boundary edge is larger value
+void get_iso_lines(const CGMesh &lsmesh, const std::vector<CGMesh::HalfedgeHandle>& loop, const Eigen::MatrixXd &V,
+                   const Eigen::MatrixXi &F, const Eigen::VectorXd &ls, double value, std::vector<std::vector<Eigen::Vector3d>> &pts,
+                   std::vector<bool>& left_large)
+{
+    pts.clear();
+    left_large.clear();
+    std::vector<CGMesh::HalfedgeHandle> has_value; // these boundary edges has value
+    std::vector<Eigen::Vector3d> start_pts; // these are the computed start/end points
+    for(int i=0;i<loop.size();i++){ // find the points on boundary
+        
+        CGMesh::HalfedgeHandle bhd;
+        if (lsmesh.face_handle(loop[i]).idx()<0)
+        {
+            bhd=loop[i];
+        }
+        else{
+            bhd=lsmesh.opposite_halfedge_handle(loop[i]);
+        }
+        
+        assert(lsmesh.face_handle(bhd).idx()<0);
+        Eigen::Vector3d intersection;
+        bool found=halfedge_has_value(lsmesh,V,ls, bhd, value,intersection);
+        if(!found){
+            continue;
+        }
+        has_value.push_back(bhd);
+        start_pts.push_back(intersection);
+        int id0=lsmesh.from_vertex_handle(bhd).idx();
+        int id1=lsmesh.to_vertex_handle(bhd).idx();
+        if(ls[id0]>ls[id1]){
+            left_large.push_back(true);
+        }
+        else{
+            left_large.push_back(false);
+        }
+    }
+    int bsize=has_value.size();
+    std::cout<<"has values size "<<bsize<<std::endl;
+    // std::vector<bool> checked(bsize); // show if this boundary edge is checked
+    // for(int i=0;i<bsize;i++){
+    //     checked[i]=false;
+    // }
+
+    for(int i=0;i<bsize;i++){
+        // if(checked[i]){
+        //     continue;
+        // }
+        // checked[i]=true;
+        if(left_large[i]==false){ // only count for the shoouting in boundaries
+            continue;
+        }
+
+        std::vector<Eigen::Vector3d> tmpts; // the vers for each polyline
+        CGMesh::HalfedgeHandle thd=has_value[i]; // the start handle
+        tmpts.push_back(start_pts[i]);
+        while(1){
+            CGMesh::HalfedgeHandle ophd=lsmesh.opposite_halfedge_handle(thd);
+            int fid = lsmesh.face_handle(ophd).idx();
+            if(fid<0){ // if already reached a boundary
+                for(int j=0;j<bsize;j++){
+                    if(ophd==has_value[j]){
+                        // if(checked[j]){
+                        //     std::cout<<"TOPOLOGY WRONG"<<std::endl;
+                        // }
+                        // checked[j]=true;
+                        break;
+                    }
+                }
+                pts.push_back(tmpts);
+                break;
+            }
+            int id_f=lsmesh.from_vertex_handle(ophd).idx();
+            int id_t=lsmesh.to_vertex_handle(ophd).idx();
+            CGMesh::HalfedgeHandle prev=lsmesh.prev_halfedge_handle(ophd);
+            CGMesh::HalfedgeHandle next=lsmesh.next_halfedge_handle(ophd);
+            int bid=lsmesh.from_vertex_handle(prev).idx();
+            if(bid==id_f||bid==id_t){
+                std::cout<<"wrong topology"<<std::endl;
+            }
+            if(ls[bid]==value){// a degenerate case where the value is on a vertex of the mesh
+                value+=1e-16;
+            }
+            Eigen::Vector3d intersect;
+            bool found =halfedge_has_value(lsmesh, V, ls, prev,value, intersect);
+            if(found){
+                tmpts.push_back(intersect);
+                thd=prev;
+                continue;
+            }
+            found = halfedge_has_value(lsmesh, V, ls, next, value, intersect);
+            if(found){
+                tmpts.push_back(intersect);
+                thd=next;
+                continue;
+            }
+            std::cout<<"Both two halfedges did not find the correct value, error"<<std::endl;
+        }
+    }
+
 }
 bool two_triangles_connected(const Eigen::MatrixXi& F, const int fid0, const int fid1){
     if(fid0==fid1){
@@ -1052,11 +1187,35 @@ void extract_web_from_index_mat(const Eigen::MatrixXi& mat, Eigen::MatrixXi& F){
 
     }
 }
+void extract_web_mxn(const int rows, const int cols, Eigen::MatrixXi& F){
+    std::array<int, 4> face;
+    std::vector<std::array<int,4>> tface; 
+    tface.reserve(rows*cols);
+    for(int i=0;i<rows-1;i++){
+        for(int j=0;j<cols-1;j++){
+            int f0 = cols * i + j;
+            int f1 = cols * (i + 1) + j;
+            int f2 = cols * (i + 1) + (j + 1);
+            int f3 = cols * i + j + 1;
+            face={f0,f1,f2,f3};
+            tface.push_back(face);
+        }
+    }
+    F.resize(tface.size(),4);
+    for(int i=0;i<tface.size();i++){
+        F(i,0)=tface[i][0];
+        F(i,1)=tface[i][1];
+        F(i,2)=tface[i][2];
+        F(i,3)=tface[i][3];
 
+    }
+}
+
+// the parameter even_pace means that the 
 void extract_levelset_web(const CGMesh &lsmesh, const Eigen::MatrixXd &V,
                           const Eigen::MatrixXi &F, const Eigen::VectorXd &ls0, const Eigen::VectorXd &ls1,
-                          const int nbr_ls0, const int nbr_ls1,
-                          Eigen::MatrixXd &vers, Eigen::MatrixXi &Faces)
+                          const int expect_nbr_ls0, const int expect_nbr_ls1,
+                          Eigen::MatrixXd &vers, Eigen::MatrixXi &Faces, bool even_pace=false)
 {
     std::vector<std::vector<Eigen::Vector3d>> ivs;                                    // the intersection vertices
     Eigen::MatrixXi gridmat;                                                          // the matrix for vertex
@@ -1067,6 +1226,21 @@ void extract_levelset_web(const CGMesh &lsmesh, const Eigen::MatrixXd &V,
     if(ls0.size()!=ls1.size()){
         std::cout<<"ERROR, Please use the correct level sets"<<std::endl;
     }
+    int nbr_ls0, nbr_ls1;
+    if(!even_pace){
+        nbr_ls0=expect_nbr_ls0;
+        nbr_ls1=expect_nbr_ls1;
+        get_level_set_sample_values(ls0, nbr_ls0, lsv0);
+        get_level_set_sample_values(ls1, nbr_ls1, lsv1);
+    }
+    else{
+        double pace = std::min((ls0.maxCoeff() - ls0.minCoeff()) / (expect_nbr_ls0 + 1), (ls1.maxCoeff() - ls1.minCoeff()) / (expect_nbr_ls1 + 1));
+        nbr_ls0 = (ls0.maxCoeff() - ls0.minCoeff()) / pace + 1;
+        nbr_ls1 = (ls1.maxCoeff() - ls1.minCoeff()) / pace + 1;
+        get_level_set_sample_values_even_pace(ls0, nbr_ls0, pace, lsv0);
+        get_level_set_sample_values_even_pace(ls1, nbr_ls1, pace, lsv1);
+    }
+
     ivs.resize(nbr_ls0);
     verlist.reserve(nbr_ls0 * nbr_ls1);
     gridmat = Eigen::MatrixXi::Ones(nbr_ls0, nbr_ls1) * -1; // initially there is no quad patterns
@@ -1091,8 +1265,7 @@ void extract_levelset_web(const CGMesh &lsmesh, const Eigen::MatrixXd &V,
         poly1_e1[i].reserve(nbr_ls0);
         fid1[i].reserve(nbr_ls0);
     }
-    get_level_set_sample_values(ls0, nbr_ls0, lsv0);
-    get_level_set_sample_values(ls1, nbr_ls1, lsv1);
+    
     // std::cout<<"sp_0 \n"<<lsv0.transpose()<<"\nsp_1\n"<<lsv1.transpose()<<std::endl;
     for (int i = 0; i < nbr_ls0; i++)
     {
@@ -1124,4 +1297,108 @@ void extract_levelset_web(const CGMesh &lsmesh, const Eigen::MatrixXd &V,
     std::cout<<"extracted ver nbr "<<verlist.size()<<std::endl;
     vers=vec_list_to_matrix(verlist);
     extract_web_from_index_mat(gridmat,Faces);
+    if(even_pace){
+        std::cout<<"The even pace quad, pace, "<<std::min((ls0.maxCoeff() - ls0.minCoeff()) / (expect_nbr_ls0 + 1), (ls1.maxCoeff() - ls1.minCoeff()) / (expect_nbr_ls1 + 1))
+        <<std::endl;
+    }
+}
+double polyline_length(const std::vector<Eigen::Vector3d>& line){
+    int size = line.size();
+    double total=0;
+    for(int i=0;i<size-1;i++){
+        Eigen::Vector3d dire=line[i]-line[i+1];
+        double dis=dire.norm();
+        total+=dis;
+    }
+    return total;
+}
+int select_longest_polyline(const std::vector<std::vector<Eigen::Vector3d>>& lines, double & length){
+    int size = lines.size();
+    assert(size>0);
+    double max_length=0;
+    int max_id=0;
+    for(int i = 0;i<size; i++){
+        double length = polyline_length(lines[i]);
+        if(length>max_length){
+            max_length=length;
+            max_id=i;
+        }
+    }
+    length=max_length;
+    return max_id;
+}
+void find_next_pt_on_polyline(const int start_seg, const std::vector<Eigen::Vector3d> &polyline, const double length,
+                              const Eigen::Vector3d &pstart, int &seg, Eigen::Vector3d &pt)
+{
+    int nbr=polyline.size();
+    double ocu_dis=0;
+    double dis_to_start=length+(polyline[start_seg]-pstart).norm();
+    for(int i=start_seg; i<nbr-1;i++){
+        double dis=(polyline[i]-polyline[i+1]).norm();
+        ocu_dis+= dis;
+        if(ocu_dis>dis_to_start){ // the point should between i and i+1
+            double diff = ocu_dis-dis_to_start; // the distance the point to i+1
+            double t = diff/dis;
+            assert(t>=0&&t<=1);
+            Eigen::Vector3d p=get_3d_ver_from_t(t, polyline[i+1], polyline[i]);
+            pt = p;
+            seg=i;
+            return;
+        }
+    }
+    std::cout<<"ERROR OUT OF SEGMENT"<<std::endl;
+}
+// nbr - 1 is the nbr of segments
+// length is the length of the polyline
+void sample_polyline_and_extend_verlist(const std::vector<Eigen::Vector3d>& polyline, const int nbr, const double length, std::vector<Eigen::Vector3d>& verlist){
+    assert(nbr>3);
+    double avg = length / (nbr - 1);
+    verlist.push_back(polyline[0]);
+    int start=0;
+    for (int i = 0; i < nbr - 2; i++)
+    {
+        int seg;
+        Eigen::Vector3d pt;
+        std::cout<<"finding vers"<<std::endl;
+        find_next_pt_on_polyline(start, polyline, avg, verlist.back(), seg, pt);
+        std::cout<<"found vers"<<std::endl;
+        verlist.push_back(pt);
+        start=seg;
+    }
+    verlist.push_back(polyline.back());
+}
+
+void extract_Origami_web(const CGMesh &lsmesh, const Eigen::MatrixXd &V,const std::vector<CGMesh::HalfedgeHandle>& loop,
+                         const Eigen::MatrixXi &F, const Eigen::VectorXd &ls,
+                         const int expect_nbr_ls, const int expect_nbr_dis,
+                         Eigen::MatrixXd &vers, Eigen::MatrixXi &Faces)
+{
+    Eigen::VectorXd lsv0;
+    int nbr_ls0;
+
+    nbr_ls0 = expect_nbr_ls;
+    get_level_set_sample_values(ls, nbr_ls0, lsv0);
+    std::cout<<"sampled"<<std::endl;
+    std::vector<Eigen::Vector3d> verlist;
+    verlist.reserve(nbr_ls0*expect_nbr_dis);
+    for(int i=0;i<nbr_ls0;i++){
+        std::vector<std::vector<Eigen::Vector3d>> polylines;
+        double value = lsv0[i];
+        std::vector<bool> left_large;
+        std::cout<<"iso..."<<std::endl;
+        get_iso_lines(lsmesh, loop, V, F, ls, value, polylines, left_large);
+        std::cout<<"iso got, size "<<polylines.size()<<std::endl;
+        double length ;
+        int longest = select_longest_polyline(polylines, length);
+        std::cout<<"longest got, size "<<polylines[longest].size()<<" length "<<length<<std::endl;
+        // for(int j=0;j<polylines[longest].size();j++){
+        //     std::cout<<"v "<<polylines[longest][j].transpose()<<std::endl;
+        // }
+        // exit(0);
+        sample_polyline_and_extend_verlist(polylines[longest], expect_nbr_dis, length, verlist);
+        std::cout<<"vers found"<<std::endl;
+    }
+    vers=vec_list_to_matrix(verlist);
+    extract_web_mxn(nbr_ls0, expect_nbr_dis, Faces);
+
 }

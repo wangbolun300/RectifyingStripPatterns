@@ -256,18 +256,19 @@ void lsTools::analysis_pseudo_geodesic_on_vertices(const Eigen::VectorXd& func_v
 void lsTools::calculate_pseudo_geodesic_opt_expanded_function_values(Eigen::VectorXd& vars, const std::vector<double>& angle_degree,
 	const Eigen::VectorXd& LocalActInner, const std::vector<CGMesh::HalfedgeHandle>& heh0, const std::vector<CGMesh::HalfedgeHandle>& heh1,
 	const std::vector<double>& t1s, const std::vector<double>& t2s, const bool first_compute, const int vars_start_loc, const int aux_start_loc, std::vector<Trip>& tripletes, Eigen::VectorXd& Energy) {
-	double cos_angle;
+	double cos_angle, sin_angle;
 	int vnbr = V.rows();
 	int ninner = LocalActInner.size();
 	if (angle_degree.size() == 1) {
 		double angle_radian = angle_degree[0] * LSC_PI / 180.; // the angle in radian
 		cos_angle = cos(angle_radian);
+		sin_angle = sin(angle_radian);
 	}
 	assert(angle_degree.size() == 1 || angle_degree.size() == vnbr);
 	
 	tripletes.clear();
-	tripletes.reserve(ninner * 20); // the number of rows is ninner*4, the number of cols is aux_start_loc + ninner * 3 (all the function values and auxiliary vars)
-	Energy = Eigen::VectorXd::Zero(ninner * 4); // mesh total energy values
+	tripletes.reserve(ninner * 24); // the number of rows is ninner*5, the number of cols is aux_start_loc + ninner * 3 (all the function values and auxiliary vars)
+	Energy = Eigen::VectorXd::Zero(ninner * 5); // mesh total energy values
 
 	for (int i = 0; i < ninner; i++)
 	{
@@ -279,6 +280,7 @@ void lsTools::calculate_pseudo_geodesic_opt_expanded_function_values(Eigen::Vect
 		if (angle_degree.size() == vnbr) {
 			double angle_radian = angle_degree[vm] * LSC_PI / 180.; // the angle in radian
 			cos_angle = cos(angle_radian);
+			sin_angle = sin(angle_radian);
 		}
 		CGMesh::HalfedgeHandle inhd = heh0[i], outhd = heh1[i];
 		int v1 = lsmesh.from_vertex_handle(inhd).idx();
@@ -360,6 +362,24 @@ void lsTools::calculate_pseudo_geodesic_opt_expanded_function_values(Eigen::Vect
 		tripletes.push_back(Trip(i + ninner * 3, lrz, norm(2)));
 
 		Energy[i + ninner * 3] = norm.dot(r) - cos_angle;
+
+		// r*u - sin = 0
+
+		if (angle_degree.size() == vnbr && angle_degree[i] == 90)
+		{
+			continue;
+		}
+		if (angle_degree.size() == 1 && angle_degree[0] = 90)
+		{
+			continue;
+		}
+		Eigen::Vector3d u = norm.cross(ver2 - ver0);
+		u = u.normalized();
+		tripletes.push_back(Trip(i + ninner * 4, lrx, u(0)));
+		tripletes.push_back(Trip(i + ninner * 4, lry, u(1)));
+		tripletes.push_back(Trip(i + ninner * 4, lrz, u(2)));
+
+		Energy[i + ninner * 4] = u.dot(r) - sin_angle;
 	}
 
 }
@@ -587,6 +607,52 @@ void lsTools::assemble_solver_boundary_condition_part(const Eigen::VectorXd& fun
 	// get the -(J^T)*f(x)
 	B = -bcJacobian.transpose() * bcfvalue;
 }
+void lsTools::assemble_solver_fixed_values_part(const std::vector<CGMesh::HalfedgeHandle> &hds, const double assigned_value,
+												const Eigen::VectorXd &func, spMat &H, Eigen::VectorXd &B, Eigen::VectorXd &bcfvalue)
+{
+	spMat bcJacobian;
+	int size = 0;// the number of constraints
+	std::vector<double> vec_elements;
+	std::vector<Trip> triplets;
+	vec_elements.reserve(hds.size()*2);
+	triplets.reserve(hds.size()*2);
+	Eigen::VectorXi checked = Eigen::VectorXi::Zero(V.rows());
+	for (int i = 0; i < hds.size(); i++)
+	{
+		CGMesh::HalfedgeHandle edge = hds[i];
+		int id_from = lsmesh.from_vertex_handle(edge).idx();
+		int id_to = lsmesh.to_vertex_handle(edge).idx();
+		if (checked[id_from] == 0)
+		{
+			triplets.push_back(Trip(size, id_from, 1));
+			checked[id_from] = 1;
+			vec_elements.push_back(func[id_from] - assigned_value);
+			size++;
+		}
+		if (checked[id_to] == 0)
+		{
+			triplets.push_back(Trip(size, id_to, 1));
+			checked[id_to] = 1;
+			vec_elements.push_back(func[id_to] - assigned_value);
+			size++;
+		}
+	}
+	// std::cout<<"after loop"<<std::endl;
+	// get boundary condition: the jacobian matrix
+	bcJacobian.resize(size, V.rows());
+	bcJacobian.setFromTriplets(triplets.begin(), triplets.end());// TODO calculate this before optimization
+	bcfvalue.resize(size);
+	// std::cout<<"calculated a and b"<<std::endl;
+	for (int i = 0; i < size; i++) {// get the f(x)
+		double value = vec_elements[i];
+		bcfvalue(i) = value;
+	}
+	
+	// get JTJ
+	H = bcJacobian.transpose() * bcJacobian;
+	// get the -(J^T)*f(x)
+	B = -bcJacobian.transpose() * bcfvalue;
+}
 double get_mat_max_diag(spMat& M) {
 	int nbr = M.rows();
 	double value = 0;
@@ -610,7 +676,7 @@ void lsTools::assemble_solver_pesudo_geodesic_energy_part_vertex_based(Eigen::Ve
 	calculate_pseudo_geodesic_opt_expanded_function_values(vars, angle_degree,
 		LocalActInner, heh0, heh1, t1s, t2s, first_compute, vars_start_loc, aux_start_loc, tripletes, energy);
 	int nvars = vars.size();
-	int ncondi = ninner * 4;
+	int ncondi = ninner * 5;
 	spMat J;
 	J.resize(ncondi, nvars);
 	J.setFromTriplets(tripletes.begin(), tripletes.end());
@@ -865,7 +931,7 @@ void lsTools::Run_AAG(Eigen::VectorXd& func0, Eigen::VectorXd& func1, Eigen::Vec
 	bool first_compute = true; // if we need initialize auxiliary vars
 	
 	// initialize the level set with some number
-	
+	func2 = -func0 - func1; // func0 + func1 + func2 = 0
 	analysis_pseudo_geodesic_on_vertices(func0, anas[0]);
 	analysis_pseudo_geodesic_on_vertices(func1, anas[1]);
 	analysis_pseudo_geodesic_on_vertices(func2, anas[2]);
@@ -878,7 +944,7 @@ void lsTools::Run_AAG(Eigen::VectorXd& func0, Eigen::VectorXd& func1, Eigen::Vec
 	get_gradient_hessian_values(func1, GradValueV[1], GradValueF[1]);
 	get_gradient_hessian_values(func2, GradValueV[2], GradValueF[2]);
 	if (Glob_lsvars.size() == 0) {
-		func2 = -func0 - func1; // func0 + func1 + func2 = 0
+		
 		first_compute = true;
 		std::cout << "Initializing Global Variable For LevelSet Opt ... " << std::endl;
 		Glob_lsvars = Eigen::VectorXd::Zero(final_size);// We change the size if opt more than 1 level set
@@ -897,8 +963,8 @@ void lsTools::Run_AAG(Eigen::VectorXd& func0, Eigen::VectorXd& func1, Eigen::Vec
 	assemble_solver_biharmonic_smoothing(func0, LTL0, mLTF0);
 	assemble_solver_biharmonic_smoothing(func1, LTL1, mLTF1);
 	assemble_solver_biharmonic_smoothing(func2, LTL2, mLTF2);
-	H += weight_laplacian * three_spmat_in_diag(LTL0, LTL1, LTL2, final_size);
-	B += weight_laplacian * three_vec_in_row(mLTF0, mLTF1, mLTF2, final_size);
+	H += weight_laplacian * three_spmat_in_diag(LTL0, LTL1, weight_geodesic* LTL2, final_size);
+	B += weight_laplacian * three_vec_in_row(mLTF0, mLTF1, weight_geodesic* mLTF2, final_size);
 
 	// strip width condition
 	
@@ -909,8 +975,8 @@ void lsTools::Run_AAG(Eigen::VectorXd& func0, Eigen::VectorXd& func1, Eigen::Vec
 		assemble_solver_strip_width_part(GradValueF[0], sw_JTJ[0], sw_mJTF[0]);// by default the strip width is 1. Unless tracing info updated the info
 		assemble_solver_strip_width_part(GradValueF[1], sw_JTJ[1], sw_mJTF[1]);// by default the strip width is 1. Unless tracing info updated the info
 		assemble_solver_strip_width_part(GradValueF[2], sw_JTJ[2], sw_mJTF[2]);// by default the strip width is 1. Unless tracing info updated the info
-		H += weight_strip_width * three_spmat_in_diag(sw_JTJ[0], sw_JTJ[1], sw_JTJ[2], final_size);
-		B += weight_strip_width * three_vec_in_row(sw_mJTF[0], sw_mJTF[1], sw_mJTF[2], final_size);
+		H += weight_strip_width * three_spmat_in_diag(sw_JTJ[0], sw_JTJ[1], weight_geodesic* sw_JTJ[2], final_size);
+		B += weight_strip_width * three_vec_in_row(sw_mJTF[0], sw_mJTF[1], weight_geodesic* sw_mJTF[2], final_size);
 	}
 	spMat extraH;
 	Eigen::VectorXd extraB;
@@ -940,8 +1006,8 @@ void lsTools::Run_AAG(Eigen::VectorXd& func0, Eigen::VectorXd& func1, Eigen::Vec
 																 anas[2].heh0, anas[2].heh1,
 																 anas[2].t1s, anas[2].t2s, first_compute, vars_start_loc, aux_start_loc, 
 																 pg_JTJ[2], pg_mJTF[2], PGEnergy[2]);
-		H += weight_pseudo_geodesic_energy * (pg_JTJ[0] + pg_JTJ[1] + pg_JTJ[2]);
-		B += weight_pseudo_geodesic_energy * (pg_mJTF[0] + pg_mJTF[1] + pg_mJTF[2]);
+		H += weight_pseudo_geodesic_energy * (pg_JTJ[0] + pg_JTJ[1] + weight_geodesic* pg_JTJ[2]);
+		B += weight_pseudo_geodesic_energy * (pg_mJTF[0] + pg_mJTF[1] + weight_geodesic* pg_mJTF[2]);
 	}
 	
 	H += 1e-6 * weight_mass * spMat(Eigen::VectorXd::Ones(final_size).asDiagonal());
@@ -1006,7 +1072,7 @@ void lsTools::Run_AAG(Eigen::VectorXd& func0, Eigen::VectorXd& func1, Eigen::Vec
 		stp_energy[2] = Eigen::VectorXd(ener2).dot(ener2);
 		std::cout << "strip, " << stp_energy[0] << ", "<< stp_energy[1] << ", "<< stp_energy[2] << ", ";
 	}
-	std::cout<<"extra, "<<extra_energy.norm()<<std::endl;
+	std::cout<<"extra, "<<extra_energy.norm()<<", ";
 	step_length = dx.norm();
 	std::cout << "step " << step_length << std::endl;
 	

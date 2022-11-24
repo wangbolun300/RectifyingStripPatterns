@@ -16,6 +16,11 @@ typedef Eigen::Triplet<double> Trip;
 #define ANGLE_TOLERANCE 2.
 #define QUADRANT_TOLERANCE 0.04 // over 2 degree tolerance
 
+enum BCtype{ // boundary condition type
+    Traced, //0 // the traced values as the guide directions
+    Opp_fixed// // fixing the vales of two opposite boundary edges
+};
+
 class EnergyPrepare{
     public:
     EnergyPrepare(){};
@@ -119,7 +124,7 @@ private:
     Eigen::VectorXd InnerV; // the vector show if it is a inner ver (1) or not (0).
     std::vector<int> IVids; // the ids of the inner vers.
 
-    std::vector<CGMesh::HalfedgeHandle> Boundary_Edges;
+    
     std::vector<CGMesh::HalfedgeHandle> tracing_start_edges;
     std::vector<double> pseudo_geodesic_angles_per_ver;
     Eigen::VectorXd Glob_lsvars; // global variables for levelset opt
@@ -179,6 +184,8 @@ private:
     void assemble_solver_laplacian_part(spMat &H, Efunc &B);
     void assemble_solver_biharmonic_smoothing(const Eigen::VectorXd& func, spMat &H, Eigen::VectorXd &B); //Biharmonic smoothing (natural curved Hessian boundary)
     void assemble_solver_boundary_condition_part(const Eigen::VectorXd& func, spMat& H, Eigen::VectorXd& B, Eigen::VectorXd& bcfvalue);
+    void assemble_solver_fixed_values_part(const std::vector<CGMesh::HalfedgeHandle> &hds, const double assigned_value,
+												const Eigen::VectorXd &func, spMat &H, Eigen::VectorXd &B, Eigen::VectorXd &bcfvalue);
     void assemble_solver_pesudo_geodesic_energy_part_vertex_based(Eigen::VectorXd& vars, const std::vector<double>& angle_degree, Eigen::VectorXd& LocalActInner,
         std::vector<CGMesh::HalfedgeHandle>& heh0, std::vector<CGMesh::HalfedgeHandle>& heh1,
         std::vector<double>& t1s, std::vector<double>& t2s, const bool first_compute, const int vars_start_loc, const int aux_start_loc, spMat& H, Eigen::VectorXd& B, Eigen::VectorXd& energy);
@@ -288,6 +295,7 @@ public:
     double weight_boundary;              // weight of the boundary energy
     double weight_pseudo_geodesic_energy;// weight of the pseudo-geodesic energy
     double weight_strip_width;
+    double weight_geodesic; // For AAG
     // Don't Use Strip Width Condition When Opt Multiple Functions
     double strip_width = 1;       // strip width, defined as h/w, h: level set function value difference. w: distance between two points on the surface
     double max_step_length;
@@ -318,6 +326,10 @@ public:
     Eigen::MatrixXd visual_pts_dbg;
     Eigen::MatrixXd vBinormal;
 
+    std::vector<CGMesh::HalfedgeHandle> Boundary_Edges; // Caution: Either it or it's opposite handle is the boundary halfedge handle
+    // boundary conditions
+    // int boundary_type = 
+    // 
     // this function should be calculated first once the class get constructed
     //  1. get face normals;
     //  2. get all the angles;

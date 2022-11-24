@@ -568,8 +568,8 @@ double get_t_of_segment(const Eigen::Vector3d &ver, const Eigen::Vector3d &start
 }
 double get_t_of_value(const double &ver, const double &start, const double &end)
 {
-    double dis1 = abs(ver - start);
-    double dis2 = abs(end - start);
+    double dis1 = ver - start;
+    double dis2 = end - start;
     assert(start != end);
     double t=dis1/dis2;
     return t;
@@ -745,11 +745,17 @@ bool find_one_ls_segment_on_triangle(const double value, const Eigen::MatrixXi &
     assert(eids.size()!=3);
     
     double t = get_t_of_value(value,fvalues[eids[0][0]],fvalues[eids[0][1]]);
+    assert(t>=0&&t<=1);
     E0 = get_3d_ver_from_t(t, V.row(eids[0][0]), V.row(eids[0][1]));
     t=get_t_of_value(value,fvalues[eids[1][0]],fvalues[eids[1][1]]);
     E1 = get_3d_ver_from_t(t, V.row(eids[1][0]), V.row(eids[1][1]));
     return true;
 }
+// bool find_one_ls_segment_on_edge(const double value, const Eigen::MatrixXi &E, const Eigen::MatrixXd &V,
+//                                  const Eigen::VectorXd &fvalues, const int fid, Eigen::Vector3d &E0, Eigen::Vector3d &E1)
+// {
+
+// }
 void lsTools::extract_one_curve(const double value, Eigen::MatrixXd& E0, Eigen::MatrixXd &E1){
     std::vector<Eigen::Vector3d> e0list;
     std::vector<Eigen::Vector3d> e1list;
