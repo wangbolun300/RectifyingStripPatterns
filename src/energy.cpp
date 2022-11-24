@@ -253,6 +253,7 @@ void lsTools::analysis_pseudo_geodesic_on_vertices(const Eigen::VectorXd& func_v
 void lsTools::analysis_pseudo_geodesic_on_vertices(const Eigen::VectorXd& func_values, LSAnalizer& ana) {
 	analysis_pseudo_geodesic_on_vertices(func_values, ana.LocalActInner, ana.heh0, ana.heh1, ana.t1s, ana.t2s);
 }
+int count = 0;
 void lsTools::calculate_pseudo_geodesic_opt_expanded_function_values(Eigen::VectorXd& vars, const std::vector<double>& angle_degree,
 	const Eigen::VectorXd& LocalActInner, const std::vector<CGMesh::HalfedgeHandle>& heh0, const std::vector<CGMesh::HalfedgeHandle>& heh1,
 	const std::vector<double>& t1s, const std::vector<double>& t2s, const bool first_compute, const int vars_start_loc, const int aux_start_loc, std::vector<Trip>& tripletes, Eigen::VectorXd& Energy) {
@@ -305,12 +306,16 @@ void lsTools::calculate_pseudo_geodesic_opt_expanded_function_values(Eigen::Vect
 		int lrx = i + aux_start_loc;
 		int lry = i + aux_start_loc + ninner;
 		int lrz = i + aux_start_loc + ninner * 2;
+		Eigen::Vector3d real_r = (ver1 - ver0).normalized().cross((ver2 - ver1).normalized());
 		if (first_compute) {
-			Eigen::Vector3d real_r = (ver1 - ver0).cross(ver2 - ver1);
-			real_r = real_r.normalized();
-			vars[lrx] = real_r[0];
-			vars[lry] = real_r[1];
-			vars[lrz] = real_r[2];
+			
+			if (real_r.norm() > 1e-6) // re-compute the bi-normal only when they are accurate, otherwise, use the optimized values
+			{
+				real_r = real_r.normalized();
+				vars[lrx] = real_r[0];
+				vars[lry] = real_r[1];
+				vars[lrz] = real_r[2];
+			}
 		}
 		Eigen::Vector3d r = Eigen::Vector3d(vars[lrx], vars[lry], vars[lrz]);
 		// the weights 
@@ -351,35 +356,29 @@ void lsTools::calculate_pseudo_geodesic_opt_expanded_function_values(Eigen::Vect
 		tripletes.push_back(Trip(i + ninner * 2, lrz, 2 * vars(lrz)));
 
 		Energy[i + ninner * 2] = r.dot(r) - 1;
-
-		// r*norm - cos = 0
+		// (r*norm)^2 - cos^2 = 0
 		Eigen::Vector3d norm = norm_v.row(vm);
-		Eigen::Vector3d v12 = V.row(v2) - V.row(v1);
-		Eigen::Vector3d v2m = V.row(vm) - V.row(v2);
-		assert((v12.cross(v2m)).dot(norm) > 0);
-		tripletes.push_back(Trip(i + ninner * 3, lrx, norm(0)));
-		tripletes.push_back(Trip(i + ninner * 3, lry, norm(1)));
-		tripletes.push_back(Trip(i + ninner * 3, lrz, norm(2)));
+		tripletes.push_back(Trip(i + ninner * 3, lrx,
+								 2 * norm(0) * norm(0) * vars(lrx) + 2 * norm(0) * norm(1) * vars(lry) + 2 * norm(0) * norm(2) * vars(lrz)));
+		tripletes.push_back(Trip(i + ninner * 3, lry,
+								 2 * norm(1) * norm(1) * vars(lry) + 2 * norm(0) * norm(1) * vars(lrx) + 2 * norm(2) * norm(1) * vars(lrz)));
+		tripletes.push_back(Trip(i + ninner * 3, lrz,
+								 2 * norm(2) * norm(2) * vars(lrz) + 2 * norm(0) * norm(2) * vars(lrx) + 2 * norm(1) * norm(2) * vars(lry)));
 
-		Energy[i + ninner * 3] = norm.dot(r) - cos_angle;
-
-		// r*u - sin = 0
-
-		if (angle_degree.size() == vnbr && angle_degree[vm] == 90)
-		{
-			continue;
-		}
-		if (angle_degree.size() == 1 && angle_degree[0] == 90)
-		{
-			continue;
-		}
+		double ndr = norm.dot(r);
+		Energy[i + ninner * 3] = ndr * ndr - cos_angle * cos_angle;
+		// (r*u)*(r*n)=sin*cos
 		Eigen::Vector3d u = norm.cross(ver2 - ver0);
 		u = u.normalized();
-		tripletes.push_back(Trip(i + ninner * 4, lrx, u(0)));
-		tripletes.push_back(Trip(i + ninner * 4, lry, u(1)));
-		tripletes.push_back(Trip(i + ninner * 4, lrz, u(2)));
+		tripletes.push_back(Trip(i + ninner * 4, lrx,
+								 2 * u(0) * norm(0) * vars(lrx) + (u(0) * norm(1) + u(1) * norm(0)) * vars(lry) + (u(0) * norm(2) + u(2) * norm(0)) * vars(lrz)));
+		tripletes.push_back(Trip(i + ninner * 4, lry,
+								 2 * u(1) * norm(1) * vars(lry) + (u(0) * norm(1) + u(1) * norm(0)) * vars(lrx) + (u(1) * norm(2) + u(2) * norm(1)) * vars(lrz)));
+		tripletes.push_back(Trip(i + ninner * 4, lrz,
+								 2 * u(2) * norm(2) * vars(lrz) + (u(0) * norm(2) + u(2) * norm(0)) * vars(lrx) + (u(1) * norm(2) + u(2) * norm(1)) * vars(lry)));
 
-		Energy[i + ninner * 4] = u.dot(r) - sin_angle;
+		Energy[i + ninner * 4] = u.dot(r) * norm.dot(r) - sin_angle * cos_angle;
+		// std::cout<<"sin cos "<<sin_angle<<" "<<cos_angle<<std::endl;
 	}
 
 }
@@ -727,7 +726,7 @@ void assemble_AAG_extra_condition(const int mat_size, const int vnbr,
 
 void lsTools::Run_Level_Set_Opt() {
 	
-	
+	count = 0;
 	Eigen::MatrixXd GradValueF, GradValueV;
 	Eigen::VectorXd PGEnergy;
 	Eigen::VectorXd func = fvalues;
@@ -761,7 +760,6 @@ void lsTools::Run_Level_Set_Opt() {
 	
 	get_gradient_hessian_values(func, GradValueV, GradValueF);
 	if (Glob_lsvars.size() == 0) {
-		first_compute = true;
 		std::cout << "Initializing Global Variable For LevelSet Opt ... " << std::endl;
 		Glob_lsvars = Eigen::VectorXd::Zero(final_size);// We change the size if opt more than 1 level set
 		Glob_lsvars.segment(0, vnbr) = func;
@@ -829,7 +827,7 @@ void lsTools::Run_Level_Set_Opt() {
 	
 	Hlarge = sum_uneven_spMats(H, Hlarge);
 	Blarge = sum_uneven_vectors(B, Blarge);
-	if (enable_pseudo_geodesic_energy && weight_pseudo_geodesic_energy > 0)
+	if (enable_pseudo_geodesic_energy)
 	{
 
 		spMat pg_JTJ;
