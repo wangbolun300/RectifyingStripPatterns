@@ -254,6 +254,14 @@ void lsTools::analysis_pseudo_geodesic_on_vertices(const Eigen::VectorXd& func_v
 	analysis_pseudo_geodesic_on_vertices(func_values, ana.LocalActInner, ana.heh0, ana.heh1, ana.t1s, ana.t2s);
 }
 int count = 0;
+
+// auxiliaries:
+// r: the bi-normal. position: aux_start_loc ~ aux_start_loc + ninner * 3
+// u: the side vector, position: aux_start_loc + ninner * 3 ~ aux_start_loc + ninner * 6
+// s: Q-P （reducted without denominators, position: aux_start_loc + ninner * 6 ~ aux_start_loc + ninner * 9
+// h: the r.dot(u). position: aux_start_loc + ninner * 9 ~ aux_start_loc + ninner * 10
+// the nbr of vars: vnbr + ninner * 10
+
 void lsTools::calculate_pseudo_geodesic_opt_expanded_function_values(Eigen::VectorXd& vars, const std::vector<double>& angle_degree,
 	const Eigen::VectorXd& LocalActInner, const std::vector<CGMesh::HalfedgeHandle>& heh0, const std::vector<CGMesh::HalfedgeHandle>& heh1,
 	const std::vector<double>& t1s, const std::vector<double>& t2s, const bool first_compute, const int vars_start_loc, const int aux_start_loc, std::vector<Trip>& tripletes, Eigen::VectorXd& Energy) {
@@ -268,8 +276,8 @@ void lsTools::calculate_pseudo_geodesic_opt_expanded_function_values(Eigen::Vect
 	assert(angle_degree.size() == 1 || angle_degree.size() == vnbr);
 	
 	tripletes.clear();
-	tripletes.reserve(ninner * 24); // the number of rows is ninner*5, the number of cols is aux_start_loc + ninner * 3 (all the function values and auxiliary vars)
-	Energy = Eigen::VectorXd::Zero(ninner * 5); // mesh total energy values
+	tripletes.reserve(ninner * 60); // 
+	Energy = Eigen::VectorXd::Zero(ninner * 12); // mesh total energy values
 
 	for (int i = 0; i < ninner; i++)
 	{
@@ -306,16 +314,30 @@ void lsTools::calculate_pseudo_geodesic_opt_expanded_function_values(Eigen::Vect
 		int lrx = i + aux_start_loc;
 		int lry = i + aux_start_loc + ninner;
 		int lrz = i + aux_start_loc + ninner * 2;
-		Eigen::Vector3d real_r = (ver1 - ver0).normalized().cross((ver2 - ver1).normalized());
+		int lux = i + aux_start_loc + ninner * 3;
+		int luy = i + aux_start_loc + ninner * 4;
+		int luz = i + aux_start_loc + ninner * 5;
+		int lsx = i + aux_start_loc + ninner * 6;
+		int lsy = i + aux_start_loc + ninner * 7;
+		int lsz = i + aux_start_loc + ninner * 8;
+		int lh = i + aux_start_loc + ninner * 9;
+		Eigen::Vector3d norm = norm_v.row(vm);
+		
 		if (first_compute) {
-			
-			if (real_r.norm() > 1e-6) // re-compute the bi-normal only when they are accurate, otherwise, use the optimized values
-			{
-				real_r = real_r.normalized();
-				vars[lrx] = real_r[0];
-				vars[lry] = real_r[1];
-				vars[lrz] = real_r[2];
-			}
+
+			Eigen::Vector3d real_r = (ver1 - ver0).normalized().cross((ver2 - ver1).normalized());
+			real_r = real_r.normalized();
+			Eigen::Vector3d real_u = norm.cross(ver2 - ver0);
+			real_u = real_u.normalized();
+			// double real_s =  // TODO maybe need to compute s
+			double real_h= real_r.dot(real_u);
+			vars[lrx] = real_r[0];
+			vars[lry] = real_r[1];
+			vars[lrz] = real_r[2];
+			vars[lux] = real_u[0];
+			vars[luy] = real_u[1];
+			vars[luz] = real_u[2];
+			vars[lh] = real_h;
 		}
 		Eigen::Vector3d r = Eigen::Vector3d(vars[lrx], vars[lry], vars[lrz]);
 		// the weights 
@@ -357,7 +379,7 @@ void lsTools::calculate_pseudo_geodesic_opt_expanded_function_values(Eigen::Vect
 
 		Energy[i + ninner * 2] = r.dot(r) - 1;
 		// (r*norm)^2 - cos^2 = 0
-		Eigen::Vector3d norm = norm_v.row(vm);
+		
 		tripletes.push_back(Trip(i + ninner * 3, lrx,
 								 2 * norm(0) * norm(0) * vars(lrx) + 2 * norm(0) * norm(1) * vars(lry) + 2 * norm(0) * norm(2) * vars(lrz)));
 		tripletes.push_back(Trip(i + ninner * 3, lry,
@@ -367,18 +389,94 @@ void lsTools::calculate_pseudo_geodesic_opt_expanded_function_values(Eigen::Vect
 
 		double ndr = norm.dot(r);
 		Energy[i + ninner * 3] = ndr * ndr - cos_angle * cos_angle;
-		// (r*u)*(r*n)=sin*cos
-		Eigen::Vector3d u = norm.cross(ver2 - ver0);
-		u = u.normalized();
-		tripletes.push_back(Trip(i + ninner * 4, lrx,
-								 2 * u(0) * norm(0) * vars(lrx) + (u(0) * norm(1) + u(1) * norm(0)) * vars(lry) + (u(0) * norm(2) + u(2) * norm(0)) * vars(lrz)));
-		tripletes.push_back(Trip(i + ninner * 4, lry,
-								 2 * u(1) * norm(1) * vars(lry) + (u(0) * norm(1) + u(1) * norm(0)) * vars(lrx) + (u(1) * norm(2) + u(2) * norm(1)) * vars(lrz)));
-		tripletes.push_back(Trip(i + ninner * 4, lrz,
-								 2 * u(2) * norm(2) * vars(lrz) + (u(0) * norm(2) + u(2) * norm(0)) * vars(lrx) + (u(1) * norm(2) + u(2) * norm(1)) * vars(lry)));
+		
+		// u*u=1
+		Eigen::VectorXd u = Eigen::Vector3d(vars(lux), vars(luy), vars(luz));
+		tripletes.push_back(Trip(i + ninner * 4, lux, 2 * vars(lux)));
+		tripletes.push_back(Trip(i + ninner * 4, luy, 2 * vars(luy)));
+		tripletes.push_back(Trip(i + ninner * 4, luz, 2 * vars(luz)));
 
-		Energy[i + ninner * 4] = u.dot(r) * norm.dot(r) - sin_angle * cos_angle;
-		// std::cout<<"sin cos "<<sin_angle<<" "<<cos_angle<<std::endl;
+		Energy[i + ninner * 4] = u.dot(u) - 1;
+
+		// u * norm = 0
+		tripletes.push_back(Trip(i + ninner * 5, lux, norm(0)));
+		tripletes.push_back(Trip(i + ninner * 5, luy, norm(1)));
+		tripletes.push_back(Trip(i + ninner * 5, luz, norm(2)));
+
+		Energy[i + ninner * 5] = norm.dot(u);
+
+		// u*s = 0
+		Eigen::Vector3d s = Eigen::Vector3d(vars(lsx), vars(lsy), vars(lsz));
+		
+		tripletes.push_back(Trip(i + ninner * 6, lux, s(0)));
+		tripletes.push_back(Trip(i + ninner * 6, luy, s(1)));
+		tripletes.push_back(Trip(i + ninner * 6, luz, s(2)));
+		
+		tripletes.push_back(Trip(i + ninner * 6, lsx, u(0)));
+		tripletes.push_back(Trip(i + ninner * 6, lsy, u(1)));
+		tripletes.push_back(Trip(i + ninner * 6, lsz, u(2)));
+
+		Energy[i + ninner * 6] = s.dot(u);
+
+		// xxx-s = 0
+		Eigen::Vector3d v31 = V.row(v3) - V.row(v1);
+		Eigen::Vector3d v43 = V.row(v4) - V.row(v3);
+		Eigen::Vector3d v21 = V.row(v2) - V.row(v1);
+		double f1 = vars(lv1);
+		double f2 = vars(lv2);
+		double f3 = vars(lv3);
+		double f4 = vars(lv4);
+		double fm = vars(lvm);
+		// x axis
+		tripletes.push_back(Trip(i + ninner * 7, lsx, -1));
+		tripletes.push_back(Trip(i + ninner * 7, lv1, -v31(0) * (f4 - f3) - v43(0) * (fm - f3) + v21(0) * (f4 - f3)));
+		tripletes.push_back(Trip(i + ninner * 7, lv2, v31(0) * (f4 - f3) + v43(0) * (fm - f3)));
+		tripletes.push_back(Trip(i + ninner * 7, lv3, -v31(0) * (f2 - f1) - v43(0) * (f2 - f1) + v21(0) * (fm - f1)));
+		tripletes.push_back(Trip(i + ninner * 7, lv4, v31(0) * (f2 - f1) - v21(0) * (fm - f1)));
+		tripletes.push_back(Trip(i + ninner * 7, lvm, v43(0) * (f2 - f1) - v21(0) * (f4 - f3)));
+		Energy[i + ninner * 7] = v31(0) * (f4 - f3) * (f2 - f1) + v43(0) * (fm - f3) * (f2 - f1) - v21(0) * (fm - f1) * (f4 - f3) - s(0);
+
+		// y axis
+		tripletes.push_back(Trip(i + ninner * 8, lsy, -1));
+		tripletes.push_back(Trip(i + ninner * 8, lv1, -v31(1) * (f4 - f3) - v43(1) * (fm - f3) + v21(1) * (f4 - f3)));
+		tripletes.push_back(Trip(i + ninner * 8, lv2, v31(1) * (f4 - f3) + v43(1) * (fm - f3)));
+		tripletes.push_back(Trip(i + ninner * 8, lv3, -v31(1) * (f2 - f1) - v43(1) * (f2 - f1) + v21(1) * (fm - f1)));
+		tripletes.push_back(Trip(i + ninner * 8, lv4, v31(1) * (f2 - f1) - v21(1) * (fm - f1)));
+		tripletes.push_back(Trip(i + ninner * 8, lvm, v43(1) * (f2 - f1) - v21(1) * (f4 - f3)));
+		Energy[i + ninner * 8] = v31(1) * (f4 - f3) * (f2 - f1) + v43(1) * (fm - f3) * (f2 - f1) - v21(1) * (fm - f1) * (f4 - f3) - s(1);
+
+		// z axis
+		tripletes.push_back(Trip(i + ninner * 9, lsz, -1));
+		tripletes.push_back(Trip(i + ninner * 9, lv1, -v31(2) * (f4 - f3) - v43(2) * (fm - f3) + v21(2) * (f4 - f3)));
+		tripletes.push_back(Trip(i + ninner * 9, lv2, v31(2) * (f4 - f3) + v43(2) * (fm - f3)));
+		tripletes.push_back(Trip(i + ninner * 9, lv3, -v31(2) * (f2 - f1) - v43(2) * (f2 - f1) + v21(2) * (fm - f1)));
+		tripletes.push_back(Trip(i + ninner * 9, lv4, v31(2) * (f2 - f1) - v21(2) * (fm - f1)));
+		tripletes.push_back(Trip(i + ninner * 9, lvm, v43(2) * (f2 - f1) - v21(2) * (f4 - f3)));
+		Energy[i + ninner * 9] = v31(2) * (f4 - f3) * (f2 - f1) + v43(2) * (fm - f3) * (f2 - f1) - v21(2) * (fm - f1) * (f4 - f3) - s(2);
+
+		// r*u - h =0
+		tripletes.push_back(Trip(i + ninner * 10, lrx, u(0)));
+		tripletes.push_back(Trip(i + ninner * 10, lry, u(1)));
+		tripletes.push_back(Trip(i + ninner * 10, lrz, u(2)));
+
+		tripletes.push_back(Trip(i + ninner * 10, lux, r(0)));
+		tripletes.push_back(Trip(i + ninner * 10, luy, r(1)));
+		tripletes.push_back(Trip(i + ninner * 10, luz, r(2)));
+
+		tripletes.push_back(Trip(i + ninner * 10, lh, -1));
+
+		Energy[i + ninner * 10] = r.dot(u) - vars[lh];
+
+		// h times (r.dot(n)) - sin*cos = 0
+		double h = vars[lh];
+		tripletes.push_back(Trip(i + ninner * 11, lh, r.dot(norm)));
+		tripletes.push_back(Trip(i + ninner * 11, lrx, norm(0)*h));
+		tripletes.push_back(Trip(i + ninner * 11, lry, norm(1)*h));
+		tripletes.push_back(Trip(i + ninner * 11, lrz, norm(2)*h));
+
+		Energy[i + ninner * 11] = r.dot(norm) * h - sin_angle * cos_angle;
+
+		//
 	}
 
 }
@@ -675,7 +773,7 @@ void lsTools::assemble_solver_pesudo_geodesic_energy_part_vertex_based(Eigen::Ve
 	calculate_pseudo_geodesic_opt_expanded_function_values(vars, angle_degree,
 		LocalActInner, heh0, heh1, t1s, t2s, first_compute, vars_start_loc, aux_start_loc, tripletes, energy);
 	int nvars = vars.size();
-	int ncondi = ninner * 5;
+	int ncondi = ninner * 12;
 	spMat J;
 	J.resize(ncondi, nvars);
 	J.setFromTriplets(tripletes.begin(), tripletes.end());
@@ -747,7 +845,7 @@ void lsTools::Run_Level_Set_Opt() {
 	}
 	analysis_pseudo_geodesic_on_vertices(func, anas[0]);
 	int ninner = anas[0].LocalActInner.size();
-	int final_size = ninner * 3 + vnbr;// Change this when using more auxilary vars
+	int final_size = ninner * 10 + vnbr;// Change this when using more auxilary vars
 
 	bool need_update_trace_info = (DBdirections.rows() == 0 && trace_hehs.size() > 0) || (Last_Opt_Mesh && trace_hehs.size() > 0); // traced but haven't compute the info
 	if (need_update_trace_info)
