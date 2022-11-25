@@ -1402,3 +1402,72 @@ void extract_Origami_web(const CGMesh &lsmesh, const Eigen::MatrixXd &V,const st
     extract_web_mxn(nbr_ls0, expect_nbr_dis, Faces);
 
 }
+
+void lsTools::show_binormals(const Eigen::VectorXd &func, Eigen::MatrixXd &E0, Eigen::MatrixXd &E1, Eigen::MatrixXd& binormals,  double ratio){
+    int vnbr = V.rows();
+    analysis_pseudo_geodesic_on_vertices(func, anas[0]);
+    binormals=Eigen::MatrixXd::Zero(vnbr, 3);
+    E0.resize(vnbr, 3);
+    E1.resize(vnbr, 3);
+    int ninner = anas[0].LocalActInner.size();
+	for (int i = 0; i < ninner; i++)
+	{
+		if (anas[0].LocalActInner[i] == false) {
+			std::cout << "singularity" << std::endl;
+			continue;
+		}
+		int vm = IVids[i];
+		CGMesh::HalfedgeHandle inhd = anas[0].heh0[i], outhd = anas[0].heh1[i];
+        int v1 = lsmesh.from_vertex_handle(inhd).idx();
+        int v2 = lsmesh.to_vertex_handle(inhd).idx();
+        int v3 = lsmesh.from_vertex_handle(outhd).idx();
+        int v4 = lsmesh.to_vertex_handle(outhd).idx();
+
+        double t1 = anas[0].t1s[i];
+        double t2 = anas[0].t2s[i];
+
+        Eigen::Vector3d ver0 = V.row(v1) + (V.row(v2) - V.row(v1)) * t1;
+        Eigen::Vector3d ver1 = V.row(vm);
+        Eigen::Vector3d ver2 = V.row(v3) + (V.row(v4) - V.row(v3)) * t2;
+
+        Eigen::Vector3d bi = (ver1 - ver0).cross(ver2 - ver1);
+        binormals.row(vm) = bi.normalized();
+    }
+    E0 = V - binormals * ratio;
+    E1 = V + binormals * ratio;
+}
+#include <igl/point_mesh_squared_distance.h>
+#include <fstream>
+bool write_quad_mesh_with_binormal(const std::string &fname, const Eigen::MatrixXd &Vt, const Eigen::MatrixXi &Ft, const Eigen::MatrixXd &bi,
+                                   const Eigen::MatrixXd &Vq, const Eigen::MatrixXi &Fq)
+{
+    Eigen::MatrixXd C;
+    Eigen::VectorXi I;
+    Eigen::VectorXd D;
+    igl::point_mesh_squared_distance(Vq, Vt, Ft, D, I, C);
+    int nq = Vq.rows();
+    Eigen::MatrixXd B;
+    B.resize(nq, 3);
+    for (int i = 0; i < nq; i++)
+    {
+        int fid = I(i);
+        int v0 = Ft(fid, 0);
+        int v1 = Ft(fid, 1);
+        int v2 = Ft(fid, 2);
+        Eigen::Vector3d dir = bi.row(v0) + bi.row(v1) + bi.row(v2);
+        dir = dir.normalized();
+        B.row(i) = dir;
+    }
+    std::ofstream file;
+    file.open(fname);
+    for (int i = 0; i < nq; i++)
+    {
+        file << "v " << Vq(i, 0) << " " << Vq(i, 1) << " " << Vq(i, 2) << " " << B(i, 0) << " " << B(i, 1) << " " << B(i, 2) << std::endl;
+    }
+    for (int i = 0; i < Fq.rows(); i++)
+    {
+        file << "f " << Fq(i, 0) + 1 << " " << Fq(i, 1) + 1 << " " << Fq(i, 2) + 1 << " " << Fq(i, 3) + 1 << std::endl;
+    }
+    file.close();
+    return true;
+}

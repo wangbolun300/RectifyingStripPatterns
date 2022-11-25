@@ -849,6 +849,21 @@ int main(int argc, char *argv[])
 				viewer.data().set_colormap(CM);
 				viewer.data().set_data(level_set_values);
 			}
+			ImGui::SameLine();
+			if (ImGui::Button("draw bi-normals", ImVec2(ImGui::GetWindowSize().x * 0.23f, 0.0f)))
+			{
+				const Eigen::RowVector3d red(0.8, 0.2, 0.2);
+				const Eigen::RowVector3d blue(0.2, 0.2, 0.8);
+
+				const Eigen::RowVector3d black(0, 0, 0);
+				const Eigen::RowVector3d green(0.2, 0.8, 0.2);
+
+				Eigen::MatrixXd pts, E0, E1;
+				std::cout << "before ploting the bi-normals" << std::endl;
+				Eigen::MatrixXd binormals;
+				lscif::tools.show_binormals(lscif::tools.fvalues, E0, E1, binormals, lscif::vector_scaling);
+				viewer.data().add_edges(E0, E1, green);
+			}
 			/*ImGui::SameLine();
 			if (ImGui::Button("draw binormals", ImVec2(ImGui::GetWindowSize().x * 0.23f, 0.0f)))
 			{
@@ -1073,7 +1088,7 @@ int main(int argc, char *argv[])
 				}
 			}
 			ImGui::SameLine();
-			if (ImGui::Button("Extr Pace Quad ", ImVec2(ImGui::GetWindowSize().x * 0.25f, 0.0f)))
+			if (ImGui::Button("Extr Pace Quad", ImVec2(ImGui::GetWindowSize().x * 0.25f, 0.0f)))
 			{
 				int id = viewer.selected_data_index;
 				CGMesh updatedMesh;
@@ -1106,7 +1121,7 @@ int main(int argc, char *argv[])
 				}
 			}
 			ImGui::SameLine();
-			if (ImGui::Button("Extr Origami Quad ", ImVec2(ImGui::GetWindowSize().x * 0.25f, 0.0f)))
+			if (ImGui::Button("Extr Origami Quad", ImVec2(ImGui::GetWindowSize().x * 0.25f, 0.0f)))
 			{
 				int id = viewer.selected_data_index;
 				CGMesh updatedMesh;
@@ -1131,6 +1146,32 @@ int main(int argc, char *argv[])
 					std::cout << "Quad mesh saved" << std::endl;
 				}
 			}
+			ImGui::SameLine();
+			if (ImGui::Button("binrm Origami Quad", ImVec2(ImGui::GetWindowSize().x * 0.25f, 0.0f)))
+			{
+				int id = viewer.selected_data_index;
+				CGMesh updatedMesh;
+				
+				Eigen::MatrixXd VER;
+				Eigen::MatrixXi FAC;
+				if(lscif::readed_LS1.size()!=lscif::tools.V.rows()){
+					std::cout<<"Please load a correct Level Set 1"<<std::endl;
+					ImGui::End();
+				}
+				extract_Origami_web(lscif::tools.lsmesh, lscif::tools.V, lscif::tools.Boundary_Edges,
+									lscif::tools.F, lscif::readed_LS1, lscif::nbr_lines_first_ls, lscif::nbr_lines_second_ls,
+									VER, FAC);
+				std::string fname = igl::file_dialog_save();
+				
+				if (fname.length() == 0)
+				{
+					ImGui::End();
+				}
+				Eigen::MatrixXd E0, E1, binormals;
+				lscif::tools.show_binormals(lscif::readed_LS1, E0, E1, binormals, lscif::vector_scaling);
+				write_quad_mesh_with_binormal(fname,lscif::tools.V, lscif::tools.F, binormals, VER, FAC );
+				
+			}
 		}
 		if (ImGui::CollapsingHeader("Mesh Optimization", ImGuiTreeNodeFlags_DefaultOpen))
 		{
@@ -1144,7 +1185,6 @@ int main(int argc, char *argv[])
 			// ImGui::InputDouble("weight ls mass(big)", &lscif::weight_mass, 0, 0, "%.4f");
 			// ImGui::Checkbox("Fix Boundary", &lscif::fixBoundary_checkbox);
 		}
-		
 		ImGui::PushStyleColor(ImGuiCol_Button, (ImVec4)ImColor::HSV(0.0f, 0.6f, 0.6f));
 		ImGui::PushStyleColor(ImGuiCol_ButtonHovered, (ImVec4)ImColor::HSV(0.0f, 0.7f, 0.7f));
 		ImGui::PushStyleColor(ImGuiCol_ButtonActive, (ImVec4)ImColor::HSV(0.0f, 0.8f, 0.8f));

@@ -61,3 +61,6 @@ spMat sum_uneven_spMats(const spMat& mat_small, const spMat& mat_large);
 Eigen::VectorXd sum_uneven_vectors(const Eigen::VectorXd& vsmall, const Eigen::VectorXd& vlarge);
 spMat three_spmat_in_diag(const spMat& mat0, const spMat& mat1, const spMat& mat2, const int ntarget);
 Eigen::VectorXd three_vec_in_row(const Eigen::VectorXd& ve0, const Eigen::VectorXd& ve1, const Eigen::VectorXd& ve2, const int ntarget);
+// Ft, Vt belong to the triangle mesh,  
+bool write_quad_mesh_with_binormal(const std::string & fname, const Eigen::MatrixXd& Vt, const Eigen::MatrixXi& Ft, const Eigen::MatrixXd& bi,
+const Eigen::MatrixXd& Vq, const Eigen::MatrixXi& Fq);
