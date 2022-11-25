@@ -327,6 +327,8 @@ public:
     Eigen::MatrixXd vBinormal;
 
     std::vector<CGMesh::HalfedgeHandle> Boundary_Edges; // Caution: Either it or it's opposite handle is the boundary halfedge handle
+
+    bool Compute_Auxiliaries=true;
     // boundary conditions
     // int boundary_type = 
     // 
