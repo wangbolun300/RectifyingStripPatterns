@@ -278,7 +278,7 @@ void lsTools::calculate_pseudo_geodesic_opt_expanded_function_values(Eigen::Vect
 	tripletes.clear();
 	tripletes.reserve(ninner * 60); // 
 	Energy = Eigen::VectorXd::Zero(ninner * 12); // mesh total energy values
-
+	
 	for (int i = 0; i < ninner; i++)
 	{
 		if (LocalActInner[i] == false) {
@@ -330,14 +330,14 @@ void lsTools::calculate_pseudo_geodesic_opt_expanded_function_values(Eigen::Vect
 		double f3 = vars(lv3);
 		double f4 = vars(lv4);
 		double fm = vars(lvm);
-		Eigen::Vector3d real_s = v31 * (f4 - f3) * (f2 - f1) + v43 * (fm - f3) * (f2 - f1) - v21 * (fm - f1) * (f4 - f3);
 		
+		Eigen::Vector3d real_u = norm.cross(ver2 - ver0);
+		real_u = real_u.normalized();
 		if (Compute_Auxiliaries) {
-
+			Eigen::Vector3d real_s = v31 * (f4 - f3) * (f2 - f1) + v43 * (fm - f3) * (f2 - f1) - v21 * (fm - f1) * (f4 - f3);
 			Eigen::Vector3d real_r = (ver1 - ver0).normalized().cross((ver2 - ver1).normalized());
 			real_r = real_r.normalized();
-			Eigen::Vector3d real_u = norm.cross(ver2 - ver0);
-			real_u = real_u.normalized();
+			
 			double real_h= real_r.dot(real_u);
 			vars[lrx] = real_r[0];
 			vars[lry] = real_r[1];
@@ -351,14 +351,15 @@ void lsTools::calculate_pseudo_geodesic_opt_expanded_function_values(Eigen::Vect
 			vars[lh] = real_h;
 		}
 		Eigen::Vector3d s = Eigen::Vector3d(vars(lsx), vars(lsy), vars(lsz));
+		Eigen::VectorXd u = Eigen::Vector3d(vars(lux), vars(luy), vars(luz));
 		double ns = s.norm();
-		// r can flip to the opposite position, but s cannot, since it is the tangent of the curve.
-		if (s.dot(real_s) < 0)
+		// r can flip to the opposite position, but u cannot, since it is the side vector.
+		if (u.dot(real_u) < 0)
 		{
-			vars(lsx) *= -1;
-			vars(lsy) *= -1;
-			vars(lsz) *= -1;
-			s *= -1;
+			vars(lux) *= -1;
+			vars(luy) *= -1;
+			vars(luz) *= -1;
+			u *= -1;
 		}
 
 		Eigen::Vector3d r = Eigen::Vector3d(vars[lrx], vars[lry], vars[lrz]);
@@ -413,7 +414,7 @@ void lsTools::calculate_pseudo_geodesic_opt_expanded_function_values(Eigen::Vect
 		Energy[i + ninner * 3] = ndr * ndr - cos_angle * cos_angle;
 		
 		// u*u=1
-		Eigen::VectorXd u = Eigen::Vector3d(vars(lux), vars(luy), vars(luz));
+		
 		tripletes.push_back(Trip(i + ninner * 4, lux, 2 * vars(lux)));
 		tripletes.push_back(Trip(i + ninner * 4, luy, 2 * vars(luy)));
 		tripletes.push_back(Trip(i + ninner * 4, luz, 2 * vars(luz)));
