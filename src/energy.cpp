@@ -788,7 +788,7 @@ void lsTools::assemble_solver_pesudo_geodesic_energy_part_vertex_based(Eigen::Ve
 	calculate_pseudo_geodesic_opt_expanded_function_values(vars, angle_degree,
 		LocalActInner, heh0, heh1, t1s, t2s, first_compute, vars_start_loc, aux_start_loc, tripletes, energy);
 	int nvars = vars.size();
-	int ncondi = ninner * 12;
+	int ncondi = energy.size();
 	spMat J;
 	J.resize(ncondi, nvars);
 	J.setFromTriplets(tripletes.begin(), tripletes.end());
@@ -877,7 +877,9 @@ void lsTools::Run_Level_Set_Opt() {
 		Glob_lsvars = Eigen::VectorXd::Zero(final_size);// We change the size if opt more than 1 level set
 		Glob_lsvars.segment(0, vnbr) = func;
 	}
-	
+	if(Last_Opt_Mesh){
+		Compute_Auxiliaries = true;
+	}
 	
 	spMat H;
 	H.resize(vnbr, vnbr);
@@ -1096,7 +1098,7 @@ void lsTools::Run_AAG(Eigen::VectorXd& func0, Eigen::VectorXd& func1, Eigen::Vec
 	assemble_AAG_extra_condition(final_size, vnbr, func0, func1, func2, extraH, extraB, extra_energy);
 	H += weight_boundary * extraH;
 	B += weight_boundary * extraB;
-	if (enable_pseudo_geodesic_energy && weight_pseudo_geodesic_energy > 0)
+	if (enable_pseudo_geodesic_energy )
 	{
 
 		spMat pg_JTJ[3];

@@ -6,13 +6,10 @@
 #include <igl/unproject_onto_mesh.h>
 #include <igl/arap.h>
 #include <igl/harmonic.h>
-
+#include <igl/readOBJ.h>
 #include <iostream>
-
 #include <igl/unproject_ray.h>
-
 #include <lsc/MeshProcessing.h>
-
 #include <lsc/basic.h>
 #include <lsc/tools.h>
 // -------------------- OpenMesh
@@ -612,7 +609,7 @@ int main(int argc, char *argv[])
 			{
 
 				int id = viewer.selected_data_index;
-				CGMesh inputMesh = lscif::Meshes[id];
+				CGMesh inputMesh = lscif::tools.lsmesh;
 				EnergyPrepare einit;
 				einit.weight_gravity = lscif::weight_mass;
 				einit.weight_lap = lscif::weight_laplacian;
@@ -1147,7 +1144,7 @@ int main(int argc, char *argv[])
 				}
 			}
 			ImGui::SameLine();
-			if (ImGui::Button("binrm Origami Quad", ImVec2(ImGui::GetWindowSize().x * 0.25f, 0.0f)))
+			if (ImGui::Button("Binormal Origami", ImVec2(ImGui::GetWindowSize().x * 0.25f, 0.0f)))
 			{
 				int id = viewer.selected_data_index;
 				CGMesh updatedMesh;
@@ -1158,10 +1155,19 @@ int main(int argc, char *argv[])
 					std::cout<<"Please load a correct Level Set 1"<<std::endl;
 					ImGui::End();
 				}
-				extract_Origami_web(lscif::tools.lsmesh, lscif::tools.V, lscif::tools.Boundary_Edges,
-									lscif::tools.F, lscif::readed_LS1, lscif::nbr_lines_first_ls, lscif::nbr_lines_second_ls,
-									VER, FAC);
-				std::string fname = igl::file_dialog_save();
+				std::string fname = igl::file_dialog_open();
+				if (fname.length() == 0)
+				{
+					std::cout << "\nLSC: read mesh failed" << std::endl;
+					ImGui::End();
+					return;
+				}
+				igl::readOBJ(fname, VER, FAC);
+				std::cout<<"OBJ readed, ver in face "<<FAC.cols()<<std::endl;
+				// extract_Origami_web(lscif::tools.lsmesh, lscif::tools.V, lscif::tools.Boundary_Edges,
+				// 					lscif::tools.F, lscif::readed_LS1, lscif::nbr_lines_first_ls, lscif::nbr_lines_second_ls,
+				// 					VER, FAC);
+				fname = igl::file_dialog_save();
 				
 				if (fname.length() == 0)
 				{

@@ -329,6 +329,7 @@ public:
     std::vector<CGMesh::HalfedgeHandle> Boundary_Edges; // Caution: Either it or it's opposite handle is the boundary halfedge handle
 
     bool Compute_Auxiliaries=true;
+    bool Compute_Auxiliaries_Mesh = true;
     // boundary conditions
     // int boundary_type = 
     // 
@@ -391,6 +392,7 @@ public:
     void Run_Level_Set_Opt();
     void Run_Mesh_Opt();
     void Run_AAG(Eigen::VectorXd& func0, Eigen::VectorXd& func1, Eigen::VectorXd& func2);
+    void Run_AAG_Mesh_Opt(Eigen::VectorXd& func0, Eigen::VectorXd& func1, Eigen::VectorXd& func2);
     void initialize_level_set_accroding_to_parametrization();
     void debug_tool(int id = 0, int id2 = 0, double value = 0);
     void debug_tool_v2(const std::vector<int> &ids, const std::vector<double> values);

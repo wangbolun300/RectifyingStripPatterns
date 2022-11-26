@@ -86,7 +86,10 @@ void get_alpha_associate_with_cross_pairs(const double t1, const double t2, std:
 }
 
 // the size of vars should be nvars, if there is no auxiliary variables, nvars = vnbr*3.
-// The auxiliary vars are located from aux_start_loc to ninner*3+aux_start_loc
+// The auxiliary vars:
+// r: the bi-normals. located from aux_start_loc to ninner * 3 + aux_start_loc
+// u: the side vector. located from aux_start_loc + ninner * 3 to aux_start_loc + ninner * 6
+// h: r.dot(u). located from aux_start_loc + ninner * 6 + aux_start_loc + ninner * 7
 void lsTools::calculate_mesh_opt_expanded_function_values(const Eigen::VectorXd&  Loc_ActInner, Eigen::VectorXd &vars,
     const std::vector<CGMesh::HalfedgeHandle>& heh0, const std::vector<CGMesh::HalfedgeHandle>& heh1,
     const std::vector<double> &t1s, const std::vector<double> &t2s,
@@ -94,9 +97,11 @@ void lsTools::calculate_mesh_opt_expanded_function_values(const Eigen::VectorXd&
     const bool first_compute, const int aux_start_loc,  std::vector<Trip> &tripletes, Eigen::VectorXd &MTenergy) {
     
     double cos_angle;
+    double sin_angle;
     if (angle_degree.size() == 1) {
         double angle_radian = angle_degree[0] * LSC_PI / 180.; // the angle in radian
         cos_angle = cos(angle_radian);
+        sin_angle = sin(angle_radian);
     }
     
     int ninner = Loc_ActInner.size();
@@ -105,8 +110,8 @@ void lsTools::calculate_mesh_opt_expanded_function_values(const Eigen::VectorXd&
     //PeWeight = Eigen::VectorXd::Zero(ninner);
     //lens = Eigen::VectorXd::Zero(ninner);
     tripletes.clear();
-    tripletes.reserve(ninner * 30);// the number of rows is ninner*4, the number of cols is aux_start_loc + ninner * 3 (all the vertices and auxiliary vars)
-	MTenergy = Eigen::VectorXd::Zero(ninner * 4); // mesh total energy values
+    tripletes.reserve(ninner * 70);// the number of rows is ninner*4, the number of cols is aux_start_loc + ninner * 3 (all the vertices and auxiliary vars)
+	MTenergy = Eigen::VectorXd::Zero(ninner * 9); // mesh total energy values
 
     for (int i = 0; i < ninner; i++)
     {
@@ -117,6 +122,7 @@ void lsTools::calculate_mesh_opt_expanded_function_values(const Eigen::VectorXd&
         if (angle_degree.size() == vnbr) {
             double angle_radian = angle_degree[vm] * LSC_PI / 180.; // the angle in radian
             cos_angle = cos(angle_radian);
+            sin_angle = sin(angle_radian);
         }
         CGMesh::HalfedgeHandle inhd = heh0[i], outhd = heh1[i];
         int v1 = lsmesh.from_vertex_handle(inhd).idx();
@@ -132,43 +138,82 @@ void lsTools::calculate_mesh_opt_expanded_function_values(const Eigen::VectorXd&
         int lrx = i + aux_start_loc;
         int lry = i + aux_start_loc + ninner;
         int lrz = i + aux_start_loc + ninner * 2;
-        if (first_compute) {
+        int lux = i + aux_start_loc + ninner * 3;
+        int luy = i + aux_start_loc + ninner * 4;
+        int luz = i + aux_start_loc + ninner * 5;
+        int lh = i + aux_start_loc + ninner * 6;
+        int l1x = v1;
+        int l1y = v1 + vnbr;
+        int l1z = v1 + vnbr * 2;
+        int l2x = v2;
+        int l2y = v2 + vnbr;
+        int l2z = v2 + vnbr * 2;
+        int l3x = v3;
+        int l3y = v3 + vnbr;
+        int l3z = v3 + vnbr * 2;
+        int l4x = v4;
+        int l4y = v4 + vnbr;
+        int l4z = v4 + vnbr * 2;
+        int lmx = vm;
+        int lmy = vm + vnbr;
+        int lmz = vm + vnbr * 2;
+        Eigen::Vector3d norm = norm_v.row(vm);
+        Eigen::Vector3d real_u = norm.cross(ver2 - ver0);
+        real_u = real_u.normalized();
+        if (Compute_Auxiliaries_Mesh) {
             Eigen::Vector3d real_r = (ver1 - ver0).cross(ver2 - ver1);
             real_r = real_r.normalized();
             vars[lrx] = real_r[0];
             vars[lry] = real_r[1];
             vars[lrz] = real_r[2];
-        }
+            
+            vars[lux] = real_u[0];
+            vars[luy] = real_u[1];
+            vars[luz] = real_u[2];
 
-        
+            vars[lh] = real_r.dot(real_u);
+        }
+        Eigen::Vector3d r = Eigen::Vector3d(vars[lrx], vars[lry], vars[lrz]);
+        Eigen::Vector3d u = Eigen::Vector3d(vars[lux], vars[luy], vars[luz]);
+        double h = vars[lh];
+        // r is allowed to flip to the opposite position, but u is not allowed, since it is the side vector.
+        if (u.dot(real_u) < 0)
+		{
+			vars(lux) *= -1;
+			vars(luy) *= -1;
+			vars(luz) *= -1;
+			u *= -1;
+		}
+
         int lfx = v1;
         int lfy = v1 + vnbr;
         int lfz = v1 + vnbr * 2;
         int ltx = v2;
         int lty = v2 + vnbr;
         int ltz = v2 + vnbr * 2;
-        int lmx = vm;
-        int lmy = vm + vnbr;
-        int lmz = vm + vnbr * 2;
+
+        double d0 = (ver0 - ver1).norm();
+        double d1 = (ver2 - ver1).norm();
+        double qp = (ver2 - ver0).norm();
         // r dot (vm+(t1-1)*vf-t1*vt)
-        // vf = v1, vt = v2 
-		tripletes.push_back(Trip(i, lrx, vars[lmx] + (t1 - 1) * vars[lfx] - t1 * vars[ltx]));
-		tripletes.push_back(Trip(i, lry, vars[lmy] + (t1 - 1) * vars[lfy] - t1 * vars[lty]));
-		tripletes.push_back(Trip(i, lrz, vars[lmz] + (t1 - 1) * vars[lfz] - t1 * vars[ltz]));
+        // vf = v1, vt = v2
+        tripletes.push_back(Trip(i, lrx, (vars[lmx] + (t1 - 1) * vars[lfx] - t1 * vars[ltx]) / d0));
+        tripletes.push_back(Trip(i, lry, (vars[lmy] + (t1 - 1) * vars[lfy] - t1 * vars[lty]) / d0));
+        tripletes.push_back(Trip(i, lrz, (vars[lmz] + (t1 - 1) * vars[lfz] - t1 * vars[ltz]) / d0));
 
-		tripletes.push_back(Trip(i, lmx, vars[lrx]));
-		tripletes.push_back(Trip(i, lmy, vars[lry]));
-		tripletes.push_back(Trip(i, lmz, vars[lrz]));
+        tripletes.push_back(Trip(i, lmx, vars[lrx] / d0));
+        tripletes.push_back(Trip(i, lmy, vars[lry] / d0));
+        tripletes.push_back(Trip(i, lmz, vars[lrz] / d0));
 
-		tripletes.push_back(Trip(i, lfx, (t1 - 1) * vars[lrx]));
-		tripletes.push_back(Trip(i, lfy, (t1 - 1) * vars[lry]));
-		tripletes.push_back(Trip(i, lfz, (t1 - 1) * vars[lrz]));
+        tripletes.push_back(Trip(i, lfx, (t1 - 1) * vars[lrx] / d0));
+        tripletes.push_back(Trip(i, lfy, (t1 - 1) * vars[lry] / d0));
+        tripletes.push_back(Trip(i, lfz, (t1 - 1) * vars[lrz] / d0));
 
-		tripletes.push_back(Trip(i, ltx, -t1 * vars[lrx]));
-		tripletes.push_back(Trip(i, lty, -t1 * vars[lry]));
-		tripletes.push_back(Trip(i, ltz, -t1 * vars[lrz]));
-        Eigen::Vector3d r = Eigen::Vector3d(vars[lrx], vars[lry], vars[lrz]);
-        MTenergy[i] = r.dot(ver1 - ver0);
+        tripletes.push_back(Trip(i, ltx, -t1 * vars[lrx] / d0));
+        tripletes.push_back(Trip(i, lty, -t1 * vars[lry] / d0));
+        tripletes.push_back(Trip(i, ltz, -t1 * vars[lrz] / d0));
+        
+        MTenergy[i] = r.dot(ver1 - ver0) / d0;
 
         // vf = v3, vt = v4
 		lfx = v3;
@@ -178,38 +223,106 @@ void lsTools::calculate_mesh_opt_expanded_function_values(const Eigen::VectorXd&
 		lty = v4 + vnbr;
 		ltz = v4 + vnbr * 2;
 
-		tripletes.push_back(Trip(i + ninner, lrx, vars[lmx] + (t2 - 1) * vars[lfx] - t2 * vars[ltx]));
-		tripletes.push_back(Trip(i + ninner, lry, vars[lmy] + (t2 - 1) * vars[lfy] - t2 * vars[lty]));
-		tripletes.push_back(Trip(i + ninner, lrz, vars[lmz] + (t2 - 1) * vars[lfz] - t2 * vars[ltz]));
+        tripletes.push_back(Trip(i + ninner, lrx, (vars[lmx] + (t2 - 1) * vars[lfx] - t2 * vars[ltx]) / d1));
+        tripletes.push_back(Trip(i + ninner, lry, (vars[lmy] + (t2 - 1) * vars[lfy] - t2 * vars[lty]) / d1));
+        tripletes.push_back(Trip(i + ninner, lrz, (vars[lmz] + (t2 - 1) * vars[lfz] - t2 * vars[ltz]) / d1));
 
-		tripletes.push_back(Trip(i + ninner, lmx, vars[lrx]));
-		tripletes.push_back(Trip(i + ninner, lmy, vars[lry]));
-		tripletes.push_back(Trip(i + ninner, lmz, vars[lrz]));
+        tripletes.push_back(Trip(i + ninner, lmx, vars[lrx] / d1));
+        tripletes.push_back(Trip(i + ninner, lmy, vars[lry] / d1));
+        tripletes.push_back(Trip(i + ninner, lmz, vars[lrz] / d1));
 
-		tripletes.push_back(Trip(i + ninner, lfx, (t2 - 1) * vars[lrx]));
-		tripletes.push_back(Trip(i + ninner, lfy, (t2 - 1) * vars[lry]));
-		tripletes.push_back(Trip(i + ninner, lfz, (t2 - 1) * vars[lrz]));
+        tripletes.push_back(Trip(i + ninner, lfx, (t2 - 1) * vars[lrx] / d1));
+        tripletes.push_back(Trip(i + ninner, lfy, (t2 - 1) * vars[lry] / d1));
+        tripletes.push_back(Trip(i + ninner, lfz, (t2 - 1) * vars[lrz] / d1));
 
-		tripletes.push_back(Trip(i + ninner, ltx, -t2 * vars[lrx]));
-		tripletes.push_back(Trip(i + ninner, lty, -t2 * vars[lry]));
-		tripletes.push_back(Trip(i + ninner, ltz, -t2 * vars[lrz]));
+        tripletes.push_back(Trip(i + ninner, ltx, -t2 * vars[lrx] / d1));
+        tripletes.push_back(Trip(i + ninner, lty, -t2 * vars[lry] / d1));
+        tripletes.push_back(Trip(i + ninner, ltz, -t2 * vars[lrz] / d1));
 
-        MTenergy[i + ninner] = r.dot(ver1 - ver2);
+        MTenergy[i + ninner] = r.dot(ver1 - ver2) / d1;
 
-		// r*r=1
+        // r*r=1
 		tripletes.push_back(Trip(i + ninner * 2, lrx, 2 * vars(lrx)));
 		tripletes.push_back(Trip(i + ninner * 2, lry, 2 * vars(lry)));
 		tripletes.push_back(Trip(i + ninner * 2, lrz, 2 * vars(lrz)));
 
 		MTenergy[i + ninner * 2] = r.dot(r) - 1;
 
-		// r*norm - cos = 0
-		Eigen::Vector3d norm = norm_v.row(vm);
-		tripletes.push_back(Trip(i + ninner * 3, lrx, norm(0)));
-		tripletes.push_back(Trip(i + ninner * 3, lry, norm(1)));
-		tripletes.push_back(Trip(i + ninner * 3, lrz, norm(2)));
-        
-		MTenergy[i + ninner * 3] = norm.dot(r)-cos_angle;
+		// (r*norm)^2 - cos^2 = 0
+
+        tripletes.push_back(Trip(i + ninner * 3, lrx,
+                                 2 * norm(0) * norm(0) * vars(lrx) + 2 * norm(0) * norm(1) * vars(lry) + 2 * norm(0) * norm(2) * vars(lrz)));
+        tripletes.push_back(Trip(i + ninner * 3, lry,
+                                 2 * norm(1) * norm(1) * vars(lry) + 2 * norm(0) * norm(1) * vars(lrx) + 2 * norm(2) * norm(1) * vars(lrz)));
+        tripletes.push_back(Trip(i + ninner * 3, lrz,
+                                 2 * norm(2) * norm(2) * vars(lrz) + 2 * norm(0) * norm(2) * vars(lrx) + 2 * norm(1) * norm(2) * vars(lry)));
+        double nr = norm.dot(r);
+
+        MTenergy[i + ninner * 3] = nr * nr - cos_angle * cos_angle;
+
+        // u * u = 1
+		
+		tripletes.push_back(Trip(i + ninner * 4, lux, 2 * vars(lux)));
+		tripletes.push_back(Trip(i + ninner * 4, luy, 2 * vars(luy)));
+		tripletes.push_back(Trip(i + ninner * 4, luz, 2 * vars(luz)));
+
+		MTenergy[i + ninner * 4] = u.dot(u) - 1;
+
+        // u * norm = 0
+		tripletes.push_back(Trip(i + ninner * 5, lux, norm(0)));
+		tripletes.push_back(Trip(i + ninner * 5, luy, norm(1)));
+		tripletes.push_back(Trip(i + ninner * 5, luz, norm(2)));
+
+		MTenergy[i + ninner * 5] = norm.dot(u);
+
+        // u * (ver2-ver0) = 0
+        double c1 = t1 - 1;
+        double c2 = -t1;
+        double c3 = 1 - t2;
+        double c4 = t2;
+
+        tripletes.push_back(Trip(i + ninner * 6, lux, (c1 * vars[l1x] + c2 * vars[l2x] + c3 * vars[l3x] + c4 * vars[l4x]) / qp));
+        tripletes.push_back(Trip(i + ninner * 6, luy, (c1 * vars[l1y] + c2 * vars[l2y] + c3 * vars[l3y] + c4 * vars[l4y]) / qp));
+        tripletes.push_back(Trip(i + ninner * 6, luz, (c1 * vars[l1z] + c2 * vars[l2z] + c3 * vars[l3z] + c4 * vars[l4z]) / qp));
+
+        tripletes.push_back(Trip(i + ninner * 6, l1x, c1 * u[0] / qp));
+        tripletes.push_back(Trip(i + ninner * 6, l2x, c2 * u[0] / qp));
+        tripletes.push_back(Trip(i + ninner * 6, l3x, c3 * u[0] / qp));
+        tripletes.push_back(Trip(i + ninner * 6, l4x, c4 * u[0] / qp));
+
+        tripletes.push_back(Trip(i + ninner * 6, l1y, c1 * u[1] / qp));
+        tripletes.push_back(Trip(i + ninner * 6, l2y, c2 * u[1] / qp));
+        tripletes.push_back(Trip(i + ninner * 6, l3y, c3 * u[1] / qp));
+        tripletes.push_back(Trip(i + ninner * 6, l4y, c4 * u[1] / qp));
+
+        tripletes.push_back(Trip(i + ninner * 6, l1z, c1 * u[2] / qp));
+        tripletes.push_back(Trip(i + ninner * 6, l2z, c2 * u[2] / qp));
+        tripletes.push_back(Trip(i + ninner * 6, l3z, c3 * u[2] / qp));
+        tripletes.push_back(Trip(i + ninner * 6, l4z, c4 * u[2] / qp));
+
+        MTenergy[i + ninner * 6] = u.dot(ver2 - ver0) / qp;
+
+        // r * u - h =0
+        tripletes.push_back(Trip(i + ninner * 7, lrx, u[0]));
+        tripletes.push_back(Trip(i + ninner * 7, lry, u[1]));
+        tripletes.push_back(Trip(i + ninner * 7, lrz, u[2]));
+
+        tripletes.push_back(Trip(i + ninner * 7, lux, r[0]));
+        tripletes.push_back(Trip(i + ninner * 7, luy, r[1]));
+        tripletes.push_back(Trip(i + ninner * 7, luz, r[2]));
+
+        tripletes.push_back(Trip(i + ninner * 7, lh, -1));
+
+        MTenergy[i + ninner * 7] = r.dot(u) - h;
+
+        // r.dot(n)*h = sin * cos
+        tripletes.push_back(Trip(i + ninner * 8, lrx, h * norm[0]));
+        tripletes.push_back(Trip(i + ninner * 8, lry, h * norm[1]));
+        tripletes.push_back(Trip(i + ninner * 8, lrz, h * norm[2]));
+
+        tripletes.push_back(Trip(i + ninner * 8, lh, r.dot(norm)));
+
+        MTenergy[i + ninner * 8] = r.dot(norm) * h - sin_angle * cos_angle;
     }
 }
 void lsTools::calculate_mesh_opt_asymptotic_values(const Eigen::VectorXd &Loc_ActInner, const Eigen::VectorXd &func,
@@ -319,7 +432,7 @@ void lsTools::assemble_solver_mesh_opt_part(const Eigen::VectorXd& Loc_ActInner,
 		t1s, t2s, angle_degrees, first_compute, aux_start_loc, tripletes, MTEnergy);
         
     int nvars = vars.size();
-    int ncondi = ninner * 4;
+    int ncondi = MTEnergy.size();
     spMat J;
     J.resize(ncondi, nvars);
     J.setFromTriplets(tripletes.begin(), tripletes.end());
@@ -523,7 +636,6 @@ Eigen::VectorXd sum_uneven_vectors(const Eigen::VectorXd& vsmall, const Eigen::V
 }
 void lsTools::Run_Mesh_Opt(){
     
-    
     Eigen::VectorXd func = fvalues;
 
     std::vector < double > angle_degrees(1);
@@ -535,12 +647,13 @@ void lsTools::Run_Mesh_Opt(){
     get_gradient_hessian_values(func, GradValueV, GradValueF);
     bool first_compute = true; // if we need initialize auxiliary vars
     if(!Last_Opt_Mesh){
+        Compute_Auxiliaries_Mesh=true;
         analysis_pseudo_geodesic_on_vertices(func, anas[0]);
         first_compute = true;// if last time opt levelset, we re-compute the auxiliary vars
     }
     int ninner = anas[0].LocalActInner.size();
     int vnbr=V.rows();
-	int final_size = ninner * 3 + vnbr * 3;// Change this when using more auxilary vars
+	int final_size = ninner * 7 + vnbr * 3;// Change this when using more auxilary vars
    
     Eigen::VectorXd vars;// the variables feed to the energies without auxiliary variables
     vars.resize(vnbr * 3);
@@ -586,6 +699,7 @@ void lsTools::Run_Mesh_Opt(){
     else {
         assemble_solver_mesh_asymptotic(anas[0].LocalActInner, func, anas[0].heh0, anas[0].heh1, anas[0].t1s, anas[0].t2s, Hpg, Bpg, MTEnergy);
     }
+    Compute_Auxiliaries_Mesh = false;
     spMat Htotal(final_size, final_size);
     Eigen::VectorXd Btotal=Eigen::VectorXd::Zero(final_size);
     // first make the naive energies the correct size
@@ -638,14 +752,139 @@ void lsTools::Run_Mesh_Opt(){
     }
     else {
         double planar_energy = MTEnergy.norm();
-        std::cout << "Asymp, " << planar_energy << ", ";
+        std::cout << "Asymp, " << planar_energy << ", max "<<MTEnergy.lpNorm<Eigen::Infinity>()<<", ";
     }
     
     double energy_el = ElEnergy.norm();
-    std::cout << "el, " << energy_el << ", ";
+    std::cout << "el, " << energy_el << ", maxloc, ";
     step_length=dx.norm();
     std::cout<<"step "<<step_length<<std::endl;
     update_mesh_properties();
     Last_Opt_Mesh=true;
 
+}
+void lsTools::Run_AAG_Mesh_Opt(Eigen::VectorXd& func0, Eigen::VectorXd& func1, Eigen::VectorXd& func2){
+
+
+    // std::vector < double > angle_degrees(1);
+    // angle_degrees[0] = pseudo_geodesic_target_angle_degree;
+    // Eigen::MatrixXd GradValueF, GradValueV;
+    // std::array<spMat, 3> GradMatF;
+
+    
+    // get_gradient_hessian_values(func, GradValueV, GradValueF);
+    // bool first_compute = true; // if we need initialize auxiliary vars
+    // if(!Last_Opt_Mesh){
+    //     analysis_pseudo_geodesic_on_vertices(func, anas[0]);
+    //     first_compute = true;// if last time opt levelset, we re-compute the auxiliary vars
+    // }
+    // int ninner = anas[0].LocalActInner.size();
+    // int vnbr=V.rows();
+	// int final_size = ninner * 7 + vnbr * 3;// Change this when using more auxilary vars
+   
+    // Eigen::VectorXd vars;// the variables feed to the energies without auxiliary variables
+    // vars.resize(vnbr * 3);
+    // if (Glob_Vars.size() == 0) {
+    //     std::cout << "Initializing Global Variable For Mesh Opt ... " << std::endl;
+    //     Glob_Vars=Eigen::VectorXd::Zero(final_size);// We change the size if opt more than 1 level set
+    //     Glob_Vars.segment(0, vnbr) = V.col(0);
+    //     Glob_Vars.segment(vnbr, vnbr) = V.col(1);
+	// 	Glob_Vars.segment(vnbr * 2, vnbr) = V.col(2);
+    // }
+    // vars.topRows(vnbr) = V.col(0);
+    // vars.middleRows(vnbr, vnbr) = V.col(1);
+    // vars.bottomRows(vnbr) = V.col(2);
+    
+    // spMat H;
+    // Eigen::VectorXd B;
+    // H.resize(vnbr * 3, vnbr * 3);
+    // B = Eigen::VectorXd::Zero(vnbr * 3);
+    
+    
+    // spMat Hsmooth;
+    // Eigen::VectorXd Bsmooth;
+    // assemble_solver_mesh_smoothing(vars, Hsmooth, Bsmooth);
+    // //assemble_solver_mean_value_laplacian(vars, Hsmooth, Bsmooth);
+    // H += weight_Mesh_smoothness * Hsmooth;
+    // B += weight_Mesh_smoothness * Bsmooth;
+    
+    // spMat Hel;
+    // Eigen::VectorXd Bel;
+    // Eigen::VectorXd ElEnergy;
+    // assemble_solver_mesh_edge_length_part(vars, Hel, Bel, ElEnergy);
+    // H += weight_Mesh_edgelength * Hel;
+    // B += weight_Mesh_edgelength * Bel;
+    
+	// spMat Hpg;
+    // Eigen::VectorXd Bpg;
+    // int aux_start_loc = vnbr * 3;// the first levelset the auxiliary vars start from vnbr*3
+    // Eigen::VectorXd MTEnergy;
+    // if (!enable_asymptotic_condition) {
+    //     assemble_solver_mesh_opt_part(anas[0].LocalActInner, Glob_Vars,
+    //         anas[0].heh0, anas[0].heh1, anas[0].t1s, anas[0].t2s, angle_degrees, first_compute, aux_start_loc, Hpg, Bpg, MTEnergy);
+    // }
+    // else {
+    //     assemble_solver_mesh_asymptotic(anas[0].LocalActInner, func, anas[0].heh0, anas[0].heh1, anas[0].t1s, anas[0].t2s, Hpg, Bpg, MTEnergy);
+    // }
+    // spMat Htotal(final_size, final_size);
+    // Eigen::VectorXd Btotal=Eigen::VectorXd::Zero(final_size);
+    // // first make the naive energies the correct size
+    // Htotal = sum_uneven_spMats(H, Htotal);
+    // Btotal = sum_uneven_vectors(B, Btotal);
+
+    // // add the PG energy
+    // Htotal = sum_uneven_spMats(weight_Mesh_pesudo_geodesic * Hpg, Htotal);
+    // Btotal = sum_uneven_vectors(weight_Mesh_pesudo_geodesic * Bpg, Btotal);    
+    // Htotal += spMat(weight_mass * 1e-6 * Eigen::VectorXd::Ones(final_size).asDiagonal());
+
+    // if(vector_contains_NAN(Btotal)){
+    //     std::cout<<"energy contains NAN"<<std::endl;
+    // }
+
+    // Eigen::SimplicialLLT<Eigen::SparseMatrix<double>> solver(Htotal);
+
+    // if (solver.info() != Eigen::Success)
+    // {
+    //     std::cout << "solver fail" << std::endl;
+    //     return;
+    // }
+
+    // Eigen::VectorXd dx = solver.solve(Btotal).eval(); 
+
+    // dx *= 0.75;
+    // double mesh_opt_step_length = dx.norm();
+    // // double inf_norm=dx.cwiseAbs().maxCoeff();
+    // if (mesh_opt_step_length > Mesh_opt_max_step_length)
+    // {
+    //     dx *= Mesh_opt_max_step_length / mesh_opt_step_length;
+    // }
+    // vars+=dx.topRows(vnbr*3);
+    // Glob_Vars += dx;
+    // V.col(0)=vars.topRows(vnbr);
+    // V.col(1)=vars.middleRows(vnbr,vnbr);
+    // V.col(2)=vars.bottomRows(vnbr);
+    // if (vars != Glob_Vars.topRows(vnbr * 3)) {
+    //     std::cout << "vars diff from glob vars" << std::endl;
+    // }
+    // double energy_smooth=(V.transpose()*QcH*V).norm();
+    // /*double energy_mvl = (MVLap * vars).norm();*/
+    // std::cout<<"Mesh Opt: smooth, "<< energy_smooth <<", ";
+    // if (!enable_asymptotic_condition) {
+    //     double energy_ls = MTEnergy.norm();
+    //     double max_energy_ls = MTEnergy.lpNorm<Eigen::Infinity>();
+    //     std::cout << "pg, " << energy_ls << ", MaxEnergy, " << max_energy_ls << ", ";
+    //     double max_ls_angle_energy = MTEnergy.bottomRows(ninner).norm();
+    //     std::cout << "total angle energy, " << max_ls_angle_energy << ", ";
+    // }
+    // else {
+    //     double planar_energy = MTEnergy.norm();
+    //     std::cout << "Asymp, " << planar_energy << ", max "<<MTEnergy.lpNorm<Eigen::Infinity>()<<", ";
+    // }
+    
+    // double energy_el = ElEnergy.norm();
+    // std::cout << "el, " << energy_el << ", ";
+    // step_length=dx.norm();
+    // std::cout<<"step "<<step_length<<std::endl;
+    // update_mesh_properties();
+    // Last_Opt_Mesh=true;
 }
