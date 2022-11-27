@@ -765,14 +765,25 @@ void lsTools::Run_Mesh_Opt(){
     Last_Opt_Mesh=true;
 
 }
+void levelset_unit_scale(Eigen::VectorXd& func, Eigen::MatrixXd &GradValueF, const double length){
+    int fnbr = GradValueF.rows();
+    Eigen::VectorXd gn = GradValueF.rowwise().norm();// the lengths of gradients
+    double avg = gn.dot(Eigen::VectorXd::Ones(fnbr)) / fnbr; // the average gradient length
+    double ratio = length / avg;
+    func *= ratio;
+    GradValueF *= ratio;
+}
 void lsTools::Run_AAG_Mesh_Opt(Eigen::VectorXd& func0, Eigen::VectorXd& func1, Eigen::VectorXd& func2){
 
-    func2 = -func0 - func1;
+    
     Eigen::MatrixXd GradValueF[3], GradValueV[3];
-
     get_gradient_hessian_values(func0, GradValueV[0], GradValueF[0]);
     get_gradient_hessian_values(func1, GradValueV[1], GradValueF[1]);
-    get_gradient_hessian_values(func2, GradValueV[2], GradValueF[2]);
+    // levelset unit scale
+    levelset_unit_scale(func0, GradValueF[0], 1);
+    levelset_unit_scale(func1, GradValueF[1], 1);
+    func2 = -func0 - func1;
+    
     bool first_compute = true; // if we need initialize auxiliary vars
     if(!Last_Opt_Mesh){
         Compute_Auxiliaries_Mesh=true;
@@ -787,8 +798,8 @@ void lsTools::Run_AAG_Mesh_Opt(Eigen::VectorXd& func0, Eigen::VectorXd& func1, E
    
     spMat H;
     Eigen::VectorXd B;
-    H.resize(final_size, final_size);
-    B = Eigen::VectorXd::Zero(final_size);
+    H.resize(vnbr * 3, vnbr * 3);
+    B = Eigen::VectorXd::Zero(vnbr * 3);
     if (Glob_Vars.size() == 0) {
         std::cout << "Initializing Global Variable For Mesh Opt ... " << std::endl;
         Glob_Vars=Eigen::VectorXd::Zero(final_size);// We change the size if opt more than 1 level set
@@ -802,90 +813,86 @@ void lsTools::Run_AAG_Mesh_Opt(Eigen::VectorXd& func0, Eigen::VectorXd& func1, E
     vars.middleRows(vnbr, vnbr) = V.col(1);
     vars.bottomRows(vnbr) = V.col(2);
     
-    // spMat Hsmooth;
-    // Eigen::VectorXd Bsmooth;
-    // assemble_solver_mesh_smoothing(vars, Hsmooth, Bsmooth);
-    // //assemble_solver_mean_value_laplacian(vars, Hsmooth, Bsmooth);
-    // H += weight_Mesh_smoothness * Hsmooth;
-    // B += weight_Mesh_smoothness * Bsmooth;
+    spMat Hsmooth;
+    Eigen::VectorXd Bsmooth;
+    assemble_solver_mesh_smoothing(vars, Hsmooth, Bsmooth);// as smooth as possible
+    //assemble_solver_mean_value_laplacian(vars, Hsmooth, Bsmooth);
+    H += weight_Mesh_smoothness * Hsmooth;
+    B += weight_Mesh_smoothness * Bsmooth;
     
-    // spMat Hel;
-    // Eigen::VectorXd Bel;
-    // Eigen::VectorXd ElEnergy;
-    // assemble_solver_mesh_edge_length_part(vars, Hel, Bel, ElEnergy);
-    // H += weight_Mesh_edgelength * Hel;
-    // B += weight_Mesh_edgelength * Bel;
+    spMat Hel;
+    Eigen::VectorXd Bel;
+    Eigen::VectorXd ElEnergy;
+    assemble_solver_mesh_edge_length_part(vars, Hel, Bel, ElEnergy);// as rigid as possible
+    H += weight_Mesh_edgelength * Hel;
+    B += weight_Mesh_edgelength * Bel;
     
-	// spMat Hpg;
-    // Eigen::VectorXd Bpg;
-    // int aux_start_loc = vnbr * 3;// the first levelset the auxiliary vars start from vnbr*3
-    // Eigen::VectorXd MTEnergy;
-    // if (!enable_asymptotic_condition) {
-    //     assemble_solver_mesh_opt_part(anas[0].LocalActInner, Glob_Vars,
-    //         anas[0].heh0, anas[0].heh1, anas[0].t1s, anas[0].t2s, angle_degrees, first_compute, aux_start_loc, Hpg, Bpg, MTEnergy);
-    // }
-    // else {
-    //     assemble_solver_mesh_asymptotic(anas[0].LocalActInner, func, anas[0].heh0, anas[0].heh1, anas[0].t1s, anas[0].t2s, Hpg, Bpg, MTEnergy);
-    // }
-    // spMat Htotal(final_size, final_size);
-    // Eigen::VectorXd Btotal=Eigen::VectorXd::Zero(final_size);
-    // // first make the naive energies the correct size
-    // Htotal = sum_uneven_spMats(H, Htotal);
-    // Btotal = sum_uneven_vectors(B, Btotal);
-
-    // // add the PG energy
-    // Htotal = sum_uneven_spMats(weight_Mesh_pesudo_geodesic * Hpg, Htotal);
-    // Btotal = sum_uneven_vectors(weight_Mesh_pesudo_geodesic * Bpg, Btotal);    
-    // Htotal += spMat(weight_mass * 1e-6 * Eigen::VectorXd::Ones(final_size).asDiagonal());
-
-    // if(vector_contains_NAN(Btotal)){
-    //     std::cout<<"energy contains NAN"<<std::endl;
-    // }
-
-    // Eigen::SimplicialLLT<Eigen::SparseMatrix<double>> solver(Htotal);
-
-    // if (solver.info() != Eigen::Success)
-    // {
-    //     std::cout << "solver fail" << std::endl;
-    //     return;
-    // }
-
-    // Eigen::VectorXd dx = solver.solve(Btotal).eval(); 
-
-    // dx *= 0.75;
-    // double mesh_opt_step_length = dx.norm();
-    // // double inf_norm=dx.cwiseAbs().maxCoeff();
-    // if (mesh_opt_step_length > Mesh_opt_max_step_length)
-    // {
-    //     dx *= Mesh_opt_max_step_length / mesh_opt_step_length;
-    // }
-    // vars+=dx.topRows(vnbr*3);
-    // Glob_Vars += dx;
-    // V.col(0)=vars.topRows(vnbr);
-    // V.col(1)=vars.middleRows(vnbr,vnbr);
-    // V.col(2)=vars.bottomRows(vnbr);
-    // if (vars != Glob_Vars.topRows(vnbr * 3)) {
-    //     std::cout << "vars diff from glob vars" << std::endl;
-    // }
-    // double energy_smooth=(V.transpose()*QcH*V).norm();
-    // /*double energy_mvl = (MVLap * vars).norm();*/
-    // std::cout<<"Mesh Opt: smooth, "<< energy_smooth <<", ";
-    // if (!enable_asymptotic_condition) {
-    //     double energy_ls = MTEnergy.norm();
-    //     double max_energy_ls = MTEnergy.lpNorm<Eigen::Infinity>();
-    //     std::cout << "pg, " << energy_ls << ", MaxEnergy, " << max_energy_ls << ", ";
-    //     double max_ls_angle_energy = MTEnergy.bottomRows(ninner).norm();
-    //     std::cout << "total angle energy, " << max_ls_angle_energy << ", ";
-    // }
-    // else {
-    //     double planar_energy = MTEnergy.norm();
-    //     std::cout << "Asymp, " << planar_energy << ", max "<<MTEnergy.lpNorm<Eigen::Infinity>()<<", ";
-    // }
+	spMat Hpg[3];
+    Eigen::VectorXd Bpg[3];
+    int aux_start_loc = vnbr * 3;// the first levelset the auxiliary vars start from vnbr*3
+    Eigen::VectorXd MTEnergy[3];
+    assemble_solver_mesh_asymptotic(anas[0].LocalActInner, func0, anas[0].heh0, anas[0].heh1, anas[0].t1s, anas[0].t2s, Hpg[0], Bpg[0], MTEnergy[0]);
+    assemble_solver_mesh_asymptotic(anas[1].LocalActInner, func1, anas[1].heh0, anas[1].heh1, anas[1].t1s, anas[1].t2s, Hpg[1], Bpg[1], MTEnergy[1]);
+    std::vector<double> angle_degree(1);
+    angle_degree[0] = 90;
+    assemble_solver_mesh_opt_part(anas[2].LocalActInner, Glob_Vars,
+                                  anas[2].heh0, anas[2].heh1, anas[2].t1s, anas[2].t2s, angle_degree, first_compute, aux_start_loc, Hpg[2], Bpg[2], MTEnergy[2]);
     
-    // double energy_el = ElEnergy.norm();
-    // std::cout << "el, " << energy_el << ", ";
-    // step_length=dx.norm();
-    // std::cout<<"step "<<step_length<<std::endl;
-    // update_mesh_properties();
-    // Last_Opt_Mesh=true;
+    spMat Htotal(final_size, final_size);
+    Eigen::VectorXd Btotal=Eigen::VectorXd::Zero(final_size);
+    // first make the naive energies the correct size
+    Htotal = sum_uneven_spMats(H, Htotal);
+    Btotal = sum_uneven_vectors(B, Btotal);
+
+    // add the PG energy
+    Htotal = sum_uneven_spMats(weight_Mesh_pesudo_geodesic * (Hpg[0] + Hpg[1] + weight_geodesic * Hpg[2]), Htotal);
+    Btotal = sum_uneven_vectors(weight_Mesh_pesudo_geodesic * (Bpg[0] + Bpg[1] + weight_geodesic * Bpg[2]), Btotal);
+    Htotal += spMat(weight_mass * 1e-6 * Eigen::VectorXd::Ones(final_size).asDiagonal());
+
+    if(vector_contains_NAN(Btotal)){
+        std::cout<<"energy contains NAN"<<std::endl;
+    }
+
+    Eigen::SimplicialLLT<Eigen::SparseMatrix<double>> solver(Htotal);
+
+    if (solver.info() != Eigen::Success)
+    {
+        std::cout << "solver fail" << std::endl;
+        return;
+    }
+
+    Eigen::VectorXd dx = solver.solve(Btotal).eval(); 
+
+    dx *= 0.75;
+    double mesh_opt_step_length = dx.norm();
+    // double inf_norm=dx.cwiseAbs().maxCoeff();
+    if (mesh_opt_step_length > Mesh_opt_max_step_length)
+    {
+        dx *= Mesh_opt_max_step_length / mesh_opt_step_length;
+    }
+    vars += dx.topRows(vnbr * 3);
+    Glob_Vars += dx;
+    V.col(0)=vars.topRows(vnbr);
+    V.col(1)=vars.middleRows(vnbr,vnbr);
+    V.col(2)=vars.bottomRows(vnbr);
+    if (vars != Glob_Vars.topRows(vnbr * 3)) {
+        std::cout << "vars diff from glob vars" << std::endl;
+    }
+    double energy_smooth=(V.transpose()*QcH*V).norm();
+    /*double energy_mvl = (MVLap * vars).norm();*/
+    std::cout<<"Mesh Opt: smooth, "<< energy_smooth <<", ";
+
+    double energy_ls[3];
+    energy_ls[0] = MTEnergy[0].norm();
+    energy_ls[1] = MTEnergy[1].norm();
+    energy_ls[2] = MTEnergy[2].norm();
+    std::cout << "pg, " << energy_ls[0]<<", "<< energy_ls[1]<<", "<< energy_ls[2]<<", pgmax, "<<MTEnergy[0].lpNorm<Eigen::Infinity>()
+		<<", "<<MTEnergy[1].lpNorm<Eigen::Infinity>()<<", "<<MTEnergy[2].lpNorm<Eigen::Infinity>()<<", ";
+
+    double energy_el = ElEnergy.norm();
+    std::cout << "el, " << energy_el << ", ";
+    step_length=dx.norm();
+    std::cout<<"step "<<step_length<<std::endl;
+    update_mesh_properties();
+    Last_Opt_Mesh=true;
 }
