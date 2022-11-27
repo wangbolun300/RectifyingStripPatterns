@@ -330,6 +330,7 @@ public:
 
     bool Compute_Auxiliaries=true;
     bool Compute_Auxiliaries_Mesh = true;
+    Eigen::MatrixXd Binormals;
     // boundary conditions
     // int boundary_type = 
     // 

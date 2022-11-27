@@ -106,7 +106,10 @@ void lsTools::calculate_mesh_opt_expanded_function_values(const Eigen::VectorXd&
     
     int ninner = Loc_ActInner.size();
     int vnbr = V.rows();
-
+    if (Binormals.rows() != vnbr)
+    {
+        Binormals = Eigen::MatrixXd::Zero(vnbr, 3);
+    }
     //PeWeight = Eigen::VectorXd::Zero(ninner);
     //lens = Eigen::VectorXd::Zero(ninner);
     tripletes.clear();
@@ -175,6 +178,7 @@ void lsTools::calculate_mesh_opt_expanded_function_values(const Eigen::VectorXd&
         }
         Eigen::Vector3d r = Eigen::Vector3d(vars[lrx], vars[lry], vars[lrz]);
         Eigen::Vector3d u = Eigen::Vector3d(vars[lux], vars[luy], vars[luz]);
+        Binormals.row(vm) = r.dot(norm) < 0 ? -r : r;
         double h = vars[lh];
         // r is allowed to flip to the opposite position, but u is not allowed, since it is the side vector.
         if (u.dot(real_u) < 0)
@@ -641,8 +645,6 @@ void lsTools::Run_Mesh_Opt(){
     std::vector < double > angle_degrees(1);
     angle_degrees[0] = pseudo_geodesic_target_angle_degree;
     Eigen::MatrixXd GradValueF, GradValueV;
-    std::array<spMat, 3> GradMatF;
-
     
     get_gradient_hessian_values(func, GradValueV, GradValueF);
     bool first_compute = true; // if we need initialize auxiliary vars
@@ -765,41 +767,40 @@ void lsTools::Run_Mesh_Opt(){
 }
 void lsTools::Run_AAG_Mesh_Opt(Eigen::VectorXd& func0, Eigen::VectorXd& func1, Eigen::VectorXd& func2){
 
+    func2 = -func0 - func1;
+    Eigen::MatrixXd GradValueF[3], GradValueV[3];
 
-    // std::vector < double > angle_degrees(1);
-    // angle_degrees[0] = pseudo_geodesic_target_angle_degree;
-    // Eigen::MatrixXd GradValueF, GradValueV;
-    // std::array<spMat, 3> GradMatF;
-
-    
-    // get_gradient_hessian_values(func, GradValueV, GradValueF);
-    // bool first_compute = true; // if we need initialize auxiliary vars
-    // if(!Last_Opt_Mesh){
-    //     analysis_pseudo_geodesic_on_vertices(func, anas[0]);
-    //     first_compute = true;// if last time opt levelset, we re-compute the auxiliary vars
-    // }
-    // int ninner = anas[0].LocalActInner.size();
-    // int vnbr=V.rows();
-	// int final_size = ninner * 7 + vnbr * 3;// Change this when using more auxilary vars
+    get_gradient_hessian_values(func0, GradValueV[0], GradValueF[0]);
+    get_gradient_hessian_values(func1, GradValueV[1], GradValueF[1]);
+    get_gradient_hessian_values(func2, GradValueV[2], GradValueF[2]);
+    bool first_compute = true; // if we need initialize auxiliary vars
+    if(!Last_Opt_Mesh){
+        Compute_Auxiliaries_Mesh=true;
+        analysis_pseudo_geodesic_on_vertices(func0, anas[0]);
+        analysis_pseudo_geodesic_on_vertices(func1, anas[1]);
+        analysis_pseudo_geodesic_on_vertices(func2, anas[2]);
+        first_compute = true;// if last time opt levelset, we re-compute the auxiliary vars
+    }
+    int ninner = anas[0].LocalActInner.size();
+    int vnbr=V.rows();
+	int final_size = ninner * 7 + vnbr * 3;// Change this when using more auxilary vars. Only G use auxiliaries
    
-    // Eigen::VectorXd vars;// the variables feed to the energies without auxiliary variables
-    // vars.resize(vnbr * 3);
-    // if (Glob_Vars.size() == 0) {
-    //     std::cout << "Initializing Global Variable For Mesh Opt ... " << std::endl;
-    //     Glob_Vars=Eigen::VectorXd::Zero(final_size);// We change the size if opt more than 1 level set
-    //     Glob_Vars.segment(0, vnbr) = V.col(0);
-    //     Glob_Vars.segment(vnbr, vnbr) = V.col(1);
-	// 	Glob_Vars.segment(vnbr * 2, vnbr) = V.col(2);
-    // }
-    // vars.topRows(vnbr) = V.col(0);
-    // vars.middleRows(vnbr, vnbr) = V.col(1);
-    // vars.bottomRows(vnbr) = V.col(2);
-    
-    // spMat H;
-    // Eigen::VectorXd B;
-    // H.resize(vnbr * 3, vnbr * 3);
-    // B = Eigen::VectorXd::Zero(vnbr * 3);
-    
+    spMat H;
+    Eigen::VectorXd B;
+    H.resize(final_size, final_size);
+    B = Eigen::VectorXd::Zero(final_size);
+    if (Glob_Vars.size() == 0) {
+        std::cout << "Initializing Global Variable For Mesh Opt ... " << std::endl;
+        Glob_Vars=Eigen::VectorXd::Zero(final_size);// We change the size if opt more than 1 level set
+        Glob_Vars.segment(0, vnbr) = V.col(0);
+        Glob_Vars.segment(vnbr, vnbr) = V.col(1);
+		Glob_Vars.segment(vnbr * 2, vnbr) = V.col(2);
+    }
+    Eigen::VectorXd vars;// the variables feed to the energies without auxiliary variables
+    vars.resize(vnbr * 3);
+    vars.topRows(vnbr) = V.col(0);
+    vars.middleRows(vnbr, vnbr) = V.col(1);
+    vars.bottomRows(vnbr) = V.col(2);
     
     // spMat Hsmooth;
     // Eigen::VectorXd Bsmooth;

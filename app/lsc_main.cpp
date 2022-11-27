@@ -452,11 +452,12 @@ int main(int argc, char *argv[])
 
 		if (ImGui::Button("Save levelset", ImVec2(ImGui::GetWindowSize().x * 0.25f, 0.0f)))
 		{
-			bool saved = save_levelset(lscif::tools.fvalues);
+			bool saved = save_levelset(lscif::tools.fvalues, lscif::tools.Binormals);
 			if (saved)
 			{
 				std::cout << "\nlevel set saved" << std::endl;
 			}
+			
 		}
 
 		static bool updateMeshFlag = false;
@@ -478,7 +479,13 @@ int main(int argc, char *argv[])
 			}
 			lscif::refer_AveEL = refAveEL;
 		}
-
+		ImGui::SameLine;
+		if (ImGui::Button("Read Binormals", ImVec2(ImGui::GetWindowSize().x * 0.35f, 0.0f)))
+		{
+			std::cout<<"Select a Bi-normal file for visulization"<<std::endl;
+			read_bi_normals(lscif::tools.Binormals);
+			std::cout<<"bi-normals got readed"<<std::endl;
+		}
 		// ImGui::Checkbox("Enable PG Energy", &lscif::show_optimizer_checkbox);
 		// show the name of the mesh when printing the info of this mesh
 		if (updateMeshFlag)
@@ -1087,6 +1094,7 @@ int main(int argc, char *argv[])
 			ImGui::SameLine();
 			if (ImGui::Button("Extr Pace Quad", ImVec2(ImGui::GetWindowSize().x * 0.25f, 0.0f)))
 			{
+				std::cout<<"This code is to extract AAG quads"<<std::endl;
 				int id = viewer.selected_data_index;
 				CGMesh updatedMesh;
 				CGMesh inputMesh = lscif::Meshes[id];
@@ -1151,10 +1159,7 @@ int main(int argc, char *argv[])
 				
 				Eigen::MatrixXd VER;
 				Eigen::MatrixXi FAC;
-				if(lscif::readed_LS1.size()!=lscif::tools.V.rows()){
-					std::cout<<"Please load a correct Level Set 1"<<std::endl;
-					ImGui::End();
-				}
+				std::cout<<"reading Quad obj"<<std::endl;
 				std::string fname = igl::file_dialog_open();
 				if (fname.length() == 0)
 				{
@@ -1164,18 +1169,19 @@ int main(int argc, char *argv[])
 				}
 				igl::readOBJ(fname, VER, FAC);
 				std::cout<<"OBJ readed, ver in face "<<FAC.cols()<<std::endl;
-				// extract_Origami_web(lscif::tools.lsmesh, lscif::tools.V, lscif::tools.Boundary_Edges,
-				// 					lscif::tools.F, lscif::readed_LS1, lscif::nbr_lines_first_ls, lscif::nbr_lines_second_ls,
-				// 					VER, FAC);
+				std::cout<<"Reading Bi-normals of triangle mesh"<<std::endl;
+				Eigen::MatrixXd bn;
+				read_bi_normals(bn);
+				std::cout<<"Binormals readed"<<std::endl;
+				std::cout<<"generating mesh with bi-normals"<<std::endl;
 				fname = igl::file_dialog_save();
 				
 				if (fname.length() == 0)
 				{
 					ImGui::End();
 				}
-				Eigen::MatrixXd E0, E1, binormals;
-				lscif::tools.show_binormals(lscif::readed_LS1, E0, E1, binormals, lscif::vector_scaling);
-				write_quad_mesh_with_binormal(fname,lscif::tools.V, lscif::tools.F, binormals, VER, FAC );
+				
+				write_quad_mesh_with_binormal(fname,lscif::tools.V, lscif::tools.F, bn, VER, FAC );
 				
 			}
 		}

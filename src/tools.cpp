@@ -847,7 +847,8 @@ void cylinder_open_example(double radius, double height, int nr, int nh)
 
 #include<igl/file_dialog_open.h>
 #include<igl/file_dialog_save.h>
-bool save_levelset(const Eigen::VectorXd &ls){
+bool save_levelset(const Eigen::VectorXd &ls, const Eigen::MatrixXd& binormals){
+    std::cout<<"SAVING LevelSet..."<<std::endl;
     std::string fname = igl::file_dialog_save();
     std::ofstream file;
     file.open(fname);
@@ -855,6 +856,29 @@ bool save_levelset(const Eigen::VectorXd &ls){
         file<<ls[i]<<std::endl;
     }
     file.close();
+    std::cout<<"LevelSet SAVED"<<std::endl;
+    std::cout<<"SAVING BI-NORMALS..."<<std::endl;
+    fname = igl::file_dialog_save();
+    file.open(fname);
+    for(int i=0;i<binormals.rows();i++){
+        file << binormals(i, 0) << "," << binormals(i, 1) << "," << binormals(i, 2) << std::endl;
+    }
+    file.close();
+    std::cout<<"BI-NORMALS SAVED, size "<<binormals.rows()<<std::endl;
+
+    return true;
+}
+bool save_levelset(const Eigen::VectorXd &ls){
+    std::cout<<"SAVING LevelSet..."<<std::endl;
+    std::string fname = igl::file_dialog_save();
+    std::ofstream file;
+    file.open(fname);
+    for(int i=0;i<ls.size();i++){
+        file<<ls[i]<<std::endl;
+    }
+    file.close();
+    std::cout<<"LevelSet SAVED"<<std::endl;
+
     return true;
 }
 bool read_levelset(Eigen::VectorXd &ls){
@@ -913,6 +937,75 @@ bool read_levelset(Eigen::VectorXd &ls){
     ls.resize(results.size());
     for(int i=0;i<results.size();i++){
         ls[i]=results[i];
+    }
+    if (!infile.eof())
+    {
+        std::cerr << "Could not read file " << fname << "\n";
+    }
+    std::cout<<fname<<" get readed"<<std::endl;
+    return true;
+}
+
+
+bool read_bi_normals(Eigen::MatrixXd &bn){
+    std::string fname = igl::file_dialog_open();
+    std::cout<<"reading "<<fname<<std::endl;
+    if (fname.length() == 0)
+        return false;
+
+    std::ifstream infile;
+    std::vector<Eigen::Vector3d> results;
+
+    infile.open(fname);
+    if (!infile.is_open())
+    {
+        std::cout << "Path Wrong!!!!" << std::endl;
+        std::cout << "path, " << fname << std::endl;
+        return false;
+    }
+
+    int l = 0;
+    while (infile) // there is input overload classfile
+    {
+        std::string s;
+        if (!getline(infile, s))
+            break;
+
+        if (s[0] != '#')
+        {
+            std::istringstream ss(s);
+            std::array<std::string, 3> record;
+            int c = 0;
+            while (ss)
+            {
+                std::string line;
+                if (!getline(ss, line, ','))
+                    break;
+                try
+                {
+
+                    record[c] = line;
+                    c++;
+
+                }
+                catch (const std::invalid_argument e)
+                {
+                    std::cout << "NaN found in file " << fname
+                              <<  std::endl;
+                    e.what();
+                }
+            }
+
+            double x = std::stod(record[0]);
+            double y = std::stod(record[1]);
+            double z = std::stod(record[2]);
+            results.push_back(Eigen::Vector3d(x, y, z));
+        }
+    }
+
+    bn.resize(results.size(), 3);
+    for(int i=0;i<results.size();i++){
+        bn.row(i)=results[i];
     }
     if (!infile.eof())
     {
@@ -1404,37 +1497,37 @@ void extract_Origami_web(const CGMesh &lsmesh, const Eigen::MatrixXd &V,const st
 }
 
 void lsTools::show_binormals(const Eigen::VectorXd &func, Eigen::MatrixXd &E0, Eigen::MatrixXd &E1, Eigen::MatrixXd& binormals,  double ratio){
-    int vnbr = V.rows();
-    analysis_pseudo_geodesic_on_vertices(func, anas[0]);
-    binormals=Eigen::MatrixXd::Zero(vnbr, 3);
-    E0.resize(vnbr, 3);
-    E1.resize(vnbr, 3);
-    int ninner = anas[0].LocalActInner.size();
-	for (int i = 0; i < ninner; i++)
-	{
-		if (anas[0].LocalActInner[i] == false) {
-			std::cout << "singularity" << std::endl;
-			continue;
-		}
-		int vm = IVids[i];
-		CGMesh::HalfedgeHandle inhd = anas[0].heh0[i], outhd = anas[0].heh1[i];
-        int v1 = lsmesh.from_vertex_handle(inhd).idx();
-        int v2 = lsmesh.to_vertex_handle(inhd).idx();
-        int v3 = lsmesh.from_vertex_handle(outhd).idx();
-        int v4 = lsmesh.to_vertex_handle(outhd).idx();
+    // int vnbr = V.rows();
+    // analysis_pseudo_geodesic_on_vertices(func, anas[0]);
+    // binormals=Eigen::MatrixXd::Zero(vnbr, 3);
+    // E0.resize(vnbr, 3);
+    // E1.resize(vnbr, 3);
+    // int ninner = anas[0].LocalActInner.size();
+	// for (int i = 0; i < ninner; i++)
+	// {
+	// 	if (anas[0].LocalActInner[i] == false) {
+	// 		std::cout << "singularity" << std::endl;
+	// 		continue;
+	// 	}
+	// 	int vm = IVids[i];
+	// 	CGMesh::HalfedgeHandle inhd = anas[0].heh0[i], outhd = anas[0].heh1[i];
+    //     int v1 = lsmesh.from_vertex_handle(inhd).idx();
+    //     int v2 = lsmesh.to_vertex_handle(inhd).idx();
+    //     int v3 = lsmesh.from_vertex_handle(outhd).idx();
+    //     int v4 = lsmesh.to_vertex_handle(outhd).idx();
 
-        double t1 = anas[0].t1s[i];
-        double t2 = anas[0].t2s[i];
+    //     double t1 = anas[0].t1s[i];
+    //     double t2 = anas[0].t2s[i];
 
-        Eigen::Vector3d ver0 = V.row(v1) + (V.row(v2) - V.row(v1)) * t1;
-        Eigen::Vector3d ver1 = V.row(vm);
-        Eigen::Vector3d ver2 = V.row(v3) + (V.row(v4) - V.row(v3)) * t2;
+    //     Eigen::Vector3d ver0 = V.row(v1) + (V.row(v2) - V.row(v1)) * t1;
+    //     Eigen::Vector3d ver1 = V.row(vm);
+    //     Eigen::Vector3d ver2 = V.row(v3) + (V.row(v4) - V.row(v3)) * t2;
 
-        Eigen::Vector3d bi = (ver1 - ver0).cross(ver2 - ver1);
-        binormals.row(vm) = bi.normalized();
-    }
-    E0 = V - binormals * ratio;
-    E1 = V + binormals * ratio;
+    //     Eigen::Vector3d bi = (ver1 - ver0).cross(ver2 - ver1);
+    //     binormals.row(vm) = bi.normalized();
+    // }
+    E0 = V - Binormals * ratio;
+    E1 = V + Binormals * ratio;
 }
 #include <igl/point_mesh_squared_distance.h>
 #include <fstream>

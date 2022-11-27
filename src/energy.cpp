@@ -267,6 +267,9 @@ void lsTools::calculate_pseudo_geodesic_opt_expanded_function_values(Eigen::Vect
 	const std::vector<double>& t1s, const std::vector<double>& t2s, const bool first_compute, const int vars_start_loc, const int aux_start_loc, std::vector<Trip>& tripletes, Eigen::VectorXd& Energy) {
 	double cos_angle, sin_angle;
 	int vnbr = V.rows();
+	if(Binormals.rows()!=vnbr){
+		Binormals = Eigen::MatrixXd::Zero(vnbr, 3);
+	}
 	int ninner = LocalActInner.size();
 	if (angle_degree.size() == 1) {
 		double angle_radian = angle_degree[0] * LSC_PI / 180.; // the angle in radian
@@ -363,6 +366,7 @@ void lsTools::calculate_pseudo_geodesic_opt_expanded_function_values(Eigen::Vect
 		}
 
 		Eigen::Vector3d r = Eigen::Vector3d(vars[lrx], vars[lry], vars[lrz]);
+		Binormals.row(vm) = r.dot(norm) < 0 ? -r : r;
 		// the weights
 		double dis0 = ((V.row(v1) - V.row(v2)) * vars[lvm] + (V.row(v2) - V.row(vm)) * vars[lv1] + (V.row(vm) - V.row(v1)) * vars[lv2]).norm();
 		double dis1 = ((V.row(v3) - V.row(v4)) * vars[lvm] + (V.row(v4) - V.row(vm)) * vars[lv3] + (V.row(vm) - V.row(v3)) * vars[lv4]).norm();
@@ -500,7 +504,6 @@ void lsTools::calculate_asymptotic_function_values(Eigen::VectorXd& vars,
 	const std::vector<double>& t1s, const std::vector<double>& t2s,const int vars_start_loc, std::vector<Trip>& tripletes, Eigen::VectorXd& Energy) {
 	int vnbr = V.rows();
 	int ninner = LocalActInner.size();
-
 	tripletes.clear();
 	tripletes.reserve(ninner * 6); // the number of rows is ninner*4, the number of cols is aux_start_loc + ninner * 3 (all the function values and auxiliary vars)
 	Energy = Eigen::VectorXd::Zero(ninner * 2); // mesh total energy values
@@ -1050,7 +1053,7 @@ void lsTools::Run_AAG(Eigen::VectorXd& func0, Eigen::VectorXd& func1, Eigen::Vec
 	analysis_pseudo_geodesic_on_vertices(func1, anas[1]);
 	analysis_pseudo_geodesic_on_vertices(func2, anas[2]);
 	int ninner = anas[0].LocalActInner.size();
-	int final_size = ninner * 10 + vnbr * 3; // Change this when using more auxilary vars
+	int final_size = ninner * 10 + vnbr * 3; // Change this when using more auxilary vars. Only G use auxiliaries
 
 	
 	
