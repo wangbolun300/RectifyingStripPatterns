@@ -635,7 +635,11 @@ int main(int argc, char *argv[])
 				einit.start_angle = lscif::start_angle;
 				einit.enable_boundary_angles = lscif::enable_boundary_angles;
 				lscif::tools.prepare_level_set_solving(einit);
-
+				if(lscif::tools.fvalues.size()==0){
+					std::cout<<"Please load or initialize the level-set before opt it"<<std::endl;
+					ImGui::End();
+					return;
+				}
 				for (int i = 0; i < lscif::OpIter; i++)
 				{
 					lscif::tools.Run_Level_Set_Opt();
@@ -671,6 +675,11 @@ int main(int argc, char *argv[])
 			ImGui::SameLine();
 			if (ImGui::Button("Mesh Opt", ImVec2(ImGui::GetWindowSize().x * 0.25f, 0.0f)))
 			{
+				if(lscif::tools.fvalues.size()==0){
+					std::cout<<"Please load or initialize the level-set before opt the mesh"<<std::endl;
+					ImGui::End();
+					return;
+				}
 				int id = viewer.selected_data_index;
 				CGMesh updatedMesh;
 				CGMesh inputMesh = lscif::Meshes[id];
@@ -737,6 +746,35 @@ int main(int argc, char *argv[])
 
 				viewer.selected_data_index = id;
 				
+			}
+			ImGui::SameLine();
+
+			if (ImGui::Button("AAG MshOpt", ImVec2(ImGui::GetWindowSize().x * 0.25f, 0.0f)))
+			{
+				int id = viewer.selected_data_index;
+				CGMesh updatedMesh;
+				CGMesh inputMesh = lscif::Meshes[id];
+				MeshEnergyPrepare initializer;
+				initializer.Mesh_opt_max_step_length=lscif::Mesh_opt_max_step_length;
+				initializer.weight_Mesh_pesudo_geodesic=lscif::weight_Mesh_pesudo_geodesic;
+				initializer.weight_Mesh_smoothness=lscif::weight_Mesh_smoothness;
+				initializer.weight_mass=lscif::weight_mass;
+				initializer.target_angle = lscif::target_angle;
+				initializer.weight_Mesh_edgelength = lscif::weight_Mesh_edgelength;
+				initializer.enable_asymptotic_condition = lscif::enable_asymptotic_condition;
+				lscif::tools.weight_geodesic=lscif::weight_geodesic;
+				lscif::tools.prepare_mesh_optimization_solving(initializer);
+				for (int i = 0; i < lscif::Nbr_Iterations_Mesh_Opt; i++)
+				{
+					lscif::tools.Run_AAG_Mesh_Opt(lscif::readed_LS1, lscif::readed_LS2, lscif::readed_LS3);
+				}
+				updatedMesh = lscif::tools.lsmesh;
+				lscif::updateMeshViewer(viewer, updatedMesh);
+				lscif::meshFileName.push_back("aagm_" + lscif::meshFileName[id]);
+				lscif::Meshes.push_back(updatedMesh);
+
+				viewer.selected_data_index = id;
+				std::cout << "waiting for instructions" << std::endl;
 			}
 			ImGui::SameLine();
 			if (ImGui::Button("draw AAG", ImVec2(ImGui::GetWindowSize().x * 0.23f, 0.0f)))

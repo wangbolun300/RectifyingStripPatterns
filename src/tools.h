@@ -66,3 +66,4 @@ Eigen::VectorXd three_vec_in_row(const Eigen::VectorXd& ve0, const Eigen::Vector
 // Ft, Vt belong to the triangle mesh,  
 bool write_quad_mesh_with_binormal(const std::string & fname, const Eigen::MatrixXd& Vt, const Eigen::MatrixXi& Ft, const Eigen::MatrixXd& bi,
 const Eigen::MatrixXd& Vq, const Eigen::MatrixXi& Fq);
+void levelset_unit_scale(Eigen::VectorXd& func, Eigen::MatrixXd &GradValueF, const double length);

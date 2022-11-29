@@ -337,6 +337,7 @@ void lsTools::calculate_pseudo_geodesic_opt_expanded_function_values(Eigen::Vect
 		Eigen::Vector3d real_u = norm.cross(ver2 - ver0);
 		real_u = real_u.normalized();
 		if (Compute_Auxiliaries) {
+			// std::cout<<"init auxiliaries"<<std::endl;
 			Eigen::Vector3d real_s = v31 * (f4 - f3) * (f2 - f1) + v43 * (fm - f3) * (f2 - f1) - v21 * (fm - f1) * (f4 - f3);
 			Eigen::Vector3d real_r = (ver1 - ver0).normalized().cross((ver2 - ver1).normalized());
 			real_r = real_r.normalized();
@@ -363,6 +364,7 @@ void lsTools::calculate_pseudo_geodesic_opt_expanded_function_values(Eigen::Vect
 			vars(luy) *= -1;
 			vars(luz) *= -1;
 			u *= -1;
+			std::cout<<"flip u"<<std::endl;
 		}
 
 		Eigen::Vector3d r = Eigen::Vector3d(vars[lrx], vars[lry], vars[lrz]);
@@ -1046,9 +1048,18 @@ void lsTools::Run_AAG(Eigen::VectorXd& func0, Eigen::VectorXd& func1, Eigen::Vec
 	int vnbr = V.rows();
 	int fnbr = F.rows();
 	bool first_compute = true; // if we need initialize auxiliary vars
+	get_gradient_hessian_values(func0, GradValueV[0], GradValueF[0]);
+	get_gradient_hessian_values(func1, GradValueV[1], GradValueF[1]);
 	
 	// initialize the level set with some number
-	func2 = -func0 - func1; // func0 + func1 + func2 = 0
+	if (Glob_lsvars.size() == 0)
+	{ // initialize the 3rd levelset only here
+		levelset_unit_scale(func0, GradValueF[0], 1);
+		levelset_unit_scale(func1, GradValueF[1], 1);
+		func2 = -func0 - func1; // func0 + func1 + func2 = 0
+	}
+	get_gradient_hessian_values(func2, GradValueV[2], GradValueF[2]);
+	
 	analysis_pseudo_geodesic_on_vertices(func0, anas[0]);
 	analysis_pseudo_geodesic_on_vertices(func1, anas[1]);
 	analysis_pseudo_geodesic_on_vertices(func2, anas[2]);
@@ -1057,9 +1068,7 @@ void lsTools::Run_AAG(Eigen::VectorXd& func0, Eigen::VectorXd& func1, Eigen::Vec
 
 	
 	
-	get_gradient_hessian_values(func0, GradValueV[0], GradValueF[0]);
-	get_gradient_hessian_values(func1, GradValueV[1], GradValueF[1]);
-	get_gradient_hessian_values(func2, GradValueV[2], GradValueF[2]);
+	
 	if (Glob_lsvars.size() == 0) {
 		
 		first_compute = true;
@@ -1148,10 +1157,7 @@ void lsTools::Run_AAG(Eigen::VectorXd& func0, Eigen::VectorXd& func1, Eigen::Vec
 	{
 		dx *= max_step_length / level_set_step_length;
 	}
-	func0 += dx.topRows(vnbr);
-	func1 += dx.middleRows(vnbr,vnbr);
-	func2 += dx.middleRows(vnbr * 2, vnbr);
-	Glob_lsvars += dx;
+	
 
 	// energy evaluation
 	double energy_biharmonic[3];
@@ -1193,6 +1199,10 @@ void lsTools::Run_AAG(Eigen::VectorXd& func0, Eigen::VectorXd& func1, Eigen::Vec
 	std::cout<<"extra, "<<extra_energy.norm()<<", ";
 	step_length = dx.norm();
 	std::cout << "step " << step_length << std::endl;
-	
+
+	func0 += dx.topRows(vnbr);
+	func1 += dx.middleRows(vnbr,vnbr);
+	func2 += dx.middleRows(vnbr * 2, vnbr);
+	Glob_lsvars += dx;
 	Last_Opt_Mesh = false;
 }

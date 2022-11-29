@@ -775,17 +775,16 @@ void levelset_unit_scale(Eigen::VectorXd& func, Eigen::MatrixXd &GradValueF, con
 }
 void lsTools::Run_AAG_Mesh_Opt(Eigen::VectorXd& func0, Eigen::VectorXd& func1, Eigen::VectorXd& func2){
 
-    
-    Eigen::MatrixXd GradValueF[3], GradValueV[3];
-    get_gradient_hessian_values(func0, GradValueV[0], GradValueF[0]);
-    get_gradient_hessian_values(func1, GradValueV[1], GradValueF[1]);
     // levelset unit scale
-    levelset_unit_scale(func0, GradValueF[0], 1);
-    levelset_unit_scale(func1, GradValueF[1], 1);
-    func2 = -func0 - func1;
-    
     bool first_compute = true; // if we need initialize auxiliary vars
     if(!Last_Opt_Mesh){
+        Eigen::MatrixXd GradValueF[3], GradValueV[3];
+        get_gradient_hessian_values(func0, GradValueV[0], GradValueF[0]);
+        get_gradient_hessian_values(func1, GradValueV[1], GradValueF[1]);
+        levelset_unit_scale(func0, GradValueF[0], 1);
+        levelset_unit_scale(func1, GradValueF[1], 1);
+        func2 = -func0 - func1;
+        std::cout << "** Mesh Opt initialization done" << std::endl;
         Compute_Auxiliaries_Mesh=true;
         analysis_pseudo_geodesic_on_vertices(func0, anas[0]);
         analysis_pseudo_geodesic_on_vertices(func1, anas[1]);
@@ -826,7 +825,7 @@ void lsTools::Run_AAG_Mesh_Opt(Eigen::VectorXd& func0, Eigen::VectorXd& func1, E
     assemble_solver_mesh_edge_length_part(vars, Hel, Bel, ElEnergy);// as rigid as possible
     H += weight_Mesh_edgelength * Hel;
     B += weight_Mesh_edgelength * Bel;
-    
+
 	spMat Hpg[3];
     Eigen::VectorXd Bpg[3];
     int aux_start_loc = vnbr * 3;// the first levelset the auxiliary vars start from vnbr*3
@@ -845,8 +844,11 @@ void lsTools::Run_AAG_Mesh_Opt(Eigen::VectorXd& func0, Eigen::VectorXd& func1, E
     Btotal = sum_uneven_vectors(B, Btotal);
 
     // add the PG energy
-    Htotal = sum_uneven_spMats(weight_Mesh_pesudo_geodesic * (Hpg[0] + Hpg[1] + weight_geodesic * Hpg[2]), Htotal);
-    Btotal = sum_uneven_vectors(weight_Mesh_pesudo_geodesic * (Bpg[0] + Bpg[1] + weight_geodesic * Bpg[2]), Btotal);
+    Htotal = sum_uneven_spMats(weight_Mesh_pesudo_geodesic * (Hpg[0] + Hpg[1]), Htotal);
+    Htotal += weight_Mesh_pesudo_geodesic * weight_geodesic * Hpg[2];
+    Btotal = sum_uneven_vectors(weight_Mesh_pesudo_geodesic * (Bpg[0] + Bpg[1]), Btotal);
+    Btotal += weight_Mesh_pesudo_geodesic * weight_geodesic * Bpg[2];
+
     Htotal += spMat(weight_mass * 1e-6 * Eigen::VectorXd::Ones(final_size).asDiagonal());
 
     if(vector_contains_NAN(Btotal)){
@@ -879,9 +881,8 @@ void lsTools::Run_AAG_Mesh_Opt(Eigen::VectorXd& func0, Eigen::VectorXd& func1, E
         std::cout << "vars diff from glob vars" << std::endl;
     }
     double energy_smooth=(V.transpose()*QcH*V).norm();
-    /*double energy_mvl = (MVLap * vars).norm();*/
     std::cout<<"Mesh Opt: smooth, "<< energy_smooth <<", ";
-
+    /*double energy_mvl = (MVLap * vars).norm();*/
     double energy_ls[3];
     energy_ls[0] = MTEnergy[0].norm();
     energy_ls[1] = MTEnergy[1].norm();
