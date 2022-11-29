@@ -93,7 +93,7 @@ namespace lscif
 	std::vector<std::string> meshFileName;
 	std::vector<CGMesh> Meshes;
 	lsTools tools;
-	double InputPx = 0.0;
+	double InputPx = 1.0;
 	double InputPy = 0.0;
 	double InputPz = 0.0;
 	std::vector<int> VertexType;
@@ -459,41 +459,11 @@ int main(int argc, char *argv[])
 			}
 			
 		}
-
-		static bool updateMeshFlag = false;
-		static int updateMeshId = 0;
-		// when clicking this button, it will print the info of this mesh
-		if (ImGui::Button("Update Reference Mesh", ImVec2(ImGui::GetWindowSize().x * 0.35f, 0.0f)))
-		{
-			updateMeshFlag = true;
-			updateMeshId = viewer.selected_data_index;
-			lscif::RefMesh = lscif::Meshes[updateMeshId];
-			double refAveEL = 0;
-			double totalL, minL, maxL;
-			lscif::MP.getEdgeLengthStatistics(lscif::RefMesh, totalL, minL, maxL, refAveEL);
-			bool printInfo = true;
-			if (printInfo)
-			{
-				//	std::cout << "Mesh Informatin Vertices/Edges/Faces/HalfEdges:::::" << RefMesh.n_vertices() << "/" << RefMesh.n_edges() << "/" << RefMesh.n_faces() << "/" << RefMesh.n_halfedges() << std::endl;
-				std::cout << "Edge lengths Total/minL/maxL/averageL:::::" << totalL << "/" << minL << "/" << maxL << "/" << refAveEL << std::endl;
-			}
-			lscif::refer_AveEL = refAveEL;
-		}
-		ImGui::SameLine;
-		if (ImGui::Button("Read Binormals", ImVec2(ImGui::GetWindowSize().x * 0.35f, 0.0f)))
+		if (ImGui::Button("Read Binormals", ImVec2(ImGui::GetWindowSize().x * 0.25f, 0.0f)))
 		{
 			std::cout<<"Select a Bi-normal file for visulization"<<std::endl;
 			read_bi_normals(lscif::tools.Binormals);
 			std::cout<<"bi-normals got readed"<<std::endl;
-		}
-		// ImGui::Checkbox("Enable PG Energy", &lscif::show_optimizer_checkbox);
-		// show the name of the mesh when printing the info of this mesh
-		if (updateMeshFlag)
-		{
-			ImGui::SameLine();
-			std::string str = lscif::meshFileName[updateMeshId];
-			const char *meshnameChar = str.c_str();
-			ImGui::Text(meshnameChar);
 		}
 
 		// Add new group
@@ -547,6 +517,12 @@ int main(int argc, char *argv[])
 			ImGui::InputInt("debug id", &lscif::id_debug_global, 0, 0);
 			ImGui::InputDouble("start angle", &lscif::start_angle, 0, 0, "%.4f");
 			ImGui::InputDouble("threadshold angle", &lscif::threadshold_angel_degree, 0, 0, "%.4f");
+			ImGui::PushItemWidth(50);
+			ImGui::InputDouble("Dirx", &lscif::InputPx, 0, 0, "%.6f");
+			ImGui::SameLine();
+			ImGui::InputDouble("Diry", &lscif::InputPy, 0, 0, "%.6f");
+			ImGui::SameLine();
+			ImGui::InputDouble("Dirz", &lscif::InputPz, 0, 0, "%.6f");
 			// ImGui::SameLine();
 			// ImGui::Checkbox("Fix Boundary", &lscif::fixBoundary_checkbox);
 		}
@@ -612,6 +588,11 @@ int main(int argc, char *argv[])
 				// std::cout<<"acos(1) "<<acos(1.)<<std::endl;
 			}
 			ImGui::SameLine();
+			if (ImGui::Button("Bndry Assign", ImVec2(ImGui::GetWindowSize().x * 0.23f, 0.0f)))
+			{
+
+			}
+
 			if (ImGui::Button("LvSet Opt", ImVec2(ImGui::GetWindowSize().x * 0.23f, 0.0f)))
 			{
 

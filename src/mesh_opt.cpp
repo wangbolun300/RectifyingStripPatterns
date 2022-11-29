@@ -90,12 +90,12 @@ void get_alpha_associate_with_cross_pairs(const double t1, const double t2, std:
 // r: the bi-normals. located from aux_start_loc to ninner * 3 + aux_start_loc
 // u: the side vector. located from aux_start_loc + ninner * 3 to aux_start_loc + ninner * 6
 // h: r.dot(u). located from aux_start_loc + ninner * 6 + aux_start_loc + ninner * 7
-void lsTools::calculate_mesh_opt_expanded_function_values(const Eigen::VectorXd&  Loc_ActInner, Eigen::VectorXd &vars,
-    const std::vector<CGMesh::HalfedgeHandle>& heh0, const std::vector<CGMesh::HalfedgeHandle>& heh1,
-    const std::vector<double> &t1s, const std::vector<double> &t2s,
-    const std::vector<double>& angle_degree,
-    const bool first_compute, const int aux_start_loc,  std::vector<Trip> &tripletes, Eigen::VectorXd &MTenergy) {
-    
+void lsTools::calculate_mesh_opt_expanded_function_values(Eigen::VectorXd &vars,
+                                                          const LSAnalizer &analizer,
+                                                          const std::vector<double> &angle_degree,
+                                                          const bool first_compute, const int aux_start_loc, std::vector<Trip> &tripletes, Eigen::VectorXd &MTenergy)
+{
+
     double cos_angle;
     double sin_angle;
     if (angle_degree.size() == 1) {
@@ -104,7 +104,7 @@ void lsTools::calculate_mesh_opt_expanded_function_values(const Eigen::VectorXd&
         sin_angle = sin(angle_radian);
     }
     
-    int ninner = Loc_ActInner.size();
+    int ninner = analizer.LocalActInner.size();
     int vnbr = V.rows();
     if (Binormals.rows() != vnbr)
     {
@@ -118,7 +118,7 @@ void lsTools::calculate_mesh_opt_expanded_function_values(const Eigen::VectorXd&
 
     for (int i = 0; i < ninner; i++)
     {
-        if (Loc_ActInner[i] == false) {
+        if (analizer.LocalActInner[i] == false) {
             continue;
         }
         int vm = IVids[i];
@@ -127,13 +127,13 @@ void lsTools::calculate_mesh_opt_expanded_function_values(const Eigen::VectorXd&
             cos_angle = cos(angle_radian);
             sin_angle = sin(angle_radian);
         }
-        CGMesh::HalfedgeHandle inhd = heh0[i], outhd = heh1[i];
+        CGMesh::HalfedgeHandle inhd = analizer.heh0[i], outhd = analizer.heh1[i];
         int v1 = lsmesh.from_vertex_handle(inhd).idx();
         int v2 = lsmesh.to_vertex_handle(inhd).idx();
         int v3 = lsmesh.from_vertex_handle(outhd).idx();
         int v4 = lsmesh.to_vertex_handle(outhd).idx();
-        double t1 = t1s[i];
-        double t2 = t2s[i];
+        double t1 = analizer.t1s[i];
+        double t2 = analizer.t2s[i];
         Eigen::Vector3d ver0 = V.row(v1) + (V.row(v2) - V.row(v1)) * t1;
         Eigen::Vector3d ver1 = V.row(vm);
         Eigen::Vector3d ver2 = V.row(v3) + (V.row(v4) - V.row(v3)) * t2;
@@ -329,7 +329,7 @@ void lsTools::calculate_mesh_opt_expanded_function_values(const Eigen::VectorXd&
         MTenergy[i + ninner * 8] = r.dot(norm) * h - sin_angle * cos_angle;
     }
 }
-void lsTools::calculate_mesh_opt_asymptotic_values(const Eigen::VectorXd &Loc_ActInner, const Eigen::VectorXd &func,
+void lsTools::calculate_mesh_opt_extreme_values(const Eigen::VectorXd &Loc_ActInner, const Eigen::VectorXd &func,
                                                    const std::vector<CGMesh::HalfedgeHandle> &heh0, const std::vector<CGMesh::HalfedgeHandle> &heh1,
                                                    const std::vector<double> &t1s, const std::vector<double> &t2s, std::vector<Trip> &tripletes, Eigen::VectorXd &MTenergy)
 {
@@ -425,15 +425,13 @@ spMat Jacobian_transpose_mesh_opt_on_ver(const std::array<spMat, 3>& JC,
 
 	return result;
 }
-void lsTools::assemble_solver_mesh_opt_part(const Eigen::VectorXd& Loc_ActInner, Eigen::VectorXd& vars,
-    const std::vector<CGMesh::HalfedgeHandle>& heh0, const std::vector<CGMesh::HalfedgeHandle>& heh1,
-    const std::vector<double>& t1s, const std::vector<double>& t2s, 
+void lsTools::assemble_solver_mesh_opt_part( Eigen::VectorXd& vars,
+    const LSAnalizer &analizer,
     const std::vector<double>& angle_degrees, const bool first_compute, const int aux_start_loc, spMat& JTJ, Eigen::VectorXd& B, Eigen::VectorXd& MTEnergy){
 	std::vector<Trip> tripletes;
     int vsize = V.rows();
-    int ninner = Loc_ActInner.size();
-	calculate_mesh_opt_expanded_function_values(Loc_ActInner, vars, heh0, heh1,
-		t1s, t2s, angle_degrees, first_compute, aux_start_loc, tripletes, MTEnergy);
+    int ninner = analizer.LocalActInner.size();
+	calculate_mesh_opt_expanded_function_values(vars, analizer, angle_degrees, first_compute, aux_start_loc, tripletes, MTEnergy);
         
     int nvars = vars.size();
     int ncondi = MTEnergy.size();
@@ -443,14 +441,14 @@ void lsTools::assemble_solver_mesh_opt_part(const Eigen::VectorXd& Loc_ActInner,
     JTJ = J.transpose() * J;
     B = -J.transpose() * MTEnergy;
 }
-void lsTools::assemble_solver_mesh_asymptotic(const Eigen::VectorXd& Loc_ActInner, const Eigen::VectorXd& func,
+void lsTools::assemble_solver_mesh_extreme(const Eigen::VectorXd& Loc_ActInner, const Eigen::VectorXd& func,
     const std::vector<CGMesh::HalfedgeHandle>& heh0, const std::vector<CGMesh::HalfedgeHandle>& heh1,
     const std::vector<double>& t1s, const std::vector<double>& t2s,
     spMat& JTJ, Eigen::VectorXd& B, Eigen::VectorXd& MTEnergy) {
     std::vector<Trip> tripletes;
     int vsize = V.rows();
     int ninner = Loc_ActInner.size();
-	calculate_mesh_opt_asymptotic_values(Loc_ActInner, func, heh0, heh1, t1s, t2s, tripletes, MTEnergy);
+	calculate_mesh_opt_extreme_values(Loc_ActInner, func, heh0, heh1, t1s, t2s, tripletes, MTEnergy);
 	int nvars = vsize * 3;
 	int ncondi = ninner * 2;
     spMat J;
@@ -695,11 +693,11 @@ void lsTools::Run_Mesh_Opt(){
     int aux_start_loc = vnbr * 3;// the first levelset the auxiliary vars start from vnbr*3
     Eigen::VectorXd MTEnergy;
     if (!enable_asymptotic_condition) {
-        assemble_solver_mesh_opt_part(anas[0].LocalActInner, Glob_Vars,
-            anas[0].heh0, anas[0].heh1, anas[0].t1s, anas[0].t2s, angle_degrees, first_compute, aux_start_loc, Hpg, Bpg, MTEnergy);
+        assemble_solver_mesh_opt_part(Glob_Vars,
+            anas[0], angle_degrees, first_compute, aux_start_loc, Hpg, Bpg, MTEnergy);
     }
     else {
-        assemble_solver_mesh_asymptotic(anas[0].LocalActInner, func, anas[0].heh0, anas[0].heh1, anas[0].t1s, anas[0].t2s, Hpg, Bpg, MTEnergy);
+        assemble_solver_mesh_extreme(anas[0].LocalActInner, func, anas[0].heh0, anas[0].heh1, anas[0].t1s, anas[0].t2s, Hpg, Bpg, MTEnergy);
     }
     Compute_Auxiliaries_Mesh = false;
     spMat Htotal(final_size, final_size);
@@ -830,13 +828,12 @@ void lsTools::Run_AAG_Mesh_Opt(Eigen::VectorXd& func0, Eigen::VectorXd& func1, E
     Eigen::VectorXd Bpg[3];
     int aux_start_loc = vnbr * 3;// the first levelset the auxiliary vars start from vnbr*3
     Eigen::VectorXd MTEnergy[3];
-    assemble_solver_mesh_asymptotic(anas[0].LocalActInner, func0, anas[0].heh0, anas[0].heh1, anas[0].t1s, anas[0].t2s, Hpg[0], Bpg[0], MTEnergy[0]);
-    assemble_solver_mesh_asymptotic(anas[1].LocalActInner, func1, anas[1].heh0, anas[1].heh1, anas[1].t1s, anas[1].t2s, Hpg[1], Bpg[1], MTEnergy[1]);
+    assemble_solver_mesh_extreme(anas[0].LocalActInner, func0, anas[0].heh0, anas[0].heh1, anas[0].t1s, anas[0].t2s, Hpg[0], Bpg[0], MTEnergy[0]);
+    assemble_solver_mesh_extreme(anas[1].LocalActInner, func1, anas[1].heh0, anas[1].heh1, anas[1].t1s, anas[1].t2s, Hpg[1], Bpg[1], MTEnergy[1]);
     std::vector<double> angle_degree(1);
     angle_degree[0] = 90;
-    assemble_solver_mesh_opt_part(anas[2].LocalActInner, Glob_Vars,
-                                  anas[2].heh0, anas[2].heh1, anas[2].t1s, anas[2].t2s, angle_degree, first_compute, aux_start_loc, Hpg[2], Bpg[2], MTEnergy[2]);
-    
+    assemble_solver_mesh_opt_part(Glob_Vars, anas[2], angle_degree, first_compute, aux_start_loc, Hpg[2], Bpg[2], MTEnergy[2]);
+
     Compute_Auxiliaries_Mesh = false;
     spMat Htotal(final_size, final_size);
     Eigen::VectorXd Btotal=Eigen::VectorXd::Zero(final_size);
