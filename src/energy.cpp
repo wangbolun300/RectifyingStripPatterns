@@ -884,6 +884,7 @@ void lsTools::Run_Level_Set_Opt() {
 	}
 	if(Last_Opt_Mesh){
 		Compute_Auxiliaries = true;
+		std::cout<<"Recomputing Auxiliaries"<<std::endl;
 	}
 	
 	spMat H;
@@ -1059,7 +1060,7 @@ void lsTools::Run_AAG(Eigen::VectorXd& func0, Eigen::VectorXd& func1, Eigen::Vec
 		func2 = -func0 - func1; // func0 + func1 + func2 = 0
 	}
 	get_gradient_hessian_values(func2, GradValueV[2], GradValueF[2]);
-	
+
 	analysis_pseudo_geodesic_on_vertices(func0, anas[0]);
 	analysis_pseudo_geodesic_on_vertices(func1, anas[1]);
 	analysis_pseudo_geodesic_on_vertices(func2, anas[2]);
@@ -1078,7 +1079,10 @@ void lsTools::Run_AAG(Eigen::VectorXd& func0, Eigen::VectorXd& func1, Eigen::Vec
 		Glob_lsvars.segment(vnbr, vnbr) = func1;
 		Glob_lsvars.segment(vnbr * 2, vnbr) = func2;
 	}
-	
+	if(Last_Opt_Mesh){
+		Compute_Auxiliaries = true;
+		std::cout<<"Recomputing Auxiliaries"<<std::endl;
+	}
 	
 	spMat H;
 	H.resize(final_size, final_size);

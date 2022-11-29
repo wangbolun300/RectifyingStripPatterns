@@ -707,7 +707,11 @@ int main(int argc, char *argv[])
 			}
 			if (ImGui::Button("AAG LvSet", ImVec2(ImGui::GetWindowSize().x * 0.25f, 0.0f)))
 			{
-				
+				if(lscif::readed_LS1.size()==0|| lscif::readed_LS2.size()==0){
+					std::cout<<"Please Read the correct levelset 1 and levelset 2"<<std::endl;
+					ImGui::End();
+					return;
+				}
 				int id = viewer.selected_data_index;
 				CGMesh inputMesh = lscif::Meshes[id];
 				EnergyPrepare einit;
@@ -751,6 +755,11 @@ int main(int argc, char *argv[])
 
 			if (ImGui::Button("AAG MshOpt", ImVec2(ImGui::GetWindowSize().x * 0.25f, 0.0f)))
 			{
+				if(lscif::readed_LS1.size()==0|| lscif::readed_LS2.size()==0){
+					std::cout<<"Please Read the correct levelset 1 and levelset 2"<<std::endl;
+					ImGui::End();
+					return;
+				}
 				int id = viewer.selected_data_index;
 				CGMesh updatedMesh;
 				CGMesh inputMesh = lscif::Meshes[id];
@@ -819,6 +828,11 @@ int main(int argc, char *argv[])
 
 			if (ImGui::Button("draw extracted", ImVec2(ImGui::GetWindowSize().x * 0.23f, 0.0f)))
 			{
+				if(lscif::tools.fvalues.size()==0){
+					std::cout<<"Please init the levelset or load a correct levelset"<<std::endl;
+					ImGui::End();
+					return;
+				}
 
 				int id = viewer.selected_data_index;
 				CGMesh inputMesh = lscif::Meshes[id];
@@ -885,6 +899,11 @@ int main(int argc, char *argv[])
 			{
 				Eigen::VectorXd level_set_values;
 				lscif::tools.show_level_set(level_set_values);
+				if(level_set_values.size()==0){
+					std::cout<<"Please init the levelset or load a correct levelset"<<std::endl;
+					ImGui::End();
+					return;
+				}
 				Eigen::MatrixXd CM;
 				igl::parula(Eigen::VectorXd::LinSpaced(21, 0, 1).eval(), false, CM);
 				igl::isolines_map(Eigen::MatrixXd(CM), CM);

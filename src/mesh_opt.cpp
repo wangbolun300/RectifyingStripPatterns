@@ -837,6 +837,7 @@ void lsTools::Run_AAG_Mesh_Opt(Eigen::VectorXd& func0, Eigen::VectorXd& func1, E
     assemble_solver_mesh_opt_part(anas[2].LocalActInner, Glob_Vars,
                                   anas[2].heh0, anas[2].heh1, anas[2].t1s, anas[2].t2s, angle_degree, first_compute, aux_start_loc, Hpg[2], Bpg[2], MTEnergy[2]);
     
+    Compute_Auxiliaries_Mesh = false;
     spMat Htotal(final_size, final_size);
     Eigen::VectorXd Btotal=Eigen::VectorXd::Zero(final_size);
     // first make the naive energies the correct size

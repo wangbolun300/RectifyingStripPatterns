@@ -1516,7 +1516,9 @@ void lsTools::show_pseudo_geodesic_curve(std::vector<Eigen::MatrixXd> &E0, std::
     
 
     // for debug
-
+    // if(trace_vers.size()==0){
+    //     std::cout<<"Please Trace The Curves First"<<std::endl;
+    // }
     E0.resize(trace_vers.size());
     E1.resize(trace_vers.size());
     int pnbr = 0;
