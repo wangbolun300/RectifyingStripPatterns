@@ -490,7 +490,7 @@ int main(int argc, char *argv[])
 			
 			ImGui::Checkbox("Enable functional Energy", &lscif::enable_functional_degrees);
 			ImGui::SameLine();
-			ImGui::Checkbox("Enable Asymptotic Energy", &lscif::enable_extreme_cases);
+			ImGui::Checkbox("Enable Extreme Cases", &lscif::enable_extreme_cases);
 			
 
 			if (lscif::enable_functional_degrees)

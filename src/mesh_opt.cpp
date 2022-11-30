@@ -468,7 +468,9 @@ void lsTools::calculate_mesh_opt_extreme_values(const Eigen::VectorXd &func, con
             MTenergy[i + ninner] = (V.row(vm).dot(r12) + V.row(v3).dot(r2m) + V.row(v4).dot(rm1)) / dis1;
         }
         else{
+            // std::cout<<"geodesic"<<std::endl;
             if(use_given_direction){
+                // std::cout<<"dbgdbg"<<std::endl;
                 norm=ray.normalized();
             }
             
@@ -479,7 +481,7 @@ void lsTools::calculate_mesh_opt_extreme_values(const Eigen::VectorXd &func, con
             double cm = -1;
 
             Eigen::Vector3d vec_l = c1 * V.row(v1) + c2 * V.row(v2) + cm * V.row(vm);
-            Eigen::Vector3d vec_r = c3 * V.row(v3) + c4 * V.row(c4) + cm * V.row(vm);
+            Eigen::Vector3d vec_r = c3 * V.row(v3) + c4 * V.row(v4) + cm * V.row(vm);
             double scale = vec_l.norm() * vec_r.norm();
             // to v1
             tripletes.push_back(Trip(i, l1x, LxRdN_differential(0, vec_l, vec_r, norm, 0) * c1 / scale));
@@ -499,12 +501,15 @@ void lsTools::calculate_mesh_opt_extreme_values(const Eigen::VectorXd &func, con
             tripletes.push_back(Trip(i, l4z, LxRdN_differential(1, vec_l, vec_r, norm, 2) * c4 / scale));
 
             // to vm
-            tripletes.push_back(Trip(i, lmx, LxRdN_differential(0, vec_l, vec_r, norm, 0) * cm / scale));
-            tripletes.push_back(Trip(i, lmy, LxRdN_differential(0, vec_l, vec_r, norm, 1) * cm / scale));
-            tripletes.push_back(Trip(i, lmz, LxRdN_differential(0, vec_l, vec_r, norm, 2) * cm / scale));
-            tripletes.push_back(Trip(i, lmx, LxRdN_differential(1, vec_l, vec_r, norm, 0) * cm / scale));
-            tripletes.push_back(Trip(i, lmy, LxRdN_differential(1, vec_l, vec_r, norm, 1) * cm / scale));
-            tripletes.push_back(Trip(i, lmz, LxRdN_differential(1, vec_l, vec_r, norm, 2) * cm / scale));
+            Eigen::Vector3d lshort = c1 * V.row(v1) + c2 * V.row(v2);
+            Eigen::Vector3d rshort = c3 * V.row(v3) + c4 * V.row(c4);
+            double tvalue_x = LxRdN_differential(0, lshort, rshort, norm, 0) * cm + LxRdN_differential(1, lshort, rshort, norm, 0) * cm;
+            double tvalue_y = LxRdN_differential(0, lshort, rshort, norm, 1) * cm + LxRdN_differential(1, lshort, rshort, norm, 1) * cm;
+            double tvalue_z = LxRdN_differential(0, lshort, rshort, norm, 2) * cm + LxRdN_differential(1, lshort, rshort, norm, 2) * cm;
+            tripletes.push_back(Trip(i, lmx, tvalue_x / scale));
+            tripletes.push_back(Trip(i, lmy, tvalue_y / scale));
+            tripletes.push_back(Trip(i, lmz, tvalue_z / scale));
+            
 
             MTenergy[i] = vec_l.cross(vec_r).dot(norm) / scale;
         }
@@ -738,6 +743,7 @@ void lsTools::Run_Mesh_Opt(){
     get_gradient_hessian_values(func, GradValueV, GradValueF);
     bool first_compute = true; // if we need initialize auxiliary vars
     if(!Last_Opt_Mesh){
+        std::cout<<"init mesh opt"<<std::endl;
         Compute_Auxiliaries_Mesh=true;
         analysis_pseudo_geodesic_on_vertices(func, anas[0]);
         first_compute = true;// if last time opt levelset, we re-compute the auxiliary vars
