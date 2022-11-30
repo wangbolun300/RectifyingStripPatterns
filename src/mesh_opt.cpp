@@ -329,12 +329,11 @@ void lsTools::calculate_mesh_opt_expanded_function_values(Eigen::VectorXd &vars,
         MTenergy[i + ninner * 8] = r.dot(norm) * h - sin_angle * cos_angle;
     }
 }
-void lsTools::calculate_mesh_opt_extreme_values(const Eigen::VectorXd &Loc_ActInner, const Eigen::VectorXd &func,
-                                                   const std::vector<CGMesh::HalfedgeHandle> &heh0, const std::vector<CGMesh::HalfedgeHandle> &heh1,
-                                                   const std::vector<double> &t1s, const std::vector<double> &t2s, std::vector<Trip> &tripletes, Eigen::VectorXd &MTenergy)
+void lsTools::calculate_mesh_opt_extreme_values( const Eigen::VectorXd &func,
+                                                   const LSAnalizer& analizer, std::vector<Trip> &tripletes, Eigen::VectorXd &MTenergy)
 {
 
-    int ninner = Loc_ActInner.size();
+    int ninner = analizer.LocalActInner.size();
     int vnbr = V.rows();
 
     tripletes.clear();
@@ -343,79 +342,91 @@ void lsTools::calculate_mesh_opt_extreme_values(const Eigen::VectorXd &Loc_ActIn
     
     for (int i = 0; i < ninner; i++)
     {
-        if (Loc_ActInner[i] == false) {
+        if (analizer.LocalActInner[i] == false) {
             std::cout<<"Singularity" <<std::endl;
             continue;
         }
         int vm = IVids[i];
-        CGMesh::HalfedgeHandle inhd = heh0[i], outhd = heh1[i];
+        CGMesh::HalfedgeHandle inhd = analizer.heh0[i], outhd = analizer.heh1[i];
         int v1 = lsmesh.from_vertex_handle(inhd).idx();
         int v2 = lsmesh.to_vertex_handle(inhd).idx();
         int v3 = lsmesh.from_vertex_handle(outhd).idx();
         int v4 = lsmesh.to_vertex_handle(outhd).idx();
         double dis0 = ((V.row(v1) - V.row(v2)) * func[vm] + (V.row(v2) - V.row(vm)) * func[v1] + (V.row(vm) - V.row(v1)) * func[v2]).norm();
-		double dis1 = ((V.row(v3) - V.row(v4)) * func[vm] + (V.row(v4) - V.row(vm)) * func[v3] + (V.row(vm) - V.row(v3)) * func[v4]).norm();
-        double t1 = t1s[i];
-        double t2 = t2s[i];
+        double dis1 = ((V.row(v3) - V.row(v4)) * func[vm] + (V.row(v4) - V.row(vm)) * func[v3] + (V.row(vm) - V.row(v3)) * func[v4]).norm();
+        double t1 = analizer.t1s[i];
+        double t2 = analizer.t2s[i];
         Eigen::Vector3d ver0 = V.row(v1) + (V.row(v2) - V.row(v1)) * t1;
         Eigen::Vector3d ver1 = V.row(vm);
         Eigen::Vector3d ver2 = V.row(v3) + (V.row(v4) - V.row(v3)) * t2;
-        
+
         Eigen::Vector3d norm = norm_v.row(vm);
+        bool asymptotic;
+        bool use_given_direction;
+        Eigen::Vector3d ray;
+        if (asymptotic)
+        {
+            int lfx = v1;
+            int lfy = v1 + vnbr;
+            int lfz = v1 + vnbr * 2;
+            int ltx = v2;
+            int lty = v2 + vnbr;
+            int ltz = v2 + vnbr * 2;
+            int lmx = vm;
+            int lmy = vm + vnbr;
+            int lmz = vm + vnbr * 2;
 
-        int lfx = v1;
-        int lfy = v1 + vnbr;
-        int lfz = v1 + vnbr * 2;
-        int ltx = v2;
-        int lty = v2 + vnbr;
-        int ltz = v2 + vnbr * 2;
-        int lmx = vm;
-        int lmy = vm + vnbr;
-        int lmz = vm + vnbr * 2;
+            Eigen::Vector3d r12 = (func[v1] - func[v2]) * norm;
+            Eigen::Vector3d rm1 = (func[vm] - func[v1]) * norm;
+            Eigen::Vector3d r2m = (func[v2] - func[vm]) * norm;
 
-        Eigen::Vector3d r12 = (func[v1] - func[v2]) * norm;
-        Eigen::Vector3d rm1 = (func[vm] - func[v1]) * norm;
-        Eigen::Vector3d r2m = (func[v2] - func[vm]) * norm;
+            tripletes.push_back(Trip(i, lmx, r12[0] / dis0));
+            tripletes.push_back(Trip(i, lmy, r12[1] / dis0));
+            tripletes.push_back(Trip(i, lmz, r12[2] / dis0));
 
-		tripletes.push_back(Trip(i, lmx, r12[0]/dis0));
-        tripletes.push_back(Trip(i, lmy, r12[1]/dis0));
-        tripletes.push_back(Trip(i, lmz, r12[2]/dis0));
+            tripletes.push_back(Trip(i, lfx, r2m[0] / dis0));
+            tripletes.push_back(Trip(i, lfy, r2m[1] / dis0));
+            tripletes.push_back(Trip(i, lfz, r2m[2] / dis0));
 
-        tripletes.push_back(Trip(i, lfx, r2m[0]/dis0));
-        tripletes.push_back(Trip(i, lfy, r2m[1]/dis0));
-        tripletes.push_back(Trip(i, lfz, r2m[2]/dis0));
+            tripletes.push_back(Trip(i, ltx, rm1[0] / dis0));
+            tripletes.push_back(Trip(i, lty, rm1[1] / dis0));
+            tripletes.push_back(Trip(i, ltz, rm1[2] / dis0));
 
-        tripletes.push_back(Trip(i, ltx, rm1[0]/dis0));
-        tripletes.push_back(Trip(i, lty, rm1[1]/dis0));
-        tripletes.push_back(Trip(i, ltz, rm1[2]/dis0));
-       
-		MTenergy[i] = (V.row(vm).dot(r12) + V.row(v1).dot(r2m) + V.row(v2).dot(rm1))/dis0;
+            MTenergy[i] = (V.row(vm).dot(r12) + V.row(v1).dot(r2m) + V.row(v2).dot(rm1)) / dis0;
 
-        // vf = v3, vt = v4
-        lfx = v3;
-        lfy = v3 + vnbr;
-        lfz = v3 + vnbr * 2;
-        ltx = v4;
-        lty = v4 + vnbr;
-        ltz = v4 + vnbr * 2;
+            // vf = v3, vt = v4
+            lfx = v3;
+            lfy = v3 + vnbr;
+            lfz = v3 + vnbr * 2;
+            ltx = v4;
+            lty = v4 + vnbr;
+            ltz = v4 + vnbr * 2;
 
-        r12 = (func[v3] - func[v4]) * norm;
-        rm1 = (func[vm] - func[v3]) * norm;
-        r2m = (func[v4] - func[vm]) * norm;
+            r12 = (func[v3] - func[v4]) * norm;
+            rm1 = (func[vm] - func[v3]) * norm;
+            r2m = (func[v4] - func[vm]) * norm;
 
-        tripletes.push_back(Trip(i + ninner, lmx, r12[0]/dis1));
-        tripletes.push_back(Trip(i + ninner, lmy, r12[1]/dis1));
-        tripletes.push_back(Trip(i + ninner, lmz, r12[2]/dis1));
+            tripletes.push_back(Trip(i + ninner, lmx, r12[0] / dis1));
+            tripletes.push_back(Trip(i + ninner, lmy, r12[1] / dis1));
+            tripletes.push_back(Trip(i + ninner, lmz, r12[2] / dis1));
 
-        tripletes.push_back(Trip(i + ninner, lfx, r2m[0]/dis1));
-        tripletes.push_back(Trip(i + ninner, lfy, r2m[1]/dis1));
-        tripletes.push_back(Trip(i + ninner, lfz, r2m[2]/dis1));
+            tripletes.push_back(Trip(i + ninner, lfx, r2m[0] / dis1));
+            tripletes.push_back(Trip(i + ninner, lfy, r2m[1] / dis1));
+            tripletes.push_back(Trip(i + ninner, lfz, r2m[2] / dis1));
 
-        tripletes.push_back(Trip(i + ninner, ltx, rm1[0]/dis1));
-        tripletes.push_back(Trip(i + ninner, lty, rm1[1]/dis1));
-        tripletes.push_back(Trip(i + ninner, ltz, rm1[2]/dis1));
+            tripletes.push_back(Trip(i + ninner, ltx, rm1[0] / dis1));
+            tripletes.push_back(Trip(i + ninner, lty, rm1[1] / dis1));
+            tripletes.push_back(Trip(i + ninner, ltz, rm1[2] / dis1));
 
-        MTenergy[i + ninner] = (V.row(vm).dot(r12) + V.row(v3).dot(r2m) + V.row(v4).dot(rm1))/dis1;
+            MTenergy[i + ninner] = (V.row(vm).dot(r12) + V.row(v3).dot(r2m) + V.row(v4).dot(rm1)) / dis1;
+        }
+        else{
+            if(use_given_direction){
+                norm=ray.normalized();
+            }
+            // TODO
+
+        }
     }
 }
 spMat Jacobian_transpose_mesh_opt_on_ver(const std::array<spMat, 3>& JC,
@@ -441,16 +452,14 @@ void lsTools::assemble_solver_mesh_opt_part( Eigen::VectorXd& vars,
     JTJ = J.transpose() * J;
     B = -J.transpose() * MTEnergy;
 }
-void lsTools::assemble_solver_mesh_extreme(const Eigen::VectorXd& Loc_ActInner, const Eigen::VectorXd& func,
-    const std::vector<CGMesh::HalfedgeHandle>& heh0, const std::vector<CGMesh::HalfedgeHandle>& heh1,
-    const std::vector<double>& t1s, const std::vector<double>& t2s,
+void lsTools::assemble_solver_mesh_extreme( const Eigen::VectorXd& func,
+    const LSAnalizer& analizer,
     spMat& JTJ, Eigen::VectorXd& B, Eigen::VectorXd& MTEnergy) {
     std::vector<Trip> tripletes;
     int vsize = V.rows();
-    int ninner = Loc_ActInner.size();
-	calculate_mesh_opt_extreme_values(Loc_ActInner, func, heh0, heh1, t1s, t2s, tripletes, MTEnergy);
-	int nvars = vsize * 3;
-	int ncondi = ninner * 2;
+    calculate_mesh_opt_extreme_values(func, analizer, tripletes, MTEnergy);
+    int nvars = vsize * 3;
+	int ncondi = MTEnergy.size();
     spMat J;
     J.resize(ncondi, nvars);
     J.setFromTriplets(tripletes.begin(), tripletes.end());
@@ -692,12 +701,12 @@ void lsTools::Run_Mesh_Opt(){
     Eigen::VectorXd Bpg;
     int aux_start_loc = vnbr * 3;// the first levelset the auxiliary vars start from vnbr*3
     Eigen::VectorXd MTEnergy;
-    if (!enable_asymptotic_condition) {
+    if (!enable_extreme_cases) {
         assemble_solver_mesh_opt_part(Glob_Vars,
             anas[0], angle_degrees, first_compute, aux_start_loc, Hpg, Bpg, MTEnergy);
     }
     else {
-        assemble_solver_mesh_extreme(anas[0].LocalActInner, func, anas[0].heh0, anas[0].heh1, anas[0].t1s, anas[0].t2s, Hpg, Bpg, MTEnergy);
+        assemble_solver_mesh_extreme(func, anas[0], Hpg, Bpg, MTEnergy);
     }
     Compute_Auxiliaries_Mesh = false;
     spMat Htotal(final_size, final_size);
@@ -743,7 +752,7 @@ void lsTools::Run_Mesh_Opt(){
     double energy_smooth=(V.transpose()*QcH*V).norm();
     /*double energy_mvl = (MVLap * vars).norm();*/
     std::cout<<"Mesh Opt: smooth, "<< energy_smooth <<", ";
-    if (!enable_asymptotic_condition) {
+    if (!enable_extreme_cases) {
         double energy_ls = MTEnergy.norm();
         double max_energy_ls = MTEnergy.lpNorm<Eigen::Infinity>();
         std::cout << "pg, " << energy_ls << ", MaxEnergy, " << max_energy_ls << ", ";
@@ -775,7 +784,8 @@ void lsTools::Run_AAG_Mesh_Opt(Eigen::VectorXd& func0, Eigen::VectorXd& func1, E
 
     // levelset unit scale
     bool first_compute = true; // if we need initialize auxiliary vars
-    if(!Last_Opt_Mesh){
+    if (!Last_Opt_Mesh)
+    {
         Eigen::MatrixXd GradValueF[3], GradValueV[3];
         get_gradient_hessian_values(func0, GradValueV[0], GradValueF[0]);
         get_gradient_hessian_values(func1, GradValueV[1], GradValueF[1]);
@@ -828,8 +838,8 @@ void lsTools::Run_AAG_Mesh_Opt(Eigen::VectorXd& func0, Eigen::VectorXd& func1, E
     Eigen::VectorXd Bpg[3];
     int aux_start_loc = vnbr * 3;// the first levelset the auxiliary vars start from vnbr*3
     Eigen::VectorXd MTEnergy[3];
-    assemble_solver_mesh_extreme(anas[0].LocalActInner, func0, anas[0].heh0, anas[0].heh1, anas[0].t1s, anas[0].t2s, Hpg[0], Bpg[0], MTEnergy[0]);
-    assemble_solver_mesh_extreme(anas[1].LocalActInner, func1, anas[1].heh0, anas[1].heh1, anas[1].t1s, anas[1].t2s, Hpg[1], Bpg[1], MTEnergy[1]);
+    assemble_solver_mesh_extreme(func0, anas[0], Hpg[0], Bpg[0], MTEnergy[0]);
+    assemble_solver_mesh_extreme(func1, anas[1], Hpg[1], Bpg[1], MTEnergy[1]);
     std::vector<double> angle_degree(1);
     angle_degree[0] = 90;
     assemble_solver_mesh_opt_part(Glob_Vars, anas[2], angle_degree, first_compute, aux_start_loc, Hpg[2], Bpg[2], MTEnergy[2]);

@@ -62,7 +62,10 @@ void lsTools::prepare_level_set_solving(const EnergyPrepare &Energy_initializer)
     }
     pseudo_geodesic_start_angle_degree=Energy_initializer.start_angle;
     enable_boundary_angles=Energy_initializer.enable_boundary_angles;
-    enable_asymptotic_condition = Energy_initializer.enable_asymptotic_condition;
+    enable_extreme_cases = Energy_initializer.enable_extreme_cases;
+     
+    Given_Const_Direction= Energy_initializer.Given_Const_Direction;
+    Reference_ray = Energy_initializer.Reference_ray;
 }
 void lsTools::prepare_mesh_optimization_solving(const MeshEnergyPrepare& initializer){
     Mesh_opt_max_step_length=initializer.Mesh_opt_max_step_length;
@@ -70,8 +73,10 @@ void lsTools::prepare_mesh_optimization_solving(const MeshEnergyPrepare& initial
     weight_Mesh_smoothness=initializer.weight_Mesh_smoothness;
     pseudo_geodesic_target_angle_degree=initializer.target_angle;
     weight_Mesh_edgelength = initializer.weight_Mesh_edgelength;
-    enable_asymptotic_condition = initializer.enable_asymptotic_condition;
+    enable_extreme_cases = initializer.enable_extreme_cases;
     weight_mass=initializer.weight_mass;
+    Given_Const_Direction= initializer.Given_Const_Direction;
+    Reference_ray = initializer.Reference_ray;;
 }
 void lsTools::convert_paras_as_meshes(CGMesh &output)
 {
