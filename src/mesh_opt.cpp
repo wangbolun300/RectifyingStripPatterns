@@ -329,8 +329,45 @@ void lsTools::calculate_mesh_opt_expanded_function_values(Eigen::VectorXd &vars,
         MTenergy[i + ninner * 8] = r.dot(norm) * h - sin_angle * cos_angle;
     }
 }
-void lsTools::calculate_mesh_opt_extreme_values( const Eigen::VectorXd &func,
-                                                   const LSAnalizer& analizer, std::vector<Trip> &tripletes, Eigen::VectorXd &MTenergy)
+// L.cross(R).dot(n)
+// pos shows the var is L or R. cor indicates if it is x y or z
+double LxRdN_differential(const int pos, const Eigen::Vector3d& a, const Eigen::Vector3d& b, const Eigen::Vector3d& n, const int cor){
+    if (pos == 0)
+    { // a is the variable
+        if (cor == 0)
+        { // to x
+            return -b(2) * n(1) + b(1) * n(2);
+        }
+        if (cor == 1)
+        {
+            return b(2) * n(0) - b(0) * n(2);
+        }
+        if (cor == 2)
+        {
+            return -b(1) * n(0) + b(0) * n(1);
+        }
+        std::cout << "LxRdN_differential ERROR" << std::endl;
+    }
+    if (pos == 1)
+    { // b is the variable
+        if (cor == 0)
+        { // to x
+            return a(2) * n(1) - a(1) * n(2);
+        }
+        if (cor == 1)
+        {
+            return -a(2) * n(0) + a(0) * n(2);
+        }
+        if (cor == 2)
+        {
+            return a(1) * n(0) - a(0) * n(1);
+        }
+        std::cout << "LxRdN_differential ERROR" << std::endl;
+    }
+    std::cout << "LxRdN_differential ERROR" << std::endl;
+}
+void lsTools::calculate_mesh_opt_extreme_values(const Eigen::VectorXd &func, const bool asymptotic, const bool use_given_direction, const Eigen::Vector3d &ray,
+                                                const LSAnalizer &analizer, std::vector<Trip> &tripletes, Eigen::VectorXd &MTenergy)
 {
 
     int ninner = analizer.LocalActInner.size();
@@ -359,11 +396,23 @@ void lsTools::calculate_mesh_opt_extreme_values( const Eigen::VectorXd &func,
         Eigen::Vector3d ver0 = V.row(v1) + (V.row(v2) - V.row(v1)) * t1;
         Eigen::Vector3d ver1 = V.row(vm);
         Eigen::Vector3d ver2 = V.row(v3) + (V.row(v4) - V.row(v3)) * t2;
-
+        int lmx = vm;
+        int lmy = vm + vnbr;
+        int lmz = vm + vnbr * 2;
+        int l1x = v1;
+        int l1y = v1 + vnbr;
+        int l1z = v1 + vnbr * 2;
+        int l2x = v2;
+        int l2y = v2 + vnbr;
+        int l2z = v2 + vnbr * 2;
+        int l3x = v3;
+        int l3y = v3 + vnbr;
+        int l3z = v3 + vnbr * 2;
+        int l4x = v4;
+        int l4y = v4 + vnbr;
+        int l4z = v4 + vnbr * 2;
         Eigen::Vector3d norm = norm_v.row(vm);
-        bool asymptotic;
-        bool use_given_direction;
-        Eigen::Vector3d ray;
+        
         if (asymptotic)
         {
             int lfx = v1;
@@ -372,9 +421,7 @@ void lsTools::calculate_mesh_opt_extreme_values( const Eigen::VectorXd &func,
             int ltx = v2;
             int lty = v2 + vnbr;
             int ltz = v2 + vnbr * 2;
-            int lmx = vm;
-            int lmy = vm + vnbr;
-            int lmz = vm + vnbr * 2;
+            
 
             Eigen::Vector3d r12 = (func[v1] - func[v2]) * norm;
             Eigen::Vector3d rm1 = (func[vm] - func[v1]) * norm;
@@ -424,8 +471,42 @@ void lsTools::calculate_mesh_opt_extreme_values( const Eigen::VectorXd &func,
             if(use_given_direction){
                 norm=ray.normalized();
             }
-            // TODO
+            
+            double c1 = 1 - t1;
+            double c2 = t1;
+            double c3 = 1 - t2;
+            double c4 = t2;
+            double cm = -1;
 
+            Eigen::Vector3d vec_l = c1 * V.row(v1) + c2 * V.row(v2) + cm * V.row(vm);
+            Eigen::Vector3d vec_r = c3 * V.row(v3) + c4 * V.row(c4) + cm * V.row(vm);
+            double scale = vec_l.norm() * vec_r.norm();
+            // to v1
+            tripletes.push_back(Trip(i, l1x, LxRdN_differential(0, vec_l, vec_r, norm, 0) * c1 / scale));
+            tripletes.push_back(Trip(i, l1y, LxRdN_differential(0, vec_l, vec_r, norm, 1) * c1 / scale));
+            tripletes.push_back(Trip(i, l1z, LxRdN_differential(0, vec_l, vec_r, norm, 2) * c1 / scale));
+            // to v2
+            tripletes.push_back(Trip(i, l2x, LxRdN_differential(0, vec_l, vec_r, norm, 0) * c2 / scale));
+            tripletes.push_back(Trip(i, l2y, LxRdN_differential(0, vec_l, vec_r, norm, 1) * c2 / scale));
+            tripletes.push_back(Trip(i, l2z, LxRdN_differential(0, vec_l, vec_r, norm, 2) * c2 / scale));
+            // to v3
+            tripletes.push_back(Trip(i, l3x, LxRdN_differential(1, vec_l, vec_r, norm, 0) * c3 / scale));
+            tripletes.push_back(Trip(i, l3y, LxRdN_differential(1, vec_l, vec_r, norm, 1) * c3 / scale));
+            tripletes.push_back(Trip(i, l3z, LxRdN_differential(1, vec_l, vec_r, norm, 2) * c3 / scale));
+            // to v4
+            tripletes.push_back(Trip(i, l4x, LxRdN_differential(1, vec_l, vec_r, norm, 0) * c4 / scale));
+            tripletes.push_back(Trip(i, l4y, LxRdN_differential(1, vec_l, vec_r, norm, 1) * c4 / scale));
+            tripletes.push_back(Trip(i, l4z, LxRdN_differential(1, vec_l, vec_r, norm, 2) * c4 / scale));
+
+            // to vm
+            tripletes.push_back(Trip(i, lmx, LxRdN_differential(0, vec_l, vec_r, norm, 0) * cm / scale));
+            tripletes.push_back(Trip(i, lmy, LxRdN_differential(0, vec_l, vec_r, norm, 1) * cm / scale));
+            tripletes.push_back(Trip(i, lmz, LxRdN_differential(0, vec_l, vec_r, norm, 2) * cm / scale));
+            tripletes.push_back(Trip(i, lmx, LxRdN_differential(1, vec_l, vec_r, norm, 0) * cm / scale));
+            tripletes.push_back(Trip(i, lmy, LxRdN_differential(1, vec_l, vec_r, norm, 1) * cm / scale));
+            tripletes.push_back(Trip(i, lmz, LxRdN_differential(1, vec_l, vec_r, norm, 2) * cm / scale));
+
+            MTenergy[i] = vec_l.cross(vec_r).dot(norm) / scale;
         }
     }
 }
@@ -452,12 +533,13 @@ void lsTools::assemble_solver_mesh_opt_part( Eigen::VectorXd& vars,
     JTJ = J.transpose() * J;
     B = -J.transpose() * MTEnergy;
 }
-void lsTools::assemble_solver_mesh_extreme( const Eigen::VectorXd& func,
-    const LSAnalizer& analizer,
-    spMat& JTJ, Eigen::VectorXd& B, Eigen::VectorXd& MTEnergy) {
+void lsTools::assemble_solver_mesh_extreme(const Eigen::VectorXd &func, const bool asymptotic, const bool use_given_direction, const Eigen::Vector3d &ray,
+                                           const LSAnalizer &analizer,
+                                           spMat &JTJ, Eigen::VectorXd &B, Eigen::VectorXd &MTEnergy)
+{
     std::vector<Trip> tripletes;
     int vsize = V.rows();
-    calculate_mesh_opt_extreme_values(func, analizer, tripletes, MTEnergy);
+    calculate_mesh_opt_extreme_values(func, asymptotic, use_given_direction, ray, analizer, tripletes, MTEnergy);
     int nvars = vsize * 3;
 	int ncondi = MTEnergy.size();
     spMat J;
@@ -649,7 +731,7 @@ void lsTools::Run_Mesh_Opt(){
     
     Eigen::VectorXd func = fvalues;
 
-    std::vector < double > angle_degrees(1);
+    std::vector<double> angle_degrees(1);
     angle_degrees[0] = pseudo_geodesic_target_angle_degree;
     Eigen::MatrixXd GradValueF, GradValueV;
     
@@ -706,7 +788,12 @@ void lsTools::Run_Mesh_Opt(){
             anas[0], angle_degrees, first_compute, aux_start_loc, Hpg, Bpg, MTEnergy);
     }
     else {
-        assemble_solver_mesh_extreme(func, anas[0], Hpg, Bpg, MTEnergy);
+        bool asymptotic = true;
+        if (angle_degrees[0] != 0)
+        {
+            asymptotic = false;
+        }
+        assemble_solver_mesh_extreme(func, asymptotic, Given_Const_Direction, Reference_ray, anas[0], Hpg, Bpg, MTEnergy);
     }
     Compute_Auxiliaries_Mesh = false;
     spMat Htotal(final_size, final_size);
@@ -801,7 +888,7 @@ void lsTools::Run_AAG_Mesh_Opt(Eigen::VectorXd& func0, Eigen::VectorXd& func1, E
     }
     int ninner = anas[0].LocalActInner.size();
     int vnbr=V.rows();
-	int final_size = ninner * 7 + vnbr * 3;// Change this when using more auxilary vars. Only G use auxiliaries
+	int final_size =  vnbr * 3;// Change this when using more auxilary vars. Only G use auxiliaries
    
     spMat H;
     Eigen::VectorXd B;
@@ -838,11 +925,12 @@ void lsTools::Run_AAG_Mesh_Opt(Eigen::VectorXd& func0, Eigen::VectorXd& func1, E
     Eigen::VectorXd Bpg[3];
     int aux_start_loc = vnbr * 3;// the first levelset the auxiliary vars start from vnbr*3
     Eigen::VectorXd MTEnergy[3];
-    assemble_solver_mesh_extreme(func0, anas[0], Hpg[0], Bpg[0], MTEnergy[0]);
-    assemble_solver_mesh_extreme(func1, anas[1], Hpg[1], Bpg[1], MTEnergy[1]);
+    Eigen::Vector3d any_ray;
+    assemble_solver_mesh_extreme(func0, true, false, any_ray, anas[0], Hpg[0], Bpg[0], MTEnergy[0]);
+    assemble_solver_mesh_extreme(func1, true, false, any_ray, anas[1], Hpg[1], Bpg[1], MTEnergy[1]);
     std::vector<double> angle_degree(1);
     angle_degree[0] = 90;
-    assemble_solver_mesh_opt_part(Glob_Vars, anas[2], angle_degree, first_compute, aux_start_loc, Hpg[2], Bpg[2], MTEnergy[2]);
+    assemble_solver_mesh_extreme(func2, false, false, any_ray, anas[2], Hpg[2], Bpg[2], MTEnergy[2]);
 
     Compute_Auxiliaries_Mesh = false;
     spMat Htotal(final_size, final_size);

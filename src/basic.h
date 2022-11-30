@@ -113,11 +113,11 @@ private:
     std::array<spMat, 3> gradVF;                  // gradient of function in each face
     std::array<spMat, 3> gradV;                   // gradient of function in each vertex
     std::array<std::array<spMat, 3>, 3> HessianV; // Hessian (2 order deriavate) of function in each vertex
-    std::array<Eigen::MatrixXd, 2> Deriv1;        // the 1 order derivates for each vertex; // TODO
-    std::array<Eigen::MatrixXd, 4> Deriv2;        // the 2 order derivates for each vertex; // TODO
-    std::vector<double> II_L;                     // second fundamental form: L // TODO
-    std::vector<double> II_M;                     // second fundamental form: M // TODO
-    std::vector<double> II_N;                     // second fundamental form: N // TODO
+    std::array<Eigen::MatrixXd, 2> Deriv1;        // the 1 order derivates for each vertex; 
+    std::array<Eigen::MatrixXd, 4> Deriv2;        // the 2 order derivates for each vertex; 
+    std::vector<double> II_L;                     // second fundamental form: L 
+    std::vector<double> II_M;                     // second fundamental form: M 
+    std::vector<double> II_N;                     // second fundamental form: N 
     
     
     std::vector<int> refids;                      // output the ids of current dealing points. just for debug purpose
@@ -260,7 +260,7 @@ private:
         const LSAnalizer &analizer,
         const std::vector<double>& angle_degree,
         const bool first_compute, const int aux_start_loc, std::vector<Trip>& tripletes, Eigen::VectorXd& MTenergy);
-    void calculate_mesh_opt_extreme_values(const Eigen::VectorXd& func,
+    void calculate_mesh_opt_extreme_values(const Eigen::VectorXd& func,const bool asymptotic, const bool use_given_direction, const Eigen::Vector3d &ray,
         const LSAnalizer& analizer, std::vector<Trip>& tripletes, Eigen::VectorXd& MTenergy);
     void assemble_solver_mesh_opt_part( Eigen::VectorXd& vars,
         const LSAnalizer &analizer,
@@ -269,9 +269,9 @@ private:
     void assemble_solver_mean_value_laplacian(const Eigen::VectorXd& vars, spMat& H, Eigen::VectorXd& B);
     void assemble_solver_mesh_edge_length_part(const Eigen::VectorXd vars, spMat& H, Eigen::VectorXd& B, 
     Eigen::VectorXd& energy);
-    void assemble_solver_mesh_extreme( const Eigen::VectorXd& func,
-        const LSAnalizer& analizer,
-		spMat& JTJ, Eigen::VectorXd& B, Eigen::VectorXd& MTEnergy);
+    void assemble_solver_mesh_extreme(const Eigen::VectorXd &func, const bool asymptotic, const bool use_given_direction,
+                                      const Eigen::Vector3d &ray, const LSAnalizer &analizer,
+                                      spMat &JTJ, Eigen::VectorXd &B, Eigen::VectorXd &MTEnergy);
     void update_mesh_properties();// the mesh properties (normals, laplacian, etc.) get updated before optimization
 
 

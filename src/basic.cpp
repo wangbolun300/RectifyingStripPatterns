@@ -501,7 +501,6 @@ void lsTools::assemble_solver_biharmonic_smoothing(const Eigen::VectorXd& func, 
     assert(H.rows() == H.cols() && H.rows() == V.rows());
 }
 // assemble matrices for \sum{area(i)*(||gradient(i)||-strip_width)^2}
-// TODO modify it to be a triangle face based method
 void lsTools::assemble_solver_strip_width_part(const Eigen::MatrixXd& GradFValue, spMat &H, Eigen::VectorXd &B)
 {
     int vsize = V.rows();

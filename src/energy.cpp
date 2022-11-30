@@ -79,7 +79,7 @@ bool find_active_faces_and_directions_around_ver(CGMesh& lsmesh, const Eigen::Ve
 	return true;
 
 }
-// TODO this can be pre-computed before iterations: for each triangle we compute 3 vectors
+
 Eigen::Vector3d get_coff_vec_for_gradient(std::array<spMat, 3>& gradVF, const int fid, const int vid)
 {
 	Eigen::Vector3d result;
@@ -708,12 +708,7 @@ void lsTools::assemble_solver_boundary_condition_part(const Eigen::VectorXd& fun
 	vec_elements.reserve(lsmesh.n_edges());
 	triplets.reserve(lsmesh.n_edges());
 	assert(assigned_trace_ls.size() == trace_vers.size());
-	// assigned_trace_ls.resize(trace_vers.size());
-	// for (int i = 0; i < trace_vers.size(); i++)// TODO assign assigned_trace_ls when tracing
-	// {
-	//     assigned_trace_ls[i]=i;
-	// }
-	// std::cout<<"before going into for loop"<<std::endl;
+
 	for (int i = 0; i < trace_vers.size(); i++)
 	{
 
@@ -738,7 +733,7 @@ void lsTools::assemble_solver_boundary_condition_part(const Eigen::VectorXd& fun
 	// std::cout<<"after loop"<<std::endl;
 	// get boundary condition: the jacobian matrix
 	bcJacobian.resize(size, V.rows());
-	bcJacobian.setFromTriplets(triplets.begin(), triplets.end());// TODO calculate this before optimization
+	bcJacobian.setFromTriplets(triplets.begin(), triplets.end());
 	bcfvalue.resize(size);
 	// std::cout<<"calculated a and b"<<std::endl;
 	for (int i = 0; i < size; i++) {// get the f(x)
@@ -784,7 +779,7 @@ void lsTools::assemble_solver_fixed_values_part(const std::vector<CGMesh::Halfed
 	// std::cout<<"after loop"<<std::endl;
 	// get boundary condition: the jacobian matrix
 	bcJacobian.resize(size, V.rows());
-	bcJacobian.setFromTriplets(triplets.begin(), triplets.end());// TODO calculate this before optimization
+	bcJacobian.setFromTriplets(triplets.begin(), triplets.end());
 	bcfvalue.resize(size);
 	// std::cout<<"calculated a and b"<<std::endl;
 	for (int i = 0; i < size; i++) {// get the f(x)
