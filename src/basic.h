@@ -185,6 +185,8 @@ private:
                                                   const LSAnalizer &analizer, const int vars_start_loc, std::vector<Trip> &tripletes, Eigen::VectorXd &Energy);
     void calculate_boundary_direction_energy_function_values(const Eigen::MatrixXd& GradFValue,
         const std::vector<CGMesh::HalfedgeHandle>& edges, const Eigen::VectorXd& func, Eigen::VectorXd& lens, Eigen::VectorXd& energy);
+    void calculate_shading_condition_values(Eigen::VectorXd &vars, const Eigen::Vector3d &ray,
+												 const LSAnalizer &analizer, const int vars_start_loc, std::vector<Trip> &tripletes, Eigen::VectorXd &Energy);
     void assemble_solver_laplacian_part(spMat &H, Efunc &B);
     void assemble_solver_biharmonic_smoothing(const Eigen::VectorXd& func, spMat &H, Eigen::VectorXd &B); //Biharmonic smoothing (natural curved Hessian boundary)
     void assemble_solver_boundary_condition_part(const Eigen::VectorXd& func, spMat& H, Eigen::VectorXd& B, Eigen::VectorXd& bcfvalue);
@@ -198,7 +200,9 @@ private:
     void assemble_solver_fixed_boundary_direction_part(const Eigen::MatrixXd& GradFValue, const std::vector<CGMesh::HalfedgeHandle>& edges,
         const Eigen::VectorXd& func,
         spMat& H, Eigen::VectorXd& B, Eigen::VectorXd& energy);
-
+    void assemble_solver_shading_condition(Eigen::VectorXd &vars, const Eigen::Vector3d &ray,
+                                           const LSAnalizer &analizer, const int vars_start_loc, 
+                                           spMat &H, Eigen::VectorXd &B, Eigen::VectorXd &Energy);
     // void assemble_solver_pseudo_geodesic_part(spMat &H, Efunc& B);
     bool find_geodesic_intersection_p1_is_NOT_ver(const Eigen::Vector3d &p0, const Eigen::Vector3d &p1,
                                                   const CGMesh::HalfedgeHandle &edge_middle, const Eigen::Vector3d &pnorm, CGMesh::HalfedgeHandle &edge_out, Eigen::Vector3d &p_end);
@@ -265,18 +269,19 @@ private:
     void assemble_solver_mesh_opt_part( Eigen::VectorXd& vars,
         const LSAnalizer &analizer,
         const std::vector<double>& angle_degrees, const bool first_compute, const int aux_start_loc, spMat& JTJ, Eigen::VectorXd& B, Eigen::VectorXd& MTEnergy);
-    void calculate_shading_condition_values(Eigen::VectorXd &vars, const Eigen::Vector3d &ray,
-												 const LSAnalizer &analizer, const int vars_start_loc, std::vector<Trip> &tripletes, Eigen::VectorXd &Energy);
+    
     void assemble_solver_mesh_smoothing(const Eigen::VectorXd &vars, spMat &H, Eigen::VectorXd &B);
+    void calculate_mesh_opt_shading_condition_values(const Eigen::VectorXd &func, const Eigen::Vector3d &ray,
+                                                const LSAnalizer &analizer, std::vector<Trip> &tripletes, Eigen::VectorXd &MTenergy);
     void assemble_solver_mean_value_laplacian(const Eigen::VectorXd& vars, spMat& H, Eigen::VectorXd& B);
     void assemble_solver_mesh_edge_length_part(const Eigen::VectorXd vars, spMat& H, Eigen::VectorXd& B, 
     Eigen::VectorXd& energy);
     void assemble_solver_mesh_extreme(const Eigen::VectorXd &func, const bool asymptotic, const bool use_given_direction,
                                       const Eigen::Vector3d &ray, const LSAnalizer &analizer,
                                       spMat &JTJ, Eigen::VectorXd &B, Eigen::VectorXd &MTEnergy);
-    void assemble_solver_shading_condition(Eigen::VectorXd &vars, const Eigen::Vector3d &ray,
-                                           const LSAnalizer &analizer, const int vars_start_loc, 
-                                           spMat &H, Eigen::VectorXd &B, Eigen::VectorXd &Energy);
+    void assemble_solver_shading_mesh_opt(const Eigen::VectorXd &func, const Eigen::Vector3d &ray,
+                                           const LSAnalizer &analizer,
+                                           spMat &JTJ, Eigen::VectorXd &B, Eigen::VectorXd &MTEnergy);
     void update_mesh_properties();// the mesh properties (normals, laplacian, etc.) get updated before optimization
 
 

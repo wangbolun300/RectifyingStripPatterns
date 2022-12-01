@@ -515,6 +515,98 @@ void lsTools::calculate_mesh_opt_extreme_values(const Eigen::VectorXd &func, con
         }
     }
 }
+
+void lsTools::calculate_mesh_opt_shading_condition_values(const Eigen::VectorXd &func, const Eigen::Vector3d &ray,
+                                                const LSAnalizer &analizer, std::vector<Trip> &tripletes, Eigen::VectorXd &MTenergy)
+{
+
+    int ninner = analizer.LocalActInner.size();
+    int vnbr = V.rows();
+
+    tripletes.clear();
+    tripletes.reserve(ninner * 18);
+    MTenergy = Eigen::VectorXd::Zero(ninner * 2); // mesh total energy values
+    
+    for (int i = 0; i < ninner; i++)
+    {
+        if (analizer.LocalActInner[i] == false) {
+            std::cout<<"Singularity" <<std::endl;
+            continue;
+        }
+        int vm = IVids[i];
+        CGMesh::HalfedgeHandle inhd = analizer.heh0[i], outhd = analizer.heh1[i];
+        int v1 = lsmesh.from_vertex_handle(inhd).idx();
+        int v2 = lsmesh.to_vertex_handle(inhd).idx();
+        int v3 = lsmesh.from_vertex_handle(outhd).idx();
+        int v4 = lsmesh.to_vertex_handle(outhd).idx();
+        double dis0 = ((V.row(v1) - V.row(v2)) * func[vm] + (V.row(v2) - V.row(vm)) * func[v1] + (V.row(vm) - V.row(v1)) * func[v2]).norm();
+        double dis1 = ((V.row(v3) - V.row(v4)) * func[vm] + (V.row(v4) - V.row(vm)) * func[v3] + (V.row(vm) - V.row(v3)) * func[v4]).norm();
+        double t1 = analizer.t1s[i];
+        double t2 = analizer.t2s[i];
+        Eigen::Vector3d ver0 = V.row(v1) + (V.row(v2) - V.row(v1)) * t1;
+        Eigen::Vector3d ver1 = V.row(vm);
+        Eigen::Vector3d ver2 = V.row(v3) + (V.row(v4) - V.row(v3)) * t2;
+        int lmx = vm;
+        int lmy = vm + vnbr;
+        int lmz = vm + vnbr * 2;
+        int l1x = v1;
+        int l1y = v1 + vnbr;
+        int l1z = v1 + vnbr * 2;
+        int l2x = v2;
+        int l2y = v2 + vnbr;
+        int l2z = v2 + vnbr * 2;
+        int l3x = v3;
+        int l3y = v3 + vnbr;
+        int l3z = v3 + vnbr * 2;
+        int l4x = v4;
+        int l4y = v4 + vnbr;
+        int l4z = v4 + vnbr * 2;
+
+        Eigen::Vector3d norm = ray.normalized();
+
+        double c1 = t1 - 1;
+        double c2 = -t1;
+        double c3 = 1 - t2;
+        double c4 = t2;
+        // double cm = -1;
+
+        Eigen::Vector3d tangent = c1 * V.row(v1) + c2 * V.row(v2) + c3 * V.row(v3) + c4 * V.row(v4);
+        double scale = tangent.norm();
+        // to v1
+        tripletes.push_back(Trip(i, l1x, c1 * norm(0) / scale));
+        tripletes.push_back(Trip(i, l1y, c1 * norm(1) / scale));
+        tripletes.push_back(Trip(i, l1z, c1 * norm(2) / scale));
+        // to v2
+        tripletes.push_back(Trip(i, l2x, c2 * norm(0) / scale));
+        tripletes.push_back(Trip(i, l2y, c2 * norm(1) / scale));
+        tripletes.push_back(Trip(i, l2z, c2 * norm(2) / scale));
+        // to v1
+        tripletes.push_back(Trip(i, l3x, c3 * norm(0) / scale));
+        tripletes.push_back(Trip(i, l3y, c3 * norm(1) / scale));
+        tripletes.push_back(Trip(i, l3z, c3 * norm(2) / scale));
+        // to v1
+        tripletes.push_back(Trip(i, l4x, c4 * norm(0) / scale));
+        tripletes.push_back(Trip(i, l4y, c4 * norm(1) / scale));
+        tripletes.push_back(Trip(i, l4z, c4 * norm(2) / scale));
+
+        MTenergy[i] = norm.dot(tangent) / scale;
+    }
+}
+void lsTools::assemble_solver_shading_mesh_opt(const Eigen::VectorXd &func, const Eigen::Vector3d &ray,
+                                           const LSAnalizer &analizer,
+                                           spMat &JTJ, Eigen::VectorXd &B, Eigen::VectorXd &MTEnergy)
+{
+    std::vector<Trip> tripletes;
+    int vsize = V.rows();
+    calculate_mesh_opt_shading_condition_values(func, ray,analizer, tripletes, MTEnergy);
+    int nvars = vsize * 3;
+	int ncondi = MTEnergy.size();
+    spMat J;
+    J.resize(ncondi, nvars);
+    J.setFromTriplets(tripletes.begin(), tripletes.end());
+    JTJ = J.transpose() * J;
+    B = -J.transpose() * MTEnergy;
+}
 spMat Jacobian_transpose_mesh_opt_on_ver(const std::array<spMat, 3>& JC,
 	const Eigen::Vector3d& norm, const spMat& SMfvalues) {
 
@@ -785,10 +877,10 @@ void lsTools::Run_Mesh_Opt(){
     H += weight_Mesh_edgelength * Hel;
     B += weight_Mesh_edgelength * Bel;
     
-	spMat Hpg;
-    Eigen::VectorXd Bpg;
+	spMat Hpg, Hsd;
+    Eigen::VectorXd Bpg, Bsd;
     int aux_start_loc = vnbr * 3;// the first levelset the auxiliary vars start from vnbr*3
-    Eigen::VectorXd MTEnergy;
+    Eigen::VectorXd MTEnergy, Eshading;
     if (!enable_extreme_cases) {
         assemble_solver_mesh_opt_part(Glob_Vars,
             anas[0], angle_degrees, first_compute, aux_start_loc, Hpg, Bpg, MTEnergy);
@@ -800,6 +892,12 @@ void lsTools::Run_Mesh_Opt(){
             asymptotic = false;
         }
         assemble_solver_mesh_extreme(func, asymptotic, Given_Const_Direction, Reference_ray, anas[0], Hpg, Bpg, MTEnergy);
+        if (Given_Const_Direction)
+        {
+            assemble_solver_shading_mesh_opt(func, Reference_ray, anas[0], Hsd, Bsd, Eshading);
+            H += weight_shading * Hsd;
+            B += weight_shading * Bsd;
+        }
     }
     Compute_Auxiliaries_Mesh = false;
     spMat Htotal(final_size, final_size);
@@ -854,7 +952,11 @@ void lsTools::Run_Mesh_Opt(){
     }
     else {
         double planar_energy = MTEnergy.norm();
-        std::cout << "Asymp, " << planar_energy << ", max "<<MTEnergy.lpNorm<Eigen::Infinity>()<<", ";
+        std::cout << "pg, " << planar_energy << ", max "<<MTEnergy.lpNorm<Eigen::Infinity>()<<", ";
+        if (Given_Const_Direction)
+        {
+            std::cout << "shadExtra, " << Eshading.norm() << ", ";
+        }
     }
     
     double energy_el = ElEnergy.norm();
