@@ -48,6 +48,8 @@ namespace lscif
 	double weight_pseudo_geodesic = 10;
 	double weight_strip_width = 1;
 	double weight_geodesic= 3;
+    double weight_shading = 0.01; // For shading: the light is othogonal to the tangent direction 
+
 	double maximal_step_length = 0.5;
 	bool enable_inner_vers_fixed = false;
 	bool enable_extreme_cases;
@@ -507,6 +509,18 @@ int main(int argc, char *argv[])
 			ImGui::Checkbox("Enable Smooth Boundary", &lscif::enable_inner_vers_fixed);
 			ImGui::SameLine();
 			ImGui::Checkbox("Enable Boundary Angles", &lscif::enable_boundary_angles);
+			ImGui::PushItemWidth(50);
+			ImGui::Checkbox("Const Direc", &lscif::Given_Const_Direction);
+			if (lscif::Given_Const_Direction)
+			{
+				ImGui::InputDouble("Dirx", &lscif::InputPx, 0, 0, "%.6f");
+				ImGui::SameLine();
+				ImGui::InputDouble("Diry", &lscif::InputPy, 0, 0, "%.6f");
+				ImGui::SameLine();
+				ImGui::InputDouble("Dirz", &lscif::InputPz, 0, 0, "%.6f");
+				ImGui::InputDouble("weight shading", &lscif::weight_shading, 0, 0, "%.4f");
+			}
+
 			// ImGui::Checkbox("Fix Boundary", &lscif::fixBoundary_checkbox);
 		}
 
@@ -518,17 +532,7 @@ int main(int argc, char *argv[])
 			ImGui::InputInt("debug id", &lscif::id_debug_global, 0, 0);
 			ImGui::InputDouble("start angle", &lscif::start_angle, 0, 0, "%.4f");
 			ImGui::InputDouble("threadshold angle", &lscif::threadshold_angel_degree, 0, 0, "%.4f");
-			ImGui::PushItemWidth(50);
-			ImGui::Checkbox("Const Direc", &lscif::Given_Const_Direction);
-			if (lscif::Given_Const_Direction)
-			{
-				ImGui::InputDouble("Dirx", &lscif::InputPx, 0, 0, "%.6f");
-				ImGui::SameLine();
-				ImGui::InputDouble("Diry", &lscif::InputPy, 0, 0, "%.6f");
-				ImGui::SameLine();
-				ImGui::InputDouble("Dirz", &lscif::InputPz, 0, 0, "%.6f");
-			}
-
+			
 			// ImGui::SameLine();
 			// ImGui::Checkbox("Fix Boundary", &lscif::fixBoundary_checkbox);
 		}
@@ -623,6 +627,7 @@ int main(int argc, char *argv[])
 				einit.enable_boundary_angles = lscif::enable_boundary_angles;
 				einit.Given_Const_Direction = lscif::Given_Const_Direction;
 				einit.Reference_ray = Eigen::Vector3d(lscif::InputPx, lscif::InputPy, lscif::InputPz);
+				lscif::tools.weight_shading = lscif::weight_shading;
 				lscif::tools.prepare_level_set_solving(einit);
 				// if(lscif::tools.fvalues.size()==0 && lscif::){
 				// 	std::cout<<"Please load or initialize the level-set before opt it"<<std::endl;
@@ -682,6 +687,7 @@ int main(int argc, char *argv[])
 				initializer.enable_extreme_cases=lscif::enable_extreme_cases;
 				initializer.Given_Const_Direction = lscif::Given_Const_Direction;
 				initializer.Reference_ray = Eigen::Vector3d(lscif::InputPx, lscif::InputPy, lscif::InputPz);
+				lscif::tools.weight_shading = lscif::weight_shading;
 				lscif::tools.prepare_mesh_optimization_solving(initializer);
 				for(int i=0;i<lscif::Nbr_Iterations_Mesh_Opt;i++){
 					lscif::tools.Run_Mesh_Opt();

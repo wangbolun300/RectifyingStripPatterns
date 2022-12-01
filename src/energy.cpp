@@ -511,17 +511,18 @@ void lsTools::calculate_extreme_pseudo_geodesic_values(Eigen::VectorXd &vars, co
 	}
 	int ninner = analizer.LocalActInner.size();
 	tripletes.clear();
-	tripletes.reserve(ninner * 6); // the number of rows is ninner*4, the number of cols is aux_start_loc + ninner * 3 (all the function values and auxiliary vars)
+	tripletes.reserve(ninner * 15);				// the number of rows is ninner*4, the number of cols is aux_start_loc + ninner * 3 (all the function values and auxiliary vars)
 	Energy = Eigen::VectorXd::Zero(ninner * 2); // mesh total energy values
-	
+
 	for (int i = 0; i < ninner; i++)
 	{
-		if (analizer.LocalActInner[i] == false) {
+		if (analizer.LocalActInner[i] == false)
+		{
 			std::cout << "singularity" << std::endl;
 			continue;
 		}
 		int vm = IVids[i];
-		
+
 		CGMesh::HalfedgeHandle inhd = analizer.heh0[i], outhd = analizer.heh1[i];
 		int v1 = lsmesh.from_vertex_handle(inhd).idx();
 		int v2 = lsmesh.to_vertex_handle(inhd).idx();
@@ -587,15 +588,94 @@ void lsTools::calculate_extreme_pseudo_geodesic_values(Eigen::VectorXd &vars, co
 			tripletes.push_back(Trip(i, lv4, vm3.dot(vec_l) / scale));
 			Energy[i] = vec_l.dot(vec_r) / scale;
 			Eigen::Vector3d cross = (ver1 - ver0).cross(ver2 - ver1);
-			if (cross.norm() > 1e-6)
-			{
-				Binormals.row(vm) = cross.normalized();
-			}
-			else
-			{
-				Binormals.row(vm) = norm;
-			}
+			Binormals.row(vm) = cross.normalized();
+			// conditions for shading
+
+			// if (use_given_direction)
+			// { // if use given direction, meaning we are opt for shading but not geodesic
+			// 	Eigen::Vector3d v31 = V.row(v3) - V.row(v1);
+			// 	Eigen::Vector3d v43 = V.row(v4) - V.row(v3);
+			// 	Eigen::Vector3d v12 = V.row(v1) - V.row(v2);
+
+			// 	double d31 = norm.dot(v31);
+			// 	double d43 = norm.dot(v43);
+			// 	double d12 = norm.dot(v12);
+			// 	Eigen::Vector3d tangent = v31 * (f4 - f3) * (f2 - f1) + v43 * (fm - f3) * (f2 - f1) + v12 * (fm - f1) * (f4 - f3);
+			// 	scale = tangent.norm();
+
+			// 	tripletes.push_back(Trip(i + ninner, lv1, weight_shading * (-d31 * (f4 - f3) - d43 * (fm - f3) - d12 * (f4 - f3)) / scale));
+			// 	tripletes.push_back(Trip(i + ninner, lv2, weight_shading * (d31 * (f4 - f3) + d43 * (fm - f3)) / scale));
+			// 	tripletes.push_back(Trip(i + ninner, lv3, weight_shading * (-d31 * (f2 - f1) - d43 * (f2 - f1) - d12 * (fm - f1)) / scale));
+			// 	tripletes.push_back(Trip(i + ninner, lv4, weight_shading * (d31 * (f2 - f1) + d12 * (fm - f1)) / scale));
+			// 	tripletes.push_back(Trip(i + ninner, lvm, weight_shading * (d43 * (f2 - f1) + d12 * (f4 - f3)) / scale));
+
+			// 	Energy[i + ninner] = weight_shading * norm.dot(tangent) / scale;
+			// }
 		}
+	}
+}
+
+// an extra condition for shading
+void lsTools::calculate_shading_condition_values(Eigen::VectorXd &vars, const Eigen::Vector3d &ray,
+												 const LSAnalizer &analizer, const int vars_start_loc, std::vector<Trip> &tripletes, Eigen::VectorXd &Energy)
+{
+	int vnbr = V.rows();
+	int ninner = analizer.LocalActInner.size();
+	tripletes.clear();
+	tripletes.reserve(ninner * 6);				// the number of rows is ninner*4, the number of cols is aux_start_loc + ninner * 3 (all the function values and auxiliary vars)
+	Energy = Eigen::VectorXd::Zero(ninner); // mesh total energy values
+
+	for (int i = 0; i < ninner; i++)
+	{
+		if (analizer.LocalActInner[i] == false)
+		{
+			std::cout << "singularity" << std::endl;
+			continue;
+		}
+		int vm = IVids[i];
+
+		CGMesh::HalfedgeHandle inhd = analizer.heh0[i], outhd = analizer.heh1[i];
+		int v1 = lsmesh.from_vertex_handle(inhd).idx();
+		int v2 = lsmesh.to_vertex_handle(inhd).idx();
+		int v3 = lsmesh.from_vertex_handle(outhd).idx();
+		int v4 = lsmesh.to_vertex_handle(outhd).idx();
+
+		double t1 = analizer.t1s[i];
+		double t2 = analizer.t2s[i];
+
+		Eigen::Vector3d ver0 = V.row(v1) + (V.row(v2) - V.row(v1)) * t1;
+		Eigen::Vector3d ver1 = V.row(vm);
+		Eigen::Vector3d ver2 = V.row(v3) + (V.row(v4) - V.row(v3)) * t2;
+		// the locations
+		int lvm = vars_start_loc + vm;
+		int lv1 = vars_start_loc + v1;
+		int lv2 = vars_start_loc + v2;
+		int lv3 = vars_start_loc + v3;
+		int lv4 = vars_start_loc + v4;
+
+		Eigen::Vector3d norm = ray.normalized();
+		// std::cout<<"correct given direction "<<norm.transpose()<<std::endl;
+		double fm = vars[lvm], f1 = vars[lv1], f2 = vars[lv2], f3 = vars[lv3], f4 = vars[lv4];
+		// conditions for shading
+
+		// if use given direction, meaning we are opt for shading but not geodesic
+		Eigen::Vector3d v31 = V.row(v3) - V.row(v1);
+		Eigen::Vector3d v43 = V.row(v4) - V.row(v3);
+		Eigen::Vector3d v12 = V.row(v1) - V.row(v2);
+
+		double d31 = norm.dot(v31);
+		double d43 = norm.dot(v43);
+		double d12 = norm.dot(v12);
+		Eigen::Vector3d tangent = v31 * (f4 - f3) * (f2 - f1) + v43 * (fm - f3) * (f2 - f1) + v12 * (fm - f1) * (f4 - f3);
+		double scale = tangent.norm();
+
+		tripletes.push_back(Trip(i, lv1, (-d31 * (f4 - f3) - d43 * (fm - f3) - d12 * (f4 - f3)) / scale));
+		tripletes.push_back(Trip(i, lv2, (d31 * (f4 - f3) + d43 * (fm - f3)) / scale));
+		tripletes.push_back(Trip(i, lv3, (-d31 * (f2 - f1) - d43 * (f2 - f1) - d12 * (fm - f1)) / scale));
+		tripletes.push_back(Trip(i, lv4, (d31 * (f2 - f1) + d12 * (fm - f1)) / scale));
+		tripletes.push_back(Trip(i, lvm, (d43 * (f2 - f1) + d12 * (f4 - f3)) / scale));
+
+		Energy[i] = norm.dot(tangent) / scale;
 	}
 }
 // this function only need be called after initializing the level set
@@ -846,7 +926,20 @@ void lsTools::assemble_solver_extreme_cases_part_vertex_based(Eigen::VectorXd &v
 	H = J.transpose() * J;
 	B = -J.transpose() * energy;
 }
-
+void lsTools::assemble_solver_shading_condition(Eigen::VectorXd &vars, const Eigen::Vector3d &ray,
+									   const LSAnalizer &analizer, const int vars_start_loc,
+									   spMat &H, Eigen::VectorXd &B, Eigen::VectorXd &Energy)
+{
+	std::vector<Trip> tripletes;
+	calculate_shading_condition_values(vars, ray,analizer, vars_start_loc, tripletes, Energy);
+	int nvars = vars.size();
+	int ncondi = Energy.size();
+	spMat J;
+	J.resize(ncondi, nvars);
+	J.setFromTriplets(tripletes.begin(), tripletes.end());
+	H = J.transpose() * J;
+	B = -J.transpose() * Energy;
+}
 // the condition that f0+f1+f2=0;
 void assemble_AAG_extra_condition(const int mat_size, const int vnbr,
 								  const Eigen::VectorXd &func0, const Eigen::VectorXd &func1, const Eigen::VectorXd &func2,
@@ -875,7 +968,7 @@ void lsTools::Run_Level_Set_Opt() {
 	
 	count = 0;
 	Eigen::MatrixXd GradValueF, GradValueV;
-	Eigen::VectorXd PGEnergy;
+	Eigen::VectorXd PGEnergy, Eshading;
 	Eigen::VectorXd func = fvalues;
 	std::vector<double> angle_degree;
 	angle_degree.resize(1);
@@ -980,8 +1073,8 @@ void lsTools::Run_Level_Set_Opt() {
 	if (enable_pseudo_geodesic_energy)
 	{
 
-		spMat pg_JTJ;
-		Eigen::VectorXd pg_mJTF;
+		spMat pg_JTJ, sd_H;
+		Eigen::VectorXd pg_mJTF, sd_B;
 		int vars_start_loc = 0;
 		int aux_start_loc = vnbr;
 		if (!enable_extreme_cases) {
@@ -1002,12 +1095,19 @@ void lsTools::Run_Level_Set_Opt() {
 			
 			assemble_solver_extreme_cases_part_vertex_based(Glob_lsvars, asymptotic, Given_Const_Direction, Reference_ray,
 															anas[0], vars_start_loc, pg_JTJ, pg_mJTF, PGEnergy);
+			if (Given_Const_Direction)
+			{
+				assemble_solver_shading_condition(Glob_lsvars, Reference_ray, anas[0], vars_start_loc, sd_H, sd_B, Eshading);
+			}
 		}
 
 		Hlarge = sum_uneven_spMats(Hlarge, weight_pseudo_geodesic_energy * pg_JTJ);
 		Blarge = sum_uneven_vectors(Blarge, weight_pseudo_geodesic_energy * pg_mJTF);
-
-		
+		if (enable_extreme_cases && Given_Const_Direction)
+		{
+			Hlarge += weight_shading * sd_H;
+			Blarge += weight_shading * sd_B;
+		}
 	}
 	
 	Hlarge += 1e-6 * weight_mass * spMat(Eigen::VectorXd::Ones(final_size).asDiagonal());
@@ -1052,7 +1152,10 @@ void lsTools::Run_Level_Set_Opt() {
 		}
 		else {
 			double planar_energy = PGEnergy.norm();
-			std::cout << "Asymp, " << planar_energy << ", ";
+			std::cout << "pg, " << planar_energy << ", ";
+			if(Given_Const_Direction){
+				std::cout<<"shadExtra, "<<Eshading.norm()<<", ";
+			}
 		}
 	}
 

@@ -265,6 +265,8 @@ private:
     void assemble_solver_mesh_opt_part( Eigen::VectorXd& vars,
         const LSAnalizer &analizer,
         const std::vector<double>& angle_degrees, const bool first_compute, const int aux_start_loc, spMat& JTJ, Eigen::VectorXd& B, Eigen::VectorXd& MTEnergy);
+    void calculate_shading_condition_values(Eigen::VectorXd &vars, const Eigen::Vector3d &ray,
+												 const LSAnalizer &analizer, const int vars_start_loc, std::vector<Trip> &tripletes, Eigen::VectorXd &Energy);
     void assemble_solver_mesh_smoothing(const Eigen::VectorXd &vars, spMat &H, Eigen::VectorXd &B);
     void assemble_solver_mean_value_laplacian(const Eigen::VectorXd& vars, spMat& H, Eigen::VectorXd& B);
     void assemble_solver_mesh_edge_length_part(const Eigen::VectorXd vars, spMat& H, Eigen::VectorXd& B, 
@@ -272,6 +274,9 @@ private:
     void assemble_solver_mesh_extreme(const Eigen::VectorXd &func, const bool asymptotic, const bool use_given_direction,
                                       const Eigen::Vector3d &ray, const LSAnalizer &analizer,
                                       spMat &JTJ, Eigen::VectorXd &B, Eigen::VectorXd &MTEnergy);
+    void assemble_solver_shading_condition(Eigen::VectorXd &vars, const Eigen::Vector3d &ray,
+                                           const LSAnalizer &analizer, const int vars_start_loc, 
+                                           spMat &H, Eigen::VectorXd &B, Eigen::VectorXd &Energy);
     void update_mesh_properties();// the mesh properties (normals, laplacian, etc.) get updated before optimization
 
 
@@ -294,6 +299,7 @@ public:
     double weight_pseudo_geodesic_energy;// weight of the pseudo-geodesic energy
     double weight_strip_width;
     double weight_geodesic; // For AAG
+    double weight_shading; // For shading: the light is othogonal to the tangent direction 
     // Don't Use Strip Width Condition When Opt Multiple Functions
     double strip_width = 1;       // strip width, defined as h/w, h: level set function value difference. w: distance between two points on the surface
     double max_step_length;
