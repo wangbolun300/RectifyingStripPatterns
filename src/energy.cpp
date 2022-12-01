@@ -981,6 +981,10 @@ void lsTools::Run_Level_Set_Opt() {
 	// initialize the level set with some number
 	if (func.size() != vnbr)
 	{
+		if(trace_hehs.size()==0){
+			std::cout<<"Please First Set Up The Boundary Condition (Tracing)"<<std::endl;
+			return;
+		}
 		initialize_level_set_accroding_to_parametrization();
 		std::cout << "level set get initialized" << std::endl;
 		return;

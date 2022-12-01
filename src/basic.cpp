@@ -811,5 +811,39 @@ void lsTools::estimate_strip_width_according_to_tracing(){
     strip_width=function_value_diff/dis_real;
 }
 void lsTools::print_info(const int vid){
-    
+    LSAnalizer anl;
+    analysis_pseudo_geodesic_on_vertices(fvalues,anl);
+    int ninner = anl.LocalActInner.size();
+    Eigen::MatrixXd tangents = Eigen::MatrixXd::Zero(ninner, 3);
+    for (int i = 0; i < ninner; i++)
+	{
+		if (anl.LocalActInner[i] == false)
+		{
+			std::cout << "singularity" << std::endl;
+			continue;
+		}
+		int vm = IVids[i];
+
+		CGMesh::HalfedgeHandle inhd = anl.heh0[i], outhd = anl.heh1[i];
+		int v1 = lsmesh.from_vertex_handle(inhd).idx();
+		int v2 = lsmesh.to_vertex_handle(inhd).idx();
+		int v3 = lsmesh.from_vertex_handle(outhd).idx();
+		int v4 = lsmesh.to_vertex_handle(outhd).idx();
+
+		double t1 = anl.t1s[i];
+		double t2 = anl.t2s[i];
+		
+		Eigen::Vector3d ver0 = V.row(v1) + (V.row(v2) - V.row(v1)) * t1;
+		Eigen::Vector3d ver1 = V.row(vm);
+		Eigen::Vector3d ver2 = V.row(v3) + (V.row(v4) - V.row(v3)) * t2;
+		// the locations
+        Eigen::Vector3d tg = ver2 - ver0;
+        tg = tg.normalized();
+        
+        tangents.row(i)=tg;
+    }
+    Eigen::Vector3d ray = Reference_ray.normalized();
+    Eigen::VectorXd dot = tangents * ray;
+    // std::cout<<"the angle between ray and tangents, "<<dot.norm()<<", max, "<<dot.maxCoeff()<<std::endl;
+    // std::cout<<"the tangent values\n "<<tangents<<std::endl;
 }

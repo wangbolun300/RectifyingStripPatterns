@@ -651,6 +651,10 @@ int main(int argc, char *argv[])
 
 				Eigen::VectorXd level_set_values;
 				lscif::tools.show_level_set(level_set_values);
+				if(level_set_values.size()==0){
+					ImGui::End();
+					return;
+				}
 				Eigen::MatrixXd CM;
 				// std::cout<<"before compute colormap"<<std::endl;
 				igl::parula(Eigen::VectorXd::LinSpaced(21, 0, 1).eval(), false, CM);
