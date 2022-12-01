@@ -506,6 +506,9 @@ void lsTools::calculate_extreme_pseudo_geodesic_values(Eigen::VectorXd &vars, co
 													   const LSAnalizer &analizer, const int vars_start_loc, std::vector<Trip> &tripletes, Eigen::VectorXd &Energy)
 {
 	int vnbr = V.rows();
+	if(Binormals.rows()!=vnbr){
+		Binormals = Eigen::MatrixXd::Zero(vnbr, 3);
+	}
 	int ninner = analizer.LocalActInner.size();
 	tripletes.clear();
 	tripletes.reserve(ninner * 6); // the number of rows is ninner*4, the number of cols is aux_start_loc + ninner * 3 (all the function values and auxiliary vars)
@@ -565,6 +568,7 @@ void lsTools::calculate_extreme_pseudo_geodesic_values(Eigen::VectorXd &vars, co
 			Eigen::Vector3d norm = norm_v.row(vm);
 			if(use_given_direction){
 				norm = ray.normalized();
+				// std::cout<<"correct given direction "<<norm.transpose()<<std::endl;
 			}
 			Eigen::Vector3d r12 = norm.cross(Eigen::Vector3d(V.row(v1) - V.row(v2)));
 			Eigen::Vector3d r2m = norm.cross(Eigen::Vector3d(V.row(v2) - V.row(vm)));
@@ -582,6 +586,15 @@ void lsTools::calculate_extreme_pseudo_geodesic_values(Eigen::VectorXd &vars, co
 			tripletes.push_back(Trip(i, lv3, v4m.dot(vec_l) / scale));
 			tripletes.push_back(Trip(i, lv4, vm3.dot(vec_l) / scale));
 			Energy[i] = vec_l.dot(vec_r) / scale;
+			Eigen::Vector3d cross = (ver1 - ver0).cross(ver2 - ver1);
+			if (cross.norm() > 1e-6)
+			{
+				Binormals.row(vm) = cross.normalized();
+			}
+			else
+			{
+				Binormals.row(vm) = norm;
+			}
 		}
 	}
 }
@@ -983,6 +996,10 @@ void lsTools::Run_Level_Set_Opt() {
 			{
 				asymptotic = false;
 			}
+			if(Given_Const_Direction){
+				std::cout << "Direc " << Reference_ray.transpose() << ", ";
+			}
+			
 			assemble_solver_extreme_cases_part_vertex_based(Glob_lsvars, asymptotic, Given_Const_Direction, Reference_ray,
 															anas[0], vars_start_loc, pg_JTJ, pg_mJTF, PGEnergy);
 		}
