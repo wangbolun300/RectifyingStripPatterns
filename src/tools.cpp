@@ -1483,35 +1483,7 @@ void extract_Origami_web(const CGMesh &lsmesh, const Eigen::MatrixXd &V,const st
 }
 
 void lsTools::show_binormals(const Eigen::VectorXd &func, Eigen::MatrixXd &E0, Eigen::MatrixXd &E1, Eigen::MatrixXd& binormals,  double ratio){
-    // int vnbr = V.rows();
-    // analysis_pseudo_geodesic_on_vertices(func, anas[0]);
-    // binormals=Eigen::MatrixXd::Zero(vnbr, 3);
-    // E0.resize(vnbr, 3);
-    // E1.resize(vnbr, 3);
-    // int ninner = anas[0].LocalActInner.size();
-	// for (int i = 0; i < ninner; i++)
-	// {
-	// 	if (anas[0].LocalActInner[i] == false) {
-	// 		std::cout << "singularity" << std::endl;
-	// 		continue;
-	// 	}
-	// 	int vm = IVids[i];
-	// 	CGMesh::HalfedgeHandle inhd = anas[0].heh0[i], outhd = anas[0].heh1[i];
-    //     int v1 = lsmesh.from_vertex_handle(inhd).idx();
-    //     int v2 = lsmesh.to_vertex_handle(inhd).idx();
-    //     int v3 = lsmesh.from_vertex_handle(outhd).idx();
-    //     int v4 = lsmesh.to_vertex_handle(outhd).idx();
-
-    //     double t1 = anas[0].t1s[i];
-    //     double t2 = anas[0].t2s[i];
-
-    //     Eigen::Vector3d ver0 = V.row(v1) + (V.row(v2) - V.row(v1)) * t1;
-    //     Eigen::Vector3d ver1 = V.row(vm);
-    //     Eigen::Vector3d ver2 = V.row(v3) + (V.row(v4) - V.row(v3)) * t2;
-
-    //     Eigen::Vector3d bi = (ver1 - ver0).cross(ver2 - ver1);
-    //     binormals.row(vm) = bi.normalized();
-    // }
+    
     E0 = V - Binormals * ratio;
     E1 = V + Binormals * ratio;
 }
