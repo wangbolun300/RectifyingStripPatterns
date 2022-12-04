@@ -81,8 +81,8 @@ namespace lscif
 	static bool fixBoundary_checkbox = false;
 
 	// mesh processing for level set
-	int nbr_lines_first_ls = 10;
-	int nbr_lines_second_ls = 10;
+	int nbr_lines_first_ls = 30;
+	int nbr_lines_second_ls = 30;
 	Eigen::VectorXd readed_LS1;
 	Eigen::VectorXd readed_LS2;
 	Eigen::VectorXd readed_LS3;
@@ -1240,10 +1240,35 @@ int main(int argc, char *argv[])
 				if (fname.length() == 0)
 				{
 					ImGui::End();
+					
 				}
 				
 				write_quad_mesh_with_binormal(fname,lscif::tools.V, lscif::tools.F, bn, VER, FAC );
 				
+			}
+			if (ImGui::Button("ExtrtQuad&IsoLines", ImVec2(ImGui::GetWindowSize().x * 0.25f, 0.0f)))
+			{
+				int id = viewer.selected_data_index;
+				
+				Eigen::MatrixXd VER;
+				Eigen::MatrixXi FAC;
+				if(lscif::readed_LS1.size()!=lscif::tools.V.rows()){
+					std::cout<<"Please load a correct Level Set 1"<<std::endl;
+					ImGui::End();
+					return;
+				}
+				extract_Quad_Mesh_Zigzag(lscif::tools.lsmesh, lscif::tools.Boundary_Edges, lscif::tools.V, lscif::tools.F, lscif::readed_LS1,
+										 lscif::nbr_lines_first_ls, lscif::nbr_lines_second_ls, 3, VER, FAC);
+				std::string fname = igl::file_dialog_save();
+				if (fname.length() == 0)
+				{
+					ImGui::End();
+				}
+				else
+				{
+					igl::writeOBJ(fname, VER, FAC);
+					std::cout << "Quad mesh saved" << std::endl;
+				}
 			}
 		}
 		if (ImGui::CollapsingHeader("Mesh Optimization", ImGuiTreeNodeFlags_DefaultOpen))

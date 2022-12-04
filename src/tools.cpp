@@ -1575,6 +1575,7 @@ int max_element_in_vec(const Eigen::VectorXd &vec)
 }
 // assign ids to the polylines so that we can get the quads easily
 // start is the start ver id of this polyline
+// last - 1 is the last id. meaning last is the first of the next lines
 void assign_verid_to_sampled_polylines(const std::vector<std::vector<Eigen::Vector3d>>& sampled, const int start, 
 std::vector<std::vector<int>>& ids, int& last){
     ids.resize(sampled.size());
@@ -1702,7 +1703,8 @@ std::vector<std::vector<Eigen::Vector3d>> extend_sorted_list(const std::vector<s
     }
     return result;
 }
-void get_diff_polylines_order(const std::vector<std::vector<Eigen::Vector3d>> &pls, std::vector<std::vector<Eigen::Vector3d>> &sorted)
+void get_diff_polylines_order(const std::vector<std::vector<Eigen::Vector3d>> &pls, std::vector<std::vector<Eigen::Vector3d>> &sorted,
+                              const int threadshold)
 {
     sorted.clear();
     int nbr0 = pls.size();
@@ -1739,9 +1741,44 @@ void get_diff_polylines_order(const std::vector<std::vector<Eigen::Vector3d>> &p
             break;
         }
         bool invert = which == 0 || which == 3 ? true : false;
-        sorted = extend_sorted_list(sorted, invert, after, pls[find]);
+        if (pls[find].size() >= threadshold)
+        {
+            sorted = extend_sorted_list(sorted, invert, after, pls[find]);
+        }
     }
 }
+std::vector<std::vector<Eigen::Vector3d>> invert_the_whole_polylines(const std::vector<std::vector<Eigen::Vector3d>> &ply)
+{
+    std::vector<std::vector<Eigen::Vector3d>> result(ply.size());
+    for (int i = 0; i < ply.size(); i++)
+    {
+        result[i] = invert_one_polyline(ply[ply.size() - 1 - i]);
+    }
+    return result;
+}
+void sample_sort_and_discard_short(const std::vector<std::vector<Eigen::Vector3d>> &raw, const Eigen::Vector3d &direction,
+                                   const double avg, const int threadshold, std::vector<std::vector<Eigen::Vector3d>> &result)
+{
+    std::vector<std::vector<Eigen::Vector3d>> tmp, sorted;
+    for (int i = 0; i < raw.size(); i++)
+    {
+        tmp.push_back(sample_one_polyline_based_on_length(raw[i], avg)); // get the sampled points
+    }
+
+    get_diff_polylines_order(tmp, sorted, threadshold); // get them in order and delete short segments
+
+    Eigen::Vector3d d = sorted.back().back() - sorted.front().front(); // the direction from the first point to the last
+    if (d.dot(direction) < 0)
+    {
+        // need to invert all the lines
+        result = invert_the_whole_polylines(sorted);
+    }
+    else
+    {
+        result = sorted;
+    }
+}
+
 // // resort the polylines so that they are in the right order
 // std::vector<std::vector<Eigen::Vector3d>> resort_polylines(const std::vector<std::vector<Eigen::Vector3d>> &polylines)
 // {
@@ -1780,15 +1817,180 @@ void get_diff_polylines_order(const std::vector<std::vector<Eigen::Vector3d>> &p
 //         }
 //     }
 // }
+bool project_point_on_lines(const Eigen::Vector3d &p, const std::vector<std::vector<Eigen::Vector3d>> &second,
+                                 bool checkused, const std::vector<std::vector<bool>> &used,
+                                 int &indi0, int &indi1)
+{
+    double dismin = std::numeric_limits<double>::max();
+    int i0 = -1, i1 = -1;
+    for (int i = 0; i < second.size(); i++)
+    {
+        for (int j = 0; j < second[i].size(); j++)
+        {
+            if (checkused)
+            {
+                if (used[i][j])// we need to skip all the points before the last used one
+                {
+                    dismin = std::numeric_limits<double>::max();
+                    i0 = -1;
+                    i1 = -1;
+                    continue;
+                }
+            }
+
+            double distance = (p - second[i][j]).norm();
+            if (distance < dismin)
+            {
+                dismin = distance;
+                i0 = i;
+                i1 = j;
+            }
+        }
+    }
+    if(i0==-1||i1==-1){
+        return false;
+    }
+    else{
+        indi0=i0;
+        indi1=i1;
+        return true;
+    }
+
+}
+// i0,i1 is the first point. j0, j1 is the second point
+void connect_quads(const std::vector<std::vector<Eigen::Vector3d>> &first, const std::vector<std::vector<int>> &id0,
+                   const std::vector<std::vector<Eigen::Vector3d>> &second, const std::vector<std::vector<int>> &id1,
+                   const int i0, const int i1, const int j0, const int j1,
+                   std::vector<Eigen::Vector4i> &quads, std::vector<std::vector<bool>> checked, int& final_i0, int& final_i1)
+{
+    int remain = std::min(first[i0].size() - i1, second[j0].size() - j1) - 1; // the number of quads
+    for (int i = 0; i < remain; i++)
+    {
+        int v0 = id0[i0][i1 + i];
+        int v1 = id0[i0][i1 + i + 1];
+        int v2 = id1[j0][j1 + i + 1];
+        int v3 = id1[j0][j1 + i];
+        checked[j0][j1 + i] = true;
+        checked[j0][j1 + i + 1] = true;
+        final_i0=i0;
+        final_i1=i1 + i + 1;
+        quads.push_back(Eigen::Vector4i(v0, v1, v2, v3));
+    }
+}
+
+// always extend the first polylines as the quads
+void project_polylines_and_extend_quads(const std::vector<std::vector<Eigen::Vector3d>> &first, const std::vector<std::vector<int>> &id0,
+                                        const std::vector<std::vector<Eigen::Vector3d>> &second, const std::vector<std::vector<int>> &id1, 
+                                        std::vector<Eigen::Vector4i> &quads)
+{
+    int size1 = first.size();
+    int size2 = second.size();
+    std::vector<std::vector<bool>> used; // if the points in the second line is used for connecting quads, they cannot be found by the new points in the first line
+    // init the used as false
+    used.resize(size2);
+    for (int i = 0; i < size2; i++)
+    {
+        std::vector<bool> tbool(second[i].size(), false);
+        used[i] = tbool;
+    }
+
+    // start projection and connect quads
+    for(int i=0;i<size1;i++){
+        bool need_break = false;
+        for (int j = 0; j < first[i].size() - 1; j++)
+        {
+            int rid0, rid1;
+            bool found = project_point_on_lines(first[i][j],second,true,used,rid0,rid1);
+            if(!found){// if there are no points left, break the loop
+                need_break=true;
+                break;
+            }
+            if(rid1==second[rid0].size()-1){// if the point is projected to the end of second line, we project the next point
+                
+                continue;
+            }
+            if(rid1==0){// if it is projected to the first point, we project back 
+                // project again
+                int tid0, tid1;//
+                found = project_point_on_lines(second[rid0][rid1], first, false, used, tid0, tid1);
+                if (tid1 == first[tid0].size() - 1)
+                { // if project back to the end of some seg, means no quad can be extracted, check the next point
+                    continue;
+                }
+                if(tid0<i){// if projected back to the previous seg, continue
+                    continue;
+                }
+                if (tid0 == i && tid1 < j)
+                { // if projected to the previous seg, continue;
+                    continue;
+                }
+                int final_i0, final_i1;
+                connect_quads(first, id0, second, id1, tid0, tid1, rid0, rid1, quads, used, final_i0, final_i1);
+                i=final_i0;
+                j=final_i1;
+                // the point is projected back somewhere, 
+            }
+            else{
+                int final_i0, final_i1;
+                // connect quads
+                connect_quads(first, id0, second, id1, i, j, rid0, rid1, quads, used, final_i0, final_i1);
+                i=final_i0;
+                j=final_i1;
+            }
+        }
+        if(need_break){
+            break;
+        }
+    }
+}
+
+Eigen::MatrixXd extract_vers(const std::vector<std::vector<std::vector<Eigen::Vector3d>>> &vertices)
+{
+    Eigen::MatrixXd result;
+    int counter = 0;
+    for (int i = 0; i < vertices.size(); i++)
+    {
+        for (int j = 0; j < vertices[i].size(); j++)
+        {
+            for (int k = 0; k < vertices[i][j].size(); k++)
+            {
+                counter++;
+            }
+        }
+    }
+    result.resize(counter,3);
+    counter = 0;
+    for (int i = 0; i < vertices.size(); i++)
+    {
+        for (int j = 0; j < vertices[i].size(); j++)
+        {
+            for (int k = 0; k < vertices[i][j].size(); k++)
+            {
+                result.row(counter)=vertices[i][j][k];
+                counter++;
+            }
+        }
+    }
+    return result;
+}
+Eigen::MatrixXi extract_quads(const std::vector<Eigen::Vector4i> &quads){
+    int nbr=quads.size();
+    Eigen::MatrixXi result(nbr, 4);
+    for(int i=0;i<nbr;i++){
+        result.row(i)=quads[i];
+    }
+    return result;
+}
 // preserves the boundary with given accuracy decided by the size of the mesh
-void extract_Quad_Mesh_Zigzag(const CGMesh &lsmesh, const Eigen::MatrixXd &V,const std::vector<CGMesh::HalfedgeHandle>& loop,
+// the threadshold is the least number of vers in each seg
+void extract_Quad_Mesh_Zigzag(const CGMesh &lsmesh,const std::vector<CGMesh::HalfedgeHandle>& loop, const Eigen::MatrixXd &V,
                          const Eigen::MatrixXi &F, const Eigen::VectorXd &ls,
-                         const int expect_nbr_ls, const int expect_nbr_dis,
+                         const int expect_nbr_ls, const int expect_nbr_dis, const int threadshold_nbr,
                          Eigen::MatrixXd &vers, Eigen::MatrixXi &Faces)
 {
     Eigen::VectorXd lsv0;
     int nbr_ls0;
-
+    std::vector<Eigen::Vector4i> quads;
     nbr_ls0 = expect_nbr_ls;
     get_level_set_sample_values(ls, nbr_ls0, lsv0);
     std::vector<Eigen::Vector3d> verlist;
@@ -1825,9 +2027,57 @@ void extract_Quad_Mesh_Zigzag(const CGMesh &lsmesh, const Eigen::MatrixXd &V,con
     int last;
 
     sample_polylines(curves_all[longest], expect_nbr_dis, clengths[longest], first_lines, expect_length); // first sample the longest line
-    get_diff_polylines_order(first_lines, sorted);
+    get_diff_polylines_order(first_lines, sorted, threadshold_nbr);
     assign_verid_to_sampled_polylines(sorted, first, first_ids, last);
-    for (int i = longest + 1; i < curves_all.size(); i++)
-    { // to the right
+    first_lines=sorted;
+
+
+    std::vector<std::vector<std::vector<Eigen::Vector3d>>> vertices;
+    std::vector<std::vector<std::vector<int>>> ids;
+    std::vector<Eigen::Vector4i> faces;
+    vertices.push_back(first_lines);
+    ids.push_back(first_ids);
+    std::cout<<"before extracting quads: nbr of lines, "<<curves_all.size()<<std::endl;
+    std::cout<<"longetst, "<<longest<<std::endl;
+    std::vector<std::vector<Eigen::Vector3d>> this_lines = first_lines; // the first line
+    std::vector<std::vector<int>> this_ids = first_ids;                 // the first ids
+    for (int i = longest + 1; i < curves_all.size(); i++)// to the right
+    {
+        std::vector<std::vector<Eigen::Vector3d>> next_raw = curves_all[i];                // the next polylines
+        Eigen::Vector3d direction = this_lines.back().back() - this_lines.front().front(); // the reference orientation
+        std::vector<std::vector<Eigen::Vector3d>> next_lines;                              // the sampled and sorted lines
+        std::vector<std::vector<int>> next_ids;
+        first = last; // the ver ids
+
+        sample_sort_and_discard_short(next_raw, direction, expect_length, threadshold_nbr, next_lines);
+        assign_verid_to_sampled_polylines(next_lines, first, next_ids, last);
+        project_polylines_and_extend_quads(this_lines, this_ids, next_lines, next_ids, quads);
+        this_lines=next_lines;
+        this_ids=next_ids;
+        vertices.push_back(next_lines);
+        std::cout<<"first ,segs "<<first_lines.size()<<", second segs, "<<next_lines.size()<<std::endl;
+        std::cout<<"1 size, "<<first_lines[0].size()<<", 2 size, "<<next_lines[0].size()<<std::endl;
+        break;
+        
+        // std::cout<<"forward, "<<longest<<std::endl;
     }
+    this_lines = first_lines; // the first line
+    this_ids = first_ids;                 // the first ids
+    // for (int i = longest - 1; i >= 0; i--) // to the right
+    // {
+    //     std::vector<std::vector<Eigen::Vector3d>> next_raw = curves_all[i];                // the next polylines
+    //     Eigen::Vector3d direction = this_lines.back().back() - this_lines.front().front(); // the reference orientation
+    //     std::vector<std::vector<Eigen::Vector3d>> next_lines;                              // the sampled and sorted lines
+    //     std::vector<std::vector<int>> next_ids;
+    //     first = last; // the ver ids
+
+    //     sample_sort_and_discard_short(next_raw, direction, expect_length, threadshold_nbr, next_lines);
+    //     assign_verid_to_sampled_polylines(next_lines, first, next_ids, last);
+    //     project_polylines_and_extend_quads(next_lines, next_ids, this_lines, this_ids, quads);
+    //     this_lines=next_lines;
+    //     this_ids=next_ids;
+    //     vertices.push_back(next_lines);
+    // }
+    vers = extract_vers(vertices);
+    Faces=extract_quads(quads);
 }

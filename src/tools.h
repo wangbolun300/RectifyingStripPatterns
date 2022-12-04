@@ -67,3 +67,7 @@ Eigen::VectorXd three_vec_in_row(const Eigen::VectorXd& ve0, const Eigen::Vector
 bool write_quad_mesh_with_binormal(const std::string & fname, const Eigen::MatrixXd& Vt, const Eigen::MatrixXi& Ft, const Eigen::MatrixXd& bi,
 const Eigen::MatrixXd& Vq, const Eigen::MatrixXi& Fq);
 void levelset_unit_scale(Eigen::VectorXd& func, Eigen::MatrixXd &GradValueF, const double length);
+void extract_Quad_Mesh_Zigzag(const CGMesh &lsmesh,const std::vector<CGMesh::HalfedgeHandle>& loop, const Eigen::MatrixXd &V,
+                         const Eigen::MatrixXi &F, const Eigen::VectorXd &ls,
+                         const int expect_nbr_ls, const int expect_nbr_dis, const int threadshold_nbr,
+                         Eigen::MatrixXd &vers, Eigen::MatrixXi &Faces);
