@@ -963,6 +963,40 @@ void assemble_AAG_extra_condition(const int mat_size, const int vnbr,
 	B=-J.transpose()*energy;
 
 }
+// the optimized levelset should be othogonal to the given directions on each face id of fids
+void lsTools::assemble_solver_othogonal_to_given_face_directions(const Eigen::VectorXd &func, const Eigen::MatrixXd &directions,
+														const Eigen::VectorXi &fids, spMat &H, Eigen::VectorXd &B, Eigen::VectorXd &energy)
+{
+	std::vector<Trip> tripletes;
+	int nvars = V.rows();
+	int ncondi = fids.size();
+	tripletes.reserve(ncondi*3);
+	energy.resize(ncondi);
+	for(int i=0;i<ncondi;i++){
+		int fid=fids[i];
+		int v0=F(fid,0);
+		int v1=F(fid,1);
+		int v2=F(fid,2);
+		// dir0 * V0 + dir1 * V1 + dir2 * V2 is the iso-line direction
+		Eigen::Vector3d dir0 = V.row(v2) - V.row(v1);
+		Eigen::Vector3d dir1 = V.row(v0) - V.row(v2);
+		Eigen::Vector3d dir2 = V.row(v1) - V.row(v0);
+		Eigen::Vector3d iso = dir0 * func[v0] + dir1 * func[v1] + dir2 * func[v2];
+		double c0 = directions.row(i).dot(dir0);
+		double c1 = directions.row(i).dot(dir1);
+		double c2 = directions.row(i).dot(dir2);
+		double scale = directions.row(i).norm() * iso.norm();
+		tripletes.push_back(Trip(i, v0, c0 / scale));
+		tripletes.push_back(Trip(i, v1, c1 / scale));
+		tripletes.push_back(Trip(i, v2, c2 / scale));
+		energy[i] = directions.row(i).dot(iso) / scale;
+	}
+	spMat J;
+	J.resize(ncondi, nvars);
+	J.setFromTriplets(tripletes.begin(), tripletes.end());
+	H = J.transpose() * J;
+	B = -J.transpose() * energy;
+}
 
 void lsTools::Run_Level_Set_Opt() {
 	

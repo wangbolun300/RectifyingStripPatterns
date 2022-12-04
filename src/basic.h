@@ -203,6 +203,8 @@ private:
     void assemble_solver_shading_condition(Eigen::VectorXd &vars, const Eigen::Vector3d &ray,
                                            const LSAnalizer &analizer, const int vars_start_loc, 
                                            spMat &H, Eigen::VectorXd &B, Eigen::VectorXd &Energy);
+    void assemble_solver_othogonal_to_given_face_directions(const Eigen::VectorXd &func, const Eigen::MatrixXd &directions,
+														const Eigen::VectorXi &fids, spMat &H, Eigen::VectorXd &B, Eigen::VectorXd &energy);
     // void assemble_solver_pseudo_geodesic_part(spMat &H, Efunc& B);
     bool find_geodesic_intersection_p1_is_NOT_ver(const Eigen::Vector3d &p0, const Eigen::Vector3d &p1,
                                                   const CGMesh::HalfedgeHandle &edge_middle, const Eigen::Vector3d &pnorm, CGMesh::HalfedgeHandle &edge_out, Eigen::Vector3d &p_end);
