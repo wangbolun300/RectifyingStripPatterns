@@ -2055,29 +2055,29 @@ void extract_Quad_Mesh_Zigzag(const CGMesh &lsmesh,const std::vector<CGMesh::Hal
         this_lines=next_lines;
         this_ids=next_ids;
         vertices.push_back(next_lines);
-        std::cout<<"first ,segs "<<first_lines.size()<<", second segs, "<<next_lines.size()<<std::endl;
-        std::cout<<"1 size, "<<first_lines[0].size()<<", 2 size, "<<next_lines[0].size()<<std::endl;
-        break;
+        // std::cout<<"first ,segs "<<first_lines.size()<<", second segs, "<<next_lines.size()<<std::endl;
+        // std::cout<<"1 size, "<<first_lines[0].size()<<", 2 size, "<<next_lines[0].size()<<std::endl;
+        // break;
         
         // std::cout<<"forward, "<<longest<<std::endl;
     }
     this_lines = first_lines; // the first line
     this_ids = first_ids;                 // the first ids
-    // for (int i = longest - 1; i >= 0; i--) // to the right
-    // {
-    //     std::vector<std::vector<Eigen::Vector3d>> next_raw = curves_all[i];                // the next polylines
-    //     Eigen::Vector3d direction = this_lines.back().back() - this_lines.front().front(); // the reference orientation
-    //     std::vector<std::vector<Eigen::Vector3d>> next_lines;                              // the sampled and sorted lines
-    //     std::vector<std::vector<int>> next_ids;
-    //     first = last; // the ver ids
+    for (int i = longest - 1; i >= 0; i--) // to the right
+    {
+        std::vector<std::vector<Eigen::Vector3d>> next_raw = curves_all[i];                // the next polylines
+        Eigen::Vector3d direction = this_lines.back().back() - this_lines.front().front(); // the reference orientation
+        std::vector<std::vector<Eigen::Vector3d>> next_lines;                              // the sampled and sorted lines
+        std::vector<std::vector<int>> next_ids;
+        first = last; // the ver ids
 
-    //     sample_sort_and_discard_short(next_raw, direction, expect_length, threadshold_nbr, next_lines);
-    //     assign_verid_to_sampled_polylines(next_lines, first, next_ids, last);
-    //     project_polylines_and_extend_quads(next_lines, next_ids, this_lines, this_ids, quads);
-    //     this_lines=next_lines;
-    //     this_ids=next_ids;
-    //     vertices.push_back(next_lines);
-    // }
+        sample_sort_and_discard_short(next_raw, direction, expect_length, threadshold_nbr, next_lines);
+        assign_verid_to_sampled_polylines(next_lines, first, next_ids, last);
+        project_polylines_and_extend_quads(next_lines, next_ids, this_lines, this_ids, quads);
+        this_lines=next_lines;
+        this_ids=next_ids;
+        vertices.push_back(next_lines);
+    }
     vers = extract_vers(vertices);
     Faces=extract_quads(quads);
 }
