@@ -1125,7 +1125,6 @@ void get_iso_lines(const CGMesh &lsmesh, const std::vector<CGMesh::HalfedgeHandl
         }
     }
     int bsize=has_value.size();
-    std::cout<<"has values size "<<bsize<<std::endl;
     // std::vector<bool> checked(bsize); // show if this boundary edge is checked
     // for(int i=0;i<bsize;i++){
     //     checked[i]=false;
@@ -1406,22 +1405,33 @@ int select_longest_polyline(const std::vector<std::vector<Eigen::Vector3d>>& lin
     length=max_length;
     return max_id;
 }
+double polyline_total_length(const std::vector<std::vector<Eigen::Vector3d>> &lines)
+{
+    double total = 0;
+    for (int i = 0; i < lines.size(); i++)
+    {
+        total += polyline_length(lines[i]);
+    }
+    return total;
+}
 void find_next_pt_on_polyline(const int start_seg, const std::vector<Eigen::Vector3d> &polyline, const double length,
                               const Eigen::Vector3d &pstart, int &seg, Eigen::Vector3d &pt)
 {
-    int nbr=polyline.size();
-    double ocu_dis=0;
-    double dis_to_start=length+(polyline[start_seg]-pstart).norm();
-    for(int i=start_seg; i<nbr-1;i++){
-        double dis=(polyline[i]-polyline[i+1]).norm();
-        ocu_dis+= dis;
-        if(ocu_dis>dis_to_start){ // the point should between i and i+1
-            double diff = ocu_dis-dis_to_start; // the distance the point to i+1
-            double t = diff/dis;
-            assert(t>=0&&t<=1);
-            Eigen::Vector3d p=get_3d_ver_from_t(t, polyline[i+1], polyline[i]);
+    int nbr = polyline.size();
+    double ocu_dis = 0;
+    double dis_to_start = length + (polyline[start_seg] - pstart).norm();
+    for (int i = start_seg; i < nbr - 1; i++)
+    {
+        double dis = (polyline[i] - polyline[i + 1]).norm();
+        ocu_dis += dis;
+        if (ocu_dis > dis_to_start)
+        {                                         // the point should between i and i+1
+            double diff = ocu_dis - dis_to_start; // the distance the point to i+1
+            double t = diff / dis;
+            assert(t >= 0 && t <= 1);
+            Eigen::Vector3d p = get_3d_ver_from_t(t, polyline[i + 1], polyline[i]);
             pt = p;
-            seg=i;
+            seg = i;
             return;
         }
     }
@@ -1430,7 +1440,7 @@ void find_next_pt_on_polyline(const int start_seg, const std::vector<Eigen::Vect
 // nbr - 1 is the nbr of segments
 // length is the length of the polyline
 void sample_polyline_and_extend_verlist(const std::vector<Eigen::Vector3d>& polyline, const int nbr, const double length, std::vector<Eigen::Vector3d>& verlist){
-    assert(nbr>3);
+    assert(nbr >= 3);
     double avg = length / (nbr - 1);
     verlist.push_back(polyline[0]);
     int start=0;
@@ -1438,15 +1448,43 @@ void sample_polyline_and_extend_verlist(const std::vector<Eigen::Vector3d>& poly
     {
         int seg;
         Eigen::Vector3d pt;
-        std::cout<<"finding vers"<<std::endl;
         find_next_pt_on_polyline(start, polyline, avg, verlist.back(), seg, pt);
-        std::cout<<"found vers"<<std::endl;
         verlist.push_back(pt);
         start=seg;
     }
     verlist.push_back(polyline.back());
 }
+std::vector<Eigen::Vector3d> sample_one_polyline_based_on_length(const std::vector<Eigen::Vector3d>& polyline, const double avg){
+    std::vector<Eigen::Vector3d> pts;
+    double length = polyline_length(polyline);
 
+    if (length < 0.5 * length) // if the polyline is short, we discard this one
+    {
+        return pts;
+    }
+    int nbr = length / avg + 2; // nbr of vers. make sure each segment is no longer than avg
+    if (nbr == 2)
+    {
+        pts.push_back(polyline[0]);
+        pts.push_back((polyline[0] + polyline.back()) / 2);
+        pts.push_back(polyline.back());
+        return pts;
+    }
+    sample_polyline_and_extend_verlist(polyline, nbr, length, pts);
+    return pts;
+}
+// void sample_polyline_based_on_length(const std::vector<Eigen::Vector3d>& polyline, const double length)
+void sample_polylines(const std::vector<std::vector<Eigen::Vector3d>> &polylines, const int nbr, const double length_total,
+                      std::vector<std::vector<Eigen::Vector3d>> &verlists, double& avg)
+{
+    int lnbr = polylines.size();
+    avg = length_total / (nbr - 1);// expected average length;
+    verlists.resize(lnbr);
+    for(int i=0;i<lnbr;i++){
+        double length = polyline_length(polylines[i]);
+        verlists[i] = sample_one_polyline_based_on_length(polylines[i], avg);
+    }
+}
 void extract_Origami_web(const CGMesh &lsmesh, const Eigen::MatrixXd &V,const std::vector<CGMesh::HalfedgeHandle>& loop,
                          const Eigen::MatrixXi &F, const Eigen::VectorXd &ls,
                          const int expect_nbr_ls, const int expect_nbr_dis,
@@ -1457,16 +1495,14 @@ void extract_Origami_web(const CGMesh &lsmesh, const Eigen::MatrixXd &V,const st
 
     nbr_ls0 = expect_nbr_ls;
     get_level_set_sample_values(ls, nbr_ls0, lsv0);
-    std::cout<<"sampled"<<std::endl;
     std::vector<Eigen::Vector3d> verlist;
     verlist.reserve(nbr_ls0*expect_nbr_dis);
     for(int i=0;i<nbr_ls0;i++){
         std::vector<std::vector<Eigen::Vector3d>> polylines;
         double value = lsv0[i];
         std::vector<bool> left_large;
-        std::cout<<"iso..."<<std::endl;
         get_iso_lines(lsmesh, loop, V, F, ls, value, polylines, left_large);
-        std::cout<<"iso got, size "<<polylines.size()<<std::endl;
+
         double length ;
         int longest = select_longest_polyline(polylines, length);
         std::cout<<"longest got, size "<<polylines[longest].size()<<" length "<<length<<std::endl;
@@ -1521,4 +1557,277 @@ bool write_quad_mesh_with_binormal(const std::string &fname, const Eigen::Matrix
     }
     file.close();
     return true;
+}
+int max_element_in_vec(const Eigen::VectorXd &vec)
+{
+    int size = vec.size();
+    int mid = 0;
+    double value = vec[0];
+    for (int i = 0; i < size; i++)
+    {
+        if (vec[i] > value)
+        {
+            mid = i;
+            value = vec[i];
+        }
+    }
+    return mid;
+}
+// assign ids to the polylines so that we can get the quads easily
+// start is the start ver id of this polyline
+void assign_verid_to_sampled_polylines(const std::vector<std::vector<Eigen::Vector3d>>& sampled, const int start, 
+std::vector<std::vector<int>>& ids, int& last){
+    ids.resize(sampled.size());
+    last=start;
+    for(int i=0;i<sampled.size();i++){
+        int lsize = sampled[i].size();
+        ids[i].resize(lsize);
+        for(int j=0;j<lsize;j++){
+            ids[i][j] = last;
+            last++;
+        }
+    }
+}
+std::vector<Eigen::Vector3d> invert_one_polyline(const std::vector<Eigen::Vector3d>& line){
+    int size = line.size();
+    std::vector<Eigen::Vector3d> result(size);
+    for(int i=0;i<size;i++){
+        result[size - i - 1] = line[i];
+    }
+    return result;
+}
+std::vector<std::vector<Eigen::Vector3d>> invert_polyline_set(const std::vector<std::vector<Eigen::Vector3d>>& pl){
+    std::vector<std::vector<Eigen::Vector3d>> result(pl.size());
+    for(int i =0;i<pl.size();i++){
+        result[i] = invert_one_polyline(pl[pl.size() - i - 1]);
+    }
+    return result;
+}
+// after means the found one is after the given one
+// checked shows if this segment is already included
+int find_the_closest_line(const std::vector<std::vector<Eigen::Vector3d>> &pls, std::vector<bool> &checked, Eigen::Vector3d &v0,
+                          Eigen::Vector3d &v1, int& which, bool& after)
+{
+    Eigen::Vector3d tv0, tv1;
+    bool found = false;
+    int id = 0;
+    double dmin = std::numeric_limits<double>::max();
+    which = 0; // 0: 0-0. 1: 0-1. 2: 1-0. 3: 1-1
+    for (int i = 0; i < pls.size(); i++)
+    {
+        if (checked[i])
+        {
+            continue;
+        }
+        if (pls[i].size() < 2)
+        {
+            checked[i] = true;
+            continue;
+        }
+        found = true;
+        tv0 = pls[i].front();
+        tv1 = pls[i].back();
+        if ((v0 - tv0).norm() < dmin)
+        {
+            dmin = (v0 - tv0).norm();
+            id = i;
+            which = 0;
+        }
+        if ((v0 - tv1).norm() < dmin)
+        {
+            dmin = (v0 - tv1).norm();
+            id = i;
+            which = 1;
+        }
+        if ((v1 - tv0).norm() < dmin)
+        {
+            dmin = (v1 - tv0).norm();
+            id = i;
+            which = 2;
+        }
+        if ((v1 - tv1).norm() < dmin)
+        {
+            dmin = (v1 - tv1).norm();
+            id = i;
+            which = 3;
+        }
+    }
+    if(!found){
+        return -1;
+    }
+    checked[id]=true;
+    if(which==0){// invert
+        after = false;
+        v0=pls[id].back();
+        v1=v1;
+    }
+    if(which==1){
+        after = false;
+        v0=pls[id].front();
+        v1=v1;
+    }
+    if(which==2){
+        after = true;
+        v0=v0;
+        v1=pls[id].back();
+    }
+    if(which==3){// invert
+        after = true;
+        v0=v0;
+        v1=pls[id].front();
+    }
+    return id;
+    
+}
+std::vector<std::vector<Eigen::Vector3d>> extend_sorted_list(const std::vector<std::vector<Eigen::Vector3d>> &current, const bool invert,
+                                                             const bool after, const std::vector<Eigen::Vector3d>& candidate)
+{
+    std::vector<std::vector<Eigen::Vector3d>> result;
+    std::vector<Eigen::Vector3d> candi;
+    if(invert){
+        candi=invert_one_polyline(candidate);
+    }
+    else{
+        candi=candidate;
+    }
+    if(after){
+        result=current;
+        result.push_back(candi);
+    }
+    else{
+        result.push_back(candi);
+        for(int i=0;i<current.size();i++){
+            result.push_back(current[i]);
+        }
+    }
+    return result;
+}
+void get_diff_polylines_order(const std::vector<std::vector<Eigen::Vector3d>> &pls, std::vector<std::vector<Eigen::Vector3d>> &sorted)
+{
+    sorted.clear();
+    int nbr0 = pls.size();
+    std::vector<bool> checked(nbr0, false);
+    Eigen::Vector3d v0, v1;
+    for (int i = 0; i < nbr0; i++)
+    { // get the first
+        if (pls[i].size() < 2)
+        {
+            checked[i] = true;
+        }
+        else
+        {
+            v0 = pls[i].front();
+            v1 = pls[i].back();
+            checked[i] = true;
+            sorted.push_back(pls[i]);
+            break;
+        }
+    }
+    if (sorted.size() == 0)
+    {
+        std::cout << "please input the correct polylines " << std::endl;
+        return;
+    }
+    double closet_dis = std::numeric_limits<double>::max();
+    while (1)
+    {
+        int which;
+        bool after;
+        int find = find_the_closest_line(pls, checked, v0, v1, which, after);
+        if (find == -1)
+        {
+            break;
+        }
+        bool invert = which == 0 || which == 3 ? true : false;
+        sorted = extend_sorted_list(sorted, invert, after, pls[find]);
+    }
+}
+// // resort the polylines so that they are in the right order
+// std::vector<std::vector<Eigen::Vector3d>> resort_polylines(const std::vector<std::vector<Eigen::Vector3d>> &polylines)
+// {
+//     std::vector<std::vector<Eigen::Vector3d>> tmp;
+//     tmp.resize(polylines.size());
+//     Eigen::Vector3d ref_dir;
+//     bool found = false;
+//     for (int i = 0; i < polylines.size(); i++)
+//     {
+//         if (polylines[i].size() > 2)
+//         {
+//             ref_dir = polylines[i].back() - polylines[i].front();
+//             found = true;
+//             break;
+//         }
+//     }
+//     if (found == false)
+//     {
+//         std::cout << "please use a correct polyline for resorting!!!" << std::endl;
+//         return tmp;
+//     }
+//     for (int i = 0; i < polylines.size(); i++)
+//     {
+//         if (polylines[i].size() < 2)
+//         {
+//             continue;
+//         }
+//         Eigen::Vector3d direction = polylines[i].back() - polylines[i].front();
+//         if (direction.dot(ref_dir) < 0)
+//         { // need invert
+//             tmp[i] = invert_one_polyline(polylines[i]);
+//         }
+//         else
+//         {xx
+//             tmp[i] = polylines[i];
+//         }
+//     }
+// }
+// preserves the boundary with given accuracy decided by the size of the mesh
+void extract_Quad_Mesh_Zigzag(const CGMesh &lsmesh, const Eigen::MatrixXd &V,const std::vector<CGMesh::HalfedgeHandle>& loop,
+                         const Eigen::MatrixXi &F, const Eigen::VectorXd &ls,
+                         const int expect_nbr_ls, const int expect_nbr_dis,
+                         Eigen::MatrixXd &vers, Eigen::MatrixXi &Faces)
+{
+    Eigen::VectorXd lsv0;
+    int nbr_ls0;
+
+    nbr_ls0 = expect_nbr_ls;
+    get_level_set_sample_values(ls, nbr_ls0, lsv0);
+    std::vector<Eigen::Vector3d> verlist;
+    verlist.reserve(nbr_ls0*expect_nbr_dis);
+    std::vector<std::vector<std::vector<Eigen::Vector3d>>> curves_all;
+    Eigen::VectorXd clengths(nbr_ls0);
+    for(int i=0;i<nbr_ls0;i++){
+        std::vector<std::vector<Eigen::Vector3d>> polylines;
+        double value = lsv0[i];
+        std::vector<bool> left_large;
+        std::cout<<"iso..."<<std::endl;
+        get_iso_lines(lsmesh, loop, V, F, ls, value, polylines, left_large);
+        // std::cout<<"iso got, size "<<polylines.size()<<std::endl;
+        // double length ;
+        // int longest = select_longest_polyline(polylines, length);
+        double total_length = polyline_total_length(polylines);
+        curves_all.push_back(polylines);
+        clengths[i] = (total_length);
+        // std::cout<<"longest got, size "<<polylines[longest].size()<<" length "<<length<<std::endl;
+        // // for(int j=0;j<polylines[longest].size();j++){
+        // //     std::cout<<"v "<<polylines[longest][j].transpose()<<std::endl;
+        // // }
+        // // exit(0);
+        // sample_polyline_and_extend_verlist(polylines[longest], expect_nbr_dis, length, verlist);
+        // std::cout<<"vers found"<<std::endl;
+    }
+    // vers=vec_list_to_matrix(verlist);
+    // extract_web_mxn(nbr_ls0, expect_nbr_dis, Faces);
+    int longest = max_element_in_vec(clengths); // get the longest iso-lines
+    std::vector<std::vector<Eigen::Vector3d>> first_lines, sorted;
+    std::vector<std::vector<int>> first_ids;
+    double expect_length;
+    int first = 0;
+    int last;
+
+    sample_polylines(curves_all[longest], expect_nbr_dis, clengths[longest], first_lines, expect_length); // first sample the longest line
+    get_diff_polylines_order(first_lines, sorted);
+    assign_verid_to_sampled_polylines(sorted, first, first_ids, last);
+    for (int i = longest + 1; i < curves_all.size(); i++)
+    { // to the right
+    }
 }
