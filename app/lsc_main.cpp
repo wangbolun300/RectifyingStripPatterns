@@ -600,7 +600,49 @@ int main(int argc, char *argv[])
 			ImGui::SameLine();
 			if (ImGui::Button("Bndry Assign", ImVec2(ImGui::GetWindowSize().x * 0.23f, 0.0f)))
 			{
+				
+				int id = viewer.selected_data_index;
+				CGMesh updatedMesh;
+				CGMesh inputMesh = lscif::Meshes[id];
+				TracingPrepare Tracing_initializer;
+				Tracing_initializer.debug_id_tracing = lscif::id_debug_global;
+				Tracing_initializer.every_n_edges = lscif::nbr_of_intervals;
+				Tracing_initializer.start_angle = lscif::start_angle;
+				Tracing_initializer.target_angle = lscif::target_angle;
+				Tracing_initializer.threadshold_angel_degree = lscif::threadshold_angel_degree;
+				Tracing_initializer.which_boundary_segment = lscif::which_seg_id;
+				lscif::tools.initialize_level_set_by_boundary_assignment(Tracing_initializer);
+				std::cout << "finish Boundary Values Assignment" << std::endl;
+				lscif::updateMeshViewer(viewer, inputMesh);
+				lscif::meshFileName.push_back("dbg_" + lscif::meshFileName[id]);
+				lscif::Meshes.push_back(inputMesh);
+				Eigen::MatrixXd E0, E1;
+				Eigen::MatrixXd E2, E3, Ea0, Ea1;
+				// lscif::tools.show_gradients(E0,E1, lscif::vector_scaling);
+				const Eigen::RowVector3d red(0.8, 0.2, 0.2);
+				const Eigen::RowVector3d blue(0.2, 0.2, 0.8);
+				const Eigen::RowVector3d black(0, 0, 0);
+				const Eigen::RowVector3d green(0.2, 0.8, 0.2);
+				Eigen::MatrixXd RGB = Eigen::MatrixXd::Identity(3, 3);
 
+				Eigen::MatrixXd pts;
+				std::vector<Eigen::MatrixXd> E0list, E1list;
+				std::cout << "before ploting the Assigned Values" << std::endl;
+				lscif::tools.show_pseudo_geodesic_curve(E0list, E1list, pts);
+				for (int i = 0; i < E0list.size(); i++) // plot the curves
+				{
+					E0 = E0list[i];
+					E1 = E1list[i];
+					std::cout << "edge sizes " << E0.rows() << ", " << E1.size() << std::endl;
+					viewer.data().add_edges(E0, E1, red);
+				}
+				std::cout << "the number of curves " << E0list.size() << std::endl;
+
+				if (1) // plot the vertices of the curves
+				{
+					viewer.data().add_points(pts, red);
+				}
+				viewer.selected_data_index = id;
 			}
 
 			if (ImGui::Button("LvSet Opt", ImVec2(ImGui::GetWindowSize().x * 0.23f, 0.0f)))
@@ -703,6 +745,74 @@ int main(int argc, char *argv[])
 				
 				viewer.selected_data_index = id;
 				std::cout<<"waiting for instructions"<<std::endl;
+				
+			}
+			ImGui::SameLine();
+			if (ImGui::Button("Othogonal LS", ImVec2(ImGui::GetWindowSize().x * 0.25f, 0.0f)))
+			{
+				int id = viewer.selected_data_index;
+				CGMesh inputMesh = lscif::tools.lsmesh;
+				EnergyPrepare einit;
+				einit.weight_gravity = lscif::weight_mass;
+				einit.weight_lap = lscif::weight_laplacian;
+				einit.weight_bnd = lscif::weight_boundary;
+				einit.weight_pg = lscif::weight_pseudo_geodesic;
+				einit.weight_strip_width = lscif::weight_strip_width;
+				einit.solve_pseudo_geodesic = lscif::enable_pg_energy_checkbox;
+				einit.target_angle = lscif::target_angle;
+				einit.max_step_length = lscif::maximal_step_length;
+				einit.solve_strip_width_on_traced = lscif::enable_strip_width_checkbox;
+				einit.enable_inner_vers_fixed = lscif::enable_inner_vers_fixed;
+				einit.enable_functional_angles = lscif::enable_functional_degrees;
+				einit.enable_extreme_cases = lscif::enable_extreme_cases;
+				einit.target_min_angle = lscif::target_min_angle;
+				einit.target_max_angle = lscif::target_max_angle;
+				einit.start_angle = lscif::start_angle;
+				einit.enable_boundary_angles = lscif::enable_boundary_angles;
+				einit.Given_Const_Direction = lscif::Given_Const_Direction;
+				einit.Reference_ray = Eigen::Vector3d(lscif::InputPx, lscif::InputPy, lscif::InputPz);
+				lscif::tools.weight_shading = lscif::weight_shading;
+				lscif::tools.prepare_level_set_solving(einit);
+				if(lscif::readed_LS1.size()==0){
+					std::cout<<"Please load LevelSet 1 as a reference"<<std::endl;
+					ImGui::End();
+					return;
+				}
+				for (int i = 0; i < lscif::OpIter; i++)
+				{
+					lscif::tools.Run_Othogonal_Levelset(lscif::readed_LS1);
+					if (lscif::tools.step_length < 1e-16 && i != 0)
+					{ // step length actually is the value for the last step
+						std::cout << "optimization converges " << std::endl;
+						break;
+					}
+				}
+				std::cout << "waiting for instruction..." << std::endl;
+				// lscif::MP.MeshUnitScale(inputMesh, updatedMesh);
+				lscif::updateMeshViewer(viewer, inputMesh);
+				lscif::meshFileName.push_back("lso_" + lscif::meshFileName[id]);
+				lscif::Meshes.push_back(inputMesh);
+
+				Eigen::VectorXd level_set_values;
+				lscif::tools.show_level_set(level_set_values);
+				if(level_set_values.size()==0){
+					ImGui::End();
+					return;
+				}
+				Eigen::MatrixXd CM;
+				// std::cout<<"before compute colormap"<<std::endl;
+				igl::parula(Eigen::VectorXd::LinSpaced(21, 0, 1).eval(), false, CM);
+				igl::isolines_map(Eigen::MatrixXd(CM), CM);
+				// std::cout<<"before set colormap"<<std::endl;
+				viewer.data().set_colormap(CM);
+				// std::cout<<"before set color"<<std::endl;
+				viewer.data().set_data(level_set_values);
+				// Eigen::MatrixXd E0, E1;
+				// // lscif::tools.show_gradients(E0,E1, lscif::vector_scaling);
+				const Eigen::RowVector3d red(0.8, 0.2, 0.2);
+				const Eigen::RowVector3d blue(0.2, 0.2, 0.8);
+
+				viewer.selected_data_index = id;
 				
 			}
 			if (ImGui::Button("AAG LvSet", ImVec2(ImGui::GetWindowSize().x * 0.25f, 0.0f)))
@@ -1120,7 +1230,7 @@ int main(int argc, char *argv[])
 
 			
 			// Add a button
-			if (ImGui::Button("Extract Quad Mesh", ImVec2(ImGui::GetWindowSize().x * 0.25f, 0.0f)))
+			if (ImGui::Button("Otho Fields Quads", ImVec2(ImGui::GetWindowSize().x * 0.25f, 0.0f)))
 			{
 				int id = viewer.selected_data_index;
 				CGMesh updatedMesh;
@@ -1130,16 +1240,13 @@ int main(int argc, char *argv[])
 				if (lscif::readed_LS1.size() > 0 && lscif::readed_LS2.size() > 0)
 				{
 					extract_levelset_web(inputMesh, lscif::tools.V, lscif::tools.F, lscif::readed_LS1, lscif::readed_LS2, lscif::nbr_lines_first_ls,
-										 lscif::nbr_lines_second_ls, VER, FAC, false);
-				}
-				else if (lscif::readed_LS1.size() > 0 && lscif::readed_LS2.size() == 0)
-				{
-					extract_levelset_web(inputMesh, lscif::tools.V, lscif::tools.F, lscif::tools.fvalues, lscif::readed_LS1,
-										 lscif::nbr_lines_first_ls, lscif::nbr_lines_second_ls, VER, FAC, false);
+										 lscif::nbr_lines_second_ls, 3, VER, FAC, false);
 				}
 				else
 				{
 					std::cout << "ERROR, Please load level sets" << std::endl;
+					ImGui::End();
+					return;
 				}
 				std::string fname = igl::file_dialog_save();
 				if (fname.length() == 0)
@@ -1163,14 +1270,11 @@ int main(int argc, char *argv[])
 				Eigen::MatrixXi FAC;
 				if (lscif::readed_LS1.size() > 0 && lscif::readed_LS2.size() > 0)
 				{
+					int filter_nbr = -1;
 					extract_levelset_web(inputMesh, lscif::tools.V, lscif::tools.F, lscif::readed_LS1, lscif::readed_LS2, lscif::nbr_lines_first_ls,
-										 lscif::nbr_lines_second_ls, VER, FAC, true);
+										 lscif::nbr_lines_second_ls, filter_nbr, VER, FAC, true);
 				}
-				else if (lscif::readed_LS1.size() > 0 && lscif::readed_LS2.size() == 0)
-				{
-					extract_levelset_web(inputMesh, lscif::tools.V, lscif::tools.F, lscif::tools.fvalues, lscif::readed_LS1,
-										 lscif::nbr_lines_first_ls, lscif::nbr_lines_second_ls, VER, FAC, true);
-				}
+				
 				else
 				{
 					std::cout << "ERROR, Please load level sets" << std::endl;

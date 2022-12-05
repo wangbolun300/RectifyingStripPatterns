@@ -710,6 +710,97 @@ void lsTools::initialize_level_set_by_tracing(const TracingPrepare& Tracing_init
     std::cout<<"check the numbr of curves "<<trace_vers.size()<<std::endl;
    
 }
+
+// assign boundary values and angles
+void lsTools::initialize_level_set_by_boundary_assignment(const TracingPrepare& Tracing_initializer){
+    // cylinder_open_example(5, 10, 50, 30);
+    // exit(0);
+    trace_vers.clear();
+    trace_hehs.clear();
+    assigned_trace_ls.clear();
+    double target_angle = Tracing_initializer.target_angle;// 
+    double start_angel = Tracing_initializer.start_angle;
+    trace_start_angle_degree=start_angel;
+    double threadshold_angel_degree = Tracing_initializer.threadshold_angel_degree; // threadshold for checking mesh boundary corners
+    int nbr_itv = Tracing_initializer.every_n_edges; // every nbr_itv boundary edges we shoot one curve
+    id_dbg = Tracing_initializer.debug_id_tracing;
+    int which_segment=Tracing_initializer.which_boundary_segment;
+    
+    std::vector<std::vector<CGMesh::HalfedgeHandle>> boundaries;
+    split_mesh_boundary_by_corner_detection(lsmesh, V, threadshold_angel_degree,Boundary_Edges, boundaries);
+    std::cout<<"get the boundary segments, how many: "<<boundaries.size()<<std::endl;
+    if (nbr_itv < 1)
+    {
+        std::cout << "Please set up the parameter nbr_itv " << std::endl;
+        return;
+    }
+    if(which_segment>=boundaries.size()){
+        std::cout<<"Please set up correct boundary id, the maximal boundary segment number is "<<boundaries.size()<<std::endl;
+        return;
+    }
+    std::vector<CGMesh::HalfedgeHandle> boundary_segment=boundaries[which_segment];
+    tracing_start_edges=boundary_segment;
+    std::cout<<"the number of edges on this segment "<<boundary_segment.size()<<std::endl;
+    OpenMesh::HalfedgeHandle init_edge = boundary_segment[0];
+    
+    OpenMesh::HalfedgeHandle checking_edge = init_edge;
+    int beid=0;
+    double lsvalue=0;
+    int curvecount=0;
+    while (1){
+        ver_dbg.resize(0, 0);
+        ver_dbg1.resize(0, 0);
+        flag_dbg = false;
+        E0_dbg.resize(0, 0);
+        direction_dbg.resize(0, 0);
+        pnorm_dbg.resize(0, 0);
+        pnorm_list_dbg.clear();
+        flag_dbg = true;
+        checking_edge = boundary_segment[beid];
+        std::vector<Eigen::Vector3d> curve;
+        std::vector<CGMesh::HalfedgeHandle> handles;
+
+        curve.clear();
+        handles.clear();
+        CGMesh::HalfedgeHandle intersected_handle_tmp;
+        Eigen::Vector3d intersected_point_tmp;
+        double start_point_para=0.5;
+        bool found = init_pseudo_geodesic_first_segment(checking_edge, start_point_para, start_angel,
+                                                        intersected_handle_tmp, intersected_point_tmp);
+       
+        if (!found)
+        {
+            std::cout << "error in initialization the boundary direction" << std::endl;
+            return;
+        }
+
+        Eigen::Vector3d first_point = get_3d_ver_from_t(start_point_para, V.row(lsmesh.from_vertex_handle(checking_edge).idx()),
+                                                        V.row(lsmesh.to_vertex_handle(checking_edge).idx()));
+
+        curve.push_back(first_point);
+        handles.push_back(checking_edge);
+        curve.push_back(intersected_point_tmp);
+        handles.push_back(intersected_handle_tmp);
+        curvecount++;
+        flag_dbg = false;
+        assert(curve.size()>0);
+        trace_vers.push_back(curve);
+        trace_hehs.push_back(handles);
+        assigned_trace_ls.push_back(lsvalue);
+        lsvalue+=1;
+        int nextbeid=beid+nbr_itv;
+        if(nextbeid<boundary_segment.size()){
+            beid=nextbeid;
+        }
+        else{
+            break;
+        }
+        
+    }
+    estimate_strip_width_according_to_tracing();
+    std::cout<<"the numbr of values assigned to this boundary:  "<<trace_vers.size()<<std::endl;
+   
+}
 bool find_one_ls_segment_on_triangle(const double value, const Eigen::MatrixXi &F, const Eigen::MatrixXd &V,
                                       const Eigen::VectorXd &fvalues, const int fid, Eigen::Vector3d &E0, Eigen::Vector3d &E1)
 {

@@ -843,14 +843,18 @@ bool save_levelset(const Eigen::VectorXd &ls, const Eigen::MatrixXd& binormals){
     }
     file.close();
     std::cout<<"LevelSet SAVED"<<std::endl;
-    std::cout<<"SAVING BI-NORMALS..."<<std::endl;
-    fname = igl::file_dialog_save();
-    file.open(fname);
-    for(int i=0;i<binormals.rows();i++){
-        file << binormals(i, 0) << "," << binormals(i, 1) << "," << binormals(i, 2) << std::endl;
+    if (binormals.rows() > 0)
+    {
+        std::cout << "SAVING BI-NORMALS..." << std::endl;
+        fname = igl::file_dialog_save();
+        file.open(fname);
+        for (int i = 0; i < binormals.rows(); i++)
+        {
+            file << binormals(i, 0) << "," << binormals(i, 1) << "," << binormals(i, 2) << std::endl;
+        }
+        file.close();
+        std::cout << "BI-NORMALS SAVED, size " << binormals.rows() << std::endl;
     }
-    file.close();
-    std::cout<<"BI-NORMALS SAVED, size "<<binormals.rows()<<std::endl;
 
     return true;
 }
@@ -1238,11 +1242,191 @@ bool get_polyline_intersection(const Eigen::MatrixXd &V, const Eigen::MatrixXi &
     }
     return false;
 }
+// diff means the input is different from output
+Eigen::VectorXi filter_short_quad_rows(const Eigen::VectorXi &quads, const int threads, bool &diff)
+{
+    int size = quads.size();
+    std::vector<std::vector<int>> deleted;
+    std::vector<int> segs;
+    diff = true;
+    for (int i = 0; i < size; i++)
+    {
+        if (quads[i] < 0) // it is not a ver
+        {
+            if (segs.size() <= threads && segs.size() > 0)
+            {
+                deleted.push_back(segs);
+                segs.clear();
+            }
+        }
+        else
+        {
+            segs.push_back(i);
+        }
+    }
+    if (segs.size() <= threads && segs.size() > 0)
+    {
+        deleted.push_back(segs);
+        segs.clear();
+    }
 
-void extract_web_from_index_mat(const Eigen::MatrixXi& mat, Eigen::MatrixXi& F){
+    Eigen::VectorXi result = quads;
+    if (deleted.size() == 0)
+    {
+        diff = false;
+    }
+
+    for (int i = 0; i < deleted.size(); i++)
+    {
+        for (int j = 0; j < deleted[i].size(); j++)
+        {
+            result[deleted[i][j]] = -1;
+        }
+    }
+    return result;
+}
+
+Eigen::MatrixXi remove_short_quads_in_face_mat(const Eigen::MatrixXi& qds, const int threads){
+    int row = qds.rows();
+    int col = qds.cols();
+    Eigen::MatrixXi result = qds;
+    bool diff;
+    for(int i=0;i<row;i++){// we only delete short rows, since each row means same iso line
+        Eigen::VectorXi tmp = qds.row(i);
+        result.row(i)=filter_short_quad_rows(tmp, threads, diff);
+    }
+    return result;
+
+}
+void get_quad_left_right_ver_id_from_web_mat(const Eigen::MatrixXi &mat, const bool rowbased, const int row, const int &col_start, const int col_end,
+                                             Eigen::VectorXi &left, Eigen::VectorXi &right)
+{
+    int nbr_elements = col_end - col_start + 1;
+    if (rowbased)
+    {
+        left = mat.row(row).segment(col_start, nbr_elements);
+        right = mat.row(row + 1).segment(col_start, nbr_elements);
+    }
+    else
+    {
+        left = mat.col(row).segment(col_start, nbr_elements);
+        right = mat.col(row + 1).segment(col_start, nbr_elements);
+    }
+}
+
+void get_row_and_col_ver_ids_from_web_mat(const Eigen::MatrixXi &mat, const Eigen::MatrixXi &quads,
+                                          std::vector<Eigen::VectorXi> &vrl, std::vector<Eigen::VectorXi> &vrr, std::vector<Eigen::VectorXi> &vcl,
+                                          std::vector<Eigen::VectorXi> &vcr)
+{
+    std::vector<int> ids;
+    int maxsize1;
+    int maxsize2;
+    maxsize1 = 0;
+    maxsize2=0;
+    vrl.clear();
+    vrr.clear();
+    vcl.clear();
+    vcr.clear();
+    for (int i = 0; i < quads.rows(); i++)
+    {
+        ids.clear();
+        for (int j = 0; j < quads.cols(); j++)
+        { // make sure there are only 2 elements, recording the first and last non -1 id
+            if (quads(i, j) >= 0 && ids.size() == 0)
+            {
+                ids.push_back(j);
+                ids.push_back(j);
+            }
+            if (quads(i, j) >= 0)
+            {
+                ids[1] = j;
+            }
+        }
+
+        if (ids.size() > 0)
+        {
+            if (ids[1] - ids[0] + 1 > maxsize1) // ids[1] - ids[0] is the number of quads, meaning nbr of vers is +1
+            {
+                maxsize1 = ids[1] - ids[0] + 1;
+            }
+        }
+        if (ids.size() > 0)
+        {
+            Eigen::VectorXi left, right;
+            get_quad_left_right_ver_id_from_web_mat(mat, true, i, ids[0], ids[1], left, right);
+            vrl.push_back(left);
+            vrr.push_back(right);
+        }
+    }
+
+    for (int i = 0; i < quads.cols(); i++)
+    {
+        ids.clear();
+        for (int j = 0; j < quads.rows(); j++)
+        { // make sure there are only 2 elements, recording the first and last non -1 id
+            if (quads(j, i) >= 0 && ids.size() == 0)
+            {
+                ids.push_back(j);
+                ids.push_back(j);
+            }
+            if (quads(j, i) >= 0)
+            {
+                ids[1] = j;
+            }
+        }
+
+        if (ids.size() > 0)
+        {
+            if (ids[1] - ids[0] + 1 > maxsize2) // ids[1] - ids[0] is the number of quads, meaning nbr of vers is +1
+            {
+                maxsize2 = ids[1] - ids[0] + 1;
+            }
+        }
+        if (ids.size() > 0)
+        {
+            Eigen::VectorXi left, right;
+            get_quad_left_right_ver_id_from_web_mat(mat, false, i, ids[0], ids[1], left, right);
+            vcl.push_back(left);
+            vcr.push_back(right);
+        }
+    }
+    Eigen::VectorXi vecbase1 = Eigen::VectorXi::Ones(maxsize1) * -1;
+    Eigen::VectorXi vecbase2 = Eigen::VectorXi::Ones(maxsize2) * -1;
+    for (int i = 0; i < vrl.size(); i++)
+    {
+        Eigen::VectorXi tmp = vecbase1;
+        int size = vrl[i].size();
+        tmp.segment(0, size) = vrl[i];
+        vrl[i] = tmp;
+
+        tmp = vecbase1;
+        tmp.segment(0, size) = vrr[i];
+        vrr[i] = tmp;
+    }
+
+    for (int i = 0; i < vcl.size(); i++)
+    {
+        Eigen::VectorXi tmp = vecbase2;
+        int size = vcl[i].size();
+        tmp.segment(0, size) = vcl[i];
+        vcl[i] = tmp;
+
+        tmp = vecbase2;
+        tmp.segment(0, size) = vcr[i];
+        vcr[i] = tmp;
+    }
+}
+void extract_web_from_index_mat(const Eigen::MatrixXi &mat, Eigen::MatrixXi &F, const int threads, std::vector<Eigen::VectorXi> &vrl,
+                                std::vector<Eigen::VectorXi> &vrr, std::vector<Eigen::VectorXi> &vcl,
+                                std::vector<Eigen::VectorXi> &vcr)
+{
     std::array<int, 4> face;
-    std::vector<std::array<int,4>> tface; 
-    tface.reserve(mat.rows()*mat.cols());
+    std::vector<std::array<int, 4>> tface, filted_face;
+    int row = mat.rows();
+    int col = mat.cols();
+    Eigen::MatrixXi qds=Eigen::MatrixXi::Ones(row - 1, col - 1) * -1;// quad mat initialized as -1
+    tface.reserve(mat.rows() * mat.cols());
+    filted_face.reserve(mat.rows() * mat.cols());
     for(int i=0;i<mat.rows()-1;i++){
         for(int j=0;j<mat.cols()-1;j++){
             int f0=mat(i,j);
@@ -1253,17 +1437,38 @@ void extract_web_from_index_mat(const Eigen::MatrixXi& mat, Eigen::MatrixXi& F){
                 continue;
             }
             face={f0,f1,f2,f3};
+            qds(i,j)=tface.size();
             tface.push_back(face);
+
         }
     }
-    F.resize(tface.size(),4);
-    for(int i=0;i<tface.size();i++){
-        F(i,0)=tface[i][0];
-        F(i,1)=tface[i][1];
-        F(i,2)=tface[i][2];
-        F(i,3)=tface[i][3];
+    if (threads > 0)
+    {
+        qds = remove_short_quads_in_face_mat(qds, threads);
+        for (int i = 0; i < qds.rows(); i++)
+        {
+            for (int j = 0; j < qds.cols(); j++)
+            {
+                if (qds(i, j) >= 0)
+                {
+                    filted_face.push_back(tface[qds(i, j)]);
+                }
+            }
+        }
+    }
+    else{
+        filted_face = tface;
+    }
+
+    F.resize(filted_face.size(),4);
+    for(int i=0;i<filted_face.size();i++){
+        F(i,0)=filted_face[i][0];
+        F(i,1)=filted_face[i][1];
+        F(i,2)=filted_face[i][2];
+        F(i,3)=filted_face[i][3];
 
     }
+    get_row_and_col_ver_ids_from_web_mat(mat, qds, vrl, vrr, vcl, vcr);
 }
 void extract_web_mxn(const int rows, const int cols, Eigen::MatrixXi& F){
     std::array<int, 4> face;
@@ -1288,11 +1493,51 @@ void extract_web_mxn(const int rows, const int cols, Eigen::MatrixXi& F){
 
     }
 }
+void write_one_info_file(const std::string &fname, const std::vector<Eigen::VectorXi> &current, std::ofstream &file)
+{
+    file.open(fname);
+    for (int i = 0; i < current.size(); i++)
+    {
+        for (int j = 0; j < current[i].size(); j++)
+        {
+            if (j == current[i].size() - 1)
+            {
+                file << current[i][j] << std::endl;
+            }
+            else
+            {
+                file << current[i][j] << ",";
+            }
+        }
+    }
+    file.close();
+}
+void save_quad_left_right_info(const std::string &namebase, std::vector<Eigen::VectorXi> &vrl,
+                               std::vector<Eigen::VectorXi> &vrr, std::vector<Eigen::VectorXi> &vcl,
+                               std::vector<Eigen::VectorXi> &vcr)
+{
+    std::ofstream file;
+    std::vector<Eigen::VectorXi> current;
+    std::string fname = namebase + "_rowleft.csv";
+    current=vrl;
+    write_one_info_file(fname, current, file);
+    
+    fname = namebase + "_rowright.csv";
+    current=vrr;
+    write_one_info_file(fname, current, file);
 
-// the parameter even_pace means that the 
+    fname = namebase + "_colleft.csv";
+    current=vcl;
+    write_one_info_file(fname, current, file);
+
+    fname = namebase + "_colright.csv";
+    current=vcr;
+    write_one_info_file(fname, current, file);
+}
+// threadshold_nbr is the nbr of quads we want to discard when too few quads in a row
 void extract_levelset_web(const CGMesh &lsmesh, const Eigen::MatrixXd &V,
                           const Eigen::MatrixXi &F, const Eigen::VectorXd &ls0, const Eigen::VectorXd &ls1,
-                          const int expect_nbr_ls0, const int expect_nbr_ls1,
+                          const int expect_nbr_ls0, const int expect_nbr_ls1, const int threadshold_nbr,
                           Eigen::MatrixXd &vers, Eigen::MatrixXi &Faces, bool even_pace=false)
 {
     std::vector<std::vector<Eigen::Vector3d>> ivs;                                    // the intersection vertices
@@ -1372,13 +1617,23 @@ void extract_levelset_web(const CGMesh &lsmesh, const Eigen::MatrixXd &V,
             }
         }
     }
-    std::cout<<"extracted ver nbr "<<verlist.size()<<std::endl;
-    vers=vec_list_to_matrix(verlist);
-    extract_web_from_index_mat(gridmat,Faces);
-    if(even_pace){
-        std::cout<<"The even pace quad, pace, "<<std::min((ls0.maxCoeff() - ls0.minCoeff()) / (expect_nbr_ls0 + 1), (ls1.maxCoeff() - ls1.minCoeff()) / (expect_nbr_ls1 + 1))
-        <<std::endl;
+    std::cout << "extracted ver nbr " << verlist.size() << std::endl;
+    vers = vec_list_to_matrix(verlist);
+    
+    if (even_pace)
+    {
+        std::cout << "The even pace quad, pace, " << std::min((ls0.maxCoeff() - ls0.minCoeff()) / (expect_nbr_ls0 + 1), (ls1.maxCoeff() - ls1.minCoeff()) / (expect_nbr_ls1 + 1))
+                  << std::endl;
     }
+    std::vector<Eigen::VectorXi> vrl;
+    std::vector<Eigen::VectorXi> vrr;
+    std::vector<Eigen::VectorXi> vcl;
+    std::vector<Eigen::VectorXi> vcr;
+    extract_web_from_index_mat(gridmat, Faces, threadshold_nbr, vrl, vrr, vcl, vcr);
+    std::cout<<"Saving the info for each row or col of quads"<<std::endl;
+    std::string fname = igl::file_dialog_save();
+    save_quad_left_right_info(fname, vrl, vrr, vcl, vcr);
+    std::cout<<"Each row or col of quads got saved"<<std::endl;
 }
 double polyline_length(const std::vector<Eigen::Vector3d>& line){
     int size = line.size();
@@ -2080,4 +2335,24 @@ void extract_Quad_Mesh_Zigzag(const CGMesh &lsmesh,const std::vector<CGMesh::Hal
     }
     vers = extract_vers(vertices);
     Faces=extract_quads(quads);
+}
+
+Eigen::MatrixXd get_each_face_direction(const Eigen::MatrixXd &V, const Eigen::MatrixXi &F, const Eigen::VectorXd &func)
+{
+    int vnbr = V.rows();
+    int fnbr = F.rows();
+    Eigen::MatrixXd result(fnbr, 3);
+    for (int i = 0; i < fnbr; i++)
+    {
+        int v0 = F(i, 0);
+        int v1 = F(i, 1);
+        int v2 = F(i, 2);
+        // dir0 * V0 + dir1 * V1 + dir2 * V2 is the iso-line direction
+        Eigen::Vector3d dir0 = V.row(v2) - V.row(v1);
+        Eigen::Vector3d dir1 = V.row(v0) - V.row(v2);
+        Eigen::Vector3d dir2 = V.row(v1) - V.row(v0);
+        Eigen::Vector3d iso = dir0 * func[v0] + dir1 * func[v1] + dir2 * func[v2];
+        result.row(i) = iso;
+    }
+    return result;
 }

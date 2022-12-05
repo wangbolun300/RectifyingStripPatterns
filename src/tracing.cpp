@@ -1341,10 +1341,7 @@ void update_tracing_list(const Eigen::Vector3d &ver, const Eigen::Vector3d &pver
     pverlist.push_back(pver);
     handle_list.push_back(handle);
 }
-Eigen::Vector3d the_first_point(const Eigen::Vector3d &vs, const Eigen::Vector3d &vt, const double para)
-{
-    return vs + (vt - vs) * para;
-}
+
 bool lsTools::trace_single_pseudo_geodesic_curve_pseudo_vertex_method(const double target_angle_degree,
                                                                       const CGMesh::HalfedgeHandle &start_boundary_edge, const double &start_point_para,
                                                                       const double start_boundary_angle_degree,
@@ -1366,10 +1363,8 @@ bool lsTools::trace_single_pseudo_geodesic_curve_pseudo_vertex_method(const doub
     QuadricCalculator cc;
     std::vector<Eigen::Vector3d> pcurve;
 
-    Eigen::Vector3d first_point = the_first_point(
-        V.row(lsmesh.from_vertex_handle(start_boundary_edge).idx()),
-        V.row(lsmesh.to_vertex_handle(start_boundary_edge).idx()),
-        start_point_para);
+    Eigen::Vector3d first_point = get_3d_ver_from_t(start_point_para, V.row(lsmesh.from_vertex_handle(start_boundary_edge).idx()),
+        V.row(lsmesh.to_vertex_handle(start_boundary_edge).idx()));
 
     update_tracing_list(first_point, first_point, start_boundary_edge, curve, pcurve, handles);
     curve.push_back(intersected_point_tmp);
@@ -1439,10 +1434,8 @@ bool lsTools::trace_single_pseudo_geodesic_curve(const double target_angle_degre
         return false;
     }
 
-    Eigen::Vector3d first_point = the_first_point(
-        V.row(lsmesh.from_vertex_handle(start_boundary_edge).idx()),
-        V.row(lsmesh.to_vertex_handle(start_boundary_edge).idx()),
-        start_point_para);
+    Eigen::Vector3d first_point = get_3d_ver_from_t(start_point_para, V.row(lsmesh.from_vertex_handle(start_boundary_edge).idx()),
+        V.row(lsmesh.to_vertex_handle(start_boundary_edge).idx()));
 
     curve.push_back(first_point);
     handles.push_back(start_boundary_edge);

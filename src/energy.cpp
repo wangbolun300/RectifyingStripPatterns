@@ -1383,3 +1383,162 @@ void lsTools::Run_AAG(Eigen::VectorXd& func0, Eigen::VectorXd& func1, Eigen::Vec
 	Glob_lsvars += dx;
 	Last_Opt_Mesh = false;
 }
+
+void lsTools::Run_Othogonal_Levelset(const Eigen::VectorXd &func_ref)
+{
+	Eigen::MatrixXd GradValueF, GradValueV;
+	Eigen::VectorXd PGEnergy, Eshading;
+	Eigen::VectorXd func = fvalues;
+
+	int vnbr = V.rows();
+	int fnbr = F.rows();
+
+	// initialize the level set with some number
+	if (func.size() != vnbr)
+	{
+		if (trace_hehs.size() == 0)
+		{
+			std::cout << "Please First Set Up The Boundary Condition (Tracing)" << std::endl;
+			return;
+		}
+		initialize_level_set_accroding_to_parametrization();
+		std::cout << "level set get initialized" << std::endl;
+		return;
+	}
+	analysis_pseudo_geodesic_on_vertices(func, anas[0]);
+	Eigen::MatrixXd directions = get_each_face_direction(V, F, func_ref);
+	int final_size = vnbr; // Change this when using more auxilary vars
+
+	//  update quantities associated with level set values
+
+	get_gradient_hessian_values(func, GradValueV, GradValueF);
+	if (Glob_lsvars.size() == 0)
+	{
+		std::cout << "Initializing Global Variable For LevelSet Opt ... " << std::endl;
+		Glob_lsvars = Eigen::VectorXd::Zero(final_size); // We change the size if opt more than 1 level set
+		Glob_lsvars.segment(0, vnbr) = func;
+	}
+	if (Last_Opt_Mesh)
+	{
+		Compute_Auxiliaries = true;
+		std::cout << "Recomputing Auxiliaries" << std::endl;
+	}
+
+	spMat H;
+	H.resize(vnbr, vnbr);
+	Eigen::VectorXd B = Eigen::VectorXd::Zero(vnbr);
+
+	spMat LTL;			  // left of laplacian
+	Eigen::VectorXd mLTF; // right of laplacian
+	assemble_solver_biharmonic_smoothing(func, LTL, mLTF);
+	H += weight_laplacian * LTL;
+	B += weight_laplacian * mLTF;
+	assert(mass.rows() == vnbr);
+
+	Eigen::VectorXd bcfvalue = Eigen::VectorXd::Zero(vnbr);
+	Eigen::VectorXd fbdenergy = Eigen::VectorXd::Zero(vnbr);
+	// boundary condition (traced as boundary condition)
+	if (trace_hehs.size() > 0)
+	{ // if traced, we count the related energies in
+
+		spMat bc_JTJ;
+		Eigen::VectorXd bc_mJTF;
+		assemble_solver_boundary_condition_part(func, bc_JTJ, bc_mJTF, bcfvalue);
+		H += weight_boundary * bc_JTJ;
+		B += weight_boundary * bc_mJTF;
+	}
+
+	// strip width condition
+	if (enable_strip_width_energy)
+	{
+		spMat sw_JTJ;
+		Eigen::VectorXd sw_mJTF;
+		assemble_solver_strip_width_part(GradValueF, sw_JTJ, sw_mJTF); // by default the strip width is 1. Unless tracing info updated the info
+		H += weight_strip_width * sw_JTJ;
+		B += weight_strip_width * sw_mJTF;
+	}
+
+	assert(H.rows() == vnbr);
+	assert(H.cols() == vnbr);
+	// pseudo geodesic
+	spMat Hlarge;
+	Eigen::VectorXd Blarge;
+	Hlarge.resize(final_size, final_size);
+	Blarge = Eigen::VectorXd::Zero(final_size);
+
+	Hlarge = sum_uneven_spMats(H, Hlarge);
+	Blarge = sum_uneven_vectors(B, Blarge);
+
+	if (enable_pseudo_geodesic_energy)
+	{
+
+		spMat pg_JTJ;
+		Eigen::VectorXd pg_mJTF;
+		int vars_start_loc = 0;
+		int aux_start_loc = vnbr;
+		Eigen::VectorXi fids(fnbr);
+		for (int i = 0; i < fnbr; i++)
+		{
+			fids[i] = i;
+		}
+		assemble_solver_othogonal_to_given_face_directions(func, directions, fids, pg_JTJ, pg_mJTF, PGEnergy);
+
+		Hlarge = sum_uneven_spMats(Hlarge, weight_pseudo_geodesic_energy * pg_JTJ);
+		Blarge = sum_uneven_vectors(Blarge, weight_pseudo_geodesic_energy * pg_mJTF);
+	}
+
+	Hlarge += 1e-6 * weight_mass * spMat(Eigen::VectorXd::Ones(final_size).asDiagonal());
+
+	Eigen::SimplicialLLT<Eigen::SparseMatrix<double>> solver(Hlarge);
+
+	// assert(solver.info() == Eigen::Success);
+	if (solver.info() != Eigen::Success)
+	{
+		// solving failed
+		std::cout << "solver fail" << std::endl;
+		return;
+	}
+	// std::cout<<"solved successfully"<<std::endl;
+	Eigen::VectorXd dx = solver.solve(Blarge).eval();
+	dx *= 0.75;
+	// std::cout << "step length " << dx.norm() << std::endl;
+	double level_set_step_length = dx.norm();
+	// double inf_norm=dx.cwiseAbs().maxCoeff();
+	if (enable_pseudo_geodesic_energy) // only pg energy and boundary angles requires step length
+	{
+		if (level_set_step_length > max_step_length)
+		{
+			dx *= max_step_length / level_set_step_length;
+		}
+	}
+
+	func += dx.topRows(vnbr);
+	fvalues = func;
+	Glob_lsvars += dx;
+	double energy_biharmonic = func.transpose() * QcH * func;
+	double energy_boundary = (bcfvalue).norm();
+	std::cout << "energy: harm " << energy_biharmonic << ", bnd " << energy_boundary << ", ";
+	if (enable_pseudo_geodesic_energy)
+	{
+		double energy_pg = PGEnergy.norm();
+		double max_energy_ls = PGEnergy.lpNorm<Eigen::Infinity>();
+		std::cout << "Othogonal, " << energy_pg << ", "
+				  << "lsmax," << max_energy_ls << ",";
+	}
+
+	if (enable_strip_width_energy)
+	{
+
+		Eigen::VectorXd ener = GradValueF.rowwise().norm();
+		ener = ener.asDiagonal() * ener;
+		Eigen::VectorXd wds = Eigen::VectorXd::Ones(fnbr) * strip_width * strip_width;
+
+		ener -= wds;
+		double stp_energy = Eigen::VectorXd(ener).dot(ener);
+		std::cout << "strip, " << stp_energy << ", ";
+	}
+	step_length = dx.norm();
+	std::cout << "step " << step_length << std::endl;
+
+	Last_Opt_Mesh = false;
+}
