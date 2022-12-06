@@ -468,6 +468,15 @@ int main(int argc, char *argv[])
 			read_bi_normals(lscif::tools.Binormals);
 			std::cout<<"bi-normals got readed"<<std::endl;
 		}
+		ImGui::SameLine();
+		if (ImGui::Button("Debug", ImVec2(ImGui::GetWindowSize().x * 0.25f, 0.0f)))
+		{
+			Eigen::VectorXd test=Eigen::VectorXd::Random(10);
+			std::cout<<"test, "<<test.transpose()<<std::endl;
+			test.resize(5);
+			std::cout<<"test, "<<test.transpose()<<std::endl;
+			
+		}
 
 		// Add new group
 		if (ImGui::CollapsingHeader("Pseudo-Geodesic Angle", ImGuiTreeNodeFlags_DefaultOpen))

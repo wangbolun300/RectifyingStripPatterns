@@ -127,281 +127,281 @@ void mat_col_to_triplets(const spMat &mat, const int col, const int ref, const b
         }
     }
 }
-void lsTools::debug_tool(int id, int id2, double value)
-{
-    trace_vers.resize(1);
-    std::cout << "checking one pseudo geodesic" << std::endl;
-    // debug init
-    ver_dbg.resize(0, 0);
-    ver_dbg1.resize(0, 0);
-    flag_dbg = false;
-    E0_dbg.resize(0, 0);
-    direction_dbg.resize(0, 0);
+// void lsTools::debug_tool(int id, int id2, double value)
+// {
+//     trace_vers.resize(1);
+//     std::cout << "checking one pseudo geodesic" << std::endl;
+//     // debug init
+//     ver_dbg.resize(0, 0);
+//     ver_dbg1.resize(0, 0);
+//     flag_dbg = false;
+//     E0_dbg.resize(0, 0);
+//     direction_dbg.resize(0, 0);
 
-    pnorm_dbg.resize(0, 0);
-    pnorm_list_dbg.clear();
-    flag_dbg = true;
-    id_dbg = id2;
+//     pnorm_dbg.resize(0, 0);
+//     pnorm_list_dbg.clear();
+//     flag_dbg = true;
+//     id_dbg = id2;
 
-    // debug init end
-    double start_point_para = 0.5;
-    double start_angle_degree = 60;
-    double target_angle = value;
-    std::vector<Eigen::Vector3d> curve;
-    std::vector<CGMesh::HalfedgeHandle> handles;
-    trace_single_pseudo_geodesic_curve_pseudo_vertex_method(target_angle, Boundary_Edges[id], start_point_para, start_angle_degree,
-                                                            curve, handles);
-    flag_dbg = false;
-    int nbr_midpts = curve.size() - 2;
-    E0_dbg.resize(nbr_midpts, 3);
-    direction_dbg.resize(nbr_midpts, 3);
-    Eigen::MatrixXd binormals_real(nbr_midpts, 3);
-    for (int i = 0; i < nbr_midpts; i++)
-    {
-        E0_dbg.row(i) = curve[i + 1];
-        Eigen::Vector3d vec0 = (pseudo_vers_dbg[i + 1] - pseudo_vers_dbg[i]).normalized();
-        Eigen::Vector3d vec1 = (curve[i + 2] - pseudo_vers_dbg[i + 1]).normalized();
-        direction_dbg.row(i) = vec0.cross(vec1).normalized(); // bi normal of the pseudo-curve
-        vec0 = (curve[i + 1] - curve[i]).normalized();
-        vec1 = (curve[i + 2] - curve[i + 1]).normalized();
-        binormals_real.row(i) = vec0.cross(vec1).normalized();
-    }
-    if (pnorm_list_dbg.size() != nbr_midpts)
-    {
-        std::cout << "dangerous size! " << pnorm_list_dbg.size() << ", " << nbr_midpts << std::endl;
-    }
-    if (target_angle > 90 - ANGLE_TOLERANCE && target_angle < 90 + ANGLE_TOLERANCE)
-    {
-        std::cout << "Traced geodesic" << std::endl;
-    }
-    else
-    {
-        assert(pnorm_list_dbg.size() == nbr_midpts);
-        pnorm_dbg = vec_list_to_matrix(pnorm_list_dbg);
-        // check the abs(consin)
-        for (int i = 0; i < nbr_midpts; i++)
-        {
-            Eigen::Vector3d tmp_dir1 = direction_dbg.row(i);
-            Eigen::Vector3d tmp_dir2 = pnorm_list_dbg[i].normalized();
-            double cosin = tmp_dir1.dot(tmp_dir2);
-            std::cout << i << "th cosin^2 " << cosin * cosin << std::endl;
-            tmp_dir1 = binormals_real.row(i);
-            cosin = tmp_dir1.dot(tmp_dir2);
-            std::cout << i << "th cosin^2 " << cosin * cosin << std::endl;
-        }
-    }
+//     // debug init end
+//     double start_point_para = 0.5;
+//     double start_angle_degree = 60;
+//     double target_angle = value;
+//     std::vector<Eigen::Vector3d> curve;
+//     std::vector<CGMesh::HalfedgeHandle> handles;
+//     trace_single_pseudo_geodesic_curve_pseudo_vertex_method(target_angle, Boundary_Edges[id], start_point_para, start_angle_degree,
+//                                                             curve, handles);
+//     flag_dbg = false;
+//     int nbr_midpts = curve.size() - 2;
+//     E0_dbg.resize(nbr_midpts, 3);
+//     direction_dbg.resize(nbr_midpts, 3);
+//     Eigen::MatrixXd binormals_real(nbr_midpts, 3);
+//     for (int i = 0; i < nbr_midpts; i++)
+//     {
+//         E0_dbg.row(i) = curve[i + 1];
+//         Eigen::Vector3d vec0 = (pseudo_vers_dbg[i + 1] - pseudo_vers_dbg[i]).normalized();
+//         Eigen::Vector3d vec1 = (curve[i + 2] - pseudo_vers_dbg[i + 1]).normalized();
+//         direction_dbg.row(i) = vec0.cross(vec1).normalized(); // bi normal of the pseudo-curve
+//         vec0 = (curve[i + 1] - curve[i]).normalized();
+//         vec1 = (curve[i + 2] - curve[i + 1]).normalized();
+//         binormals_real.row(i) = vec0.cross(vec1).normalized();
+//     }
+//     if (pnorm_list_dbg.size() != nbr_midpts)
+//     {
+//         std::cout << "dangerous size! " << pnorm_list_dbg.size() << ", " << nbr_midpts << std::endl;
+//     }
+//     if (target_angle > 90 - ANGLE_TOLERANCE && target_angle < 90 + ANGLE_TOLERANCE)
+//     {
+//         std::cout << "Traced geodesic" << std::endl;
+//     }
+//     else
+//     {
+//         assert(pnorm_list_dbg.size() == nbr_midpts);
+//         pnorm_dbg = vec_list_to_matrix(pnorm_list_dbg);
+//         // check the abs(consin)
+//         for (int i = 0; i < nbr_midpts; i++)
+//         {
+//             Eigen::Vector3d tmp_dir1 = direction_dbg.row(i);
+//             Eigen::Vector3d tmp_dir2 = pnorm_list_dbg[i].normalized();
+//             double cosin = tmp_dir1.dot(tmp_dir2);
+//             std::cout << i << "th cosin^2 " << cosin * cosin << std::endl;
+//             tmp_dir1 = binormals_real.row(i);
+//             cosin = tmp_dir1.dot(tmp_dir2);
+//             std::cout << i << "th cosin^2 " << cosin * cosin << std::endl;
+//         }
+//     }
 
-    // TODO temporarily checking one trace line
-    trace_vers[0] = curve;
-    trace_hehs.push_back(handles);
-}
-void lsTools::debug_tool_v2(const std::vector<int> &ids, const std::vector<double> values)
-{
-    // cylinder_example(5, 10, 50, 30);
-    // exit(0);
-    int nbr_itv = ids[0]; // every nbr_itv boundary edges we shoot one curve
-    if (nbr_itv < 1)
-    {
-        std::cout << "Please set up the parameter nbr_itv " << std::endl;
-        return;
-    }
-    double target_angle = values[0];
-    double start_angel = values[1];
-    OpenMesh::HalfedgeHandle init_edge = Boundary_Edges[0];
-    if (lsmesh.face_handle(init_edge).idx() >= 0)
-    {
-        init_edge = lsmesh.opposite_halfedge_handle(init_edge);
-    }
-    OpenMesh::HalfedgeHandle checking_edge = init_edge;
-    int curve_id = 0;
-    while (1)
-    {
-        ver_dbg.resize(0, 0);
-        ver_dbg1.resize(0, 0);
-        flag_dbg = false;
-        E0_dbg.resize(0, 0);
-        direction_dbg.resize(0, 0);
-        pnorm_dbg.resize(0, 0);
-        pnorm_list_dbg.clear();
-        flag_dbg = true;
-        id_dbg = ids[1];
-        std::vector<Eigen::Vector3d> curve;
-        std::vector<CGMesh::HalfedgeHandle> handles;
-        trace_single_pseudo_geodesic_curve_pseudo_vertex_method(target_angle, checking_edge, 0.5, start_angel,
-                                                                curve, handles);
-        flag_dbg = false;
-        curve_id++;
-        if (curve_id == -1)
-        {
-            bool stop_flag = false;
+//     // TODO temporarily checking one trace line
+//     trace_vers[0] = curve;
+//     trace_hehs.push_back(handles);
+// }
+// void lsTools::debug_tool_v2(const std::vector<int> &ids, const std::vector<double> values)
+// {
+//     // cylinder_example(5, 10, 50, 30);
+//     // exit(0);
+//     int nbr_itv = ids[0]; // every nbr_itv boundary edges we shoot one curve
+//     if (nbr_itv < 1)
+//     {
+//         std::cout << "Please set up the parameter nbr_itv " << std::endl;
+//         return;
+//     }
+//     double target_angle = values[0];
+//     double start_angel = values[1];
+//     OpenMesh::HalfedgeHandle init_edge = Boundary_Edges[0];
+//     if (lsmesh.face_handle(init_edge).idx() >= 0)
+//     {
+//         init_edge = lsmesh.opposite_halfedge_handle(init_edge);
+//     }
+//     OpenMesh::HalfedgeHandle checking_edge = init_edge;
+//     int curve_id = 0;
+//     while (1)
+//     {
+//         ver_dbg.resize(0, 0);
+//         ver_dbg1.resize(0, 0);
+//         flag_dbg = false;
+//         E0_dbg.resize(0, 0);
+//         direction_dbg.resize(0, 0);
+//         pnorm_dbg.resize(0, 0);
+//         pnorm_list_dbg.clear();
+//         flag_dbg = true;
+//         id_dbg = ids[1];
+//         std::vector<Eigen::Vector3d> curve;
+//         std::vector<CGMesh::HalfedgeHandle> handles;
+//         trace_single_pseudo_geodesic_curve_pseudo_vertex_method(target_angle, checking_edge, 0.5, start_angel,
+//                                                                 curve, handles);
+//         flag_dbg = false;
+//         curve_id++;
+//         if (curve_id == -1)
+//         {
+//             bool stop_flag = false;
 
-            for (int i = 0; i < nbr_itv; i++)
-            {
-                checking_edge = lsmesh.next_halfedge_handle(checking_edge);
-                if (checking_edge == init_edge)
-                {
-                    stop_flag = true;
-                    break;
-                }
-            }
-            continue;
-        }
-        trace_vers.push_back(curve);
-        trace_hehs.push_back(handles);
-        bool stop_flag = false;
+//             for (int i = 0; i < nbr_itv; i++)
+//             {
+//                 checking_edge = lsmesh.next_halfedge_handle(checking_edge);
+//                 if (checking_edge == init_edge)
+//                 {
+//                     stop_flag = true;
+//                     break;
+//                 }
+//             }
+//             continue;
+//         }
+//         trace_vers.push_back(curve);
+//         trace_hehs.push_back(handles);
+//         bool stop_flag = false;
 
-        if (curve_id == -1)
-        {
-            break;
-        }
-        for (int i = 0; i < nbr_itv; i++)
-        {
-            checking_edge = lsmesh.next_halfedge_handle(checking_edge);
-            if (checking_edge == init_edge)
-            {
-                stop_flag = true;
-                break;
-            }
-        }
-        if (stop_flag)
-        {
-            break;
-        }
-    }
-}
+//         if (curve_id == -1)
+//         {
+//             break;
+//         }
+//         for (int i = 0; i < nbr_itv; i++)
+//         {
+//             checking_edge = lsmesh.next_halfedge_handle(checking_edge);
+//             if (checking_edge == init_edge)
+//             {
+//                 stop_flag = true;
+//                 break;
+//             }
+//         }
+//         if (stop_flag)
+//         {
+//             break;
+//         }
+//     }
+// }
 
-void lsTools::debug_tool_v3(int id, int id2, double value)
-{
-    trace_vers.resize(1);
-    std::cout << "checking one pseudo geodesic" << std::endl;
-    // debug init
-    ver_dbg.resize(0, 0);
-    ver_dbg1.resize(0, 0);
-    flag_dbg = false;
-    E0_dbg.resize(0, 0);
-    direction_dbg.resize(0, 0);
-    trace_hehs.clear();
-    pnorm_dbg.resize(0, 0);
-    pnorm_list_dbg.clear();
-    flag_dbg = true;
-    id_dbg = id2;
+// void lsTools::debug_tool_v3(int id, int id2, double value)
+// {
+//     trace_vers.resize(1);
+//     std::cout << "checking one pseudo geodesic" << std::endl;
+//     // debug init
+//     ver_dbg.resize(0, 0);
+//     ver_dbg1.resize(0, 0);
+//     flag_dbg = false;
+//     E0_dbg.resize(0, 0);
+//     direction_dbg.resize(0, 0);
+//     trace_hehs.clear();
+//     pnorm_dbg.resize(0, 0);
+//     pnorm_list_dbg.clear();
+//     flag_dbg = true;
+//     id_dbg = id2;
 
-    // debug init end
-    double start_point_para = 0.5;
-    double start_angle_degree = 60;
-    double target_angle = value;
-    std::vector<Eigen::Vector3d> curve;
-    std::vector<CGMesh::HalfedgeHandle> handles;
-    trace_single_pseudo_geodesic_curve(target_angle, Boundary_Edges[id], start_point_para, start_angle_degree,
-                                       curve, handles);
-    flag_dbg = false;
-    int nbr_midpts = curve.size() - 2;
-    E0_dbg.resize(nbr_midpts, 3);
-    direction_dbg.resize(nbr_midpts, 3);
-    Eigen::MatrixXd binormals_real(nbr_midpts, 3);
-    for (int i = 0; i < nbr_midpts; i++)
-    {
-        E0_dbg.row(i) = curve[i + 1];
-        Eigen::Vector3d vec0 = (curve[i + 1] - curve[i]).normalized();
-        Eigen::Vector3d vec1 = (curve[i + 2] - curve[i + 1]).normalized();
-        direction_dbg.row(i) = vec0.cross(vec1).normalized(); // bi normal of the pseudo-curve
-    }
+//     // debug init end
+//     double start_point_para = 0.5;
+//     double start_angle_degree = 60;
+//     double target_angle = value;
+//     std::vector<Eigen::Vector3d> curve;
+//     std::vector<CGMesh::HalfedgeHandle> handles;
+//     trace_single_pseudo_geodesic_curve(target_angle, Boundary_Edges[id], start_point_para, start_angle_degree,
+//                                        curve, handles);
+//     flag_dbg = false;
+//     int nbr_midpts = curve.size() - 2;
+//     E0_dbg.resize(nbr_midpts, 3);
+//     direction_dbg.resize(nbr_midpts, 3);
+//     Eigen::MatrixXd binormals_real(nbr_midpts, 3);
+//     for (int i = 0; i < nbr_midpts; i++)
+//     {
+//         E0_dbg.row(i) = curve[i + 1];
+//         Eigen::Vector3d vec0 = (curve[i + 1] - curve[i]).normalized();
+//         Eigen::Vector3d vec1 = (curve[i + 2] - curve[i + 1]).normalized();
+//         direction_dbg.row(i) = vec0.cross(vec1).normalized(); // bi normal of the pseudo-curve
+//     }
 
-    if (target_angle > 90 - ANGLE_TOLERANCE && target_angle < 90 + ANGLE_TOLERANCE)
-    {
-        std::cout << "Traced geodesic" << std::endl;
-    }
-    else
-    {
+//     if (target_angle > 90 - ANGLE_TOLERANCE && target_angle < 90 + ANGLE_TOLERANCE)
+//     {
+//         std::cout << "Traced geodesic" << std::endl;
+//     }
+//     else
+//     {
 
-        for (int i = 0; i < nbr_midpts; i++)
-        {
-            Eigen::Vector3d tmp_dir1 = direction_dbg.row(i);
-            Eigen::Vector3d tmp_dir2 = pnorm_list_dbg[i].normalized();
-            double cosin = tmp_dir1.dot(tmp_dir2);
-            std::cout << i << "th cosin^2 " << cosin * cosin << std::endl;
-        }
-    }
+//         for (int i = 0; i < nbr_midpts; i++)
+//         {
+//             Eigen::Vector3d tmp_dir1 = direction_dbg.row(i);
+//             Eigen::Vector3d tmp_dir2 = pnorm_list_dbg[i].normalized();
+//             double cosin = tmp_dir1.dot(tmp_dir2);
+//             std::cout << i << "th cosin^2 " << cosin * cosin << std::endl;
+//         }
+//     }
 
-    // TODO temporarily checking one trace line
-    trace_vers[0] = curve;
-    trace_hehs.push_back(handles);
-}
-void lsTools::debug_tool_v4(const std::vector<int> &ids, const std::vector<double> values)
-{
-    // cylinder_example(5, 10, 50, 30);
-    // exit(0);
-    trace_vers.clear();
-    trace_hehs.clear();
-    int nbr_itv = ids[0]; // every nbr_itv boundary edges we shoot one curve
-    if (nbr_itv < 1)
-    {
-        std::cout << "Please set up the parameter nbr_itv " << std::endl;
-        return;
-    }
-    double target_angle = values[0];
-    double start_angel = values[1];
-    OpenMesh::HalfedgeHandle init_edge = Boundary_Edges[0];
-    if (lsmesh.face_handle(init_edge).idx() >= 0)
-    {
-        init_edge = lsmesh.opposite_halfedge_handle(init_edge);
-    }
-    OpenMesh::HalfedgeHandle checking_edge = init_edge;
-    int curve_id = 0;
-    while (1)
-    {
-        ver_dbg.resize(0, 0);
-        ver_dbg1.resize(0, 0);
-        E0_dbg.resize(0, 0);
-        direction_dbg.resize(0, 0);
-        pnorm_dbg.resize(0, 0);
-        pnorm_list_dbg.clear();
-        flag_dbg = true;
-        id_dbg = ids[1];
-        std::vector<Eigen::Vector3d> curve;
-        std::vector<CGMesh::HalfedgeHandle> handles;
-        trace_single_pseudo_geodesic_curve(target_angle, checking_edge, 0.5, start_angel,
-                                           curve, handles);
-        flag_dbg = false;
-        curve_id++;
-        if (curve_id == -1)
-        {
-            bool stop_flag = false;
+//     // TODO temporarily checking one trace line
+//     trace_vers[0] = curve;
+//     trace_hehs.push_back(handles);
+// }
+// void lsTools::debug_tool_v4(const std::vector<int> &ids, const std::vector<double> values)
+// {
+//     // cylinder_example(5, 10, 50, 30);
+//     // exit(0);
+//     trace_vers.clear();
+//     trace_hehs.clear();
+//     int nbr_itv = ids[0]; // every nbr_itv boundary edges we shoot one curve
+//     if (nbr_itv < 1)
+//     {
+//         std::cout << "Please set up the parameter nbr_itv " << std::endl;
+//         return;
+//     }
+//     double target_angle = values[0];
+//     double start_angel = values[1];
+//     OpenMesh::HalfedgeHandle init_edge = Boundary_Edges[0];
+//     if (lsmesh.face_handle(init_edge).idx() >= 0)
+//     {
+//         init_edge = lsmesh.opposite_halfedge_handle(init_edge);
+//     }
+//     OpenMesh::HalfedgeHandle checking_edge = init_edge;
+//     int curve_id = 0;
+//     while (1)
+//     {
+//         ver_dbg.resize(0, 0);
+//         ver_dbg1.resize(0, 0);
+//         E0_dbg.resize(0, 0);
+//         direction_dbg.resize(0, 0);
+//         pnorm_dbg.resize(0, 0);
+//         pnorm_list_dbg.clear();
+//         flag_dbg = true;
+//         id_dbg = ids[1];
+//         std::vector<Eigen::Vector3d> curve;
+//         std::vector<CGMesh::HalfedgeHandle> handles;
+//         trace_single_pseudo_geodesic_curve(target_angle, checking_edge, 0.5, start_angel,
+//                                            curve, handles);
+//         flag_dbg = false;
+//         curve_id++;
+//         if (curve_id == -1)
+//         {
+//             bool stop_flag = false;
 
-            for (int i = 0; i < nbr_itv; i++)
-            {
-                checking_edge = lsmesh.next_halfedge_handle(checking_edge);
-                if (checking_edge == init_edge)
-                {
-                    stop_flag = true;
-                    break;
-                }
-            }
-            continue;
-        }
-        trace_vers.push_back(curve);
-        trace_hehs.push_back(handles);
-        bool stop_flag = false;
+//             for (int i = 0; i < nbr_itv; i++)
+//             {
+//                 checking_edge = lsmesh.next_halfedge_handle(checking_edge);
+//                 if (checking_edge == init_edge)
+//                 {
+//                     stop_flag = true;
+//                     break;
+//                 }
+//             }
+//             continue;
+//         }
+//         trace_vers.push_back(curve);
+//         trace_hehs.push_back(handles);
+//         bool stop_flag = false;
 
-        if (curve_id == -1)
-        {
-            break;
-        }
-        for (int i = 0; i < nbr_itv; i++)
-        {
-            checking_edge = lsmesh.next_halfedge_handle(checking_edge);
-            if (checking_edge == init_edge)
-            {
-                stop_flag = true;
-                break;
-            }
-        }
-        if (stop_flag)
-        {
-            break;
-        }
-    }
-}
+//         if (curve_id == -1)
+//         {
+//             break;
+//         }
+//         for (int i = 0; i < nbr_itv; i++)
+//         {
+//             checking_edge = lsmesh.next_halfedge_handle(checking_edge);
+//             if (checking_edge == init_edge)
+//             {
+//                 stop_flag = true;
+//                 break;
+//             }
+//         }
+//         if (stop_flag)
+//         {
+//             break;
+//         }
+//     }
+// }
 
 void extend_triplets_offset(std::vector<Trip> &triplets, const spMat &mat, int offrow, int offcol)
 {
@@ -1316,7 +1316,7 @@ void get_quad_left_right_ver_id_from_web_mat(const Eigen::MatrixXi &mat, const b
 
 void get_row_and_col_ver_ids_from_web_mat(const Eigen::MatrixXi &mat, const Eigen::MatrixXi &quads,
                                           std::vector<Eigen::VectorXi> &vrl, std::vector<Eigen::VectorXi> &vrr, std::vector<Eigen::VectorXi> &vcl,
-                                          std::vector<Eigen::VectorXi> &vcr)
+                                          std::vector<Eigen::VectorXi> &vcr, std::vector<Eigen::VectorXi> &vr)
 {
     std::vector<int> ids;
     int maxsize1;
@@ -1327,6 +1327,8 @@ void get_row_and_col_ver_ids_from_web_mat(const Eigen::MatrixXi &mat, const Eige
     vrr.clear();
     vcl.clear();
     vcr.clear();
+    
+    vr.clear();
     for (int i = 0; i < quads.rows(); i++)
     {
         ids.clear();
@@ -1415,6 +1417,48 @@ void get_row_and_col_ver_ids_from_web_mat(const Eigen::MatrixXi &mat, const Eige
         tmp.segment(0, size) = vcr[i];
         vcr[i] = tmp;
     }
+
+    maxsize1 = 0;
+    // get the whole polylines 
+    for (int i = 0; i < mat.rows(); i++)
+    {
+        ids.clear();
+        for (int j = 0; j < mat.cols(); j++)
+        { // make sure there are only 2 elements, recording the first and last non -1 id
+            if (mat(i, j) >= 0 && ids.size() == 0)
+            {
+                ids.push_back(j);
+                ids.push_back(j);
+            }
+            if (mat(i, j) >= 0)
+            {
+                ids[1] = j;
+            }
+        }
+
+        if (ids.size() > 0)
+        {
+            if (ids[1] - ids[0] + 1 > maxsize1) // ids[1] - ids[0] is the number of quads, meaning nbr of vers is +2
+            {
+                maxsize1 = ids[1] - ids[0] + 1;
+            }
+        }
+        if (ids.size() > 0)
+        {
+            Eigen::VectorXi left = mat.row(i).segment(ids[0], ids[1] - ids[0] + 1);
+
+            vr.push_back(left);
+            
+        }
+    }
+    vecbase1 = Eigen::VectorXi::Ones(maxsize1) * -1;
+    for (int i = 0; i < vr.size(); i++)
+    {
+        Eigen::VectorXi tmp = vecbase1;
+        int size = vr[i].size();
+        tmp.segment(0, size) = vr[i];
+        vr[i] = tmp;
+    }
 }
 void construct_duplication_mapping(const int vnbr, const Eigen::MatrixXi &mat, const Eigen::MatrixXi &qds, Eigen::VectorXi &mapping, int& nbr)
 {
@@ -1473,6 +1517,7 @@ Eigen::MatrixXi remove_fac_duplicated(const Eigen::MatrixXi &f, const Eigen::Mat
 }
 std::vector<Eigen::VectorXi> remove_quad_info_duplicated(const std::vector<Eigen::VectorXi> &vrl, const Eigen::MatrixXi &mapping)
 {
+    int size = vrl[0].size();
     std::vector<Eigen::VectorXi> result(vrl.size());
     for (int i = 0; i < vrl.size(); i++)
     {
@@ -1489,32 +1534,63 @@ std::vector<Eigen::VectorXi> remove_quad_info_duplicated(const std::vector<Eigen
             }
         }
     }
-    return result;
+    // filter out the first few -1s
+    std::vector<Eigen::VectorXi> filtered;
+    for (int i = 0; i < result.size(); i++)
+    {
+        int start = -1;
+        Eigen::VectorXi tmp = Eigen::VectorXi::Ones(size) * -1;
+        for (int j = 0; j < size; j++)
+        {
+            if (result[i][j] >= 0)
+            {
+                start = j;
+                break;
+            }
+        }
+        if (start == 0)
+        {
+            // std::cout<<"here 1, size "<<result[i].size()<<std::endl;
+            filtered.push_back(result[i]);
+            continue;
+        }
+        if (start == -1)
+        {
+            continue;
+        }
+        // std::cout<<"here 2"<<std::endl;
+        int nbr_eles = size - start;
+        tmp.topRows(nbr_eles) = result[i].segment(start, nbr_eles);
+        filtered.push_back(tmp);
+    }
+    return filtered;
 }
 void extract_web_from_index_mat(const Eigen::MatrixXi &mat, Eigen::MatrixXi &F, const int threads, std::vector<Eigen::VectorXi> &vrl,
                                 std::vector<Eigen::VectorXi> &vrr, std::vector<Eigen::VectorXi> &vcl,
-                                std::vector<Eigen::VectorXi> &vcr, Eigen::MatrixXi &qds)
+                                std::vector<Eigen::VectorXi> &vcr, std::vector<Eigen::VectorXi> &vr, Eigen::MatrixXi &qds)
 {
     std::array<int, 4> face;
     std::vector<std::array<int, 4>> tface, filted_face;
     int row = mat.rows();
     int col = mat.cols();
-    qds=Eigen::MatrixXi::Ones(row - 1, col - 1) * -1;// quad mat initialized as -1
+    qds = Eigen::MatrixXi::Ones(row - 1, col - 1) * -1; // quad mat initialized as -1
     tface.reserve(mat.rows() * mat.cols());
     filted_face.reserve(mat.rows() * mat.cols());
-    for(int i=0;i<mat.rows()-1;i++){
-        for(int j=0;j<mat.cols()-1;j++){
-            int f0=mat(i,j);
-            int f1=mat(i,j+1);
-            int f2=mat(i+1,j+1);
-            int f3=mat(i+1, j);
-            if(f0<0||f1<0||f2<0||f3<0){
+    for (int i = 0; i < mat.rows() - 1; i++)
+    {
+        for (int j = 0; j < mat.cols() - 1; j++)
+        {
+            int f0 = mat(i, j);
+            int f1 = mat(i, j + 1);
+            int f2 = mat(i + 1, j + 1);
+            int f3 = mat(i + 1, j);
+            if (f0 < 0 || f1 < 0 || f2 < 0 || f3 < 0)
+            {
                 continue;
             }
-            face={f0,f1,f2,f3};
-            qds(i,j)=tface.size();
+            face = {f0, f1, f2, f3};
+            qds(i, j) = tface.size();
             tface.push_back(face);
-
         }
     }
     if (threads > 0)
@@ -1531,19 +1607,20 @@ void extract_web_from_index_mat(const Eigen::MatrixXi &mat, Eigen::MatrixXi &F, 
             }
         }
     }
-    else{
+    else
+    {
         filted_face = tface;
     }
 
-    F.resize(filted_face.size(),4);
-    for(int i=0;i<filted_face.size();i++){
-        F(i,0)=filted_face[i][0];
-        F(i,1)=filted_face[i][1];
-        F(i,2)=filted_face[i][2];
-        F(i,3)=filted_face[i][3];
-
+    F.resize(filted_face.size(), 4);
+    for (int i = 0; i < filted_face.size(); i++)
+    {
+        F(i, 0) = filted_face[i][0];
+        F(i, 1) = filted_face[i][1];
+        F(i, 2) = filted_face[i][2];
+        F(i, 3) = filted_face[i][3];
     }
-    get_row_and_col_ver_ids_from_web_mat(mat, qds, vrl, vrr, vcl, vcr);
+    get_row_and_col_ver_ids_from_web_mat(mat, qds, vrl, vrr, vcl, vcr, vr);
 }
 void extract_web_mxn(const int rows, const int cols, Eigen::MatrixXi& F){
     std::array<int, 4> face;
@@ -1589,7 +1666,7 @@ void write_one_info_file(const std::string &fname, const std::vector<Eigen::Vect
 }
 void save_quad_left_right_info(const std::string &namebase, std::vector<Eigen::VectorXi> &vrl,
                                std::vector<Eigen::VectorXi> &vrr, std::vector<Eigen::VectorXi> &vcl,
-                               std::vector<Eigen::VectorXi> &vcr)
+                               std::vector<Eigen::VectorXi> &vcr, std::vector<Eigen::VectorXi> &vr)
 {
     std::ofstream file;
     std::vector<Eigen::VectorXi> current;
@@ -1607,6 +1684,10 @@ void save_quad_left_right_info(const std::string &namebase, std::vector<Eigen::V
 
     fname = namebase + "_colright.csv";
     current=vcr;
+    write_one_info_file(fname, current, file);
+
+    fname = namebase + "_rows.csv";
+    current=vr;
     write_one_info_file(fname, current, file);
 }
 // threadshold_nbr is the nbr of quads we want to discard when too few quads in a row
@@ -1704,8 +1785,9 @@ void extract_levelset_web(const CGMesh &lsmesh, const Eigen::MatrixXd &V,
     std::vector<Eigen::VectorXi> vrr;
     std::vector<Eigen::VectorXi> vcl;
     std::vector<Eigen::VectorXi> vcr;
+    std::vector<Eigen::VectorXi> vr;
     Eigen::MatrixXi qds;
-    extract_web_from_index_mat(gridmat, Faces, threadshold_nbr, vrl, vrr, vcl, vcr, qds);
+    extract_web_from_index_mat(gridmat, Faces, threadshold_nbr, vrl, vrr, vcl, vcr, vr, qds);
 
     // remove duplicated vertices
     Eigen::VectorXi mapping;
@@ -1719,10 +1801,11 @@ void extract_levelset_web(const CGMesh &lsmesh, const Eigen::MatrixXd &V,
     vrr = remove_quad_info_duplicated(vrr, mapping);
     vcl = remove_quad_info_duplicated(vcl, mapping);
     vcr = remove_quad_info_duplicated(vcr, mapping);
+    vr = remove_quad_info_duplicated(vr, mapping);
     
     std::cout<<"Saving the info for each row or col of quads"<<std::endl;
     std::string fname = igl::file_dialog_save();
-    save_quad_left_right_info(fname, vrl, vrr, vcl, vcr);
+    save_quad_left_right_info(fname, vrl, vrr, vcl, vcr, vr);
     std::cout<<"Each row and col of quads got saved"<<std::endl;
 }
 double polyline_length(const std::vector<Eigen::Vector3d>& line){

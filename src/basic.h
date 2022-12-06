@@ -231,11 +231,11 @@ private:
         Eigen::Vector3d &intersected_point);
     // start_point_para is the parameter t, start_point=from+t*(to-from).
     // start_angle_degree is the angle between the initial direction and the direction from->to
-    bool trace_single_pseudo_geodesic_curve_pseudo_vertex_method(const double target_angle,
-                                                                 const CGMesh::HalfedgeHandle &start_boundary_edge, const double &start_point_para,
-                                                                 const double start_angle_degree,
-                                                                 std::vector<Eigen::Vector3d> &curve,
-                                                                 std::vector<CGMesh::HalfedgeHandle> &handles);
+    // bool trace_single_pseudo_geodesic_curve_pseudo_vertex_method(const double target_angle,
+    //                                                              const CGMesh::HalfedgeHandle &start_boundary_edge, const double &start_point_para,
+    //                                                              const double start_angle_degree,
+    //                                                              std::vector<Eigen::Vector3d> &curve,
+    //                                                              std::vector<CGMesh::HalfedgeHandle> &handles);
     bool trace_single_pseudo_geodesic_curve(const double target_angle_degree,
                                             const CGMesh::HalfedgeHandle &start_boundary_edge, const double &start_point_para,
                                             const double start_boundary_angle_degree,
@@ -410,10 +410,10 @@ public:
     void Run_AAG_Mesh_Opt(Eigen::VectorXd& func0, Eigen::VectorXd& func1, Eigen::VectorXd& func2);
     void Run_Othogonal_Levelset(const Eigen::VectorXd &func_ref);
     void initialize_level_set_accroding_to_parametrization();
-    void debug_tool(int id = 0, int id2 = 0, double value = 0);
-    void debug_tool_v2(const std::vector<int> &ids, const std::vector<double> values);
-    void debug_tool_v3(int id = 0, int id2 = 0, double value = 0);
-    void debug_tool_v4(const std::vector<int> &ids, const std::vector<double> values);
+    // void debug_tool(int id = 0, int id2 = 0, double value = 0);
+    // void debug_tool_v2(const std::vector<int> &ids, const std::vector<double> values);
+    // void debug_tool_v3(int id = 0, int id2 = 0, double value = 0);
+    // void debug_tool_v4(const std::vector<int> &ids, const std::vector<double> values);
     void initialize_level_set_by_tracing(const TracingPrepare& Tracing_initializer);
     void extract_levelset_curves(const int nbr, std::vector<Eigen::MatrixXd> &E0, std::vector<Eigen::MatrixXd> &E1);
     void make_sphere_ls_example(int rowid);

@@ -513,7 +513,7 @@ void lsTools::calculate_extreme_pseudo_geodesic_values(Eigen::VectorXd &vars, co
 	tripletes.clear();
 	tripletes.reserve(ninner * 15);				// the number of rows is ninner*4, the number of cols is aux_start_loc + ninner * 3 (all the function values and auxiliary vars)
 	Energy = Eigen::VectorXd::Zero(ninner * 2); // mesh total energy values
-
+	double max_ele = 0;
 	for (int i = 0; i < ninner; i++)
 	{
 		if (analizer.LocalActInner[i] == false)
@@ -556,7 +556,18 @@ void lsTools::calculate_extreme_pseudo_geodesic_values(Eigen::VectorXd &vars, co
 			tripletes.push_back(Trip(i, lv1, r2m / dis0));
 			tripletes.push_back(Trip(i, lv2, rm1 / dis0));
 			Energy[i] = (r12 * vars[lvm] + rm1 * vars[lv2] + r2m * vars[lv1]) / dis0;
-
+			if (fabs(r12 / dis0) > max_ele)
+			{
+				max_ele = fabs(r12 / dis0);
+			}
+			if (fabs(r2m / dis0) > max_ele)
+			{
+				max_ele = fabs(r2m / dis0);
+			}
+			if (fabs(rm1 / dis0) > max_ele)
+			{
+				max_ele = fabs(rm1 / dis0);
+			}
 			r12 = (V.row(v3) - V.row(v4)).dot(norm);
 			rm1 = (V.row(vm) - V.row(v3)).dot(norm);
 			r2m = (V.row(v4) - V.row(vm)).dot(norm);
@@ -564,6 +575,19 @@ void lsTools::calculate_extreme_pseudo_geodesic_values(Eigen::VectorXd &vars, co
 			tripletes.push_back(Trip(i + ninner, lv3, r2m / dis1));
 			tripletes.push_back(Trip(i + ninner, lv4, rm1 / dis1));
 			Energy[i + ninner] = (r12 * vars[lvm] + rm1 * vars[lv4] + r2m * vars[lv3]) / dis1;
+			if (fabs(r12 / dis1) > max_ele)
+			{
+				max_ele = fabs(r12 / dis1);
+			}
+			if (fabs(r2m / dis1) > max_ele)
+			{
+				max_ele = fabs(r2m / dis1);
+			}
+			if (fabs(rm1 / dis1) > max_ele)
+			{
+				max_ele = fabs(rm1 / dis1);
+			}
+			
 		}
 		else{// geodesic or constant reference direction (for shading design)
 			Eigen::Vector3d norm = norm_v.row(vm);
@@ -613,6 +637,7 @@ void lsTools::calculate_extreme_pseudo_geodesic_values(Eigen::VectorXd &vars, co
 			// }
 		}
 	}
+	std::cout<<"max_ele, "<<max_ele<<", ";
 }
 
 // an extra condition for shading
@@ -1025,7 +1050,14 @@ void lsTools::Run_Level_Set_Opt() {
 	}
 	analysis_pseudo_geodesic_on_vertices(func, anas[0]);
 	int ninner = anas[0].LocalActInner.size();
-	int final_size = ninner * 10 + vnbr;// Change this when using more auxilary vars
+	int final_size;
+	if(enable_extreme_cases){
+		final_size = vnbr;
+	}
+	else{
+		final_size = ninner * 10 + vnbr;// Change this when using more auxilary vars
+	}
+	 
 
 	bool need_update_trace_info = (DBdirections.rows() == 0 && trace_hehs.size() > 0) || (Last_Opt_Mesh && trace_hehs.size() > 0); // traced but haven't compute the info
 	if (need_update_trace_info)
@@ -1037,10 +1069,32 @@ void lsTools::Run_Level_Set_Opt() {
 	
 	
 	get_gradient_hessian_values(func, GradValueV, GradValueF);
-	if (Glob_lsvars.size() == 0) {
-		std::cout << "Initializing Global Variable For LevelSet Opt ... " << std::endl;
-		Glob_lsvars = Eigen::VectorXd::Zero(final_size);// We change the size if opt more than 1 level set
-		Glob_lsvars.segment(0, vnbr) = func;
+	if (Glob_lsvars.size() != final_size) {
+		
+		if (Glob_lsvars.size() == 0)
+		{
+			std::cout << "Initializing Global Variable For LevelSet Opt ... " << std::endl;
+			Glob_lsvars = Eigen::VectorXd::Zero(final_size); // We change the size if opt more than 1 level set
+			Glob_lsvars.segment(0, vnbr) = func;			 
+		}
+		else{
+			if (Glob_lsvars.size() > final_size)
+			{ // need to truncate
+				Eigen::VectorXd tmp = Glob_lsvars.segment(0, final_size);
+				Glob_lsvars = tmp;
+				if (Glob_lsvars.size() != final_size)
+				{
+					std::cout << "size error" << std::endl
+							  << std::endl;
+				}
+			}
+			else// need to extend
+			{
+				Eigen::VectorXd tmp = Glob_lsvars;
+				Glob_lsvars = Eigen::VectorXd::Zero(final_size); // We change the size if opt more than 1 level set
+				Glob_lsvars.segment(0, tmp.size()) = tmp;
+			}
+		}
 	}
 	if(Last_Opt_Mesh){
 		Compute_Auxiliaries = true;
@@ -1191,7 +1245,7 @@ void lsTools::Run_Level_Set_Opt() {
 		else {
 			double planar_energy = PGEnergy.norm();
 			double max_energy_ls = PGEnergy.lpNorm<Eigen::Infinity>();
-			std::cout << "extreme_pg, " << planar_energy << "lsmax," << max_energy_ls << ", ";
+			std::cout << "extreme_pg, " << planar_energy << " lsmax," << max_energy_ls << ", ";
 			if(Given_Const_Direction){
 				std::cout<<"shadExtra, "<<Eshading.norm()<<", ";
 			}
