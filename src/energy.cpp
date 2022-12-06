@@ -1190,7 +1190,8 @@ void lsTools::Run_Level_Set_Opt() {
 		}
 		else {
 			double planar_energy = PGEnergy.norm();
-			std::cout << "pg, " << planar_energy << ", ";
+			double max_energy_ls = PGEnergy.lpNorm<Eigen::Infinity>();
+			std::cout << "extreme_pg, " << planar_energy << "lsmax," << max_energy_ls << ", ";
 			if(Given_Const_Direction){
 				std::cout<<"shadExtra, "<<Eshading.norm()<<", ";
 			}

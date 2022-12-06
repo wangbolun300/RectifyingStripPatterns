@@ -1301,7 +1301,7 @@ Eigen::MatrixXi remove_short_quads_in_face_mat(const Eigen::MatrixXi& qds, const
 void get_quad_left_right_ver_id_from_web_mat(const Eigen::MatrixXi &mat, const bool rowbased, const int row, const int &col_start, const int col_end,
                                              Eigen::VectorXi &left, Eigen::VectorXi &right)
 {
-    int nbr_elements = col_end - col_start + 1;
+    int nbr_elements = col_end - col_start + 2;
     if (rowbased)
     {
         left = mat.row(row).segment(col_start, nbr_elements);
@@ -1345,9 +1345,9 @@ void get_row_and_col_ver_ids_from_web_mat(const Eigen::MatrixXi &mat, const Eige
 
         if (ids.size() > 0)
         {
-            if (ids[1] - ids[0] + 1 > maxsize1) // ids[1] - ids[0] is the number of quads, meaning nbr of vers is +1
+            if (ids[1] - ids[0] + 2 > maxsize1) // ids[1] - ids[0] is the number of quads, meaning nbr of vers is +2
             {
-                maxsize1 = ids[1] - ids[0] + 1;
+                maxsize1 = ids[1] - ids[0] + 2;
             }
         }
         if (ids.size() > 0)
@@ -1377,9 +1377,9 @@ void get_row_and_col_ver_ids_from_web_mat(const Eigen::MatrixXi &mat, const Eige
 
         if (ids.size() > 0)
         {
-            if (ids[1] - ids[0] + 1 > maxsize2) // ids[1] - ids[0] is the number of quads, meaning nbr of vers is +1
+            if (ids[1] - ids[0] + 2 > maxsize2) // ids[1] - ids[0] is the number of quads, meaning nbr of vers is +1
             {
-                maxsize2 = ids[1] - ids[0] + 1;
+                maxsize2 = ids[1] - ids[0] + 2;
             }
         }
         if (ids.size() > 0)
@@ -1712,7 +1712,7 @@ void extract_levelset_web(const CGMesh &lsmesh, const Eigen::MatrixXd &V,
     int real_nbr;
     construct_duplication_mapping(vers.rows(), gridmat, qds, mapping, real_nbr);
     std::cout<<"mapping constructed"<<std::endl;
-    std::cout<<mapping<<std::endl;
+    // std::cout<<mapping<<std::endl;
     vers = remove_ver_duplicated(vers, mapping, real_nbr);
     Faces = remove_fac_duplicated(Faces, mapping);
     vrl = remove_quad_info_duplicated(vrl, mapping);
@@ -1723,7 +1723,7 @@ void extract_levelset_web(const CGMesh &lsmesh, const Eigen::MatrixXd &V,
     std::cout<<"Saving the info for each row or col of quads"<<std::endl;
     std::string fname = igl::file_dialog_save();
     save_quad_left_right_info(fname, vrl, vrr, vcl, vcr);
-    std::cout<<"Each row or col of quads got saved"<<std::endl;
+    std::cout<<"Each row and col of quads got saved"<<std::endl;
 }
 double polyline_length(const std::vector<Eigen::Vector3d>& line){
     int size = line.size();
