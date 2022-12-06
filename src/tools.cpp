@@ -1416,15 +1416,90 @@ void get_row_and_col_ver_ids_from_web_mat(const Eigen::MatrixXi &mat, const Eige
         vcr[i] = tmp;
     }
 }
+void construct_duplication_mapping(const int vnbr, const Eigen::MatrixXi &mat, const Eigen::MatrixXi &qds, Eigen::VectorXi &mapping, int& nbr)
+{
+    Eigen::MatrixXi cpmat = mat;
+    mapping = Eigen::VectorXi::Ones(vnbr) * -1;
+
+    // first we point out the non -1 elements in mapping
+    for (int i = 0; i < qds.rows(); i++)
+    {
+        for (int j = 0; j < qds.cols(); j++)
+        {
+            if (qds(i, j) > 0)
+            {
+                int v0 = cpmat(i, j);
+                int v1 = cpmat(i, j + 1);
+                int v2 = cpmat(i + 1, j + 1);
+                int v3 = cpmat(i + 1, j);
+                mapping[v0] = 1;
+                mapping[v1] = 1;
+                mapping[v2] = 1;
+                mapping[v3] = 1;
+            }
+        }
+    }
+    int loc = 0;
+    for (int i = 0; i < vnbr; i++)
+    {
+        if (mapping[i] == 1)
+        {
+            mapping[i] = loc;
+            loc++;
+        }
+    }
+    nbr=loc;
+}
+Eigen::MatrixXd remove_ver_duplicated(const Eigen::MatrixXd& ver, const Eigen::VectorXi& mapping, const int vnbr){
+    Eigen::MatrixXd result(vnbr, 3);
+    for(int i=0;i<mapping.size();i++){
+        if(mapping(i)>=0){
+            result.row(mapping(i))=ver.row(i);
+        }
+    }
+    return result;
+}
+Eigen::MatrixXi remove_fac_duplicated(const Eigen::MatrixXi &f, const Eigen::MatrixXi &mapping)
+{
+    Eigen::MatrixXi result(f.rows(), f.cols());
+    for (int i = 0; i < f.rows(); i++)
+    {
+        for (int j = 0; j < f.cols(); j++)
+        {
+            result(i, j) = mapping(f(i, j));
+        }
+    }
+    return result;
+}
+std::vector<Eigen::VectorXi> remove_quad_info_duplicated(const std::vector<Eigen::VectorXi> &vrl, const Eigen::MatrixXi &mapping)
+{
+    std::vector<Eigen::VectorXi> result(vrl.size());
+    for (int i = 0; i < vrl.size(); i++)
+    {
+        result[i].resize(vrl[i].size());
+        for (int j = 0; j < vrl[i].size(); j++)
+        {
+            if (vrl[i][j] >= 0)
+            {
+                result[i][j] = mapping(vrl[i][j]);
+            }
+            else
+            {
+                result[i][j] = vrl[i][j];
+            }
+        }
+    }
+    return result;
+}
 void extract_web_from_index_mat(const Eigen::MatrixXi &mat, Eigen::MatrixXi &F, const int threads, std::vector<Eigen::VectorXi> &vrl,
                                 std::vector<Eigen::VectorXi> &vrr, std::vector<Eigen::VectorXi> &vcl,
-                                std::vector<Eigen::VectorXi> &vcr)
+                                std::vector<Eigen::VectorXi> &vcr, Eigen::MatrixXi &qds)
 {
     std::array<int, 4> face;
     std::vector<std::array<int, 4>> tface, filted_face;
     int row = mat.rows();
     int col = mat.cols();
-    Eigen::MatrixXi qds=Eigen::MatrixXi::Ones(row - 1, col - 1) * -1;// quad mat initialized as -1
+    qds=Eigen::MatrixXi::Ones(row - 1, col - 1) * -1;// quad mat initialized as -1
     tface.reserve(mat.rows() * mat.cols());
     filted_face.reserve(mat.rows() * mat.cols());
     for(int i=0;i<mat.rows()-1;i++){
@@ -1629,7 +1704,22 @@ void extract_levelset_web(const CGMesh &lsmesh, const Eigen::MatrixXd &V,
     std::vector<Eigen::VectorXi> vrr;
     std::vector<Eigen::VectorXi> vcl;
     std::vector<Eigen::VectorXi> vcr;
-    extract_web_from_index_mat(gridmat, Faces, threadshold_nbr, vrl, vrr, vcl, vcr);
+    Eigen::MatrixXi qds;
+    extract_web_from_index_mat(gridmat, Faces, threadshold_nbr, vrl, vrr, vcl, vcr, qds);
+
+    // remove duplicated vertices
+    Eigen::VectorXi mapping;
+    int real_nbr;
+    construct_duplication_mapping(vers.rows(), gridmat, qds, mapping, real_nbr);
+    std::cout<<"mapping constructed"<<std::endl;
+    std::cout<<mapping<<std::endl;
+    vers = remove_ver_duplicated(vers, mapping, real_nbr);
+    Faces = remove_fac_duplicated(Faces, mapping);
+    vrl = remove_quad_info_duplicated(vrl, mapping);
+    vrr = remove_quad_info_duplicated(vrr, mapping);
+    vcl = remove_quad_info_duplicated(vcl, mapping);
+    vcr = remove_quad_info_duplicated(vcr, mapping);
+    
     std::cout<<"Saving the info for each row or col of quads"<<std::endl;
     std::string fname = igl::file_dialog_save();
     save_quad_left_right_info(fname, vrl, vrr, vcl, vcr);
