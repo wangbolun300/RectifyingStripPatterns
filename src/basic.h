@@ -139,6 +139,7 @@ private:
     Eigen::MatrixXd norm_e; // normal directions on each edge
     std::vector<std::vector<Eigen::Vector3d>> trace_vers;        // traced vertices
     std::vector<std::vector<CGMesh::HalfedgeHandle>> trace_hehs; // traced half edge handles
+
     std::vector<Eigen::Vector3d> guideVers;
     std::vector<CGMesh::HalfedgeHandle> guideHehs;
     std::vector<double> assigned_trace_ls; // function values for each traced curve.
@@ -229,13 +230,7 @@ private:
         const double start_boundary_angle_degree,
         CGMesh::HalfedgeHandle &intersected_handle,
         Eigen::Vector3d &intersected_point);
-    // start_point_para is the parameter t, start_point=from+t*(to-from).
-    // start_angle_degree is the angle between the initial direction and the direction from->to
-    // bool trace_single_pseudo_geodesic_curve_pseudo_vertex_method(const double target_angle,
-    //                                                              const CGMesh::HalfedgeHandle &start_boundary_edge, const double &start_point_para,
-    //                                                              const double start_angle_degree,
-    //                                                              std::vector<Eigen::Vector3d> &curve,
-    //                                                              std::vector<CGMesh::HalfedgeHandle> &handles);
+    
     bool trace_single_pseudo_geodesic_curve(const double target_angle_degree,
                                             const CGMesh::HalfedgeHandle &start_boundary_edge, const double &start_point_para,
                                             const double start_boundary_angle_degree,
@@ -327,17 +322,8 @@ public:
     double pseudo_geodesic_target_min_angle_degree; // the target angle for max function value of LS
     double pseudo_geodesic_target_max_angle_degree; // the target angle for min function value of LS
     // bool enable_pseudo_vertex=false;
-    Eigen::MatrixXd ver_dbg;
-    Eigen::MatrixXd ver_dbg1;
-    bool flag_dbg = false;
-    int id_dbg;
-    Eigen::MatrixXd E0_dbg;
-    Eigen::MatrixXd direction_dbg;
-    Eigen::MatrixXd pnorm_dbg;
-    std::vector<Eigen::Vector3d> pseudo_vers_dbg;
-    std::vector<Eigen::Vector3d> pnorm_list_dbg;
-    Eigen::MatrixXd visual_pts_dbg;
-    Eigen::MatrixXd vBinormal;
+
+    // Eigen::MatrixXd vBinormal;
 
     std::vector<CGMesh::HalfedgeHandle> Boundary_Edges; // Caution: Either it or it's opposite handle is the boundary halfedge handle
 
@@ -398,6 +384,7 @@ public:
     void show_1_order_derivate(Eigen::MatrixXd &E0, Eigen::MatrixXd &E1, Eigen::MatrixXd &E2, Eigen::MatrixXd &E3, double ratio);
     void show_vertex_normal(Eigen::MatrixXd &E0, Eigen::MatrixXd &E1, double ratio);
     void show_pseudo_geodesic_curve(std::vector<Eigen::MatrixXd> &E0, std::vector<Eigen::MatrixXd> &E1, Eigen::MatrixXd &vers);
+    void show_traced_binormals(Eigen::MatrixXd &bE0, Eigen::MatrixXd &bE1, Eigen::MatrixXd &nE0, Eigen::MatrixXd &nE1, const double scale);
     void initialize_level_set_by_boundary_assignment(const TracingPrepare& Tracing_initializer);
     void show_binormals(const Eigen::VectorXd &func, Eigen::MatrixXd &E0, Eigen::MatrixXd &E1, Eigen::MatrixXd &binormals, double ratio);
     void print_info(const int vid);

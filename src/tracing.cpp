@@ -790,20 +790,6 @@ bool lsTools::trace_pseudo_geodesic_forward(
     else // filter the points
     {
         int id;
-        if (flag_dbg && ninfo.round == 2)
-        {
-            // std::cout << "we are debugging" << std::endl;
-            if (curve.size() - 1 == id_dbg)
-            {
-                //std::cout << "+++++++++++++++++++++++++++++++++++\nCHECKING START vertex" << std::endl;
-                // std::cout << "output debug vertices" << std::endl;
-                ver_dbg1.resize(1, 3);
-                ver_dbg1.row(0) = point_middle;
-                ver_dbg = vec_list_to_matrix(candidate_pts);
-                flag_dbg = false;
-                //std::cout << "+++++++++++++++++++++++++++++++++++\nCHECKING END" << std::endl;
-            }
-        }
         //std::cout << "before filtering, size " << candidate_pts.size() << std::endl;
         pseudo_geodesic_intersection_filter_by_closeness(curve, angle_degree, ninfo.pnorm, candidate_pts, id);
         // // DEBUG
@@ -816,16 +802,8 @@ bool lsTools::trace_pseudo_geodesic_forward(
             return false;
         }
 
-        pnorm_list_dbg.push_back(ninfo.pnorm);
         edge_out = candidate_handles[id];
         point_out = candidate_pts[id];
-     /*   std::cout << "**Higher level checking" << std::endl;
-        Eigen::Vector3d direc0 = (point_middle - point_in).normalized();
-        Eigen::Vector3d direc1 = (point_out - point_middle).normalized();
-        Eigen::Vector3d dddnorm = (direc0.cross(direc1)).normalized();
-        double tmpcos = ninfo.pnorm.dot(dddnorm);
-        std::cout << "cos^2 = " << tmpcos * tmpcos << std::endl;
-        std::cout << std::endl;*/
         return true;
     }
     ////////////////////////
@@ -1091,17 +1069,6 @@ bool lsTools::trace_single_pseudo_geodesic_curve(const double target_angle_degre
             std::vector<int> point_to_check;
             edges_found = get_checking_edges(start_point_ids, intersected_handle_tmp, intersected_point_tmp,
                                              edges_checked, points_checked, ninfo, point_to_check);
-            // DEBUG
-            // if (ninfo.round == 1 && curve.size() - 1 == id_dbg)
-            // {
-            //     std::vector<Eigen::Vector3d> temp_pts(point_to_check.size());
-            //     for (int itr = 0; itr < point_to_check.size(); itr++)
-            //     {
-            //         temp_pts[itr] = V.row(point_to_check[itr]);
-            //     }
-            //     visual_pts_dbg = vec_list_to_matrix(temp_pts);
-            // }
-            // DEBUGend
             //std::cout << "get checked edges, edge size " << ninfo.edges.size() << std::endl;
             if (!edges_found)
             {

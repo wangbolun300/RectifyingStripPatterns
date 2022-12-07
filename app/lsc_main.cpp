@@ -653,6 +653,20 @@ int main(int argc, char *argv[])
 				}
 				viewer.selected_data_index = id;
 			}
+			ImGui::SameLine();
+			if (ImGui::Button("TracedBinormals", ImVec2(ImGui::GetWindowSize().x * 0.23f, 0.0f)))
+			{
+				std::cout << "Showing the bi-normals of the traced curves. The green lines are the bi-normals and the blue lines are the surface normals" << std::endl;
+				const Eigen::RowVector3d red(0.8, 0.2, 0.2);
+				const Eigen::RowVector3d blue(0.2, 0.2, 0.8);
+				const Eigen::RowVector3d black(0, 0, 0);
+				const Eigen::RowVector3d green(0.2, 0.8, 0.2);
+				Eigen::MatrixXd bE0, bE1, nE0, nE1;
+				lscif::tools.show_traced_binormals(bE0,bE1,nE0,nE1, lscif::vector_scaling);
+
+				viewer.data().add_edges(bE0, bE1, green);
+				viewer.data().add_edges(nE0, nE1, blue);
+			}
 
 			if (ImGui::Button("LvSet Opt", ImVec2(ImGui::GetWindowSize().x * 0.23f, 0.0f)))
 			{

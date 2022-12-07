@@ -649,7 +649,6 @@ void lsTools::initialize_level_set_by_tracing(const TracingPrepare& Tracing_init
     trace_start_angle_degree=start_angel;
     double threadshold_angel_degree = Tracing_initializer.threadshold_angel_degree; // threadshold for checking mesh boundary corners
     int nbr_itv = Tracing_initializer.every_n_edges; // every nbr_itv boundary edges we shoot one curve
-    id_dbg = Tracing_initializer.debug_id_tracing;
     int which_segment=Tracing_initializer.which_boundary_segment;
     
     std::vector<std::vector<CGMesh::HalfedgeHandle>> boundaries;
@@ -674,14 +673,6 @@ void lsTools::initialize_level_set_by_tracing(const TracingPrepare& Tracing_init
     double lsvalue=0;
     int curvecount=0;
     while (1){
-        ver_dbg.resize(0, 0);
-        ver_dbg1.resize(0, 0);
-        flag_dbg = false;
-        E0_dbg.resize(0, 0);
-        direction_dbg.resize(0, 0);
-        pnorm_dbg.resize(0, 0);
-        pnorm_list_dbg.clear();
-        flag_dbg = true;
         checking_edge=boundary_segment[beid];
         std::vector<Eigen::Vector3d> curve;
         std::vector<CGMesh::HalfedgeHandle> handles;
@@ -690,7 +681,6 @@ void lsTools::initialize_level_set_by_tracing(const TracingPrepare& Tracing_init
         curvecount++;
         std::cout<<"one curver traced, size "<<curve.size()<<" the ith "<<curvecount<<std::endl;
         
-        flag_dbg = false;
         assert(curve.size()>0);
         trace_vers.push_back(curve);
         trace_hehs.push_back(handles);
@@ -723,7 +713,6 @@ void lsTools::initialize_level_set_by_boundary_assignment(const TracingPrepare& 
     trace_start_angle_degree=start_angel;
     double threadshold_angel_degree = Tracing_initializer.threadshold_angel_degree; // threadshold for checking mesh boundary corners
     int nbr_itv = Tracing_initializer.every_n_edges; // every nbr_itv boundary edges we shoot one curve
-    id_dbg = Tracing_initializer.debug_id_tracing;
     int which_segment=Tracing_initializer.which_boundary_segment;
     
     std::vector<std::vector<CGMesh::HalfedgeHandle>> boundaries;
@@ -748,14 +737,6 @@ void lsTools::initialize_level_set_by_boundary_assignment(const TracingPrepare& 
     double lsvalue=0;
     int curvecount=0;
     while (1){
-        ver_dbg.resize(0, 0);
-        ver_dbg1.resize(0, 0);
-        flag_dbg = false;
-        E0_dbg.resize(0, 0);
-        direction_dbg.resize(0, 0);
-        pnorm_dbg.resize(0, 0);
-        pnorm_list_dbg.clear();
-        flag_dbg = true;
         checking_edge = boundary_segment[beid];
         std::vector<Eigen::Vector3d> curve;
         std::vector<CGMesh::HalfedgeHandle> handles;
@@ -782,7 +763,6 @@ void lsTools::initialize_level_set_by_boundary_assignment(const TracingPrepare& 
         curve.push_back(intersected_point_tmp);
         handles.push_back(intersected_handle_tmp);
         curvecount++;
-        flag_dbg = false;
         assert(curve.size()>0);
         trace_vers.push_back(curve);
         trace_hehs.push_back(handles);

@@ -2529,3 +2529,41 @@ Eigen::MatrixXd get_each_face_direction(const Eigen::MatrixXd &V, const Eigen::M
     }
     return result;
 }
+
+void lsTools::show_traced_binormals(Eigen::MatrixXd &bE0, Eigen::MatrixXd &bE1, Eigen::MatrixXd &nE0, Eigen::MatrixXd &nE1, const double scale){
+    int nbr = 0; // the number of bi-normals
+    for (int i = 0; i < trace_vers.size(); i++)
+    {
+        if (trace_vers[i].size() > 2)
+            nbr += trace_vers[i].size() - 2;
+    }
+    bE0.resize(nbr, 3);
+    bE1.resize(nbr, 3);
+    nE0.resize(nbr, 3);
+    nE1.resize(nbr, 3);
+    int counter = 0;
+    for (int i = 0; i < trace_vers.size(); i++) // vi, vi+1, vi+2
+    {
+        for (int j = 0; j < trace_vers[i].size() - 2; j++)
+        {
+            Eigen::Vector3d v0 = trace_vers[i][j];
+            Eigen::Vector3d v1 = trace_vers[i][j + 1];
+            Eigen::Vector3d v2 = trace_vers[i][j + 2];
+            Eigen::Vector3d dir1 = v1 - v0;
+            Eigen::Vector3d dir2 = v2 - v1;
+            Eigen::Vector3d binormal = dir1.cross(dir2).normalized();
+            if (counter > bE0.rows() - 1)
+            {
+                std::cout<<"size wrong with trace vers"<<std::endl;
+            }
+            bE0.row(counter) = v1 + binormal * scale;
+            bE1.row(counter) = v1 - binormal * scale;
+            CGMesh::HalfedgeHandle heh = trace_hehs[i][j + 1];
+            int eid = lsmesh.edge_handle(heh).idx();
+            Eigen::Vector3d enormal = norm_e.row(eid);
+            nE0.row(counter) = v1;
+            nE1.row(counter) = v1 + enormal * scale;
+            counter++;
+        }
+    }
+}
