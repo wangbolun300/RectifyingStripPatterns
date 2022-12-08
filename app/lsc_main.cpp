@@ -59,6 +59,8 @@ namespace lscif
 	// Tracing Parameters
 	int which_seg_id = 0; // the face id of which we will assign value to
 	int nbr_of_intervals = 3;
+	int start_bnd_he = 0;// start boundary halfedge, for init the values by assign values on some edges
+    int end_bnd_he = 10;
 	int id_debug_global = 5;
 	double target_angle = 60;
 	double target_min_angle = 90; // target angle for min function value;
@@ -536,11 +538,12 @@ int main(int argc, char *argv[])
 		if (ImGui::CollapsingHeader("Tracing", ImGuiTreeNodeFlags_DefaultOpen))
 		{
 
-			ImGui::InputInt("which boundary segment id", &lscif::which_seg_id, 0, 0);
+			ImGui::InputInt("Select 1 boundary", &lscif::which_seg_id, 0, 0);
 			ImGui::InputInt("every i segments", &lscif::nbr_of_intervals, 0, 0);
-			ImGui::InputInt("debug id", &lscif::id_debug_global, 0, 0);
+			ImGui::InputInt("start bnd edge ", &lscif::start_bnd_he, 0, 0);
+			ImGui::InputInt("end bnd edge ", &lscif::end_bnd_he, 0, 0);
 			ImGui::InputDouble("start angle", &lscif::start_angle, 0, 0, "%.4f");
-			ImGui::InputDouble("threadshold angle", &lscif::threadshold_angel_degree, 0, 0, "%.4f");
+			ImGui::InputDouble("corner angle", &lscif::threadshold_angel_degree, 0, 0, "%.4f");
 			
 			// ImGui::SameLine();
 			// ImGui::Checkbox("Fix Boundary", &lscif::fixBoundary_checkbox);
@@ -566,12 +569,13 @@ int main(int argc, char *argv[])
 				CGMesh updatedMesh;
 				CGMesh inputMesh = lscif::Meshes[id];
 				TracingPrepare Tracing_initializer;
-				Tracing_initializer.debug_id_tracing = lscif::id_debug_global;
 				Tracing_initializer.every_n_edges = lscif::nbr_of_intervals;
 				Tracing_initializer.start_angle = lscif::start_angle;
 				Tracing_initializer.target_angle = lscif::target_angle;
 				Tracing_initializer.threadshold_angel_degree = lscif::threadshold_angel_degree;
 				Tracing_initializer.which_boundary_segment = lscif::which_seg_id;
+				Tracing_initializer.start_bnd_he = lscif::start_bnd_he;
+				Tracing_initializer.end_bnd_he = lscif::end_bnd_he;
 				lscif::tools.initialize_level_set_by_tracing(Tracing_initializer);
 				std::cout << "finish tracing" << std::endl;
 				lscif::updateMeshViewer(viewer, inputMesh);
@@ -614,12 +618,13 @@ int main(int argc, char *argv[])
 				CGMesh updatedMesh;
 				CGMesh inputMesh = lscif::Meshes[id];
 				TracingPrepare Tracing_initializer;
-				Tracing_initializer.debug_id_tracing = lscif::id_debug_global;
 				Tracing_initializer.every_n_edges = lscif::nbr_of_intervals;
 				Tracing_initializer.start_angle = lscif::start_angle;
 				Tracing_initializer.target_angle = lscif::target_angle;
 				Tracing_initializer.threadshold_angel_degree = lscif::threadshold_angel_degree;
 				Tracing_initializer.which_boundary_segment = lscif::which_seg_id;
+				Tracing_initializer.start_bnd_he = lscif::start_bnd_he;
+				Tracing_initializer.end_bnd_he = lscif::end_bnd_he;
 				lscif::tools.initialize_level_set_by_boundary_assignment(Tracing_initializer);
 				std::cout << "finish Boundary Values Assignment" << std::endl;
 				lscif::updateMeshViewer(viewer, inputMesh);

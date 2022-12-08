@@ -77,3 +77,4 @@ void visual_extract_levelset_web(const CGMesh &lsmesh, const Eigen::MatrixXd &V,
                           const int expect_nbr_ls0, const int expect_nbr_ls1, Eigen::MatrixXd &E0, Eigen::MatrixXd& E1,
                           Eigen::MatrixXd &E2, Eigen::MatrixXd& E3,
                           bool even_pace);
+CGMesh::HalfedgeHandle boundary_halfedge(const CGMesh& lsmesh, const CGMesh::HalfedgeHandle& boundary_edge);

@@ -400,6 +400,11 @@ void lsTools::get_bnd_vers_and_handles()
         }
     }
     Boundary_Edges = hdls;
+    for (int i = 0; i < Boundary_Edges.size(); i++)// orient the boundary edges
+    {
+        Boundary_Edges[i] = boundary_halfedge(lsmesh, Boundary_Edges[i]);
+    }
+    std::cout<<"Boundary Edges Nbr: "<<Boundary_Edges.size()<<std::endl;
     solve_mean_value_laplacian_mat(lsmesh, IVids, MVLap);
 }
 void lsTools::get_function_gradient_vertex()
@@ -701,7 +706,7 @@ void lsTools::initialize_level_set_by_tracing(const TracingPrepare& Tracing_init
    
 }
 
-// assign boundary values and angles
+// assign values and angles on one boundary curve splited by the corners
 void lsTools::initialize_level_set_by_boundary_assignment(const TracingPrepare& Tracing_initializer){
     // cylinder_open_example(5, 10, 50, 30);
     // exit(0);
@@ -729,6 +734,87 @@ void lsTools::initialize_level_set_by_boundary_assignment(const TracingPrepare& 
     }
     std::vector<CGMesh::HalfedgeHandle> boundary_segment=boundaries[which_segment];
     tracing_start_edges=boundary_segment;
+    std::cout<<"the number of edges on this segment "<<boundary_segment.size()<<std::endl;
+    OpenMesh::HalfedgeHandle init_edge = boundary_segment[0];
+    
+    OpenMesh::HalfedgeHandle checking_edge = init_edge;
+    int beid=0;
+    double lsvalue=0;
+    int curvecount=0;
+    while (1){
+        checking_edge = boundary_segment[beid];
+        std::vector<Eigen::Vector3d> curve;
+        std::vector<CGMesh::HalfedgeHandle> handles;
+
+        curve.clear();
+        handles.clear();
+        CGMesh::HalfedgeHandle intersected_handle_tmp;
+        Eigen::Vector3d intersected_point_tmp;
+        double start_point_para=0.5;
+        bool found = init_pseudo_geodesic_first_segment(checking_edge, start_point_para, start_angel,
+                                                        intersected_handle_tmp, intersected_point_tmp);
+       
+        if (!found)
+        {
+            std::cout << "error in initialization the boundary direction" << std::endl;
+            return;
+        }
+
+        Eigen::Vector3d first_point = get_3d_ver_from_t(start_point_para, V.row(lsmesh.from_vertex_handle(checking_edge).idx()),
+                                                        V.row(lsmesh.to_vertex_handle(checking_edge).idx()));
+
+        curve.push_back(first_point);
+        handles.push_back(checking_edge);
+        curve.push_back(intersected_point_tmp);
+        handles.push_back(intersected_handle_tmp);
+        curvecount++;
+        assert(curve.size()>0);
+        trace_vers.push_back(curve);
+        trace_hehs.push_back(handles);
+        assigned_trace_ls.push_back(lsvalue);
+        lsvalue+=1;
+        int nextbeid=beid+nbr_itv;
+        if(nextbeid<boundary_segment.size()){
+            beid=nextbeid;
+        }
+        else{
+            break;
+        }
+        
+    }
+    estimate_strip_width_according_to_tracing();
+    std::cout<<"the numbr of values assigned to this boundary:  "<<trace_vers.size()<<std::endl;
+   
+}
+std::vector<CGMesh::HalfedgeHandle> extract_boundary_curve_from_boundary_loop(){
+    
+}
+
+// assign values and angles on a boundary curve truncated by two selected boundary edges
+void lsTools::initialize_level_set_by_select_boundary_segment(const TracingPrepare& Tracing_initializer){
+    // cylinder_open_example(5, 10, 50, 30);
+    // exit(0);
+    trace_vers.clear();
+    trace_hehs.clear();
+    assigned_trace_ls.clear();
+    double target_angle = Tracing_initializer.target_angle;// 
+    double start_angel = Tracing_initializer.start_angle;
+    trace_start_angle_degree=start_angel;
+    double threadshold_angel_degree = Tracing_initializer.threadshold_angel_degree; // threadshold for checking mesh boundary corners
+    int nbr_itv = Tracing_initializer.every_n_edges; // every nbr_itv boundary edges we shoot one curve
+    int which_segment=Tracing_initializer.which_boundary_segment;
+    int start_he = Tracing_initializer.start_bnd_he;
+    int end_he = Tracing_initializer.end_bnd_he;
+
+
+    
+    if (nbr_itv < 1)
+    {
+        std::cout << "Please set up the parameter nbr_itv " << std::endl;
+        return;
+    }
+    
+    std::vector<CGMesh::HalfedgeHandle> boundary_segment=
     std::cout<<"the number of edges on this segment "<<boundary_segment.size()<<std::endl;
     OpenMesh::HalfedgeHandle init_edge = boundary_segment[0];
     

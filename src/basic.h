@@ -63,10 +63,11 @@ class TracingPrepare{
     TracingPrepare(){};
     int every_n_edges;
     int which_boundary_segment;
-    int debug_id_tracing;
     double target_angle;
     double start_angle;
     double threadshold_angel_degree;
+    int start_bnd_he;// start boundary halfedge, for init the values by assign values on some edges
+    int end_bnd_he;
 
 };
 class LSAnalizer {
@@ -315,6 +316,7 @@ public:
     bool enable_extreme_cases = false; // osculating plane othogonal to the normal direction, or contains the given direction
     bool Given_Const_Direction = false;// use the given direction but not the normal
     Eigen::Vector3d Reference_ray;  // the ray feed to the optimization as a constant direction
+    
 
 
     double pseudo_geodesic_target_angle_degree; // the target pseudo-geodesic angle
@@ -385,7 +387,7 @@ public:
     void show_vertex_normal(Eigen::MatrixXd &E0, Eigen::MatrixXd &E1, double ratio);
     void show_pseudo_geodesic_curve(std::vector<Eigen::MatrixXd> &E0, std::vector<Eigen::MatrixXd> &E1, Eigen::MatrixXd &vers);
     void show_traced_binormals(Eigen::MatrixXd &bE0, Eigen::MatrixXd &bE1, Eigen::MatrixXd &nE0, Eigen::MatrixXd &nE1, const double scale);
-    void initialize_level_set_by_boundary_assignment(const TracingPrepare& Tracing_initializer);
+    
     void show_binormals(const Eigen::VectorXd &func, Eigen::MatrixXd &E0, Eigen::MatrixXd &E1, Eigen::MatrixXd &binormals, double ratio);
     void print_info(const int vid);
 
@@ -397,11 +399,9 @@ public:
     void Run_AAG_Mesh_Opt(Eigen::VectorXd& func0, Eigen::VectorXd& func1, Eigen::VectorXd& func2);
     void Run_Othogonal_Levelset(const Eigen::VectorXd &func_ref);
     void initialize_level_set_accroding_to_parametrization();
-    // void debug_tool(int id = 0, int id2 = 0, double value = 0);
-    // void debug_tool_v2(const std::vector<int> &ids, const std::vector<double> values);
-    // void debug_tool_v3(int id = 0, int id2 = 0, double value = 0);
-    // void debug_tool_v4(const std::vector<int> &ids, const std::vector<double> values);
     void initialize_level_set_by_tracing(const TracingPrepare& Tracing_initializer);
+    void initialize_level_set_by_boundary_assignment(const TracingPrepare& Tracing_initializer);
+    void initialize_level_set_by_select_boundary_segment(const TracingPrepare& Tracing_initializer);
     void extract_levelset_curves(const int nbr, std::vector<Eigen::MatrixXd> &E0, std::vector<Eigen::MatrixXd> &E1);
     void make_sphere_ls_example(int rowid);
 };
