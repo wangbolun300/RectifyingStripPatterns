@@ -815,15 +815,42 @@ bool find_one_ls_segment_on_triangle(const double value, const Eigen::MatrixXi &
         tmp[1] = vid0;
         eids.push_back(tmp);
     }
-    if(eids.empty()||eids.size()==1){// if no value, or the value is on one vertex, no segment.
+    if (eids.empty() || eids.size() == 1)
+    { // if no value, or the value is on one vertex, no segment.
+        int nb = 0;
+        if (value == fv0)
+        {
+            tmp[nb] = vid0;
+            nb++;
+        }
+        if (value == fv1)
+        {
+            tmp[nb] = vid1;
+            nb++;
+        }
+        if (value == fv2 && nb == 2) // three vertices with same value, singularity
+        {
+            return false;
+        }
+        if (value == fv2)
+        {
+            tmp[nb] = vid2;
+            nb++;
+        }
+        if (nb == 2)
+        {
+            E0 = V.row(tmp[0]);
+            E1 = V.row(tmp[1]);
+            return true;
+        }
         return false;
     }
     assert(eids.size()!=3);
-    
-    double t = get_t_of_value(value,fvalues[eids[0][0]],fvalues[eids[0][1]]);
-    assert(t>=0&&t<=1);
+
+    double t = get_t_of_value(value, fvalues[eids[0][0]], fvalues[eids[0][1]]);
+    assert(t >= 0 && t <= 1);
     E0 = get_3d_ver_from_t(t, V.row(eids[0][0]), V.row(eids[0][1]));
-    t=get_t_of_value(value,fvalues[eids[1][0]],fvalues[eids[1][1]]);
+    t = get_t_of_value(value, fvalues[eids[1][0]], fvalues[eids[1][1]]);
     E1 = get_3d_ver_from_t(t, V.row(eids[1][0]), V.row(eids[1][1]));
     return true;
 }

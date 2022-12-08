@@ -1029,6 +1029,7 @@ void lsTools::Run_Level_Set_Opt() {
 	Eigen::MatrixXd GradValueF, GradValueV;
 	Eigen::VectorXd PGEnergy, Eshading;
 	Eigen::VectorXd func = fvalues;
+	get_gradient_hessian_values(func, GradValueV, GradValueF);
 	std::vector<double> angle_degree;
 	angle_degree.resize(1);
 	angle_degree[0] = pseudo_geodesic_target_angle_degree;
@@ -1048,6 +1049,12 @@ void lsTools::Run_Level_Set_Opt() {
 		std::cout << "level set get initialized" << std::endl;
 		return;
 	}
+	if (Glob_lsvars.size() == 0 && trace_hehs.size() == 0)// unit scale when no tracing and before the first iteration
+	{
+		levelset_unit_scale(func, GradValueF, strip_width);
+		std::cout<<"Unit Scale Levelset"<<std::endl;
+	}
+	std::cout<<"check "<<func.norm()<<std::endl;
 	analysis_pseudo_geodesic_on_vertices(func, anas[0]);
 	int ninner = anas[0].LocalActInner.size();
 	int final_size;
@@ -1068,7 +1075,7 @@ void lsTools::Run_Level_Set_Opt() {
 	//  update quantities associated with level set values
 	
 	
-	get_gradient_hessian_values(func, GradValueV, GradValueF);
+	
 	if (Glob_lsvars.size() != final_size) {
 		
 		if (Glob_lsvars.size() == 0)
@@ -1088,11 +1095,12 @@ void lsTools::Run_Level_Set_Opt() {
 							  << std::endl;
 				}
 			}
-			else// need to extend
+			else// need to extend, and re-compute the auxiliaries
 			{
 				Eigen::VectorXd tmp = Glob_lsvars;
 				Glob_lsvars = Eigen::VectorXd::Zero(final_size); // We change the size if opt more than 1 level set
 				Glob_lsvars.segment(0, tmp.size()) = tmp;
+				Compute_Auxiliaries = true;
 			}
 		}
 	}

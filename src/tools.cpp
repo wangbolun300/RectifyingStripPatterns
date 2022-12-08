@@ -1054,24 +1054,7 @@ void get_level_set_sample_values_even_pace(const Eigen::VectorXd &ls, const int 
 }
 
 
-// 
-void get_iso_lines(const Eigen::MatrixXd &V,
-                   const Eigen::MatrixXi &F, const Eigen::VectorXd &ls, const double value,
-                   std::vector<Eigen::Vector3d> &poly0, std::vector<Eigen::Vector3d> &poly1,
-                   std::vector<int> &fids)
-{
-    for (int i = 0; i < F.rows(); i++)
-    {
-        Eigen::Vector3d E0, E1;
-        bool found = find_one_ls_segment_on_triangle(value, F, V,
-                                                     ls, i, E0, E1);
-        if(found){
-            poly0.push_back(E0);
-            poly1.push_back(E1);
-            fids.push_back(i);
-        }
-    }
-}
+
 bool halfedge_has_value(const CGMesh &lsmesh, const Eigen::MatrixXd &V,
                          const Eigen::VectorXd &ls, const CGMesh::HalfedgeHandle &hd, const double value, Eigen::Vector3d &pt)
 {
@@ -1090,6 +1073,24 @@ bool halfedge_has_value(const CGMesh &lsmesh, const Eigen::MatrixXd &V,
     return true;
 }
 
+// 
+void get_iso_lines(const Eigen::MatrixXd &V,
+                   const Eigen::MatrixXi &F, const Eigen::VectorXd &ls, const double value,
+                   std::vector<Eigen::Vector3d> &poly0, std::vector<Eigen::Vector3d> &poly1,
+                   std::vector<int> &fids)
+{
+    for (int i = 0; i < F.rows(); i++)
+    {
+        Eigen::Vector3d E0, E1;
+        bool found = find_one_ls_segment_on_triangle(value, F, V,
+                                                     ls, i, E0, E1);
+        if(found){
+            poly0.push_back(E0);
+            poly1.push_back(E1);
+            fids.push_back(i);
+        }
+    }
+}
 // the mesh provides the connectivity, loop is the boundary loop
 // left_large indicates if the from ver of each boundary edge is larger value
 void get_iso_lines(const CGMesh &lsmesh, const std::vector<CGMesh::HalfedgeHandle>& loop, const Eigen::MatrixXd &V,
@@ -1212,7 +1213,7 @@ bool two_triangles_connected(const Eigen::MatrixXi& F, const int fid0, const int
 bool get_polyline_intersection(const Eigen::MatrixXd &V, const Eigen::MatrixXi &F,
                                const std::vector<Eigen::Vector3d> &poly0_e0, const std::vector<Eigen::Vector3d> &poly0_e1,
                                const std::vector<Eigen::Vector3d> &poly1_e0, const std::vector<Eigen::Vector3d> &poly1_e1,
-                               const std::vector<int> &fid0, const std::vector<int> &fid1, Eigen::Vector3d &result)
+                               const std::vector<int> &fid0, const std::vector<int> &fid1, Eigen::Vector3d &result, bool print = false)
 {
     assert(poly0_e0.size() == poly0_e1.size());
     assert(poly1_e0.size() == poly1_e1.size());
@@ -1237,6 +1238,10 @@ bool get_polyline_intersection(const Eigen::MatrixXd &V, const Eigen::MatrixXi &
             {
                 result = e0 + u * dir0;
                 return true;
+            }
+            if(print){
+                std::cout<<"e0, "<<e0.transpose()<<" e0e, "<<poly0_e1[i].transpose()<<", e1, "<<e1.transpose()<<" e1e, "<<poly1_e1[j].transpose()
+                <<", u and v, "<<u<<", "<<v<<std::endl;
             }
         }
     }
@@ -1690,6 +1695,140 @@ void save_quad_left_right_info(const std::string &namebase, std::vector<Eigen::V
     current=vr;
     write_one_info_file(fname, current, file);
 }
+
+std::vector<int> element_ids_for_not_computed_vers(const Eigen::VectorXi &vec)
+{
+    std::vector<int> tmp, result;
+    int found = -1; // record the last one has value
+    for (int i = 0; i < vec.size(); i++)
+    {
+        if (vec[i] >= 0)
+        {
+            found = i;
+        }
+        else
+        {
+            if (found >= 0)
+            {
+                tmp.push_back(i);
+            }
+        }
+    }
+    for (int i = 0; i < tmp.size(); i++)
+    {
+        if (tmp[i] < found)
+        {
+            result.push_back(tmp[i]);
+        }
+    }
+    return result;
+}
+
+// threadshold_nbr is the nbr of quads we want to discard when too few quads in a row
+void visual_extract_levelset_web(const CGMesh &lsmesh, const Eigen::MatrixXd &V,
+                          const Eigen::MatrixXi &F, const Eigen::VectorXd &ls0, const Eigen::VectorXd &ls1,
+                          const int expect_nbr_ls0, const int expect_nbr_ls1, Eigen::MatrixXd &E0, Eigen::MatrixXd& E1,
+                          Eigen::MatrixXd &E2, Eigen::MatrixXd& E3,
+                          bool even_pace=false)
+{
+    std::vector<std::vector<Eigen::Vector3d>> ivs;                                    // the intersection vertices
+    Eigen::MatrixXi gridmat;                                                          // the matrix for vertex
+    Eigen::VectorXd lsv0, lsv1;                                                       // the extracted level set values;
+    std::vector<std::vector<Eigen::Vector3d>> poly0_e0, poly0_e1, poly1_e0, poly1_e1; // polylines
+    std::vector<std::vector<int>> fid0, fid1;                                         // face ids of each polyline segment
+    std::vector<Eigen::Vector3d> verlist;
+    if(ls0.size()!=ls1.size()){
+        std::cout<<"ERROR, Please use the correct level sets"<<std::endl;
+    }
+    int nbr_ls0, nbr_ls1;
+    if(!even_pace){
+        nbr_ls0=expect_nbr_ls0;
+        nbr_ls1=expect_nbr_ls1;
+        get_level_set_sample_values(ls0, nbr_ls0, lsv0);
+        get_level_set_sample_values(ls1, nbr_ls1, lsv1);
+    }
+    else{
+        double pace = std::min((ls0.maxCoeff() - ls0.minCoeff()) / (expect_nbr_ls0 + 1), (ls1.maxCoeff() - ls1.minCoeff()) / (expect_nbr_ls1 + 1));
+        nbr_ls0 = (ls0.maxCoeff() - ls0.minCoeff()) / pace + 1;
+        nbr_ls1 = (ls1.maxCoeff() - ls1.minCoeff()) / pace + 1;
+        get_level_set_sample_values_even_pace(ls0, nbr_ls0, pace, lsv0);
+        get_level_set_sample_values_even_pace(ls1, nbr_ls1, pace, lsv1);
+    }
+
+    ivs.resize(nbr_ls0);
+    verlist.reserve(nbr_ls0 * nbr_ls1);
+    gridmat = Eigen::MatrixXi::Ones(nbr_ls0, nbr_ls1) * -1; // initially there is no quad patterns
+    lsv0.resize(nbr_ls0);
+    lsv1.resize(nbr_ls1);
+    poly0_e0.resize(nbr_ls0);
+    poly0_e1.resize(nbr_ls0);
+    poly1_e0.resize(nbr_ls1);
+    poly1_e1.resize(nbr_ls1);
+    fid0.resize(nbr_ls0);
+    fid1.resize(nbr_ls1);
+    for (int i = 0; i < nbr_ls0; i++)
+    {
+        ivs[i].resize(nbr_ls1);
+        poly0_e0[i].reserve(nbr_ls1);
+        poly0_e1[i].reserve(nbr_ls1);
+        fid0[i].reserve(nbr_ls1);
+    }
+    for (int i = 0; i < nbr_ls1; i++)
+    {
+        poly1_e0[i].reserve(nbr_ls0);
+        poly1_e1[i].reserve(nbr_ls0);
+        fid1[i].reserve(nbr_ls0);
+    }
+    for (int i = 0; i < nbr_ls0; i++)
+    {
+        double vl = lsv0[i];
+        get_iso_lines(V, F, ls0, vl, poly0_e0[i], poly0_e1[i], fid0[i]);
+        // std::cout<<i<<" size "<<poly0_e0[i].size()<<"\n";
+    }
+    for (int i = 0; i < nbr_ls1; i++)
+    {
+        double vl = lsv1[i];
+        get_iso_lines(V, F, ls1, vl, poly1_e0[i], poly1_e1[i], fid1[i]);
+        // std::cout<<i<<" size "<<poly1_e0[i].size()<<"\n";
+    }
+    int enbr = 0;
+    for (auto pl : poly0_e0)
+    {
+        enbr += pl.size();
+    }
+    E0.resize(enbr, 3);
+    E1.resize(enbr, 3);
+    
+    enbr = 0;
+    for (auto pl : poly1_e0)
+    {
+        enbr += pl.size();
+    }
+    E2.resize(enbr, 3);
+    E3.resize(enbr, 3);
+
+    enbr = 0;
+    for (int i = 0; i < poly0_e0.size(); i++)
+    {
+        for (int j = 0; j < poly0_e0[i].size(); j++)
+        {
+            E0.row(enbr) = poly0_e0[i][j];
+            E1.row(enbr) = poly0_e1[i][j];
+            enbr++;
+        }
+    }
+    enbr = 0;
+    for (int i = 0; i < poly1_e0.size(); i++)
+    {
+        for (int j = 0; j < poly1_e0[i].size(); j++)
+        {
+            E2.row(enbr) = poly1_e0[i][j];
+            E3.row(enbr) = poly1_e1[i][j];
+            enbr++;
+        }
+    }
+}
+
 // threadshold_nbr is the nbr of quads we want to discard when too few quads in a row
 void extract_levelset_web(const CGMesh &lsmesh, const Eigen::MatrixXd &V,
                           const Eigen::MatrixXi &F, const Eigen::VectorXd &ls0, const Eigen::VectorXd &ls1,
@@ -1772,6 +1911,17 @@ void extract_levelset_web(const CGMesh &lsmesh, const Eigen::MatrixXd &V,
                 vnbr++;
             }
         }
+        // The following pars are for debugging
+        // Eigen::VectorXi cv=gridmat.row(i);
+        // std::vector<int> problems = element_ids_for_not_computed_vers(cv);
+        // if(problems.size()>0){
+        //     std::cout<<i<<" this row has missing points \n"<<cv.transpose()<<" size, "<<problems.size()<<std::endl;
+            
+        //     for(int j: problems){
+        //         Eigen::Vector3d ipoint;
+        //         get_polyline_intersection(V, F, poly0_e0[i], poly0_e1[i], poly1_e0[j], poly1_e1[j], fid0[i], fid1[j], ipoint, true);
+        //     }
+        // }
     }
     std::cout << "extracted ver nbr " << verlist.size() << std::endl;
     vers = vec_list_to_matrix(verlist);

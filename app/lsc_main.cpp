@@ -1257,12 +1257,12 @@ int main(int argc, char *argv[])
 			{
 				int id = viewer.selected_data_index;
 				CGMesh updatedMesh;
-				CGMesh inputMesh = lscif::Meshes[id];
+
 				Eigen::MatrixXd VER;
 				Eigen::MatrixXi FAC;
 				if (lscif::readed_LS1.size() > 0 && lscif::readed_LS2.size() > 0)
 				{
-					extract_levelset_web(inputMesh, lscif::tools.V, lscif::tools.F, lscif::readed_LS1, lscif::readed_LS2, lscif::nbr_lines_first_ls,
+					extract_levelset_web(lscif::tools.lsmesh, lscif::tools.V, lscif::tools.F, lscif::readed_LS1, lscif::readed_LS2, lscif::nbr_lines_first_ls,
 										 lscif::nbr_lines_second_ls, 3, VER, FAC, false);
 				}
 				else
@@ -1281,6 +1281,16 @@ int main(int argc, char *argv[])
 					igl::writeOBJ(fname, VER, FAC);
 					std::cout << "Quad mesh saved" << std::endl;
 				}
+				Eigen::MatrixXd E0, E1, E2, E3;
+				visual_extract_levelset_web(lscif::tools.lsmesh, lscif::tools.V, lscif::tools.F, lscif::readed_LS1, lscif::readed_LS2, lscif::nbr_lines_first_ls,
+										 lscif::nbr_lines_second_ls,E0, E1, E2, E3,false);
+				const Eigen::RowVector3d red(0.8, 0.2, 0.2);
+				const Eigen::RowVector3d blue(0.2, 0.2, 0.8);
+				const Eigen::RowVector3d black(0, 0, 0);
+				const Eigen::RowVector3d green(0.2, 0.8, 0.2);
+				viewer.data().add_edges(E0, E1, red);
+				viewer.data().add_edges(E2, E3, blue);
+
 			}
 			ImGui::SameLine();
 			if (ImGui::Button("Extr Pace Quad", ImVec2(ImGui::GetWindowSize().x * 0.25f, 0.0f)))

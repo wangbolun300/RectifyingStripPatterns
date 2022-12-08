@@ -72,3 +72,8 @@ void extract_Quad_Mesh_Zigzag(const CGMesh &lsmesh,const std::vector<CGMesh::Hal
                          const int expect_nbr_ls, const int expect_nbr_dis, const int threadshold_nbr,
                          Eigen::MatrixXd &vers, Eigen::MatrixXi &Faces);
 Eigen::MatrixXd get_each_face_direction(const Eigen::MatrixXd &V, const Eigen::MatrixXi &F, const Eigen::VectorXd &func);
+void visual_extract_levelset_web(const CGMesh &lsmesh, const Eigen::MatrixXd &V,
+                          const Eigen::MatrixXi &F, const Eigen::VectorXd &ls0, const Eigen::VectorXd &ls1,
+                          const int expect_nbr_ls0, const int expect_nbr_ls1, Eigen::MatrixXd &E0, Eigen::MatrixXd& E1,
+                          Eigen::MatrixXd &E2, Eigen::MatrixXd& E3,
+                          bool even_pace);
