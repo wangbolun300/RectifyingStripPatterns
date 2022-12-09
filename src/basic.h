@@ -67,7 +67,7 @@ class TracingPrepare{
     double start_angle;
     double threadshold_angel_degree;
     int start_bnd_he;// start boundary halfedge, for init the values by assign values on some edges
-    int end_bnd_he;
+    int nbr_edges;
 
 };
 class LSAnalizer {

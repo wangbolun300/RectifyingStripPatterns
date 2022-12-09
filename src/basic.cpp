@@ -786,9 +786,7 @@ void lsTools::initialize_level_set_by_boundary_assignment(const TracingPrepare& 
     std::cout<<"the numbr of values assigned to this boundary:  "<<trace_vers.size()<<std::endl;
    
 }
-std::vector<CGMesh::HalfedgeHandle> extract_boundary_curve_from_boundary_loop(){
-    
-}
+
 
 // assign values and angles on a boundary curve truncated by two selected boundary edges
 void lsTools::initialize_level_set_by_select_boundary_segment(const TracingPrepare& Tracing_initializer){
@@ -804,7 +802,7 @@ void lsTools::initialize_level_set_by_select_boundary_segment(const TracingPrepa
     int nbr_itv = Tracing_initializer.every_n_edges; // every nbr_itv boundary edges we shoot one curve
     int which_segment=Tracing_initializer.which_boundary_segment;
     int start_he = Tracing_initializer.start_bnd_he;
-    int end_he = Tracing_initializer.end_bnd_he;
+    int nbr_edges = Tracing_initializer.nbr_edges;
 
 
     
@@ -813,8 +811,10 @@ void lsTools::initialize_level_set_by_select_boundary_segment(const TracingPrepa
         std::cout << "Please set up the parameter nbr_itv " << std::endl;
         return;
     }
-    
-    std::vector<CGMesh::HalfedgeHandle> boundary_segment=
+
+    std::vector<CGMesh::HalfedgeHandle> boundary_segment;
+    select_mesh_boundary_curve_on_boundary_loop(lsmesh, V, which_segment,
+                                               start_he, nbr_edges, Boundary_Edges, boundary_segment);
     std::cout<<"the number of edges on this segment "<<boundary_segment.size()<<std::endl;
     OpenMesh::HalfedgeHandle init_edge = boundary_segment[0];
     

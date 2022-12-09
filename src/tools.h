@@ -78,3 +78,7 @@ void visual_extract_levelset_web(const CGMesh &lsmesh, const Eigen::MatrixXd &V,
                           Eigen::MatrixXd &E2, Eigen::MatrixXd& E3,
                           bool even_pace);
 CGMesh::HalfedgeHandle boundary_halfedge(const CGMesh& lsmesh, const CGMesh::HalfedgeHandle& boundary_edge);
+void select_mesh_boundary_curve_on_boundary_loop(CGMesh &lsmesh, const Eigen::MatrixXd &V, const int loopid,
+                                                 const int start_edge, const int nbr_edges,
+                                                 const std::vector<CGMesh::HalfedgeHandle> &Boundary_Edges,
+                                                 std::vector<CGMesh::HalfedgeHandle> &selected);

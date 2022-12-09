@@ -1029,7 +1029,7 @@ void lsTools::Run_Level_Set_Opt() {
 	Eigen::MatrixXd GradValueF, GradValueV;
 	Eigen::VectorXd PGEnergy, Eshading;
 	Eigen::VectorXd func = fvalues;
-	get_gradient_hessian_values(func, GradValueV, GradValueF);
+	
 	std::vector<double> angle_degree;
 	angle_degree.resize(1);
 	angle_degree[0] = pseudo_geodesic_target_angle_degree;
@@ -1049,6 +1049,7 @@ void lsTools::Run_Level_Set_Opt() {
 		std::cout << "level set get initialized" << std::endl;
 		return;
 	}
+	get_gradient_hessian_values(func, GradValueV, GradValueF);
 	if (Glob_lsvars.size() == 0 && trace_hehs.size() == 0)// unit scale when no tracing and before the first iteration
 	{
 		levelset_unit_scale(func, GradValueF, strip_width);
