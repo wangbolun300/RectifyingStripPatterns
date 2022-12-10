@@ -96,6 +96,16 @@ void lsTools::convert_paras_as_meshes(CGMesh &output)
         output.set_point(viter, pt);
     }
 }
+spMat get_uniformed_mass(spMat& mass){
+    int nbr = mass.rows();
+    double avg = 0; // avrage area
+    for (int i = 0; i < nbr; i++)
+    {
+        avg += mass.coeffRef(i, i);
+    }
+    avg /= nbr;
+    return mass / avg;
+}
 
 // get the area and normal
 void lsTools::get_mesh_normals_per_face()
@@ -120,6 +130,7 @@ void lsTools::get_mesh_normals_per_face()
         areaPF(i) = sqrt(lp * (lp - le0) * (lp - le1) * (lp - le2));
     }
     igl::massmatrix(V, F, igl::MASSMATRIX_TYPE_BARYCENTRIC, mass);
+    mass_uniform = get_uniformed_mass(mass);
 }
 
 void lsTools::get_mesh_angles()

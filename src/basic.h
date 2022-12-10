@@ -126,6 +126,7 @@ private:
     spMat QcH; // curved harmonic energy matrix
     spMat Dlps;       // the derivates of laplacian F for all the vertices.
     spMat mass;       // mass(i,i) is the area of the voronoi cell of vertex vi
+    spMat mass_uniform; // the uniformed mass matrix to make sure the average area is 1.
 
     // vertex-based pseudo-energy values
     Eigen::VectorXd InnerV; // the vector show if it is a inner ver (1) or not (0).
