@@ -263,8 +263,8 @@ private:
         const LSAnalizer &analizer,
         const std::vector<double>& angle_degree,
         const bool first_compute, const int aux_start_loc, std::vector<Trip>& tripletes, Eigen::VectorXd& MTenergy);
-    void calculate_mesh_opt_extreme_values(const Eigen::VectorXd& func,const bool asymptotic, const bool use_given_direction, const Eigen::Vector3d &ray,
-        const LSAnalizer& analizer, std::vector<Trip>& tripletes, Eigen::VectorXd& MTenergy);
+    void calculate_mesh_opt_extreme_values(Eigen::VectorXd &vars, const int aux_start_loc, const Eigen::VectorXd &func, const bool asymptotic, const bool use_given_direction, const Eigen::Vector3d &ray,
+                                           const LSAnalizer &analizer, std::vector<Trip> &tripletes, Eigen::VectorXd &MTenergy);
     void assemble_solver_mesh_opt_part( Eigen::VectorXd& vars,
         const LSAnalizer &analizer,
         const std::vector<double>& angle_degrees, const bool first_compute, const int aux_start_loc, spMat& JTJ, Eigen::VectorXd& B, Eigen::VectorXd& MTEnergy);
@@ -275,7 +275,7 @@ private:
     void assemble_solver_mean_value_laplacian(const Eigen::VectorXd& vars, spMat& H, Eigen::VectorXd& B);
     void assemble_solver_mesh_edge_length_part(const Eigen::VectorXd vars, spMat& H, Eigen::VectorXd& B, 
     Eigen::VectorXd& energy);
-    void assemble_solver_mesh_extreme(const Eigen::VectorXd &func, const bool asymptotic, const bool use_given_direction,
+    void assemble_solver_mesh_extreme(Eigen::VectorXd &vars, const int aux_start_loc, const Eigen::VectorXd &func, const bool asymptotic, const bool use_given_direction,
                                       const Eigen::Vector3d &ray, const LSAnalizer &analizer,
                                       spMat &JTJ, Eigen::VectorXd &B, Eigen::VectorXd &MTEnergy);
     void assemble_solver_shading_mesh_opt(const Eigen::VectorXd &func, const Eigen::Vector3d &ray,

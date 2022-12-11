@@ -1037,7 +1037,7 @@ void lsTools::Run_Level_Set_Opt() {
 		levelset_unit_scale(func, GradValueF, strip_width);
 		std::cout<<"Unit Scale Levelset"<<std::endl;
 	}
-	std::cout<<"check "<<func.norm()<<std::endl;
+	// std::cout<<"check "<<func.norm()<<std::endl;
 	analysis_pseudo_geodesic_on_vertices(func, anas[0]);
 	int ninner = anas[0].LocalActInner.size();
 	int final_size;

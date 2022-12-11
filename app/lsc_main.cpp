@@ -978,7 +978,11 @@ int main(int argc, char *argv[])
 			ImGui::SameLine();
 			if (ImGui::Button("draw AAG", ImVec2(ImGui::GetWindowSize().x * 0.23f, 0.0f)))
 			{
-				
+				if(lscif::readed_LS1.size()==0){
+					std::cout<<"Please Read the correct levelset 1 and levelset 2"<<std::endl;
+					ImGui::End();
+					return;
+				}
 				Eigen::MatrixXd CM;
 				igl::parula(Eigen::VectorXd::LinSpaced(21, 0, 1).eval(), false, CM);
 				igl::isolines_map(Eigen::MatrixXd(CM), CM);
