@@ -1118,6 +1118,23 @@ int main(int argc, char *argv[])
 				Eigen::MatrixXd binormals;
 				lscif::tools.show_binormals(lscif::tools.fvalues, E0, E1, binormals, lscif::vector_scaling);
 				viewer.data().add_edges(E0, E1, green);
+				if (lscif::enable_extreme_cases && lscif::Given_Const_Direction)
+				{
+					std::cout << "Ploting the light directions" << std::endl;
+					Eigen::Vector3d direction;
+					direction(0) = lscif::InputPx;
+					direction(1) = lscif::InputPy;
+					direction(2) = lscif::InputPz;
+					Eigen::MatrixXd light(lscif::tools.V.rows(), 3);
+					for (int i = 0; i < light.rows(); i++)
+					{
+						light.row(i) = direction;
+					}
+					Eigen::MatrixXd E2, E3;
+					E2 = lscif::tools.V + lscif::vector_scaling * light;
+					E3 = lscif::tools.V - lscif::vector_scaling * light;
+					viewer.data().add_edges(E2, E3, blue);
+				}
 			}
 			/*ImGui::SameLine();
 			if (ImGui::Button("draw binormals", ImVec2(ImGui::GetWindowSize().x * 0.23f, 0.0f)))
@@ -1381,30 +1398,27 @@ int main(int argc, char *argv[])
 				}
 			}
 			ImGui::SameLine();
-			if (ImGui::Button("Extr Origami Quad", ImVec2(ImGui::GetWindowSize().x * 0.25f, 0.0f)))
+			if (ImGui::Button("Extr Shading Lines", ImVec2(ImGui::GetWindowSize().x * 0.25f, 0.0f)))
 			{
 				int id = viewer.selected_data_index;
 				CGMesh updatedMesh;
 				
-				Eigen::MatrixXd VER;
-				Eigen::MatrixXi FAC;
 				if(lscif::readed_LS1.size()!=lscif::tools.V.rows()){
 					std::cout<<"Please load a correct Level Set 1"<<std::endl;
 					ImGui::End();
 				}
-				extract_Origami_web(lscif::tools.lsmesh, lscif::tools.V, lscif::tools.Boundary_Edges,
-									lscif::tools.F, lscif::readed_LS1, lscif::nbr_lines_first_ls, lscif::nbr_lines_second_ls,
-									VER, FAC);
-				std::string fname = igl::file_dialog_save();
-				if (fname.length() == 0)
-				{
-					ImGui::End();
-				}
-				else
-				{
-					igl::writeOBJ(fname, VER, FAC);
-					std::cout << "Quad mesh saved" << std::endl;
-				}
+				extract_shading_lines(lscif::tools.lsmesh, lscif::tools.V, lscif::tools.Boundary_Edges,
+									  lscif::tools.F, lscif::readed_LS1, lscif::nbr_lines_first_ls);
+				// std::string fname = igl::file_dialog_save();
+				// if (fname.length() == 0)
+				// {
+				// 	ImGui::End();
+				// }
+				// else
+				// {
+				// 	igl::writeOBJ(fname, VER, FAC);
+				// 	std::cout << "Quad mesh saved" << std::endl;
+				// }
 			}
 			ImGui::SameLine();
 			if (ImGui::Button("Binormal Origami", ImVec2(ImGui::GetWindowSize().x * 0.25f, 0.0f)))

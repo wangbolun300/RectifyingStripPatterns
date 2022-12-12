@@ -2173,37 +2173,110 @@ void sample_polylines(const std::vector<std::vector<Eigen::Vector3d>> &polylines
         verlists[i] = sample_one_polyline_based_on_length(polylines[i], avg);
     }
 }
-void extract_Origami_web(const CGMesh &lsmesh, const Eigen::MatrixXd &V,const std::vector<CGMesh::HalfedgeHandle>& loop,
-                         const Eigen::MatrixXi &F, const Eigen::VectorXd &ls,
-                         const int expect_nbr_ls, const int expect_nbr_dis,
-                         Eigen::MatrixXd &vers, Eigen::MatrixXi &Faces)
+
+void write_polyline_xyz(const std::vector<std::vector<Eigen::Vector3d>> &lines, const std::string prefix)
+{
+    std::ofstream file;
+    file.open(prefix + "_x.csv");
+    for (int i = 0; i < lines.size(); i++)
+    {
+        for (int j = 0; j < lines[i].size() - 1; j++)
+        {
+            file << lines[i][j][0] << ",";
+        }
+        file << lines[i].back()[0] << std::endl;
+    }
+    file.close();
+    file.open(prefix + "_y.csv");
+    for (int i = 0; i < lines.size(); i++)
+    {
+        for (int j = 0; j < lines[i].size() - 1; j++)
+        {
+            file << lines[i][j][1] << ",";
+        }
+        file << lines[i].back()[1] << std::endl;
+    }
+    file.close();
+    file.open(prefix + "_z.csv");
+    for (int i = 0; i < lines.size(); i++)
+    {
+        for (int j = 0; j < lines[i].size() - 1; j++)
+        {
+            file << lines[i][j][2] << ",";
+        }
+        file << lines[i].back()[2] << std::endl;
+    }
+    file.close();
+}
+#include <igl/point_mesh_squared_distance.h>
+void extract_shading_lines(const CGMesh &lsmesh, const Eigen::MatrixXd &V, const std::vector<CGMesh::HalfedgeHandle> &loop,
+                           const Eigen::MatrixXi &F, const Eigen::VectorXd &ls,
+                           const int expect_nbr_ls)
 {
     Eigen::VectorXd lsv0;
     int nbr_ls0;
+    std::vector<std::vector<Eigen::Vector3d>> lines;
 
     nbr_ls0 = expect_nbr_ls;
     get_level_set_sample_values(ls, nbr_ls0, lsv0);
     std::vector<Eigen::Vector3d> verlist;
-    verlist.reserve(nbr_ls0*expect_nbr_dis);
-    for(int i=0;i<nbr_ls0;i++){
+    verlist.reserve(nbr_ls0 * F.rows());
+
+    for (int i = 0; i < nbr_ls0; i++)
+    {
         std::vector<std::vector<Eigen::Vector3d>> polylines;
         double value = lsv0[i];
         std::vector<bool> left_large;
         get_iso_lines(lsmesh, loop, V, F, ls, value, polylines, left_large);
-
-        double length ;
-        int longest = select_longest_polyline(polylines, length);
-        std::cout<<"longest got, size "<<polylines[longest].size()<<" length "<<length<<std::endl;
-        // for(int j=0;j<polylines[longest].size();j++){
-        //     std::cout<<"v "<<polylines[longest][j].transpose()<<std::endl;
-        // }
-        // exit(0);
-        sample_polyline_and_extend_verlist(polylines[longest], expect_nbr_dis, length, verlist);
-        std::cout<<"vers found"<<std::endl;
+        for (int j = 0; j < polylines.size(); j++)
+        {
+            lines.push_back(polylines[j]);
+        }
     }
-    vers=vec_list_to_matrix(verlist);
-    extract_web_mxn(nbr_ls0, expect_nbr_dis, Faces);
-
+    std::cout << "Writing the Polylines, please provide the file prefix" << std::endl;
+    std::string fname = igl::file_dialog_save();
+    write_polyline_xyz(lines, fname);
+    std::cout << "Reading Bi-normals of triangle mesh" << std::endl;
+    for (int i = 0; i < lines.size(); i++)
+    {
+        for (int j = 0; j < lines[i].size(); j++)
+        {
+            verlist.push_back(lines[i][j]);
+        }
+    }
+    Eigen::MatrixXd bn;
+    read_bi_normals(bn);
+    std::cout << "Binormals readed" << std::endl;
+    Eigen::MatrixXd C;
+    Eigen::VectorXi I;
+    Eigen::VectorXd D;
+    int nq = verlist.size();
+    Eigen::MatrixXd B;
+    B.resize(nq, 3);
+    Eigen::MatrixXd vers = vec_list_to_matrix(verlist);
+    igl::point_mesh_squared_distance(vers, V, F, D, I, C);
+    for (int i = 0; i < nq; i++)
+    {
+        int fid = I(i);
+        int v0 = F(fid, 0);
+        int v1 = F(fid, 1);
+        int v2 = F(fid, 2);
+        Eigen::Vector3d dir = bn.row(v0) + bn.row(v1) + bn.row(v2);
+        dir = dir.normalized();
+        B.row(i) = dir;
+    }
+    std::vector<std::vector<Eigen::Vector3d>> bilist = lines;
+    int counter = 0;
+    for (int i = 0; i < lines.size(); i++)
+    {
+        for (int j = 0; j < lines[i].size(); j++)
+        {
+            bilist[i][j] = B.row(counter);
+            counter++;
+        }
+    }
+    write_polyline_xyz(bilist, fname+"_b");
+    std::cout << "Binormals got written" << std::endl;
 }
 
 void lsTools::show_binormals(const Eigen::VectorXd &func, Eigen::MatrixXd &E0, Eigen::MatrixXd &E1, Eigen::MatrixXd& binormals,  double ratio){
@@ -2211,7 +2284,7 @@ void lsTools::show_binormals(const Eigen::VectorXd &func, Eigen::MatrixXd &E0, E
     E0 = V - Binormals * ratio;
     E1 = V + Binormals * ratio;
 }
-#include <igl/point_mesh_squared_distance.h>
+
 #include <fstream>
 bool write_quad_mesh_with_binormal(const std::string &fname, const Eigen::MatrixXd &Vt, const Eigen::MatrixXi &Ft, const Eigen::MatrixXd &bi,
                                    const Eigen::MatrixXd &Vq, const Eigen::MatrixXi &Fq)

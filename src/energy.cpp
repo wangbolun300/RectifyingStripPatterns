@@ -514,6 +514,7 @@ void lsTools::calculate_extreme_pseudo_geodesic_values(Eigen::VectorXd &vars, co
 	tripletes.reserve(ninner * 15);				// the number of rows is ninner*4, the number of cols is aux_start_loc + ninner * 3 (all the function values and auxiliary vars)
 	Energy = Eigen::VectorXd::Zero(ninner * 2); // mesh total energy values
 	double max_ele = 0;
+	double max_eng = 0;
 	for (int i = 0; i < ninner; i++)
 	{
 		if (analizer.LocalActInner[i] == false)
@@ -614,9 +615,18 @@ void lsTools::calculate_extreme_pseudo_geodesic_values(Eigen::VectorXd &vars, co
 			Energy[i] = vec_l.dot(vec_r) / s1;
 			Eigen::Vector3d cross = (ver1 - ver0).cross(ver2 - ver1);
 			Binormals.row(vm) = cross.normalized();
+			double eng = cross.normalized().dot(norm);
+			eng =abs(eng);
+			if(eng>max_eng){
+				max_eng=eng;
+			}
 		}
 	}
-	std::cout<<"max_ele, "<<max_ele<<", ";
+	//std::cout<<"max_ele, "<<max_ele<<", ";
+	if(!asymptotic){
+		std::cout<<"max_eng, "<<max_eng<<", ";
+	}
+	
 }
 
 // an extra condition for shading, which makes sure the light is othogonal to the curve tangent
