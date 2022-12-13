@@ -1025,6 +1025,9 @@ void levelset_unit_scale(Eigen::VectorXd& func, Eigen::MatrixXd &GradValueF, con
     GradValueF *= ratio;
     std::cout<<"Target strip width, "<<length<<", Current average length, "<<avg<<std::endl;
     std::cout<<"the scale ratio, "<<ratio<<std::endl;
+    gn = GradValueF.rowwise().norm();
+    avg = gn.dot(Eigen::VectorXd::Ones(fnbr)) / fnbr;
+    std::cout<<"gradient avg, "<<avg;
 }
 void lsTools::Run_AAG_Mesh_Opt(Eigen::VectorXd& func0, Eigen::VectorXd& func1, Eigen::VectorXd& func2){
 

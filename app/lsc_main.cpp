@@ -60,7 +60,7 @@ namespace lscif
 	int which_seg_id = 0; // the face id of which we will assign value to
 	int nbr_of_intervals = 3;
 	int start_bnd_he = 0;// start boundary halfedge, for init the values by assign values on some edges
-    int nbr_edges = 10;
+    int nbr_edges = 20;
 	int id_debug_global = 5;
 	double target_angle = 60;
 	double target_min_angle = 90; // target angle for min function value;
