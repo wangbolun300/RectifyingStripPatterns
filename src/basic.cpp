@@ -378,20 +378,28 @@ void lsTools::get_bnd_vers_and_handles()
     triplets.reserve(vnbr);
     IVids.clear();
     IVids.reserve(vnbr);
-    Eigen::VectorXd flags = Eigen::VectorXd::Ones(vnbr); // first by default set all vertices as non-boundary vertices
+    Eigen::VectorXi flags = Eigen::VectorXi::Ones(vnbr) * -1; // first by default set all vertices as non-boundary vertices
     for (CGMesh::VertexIter v_it = lsmesh.vertices_begin(); v_it != (lsmesh.vertices_end()); ++v_it)
     {
         int vid = v_it.handle().idx();
         if (lsmesh.is_boundary(v_it.handle()))
         { // find all the boundary vertices
+
             
-            flags(vid) = 0;
         }
-        else{
+        else
+        {
+            flags(vid) = IVids.size();
             IVids.push_back(vid);
         }
     }
     InnerV = flags;
+    for(int i = 0;i<IVids.size();i++){
+        int vid = IVids[i];
+        if(InnerV[vid]!=i){
+            std::cout<<"The inner vertex mapping is wrong!"<<std::endl;
+        }
+    }
     // get all the boundary halfedges
     std::vector<CGMesh::HalfedgeHandle> hdls;
     for (CGMesh::EdgeIter e_it = lsmesh.edges_begin(); e_it != lsmesh.edges_end(); ++e_it)

@@ -2950,4 +2950,51 @@ void lsTools::show_max_pg_energy(Eigen::VectorXd &e)
     }
     e = result;
 }
-// std::vector<>
+// ref is the reference vertices marked in the vertex list of the mesh
+void get_one_ring_vertices_simple(const Eigen::VectorXi &ref, CGMesh &lsmesh, Eigen::VectorXi &ring1)
+{
+    int vsize = ref.size();
+    ring1 = ref;
+    for (int i = 0; i < vsize; i++)
+    {
+        if (ref[i] < 0)
+        {
+            continue;
+        }
+        int vid = i;
+        std::vector<int> pts;
+        get_one_ring_vertices(lsmesh, vid, pts);
+        for (int p : pts)
+        {
+            ring1[p] = 1;
+        }
+    }
+}
+
+Eigen::VectorXi lsTools::Second_Angle_Inner_Vers()
+{
+    int ninner = anas[0].LocalActInner.size();
+    int vnbr = V.rows();
+    Eigen::VectorXi result = Eigen::VectorXi::Zero(ninner);
+    int candi_size = Second_Ray_vers.size();
+    Eigen::VectorXi ref = Eigen::VectorXi::Ones(vnbr) * -1; // mark the related vertices as 1, others as -1
+    for (int id : Second_Ray_vers)
+    {
+        ref[id] = 1;
+    }
+    for (int i = 0; i < Second_Ray_nbr_rings; i++)
+    {
+        Eigen::VectorXi ring;
+        get_one_ring_vertices_simple(ref, lsmesh, ring);
+        ref = ring;
+    }
+    // map the marks into inner vertex list
+    for(int i =0;i<ref.size();i++){
+        if(ref[i]<0){
+            continue;
+        }
+        int location = InnerV[i];
+        result[location] = 1;
+    }
+    return result;
+}

@@ -74,6 +74,7 @@ class LSAnalizer {
 public:
     LSAnalizer() {};
     Eigen::VectorXi LocalActInner;
+    Eigen::VectorXi Special; // record special ids
     std::vector<CGMesh::HalfedgeHandle> heh0; 
     std::vector<CGMesh::HalfedgeHandle> heh1;
     std::vector<double> t1s;
@@ -129,7 +130,7 @@ private:
     spMat mass_uniform; // the uniformed mass matrix to make sure the average area is 1.
 
     // vertex-based pseudo-energy values
-    Eigen::VectorXd InnerV; // the vector show if it is a inner ver (1) or not (0).
+    Eigen::VectorXi InnerV; // the vector show if it is a inner ver (1) or not (0).
     std::vector<int> IVids; // the ids of the inner vers.
 
     
@@ -188,7 +189,7 @@ private:
                                                   const LSAnalizer &analizer, const int vars_start_loc, std::vector<Trip> &tripletes, Eigen::VectorXd &Energy);
     void calculate_boundary_direction_energy_function_values(const Eigen::MatrixXd& GradFValue,
         const std::vector<CGMesh::HalfedgeHandle>& edges, const Eigen::VectorXd& func, Eigen::VectorXd& lens, Eigen::VectorXd& energy);
-    void calculate_shading_condition_values(Eigen::VectorXd &vars, const Eigen::Vector3d &ray,
+    void calculate_shading_condition_values(Eigen::VectorXd &vars,
 												 const LSAnalizer &analizer, const int vars_start_loc, std::vector<Trip> &tripletes, Eigen::VectorXd &Energy);
     void calculate_shading_condition_auxiliary_vars(Eigen::VectorXd& vars,
 	const LSAnalizer &analizer, const int vars_start_loc, const int aux_start_loc, std::vector<Trip>& tripletes, Eigen::VectorXd& Energy);
@@ -205,7 +206,7 @@ private:
     void assemble_solver_fixed_boundary_direction_part(const Eigen::MatrixXd& GradFValue, const std::vector<CGMesh::HalfedgeHandle>& edges,
         const Eigen::VectorXd& func,
         spMat& H, Eigen::VectorXd& B, Eigen::VectorXd& energy);
-    void assemble_solver_shading_condition(Eigen::VectorXd &vars, const Eigen::Vector3d &ray,
+    void assemble_solver_shading_condition(Eigen::VectorXd &vars, 
                                            const LSAnalizer &analizer, const int vars_start_loc, 
                                            spMat &H, Eigen::VectorXd &B, Eigen::VectorXd &Energy);
     void assemble_solver_othogonal_to_given_face_directions(const Eigen::VectorXd &func, const Eigen::MatrixXd &directions,
@@ -246,7 +247,8 @@ private:
 
     void extract_one_curve(const double value, Eigen::MatrixXd& E0, Eigen::MatrixXd &E1);
     void estimate_strip_width_according_to_tracing();
-    
+    Eigen::VectorXi Second_Angle_Inner_Vers();// the inner vertices use the second shading angle
+
     // Mesh Optimization Part
 
     Eigen::VectorXd ElStored; // edge length of the original mesh
@@ -319,9 +321,10 @@ public:
     bool enable_extreme_cases = false; // osculating plane othogonal to the normal direction, or contains the given direction
     bool Given_Const_Direction = false;// use the given direction but not the normal
     Eigen::Vector3d Reference_ray;  // the ray feed to the optimization as a constant direction
-    std::vector<int> Second_Ray_vers; // the vertices for the second shading light direction
-    std::vector<int> Second_Ray_nbr_rings; // the nbr of rings associate to the vers corresponding to the second ray
     Eigen::Vector3d Reference_ray_2; // the second reference ray
+    std::vector<int> Second_Ray_vers; // the vertices for the second shading light direction
+    int Second_Ray_nbr_rings = 1; // the nbr of rings associate to the vers corresponding to the second ray
+    
 
 
     double pseudo_geodesic_target_angle_degree; // the target pseudo-geodesic angle

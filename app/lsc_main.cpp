@@ -105,6 +105,9 @@ namespace lscif
 	double InputPx = 1.0;
 	double InputPy = 1.0;
 	double InputPz = 1.0;
+	double InputPx1 = 1.0;
+	double InputPy1 = 1.0;
+	double InputPz1 = 1.0;
 	std::vector<int> VertexType;
 
 	// add a new mesh into the mesh lists, and show the new mesh along with previous showed meshes
@@ -533,11 +536,16 @@ int main(int argc, char *argv[])
 			ImGui::Checkbox("Const Direc", &lscif::Given_Const_Direction);
 			if (lscif::Given_Const_Direction)
 			{
-				ImGui::InputDouble("Dirx", &lscif::InputPx, 0, 0, "%.6f");
+				ImGui::InputDouble("X0", &lscif::InputPx, 0, 0, "%.6f");
 				ImGui::SameLine();
-				ImGui::InputDouble("Diry", &lscif::InputPy, 0, 0, "%.6f");
+				ImGui::InputDouble("Y0", &lscif::InputPy, 0, 0, "%.6f");
 				ImGui::SameLine();
-				ImGui::InputDouble("Dirz", &lscif::InputPz, 0, 0, "%.6f");
+				ImGui::InputDouble("Z0", &lscif::InputPz, 0, 0, "%.6f");
+				ImGui::InputDouble("X1", &lscif::InputPx1, 0, 0, "%.6f");
+				ImGui::SameLine();
+				ImGui::InputDouble("Y1", &lscif::InputPy1, 0, 0, "%.6f");
+				ImGui::SameLine();
+				ImGui::InputDouble("Z1", &lscif::InputPz1, 0, 0, "%.6f");
 				ImGui::InputDouble("weight shading", &lscif::weight_shading, 0, 0, "%.4f");
 			}
 
@@ -756,11 +764,10 @@ int main(int argc, char *argv[])
 				einit.Reference_ray = Eigen::Vector3d(lscif::InputPx, lscif::InputPy, lscif::InputPz);
 				lscif::tools.weight_shading = lscif::weight_shading;
 				lscif::tools.prepare_level_set_solving(einit);
-				// if(lscif::tools.fvalues.size()==0 && lscif::){
-				// 	std::cout<<"Please load or initialize the level-set before opt it"<<std::endl;
-				// 	ImGui::End();
-				// 	return;
-				// }
+				lscif::tools.Second_Ray_vers = lscif::update_verlist;
+				lscif::tools.Second_Ray_nbr_rings = lscif::ring_nbr;
+				lscif::tools.Reference_ray_2 = Eigen::Vector3d(lscif::InputPx1, lscif::InputPy1, lscif::InputPz1);
+
 				for (int i = 0; i < lscif::OpIter; i++)
 				{
 					lscif::tools.Run_Level_Set_Opt();
@@ -930,6 +937,7 @@ int main(int argc, char *argv[])
 				einit.Reference_ray = Eigen::Vector3d(lscif::InputPx, lscif::InputPy, lscif::InputPz);
 				lscif::tools.prepare_level_set_solving(einit);
 				lscif::tools.weight_geodesic=lscif::weight_geodesic;
+				
 				for (int i = 0; i < lscif::OpIter; i++)
 				{
 					lscif::tools.Run_AAG(lscif::readed_LS1, lscif::readed_LS2, lscif::readed_LS3);

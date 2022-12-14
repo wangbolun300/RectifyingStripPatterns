@@ -253,7 +253,6 @@ void lsTools::analysis_pseudo_geodesic_on_vertices(const Eigen::VectorXd& func_v
 void lsTools::analysis_pseudo_geodesic_on_vertices(const Eigen::VectorXd& func_values, LSAnalizer& ana) {
 	analysis_pseudo_geodesic_on_vertices(func_values, ana.LocalActInner, ana.heh0, ana.heh1, ana.t1s, ana.t2s);
 }
-int count = 0;
 
 // auxiliaries:
 // r: the bi-normal. position: aux_start_loc ~ aux_start_loc + ninner * 3
@@ -571,6 +570,13 @@ void lsTools::calculate_shading_condition_auxiliary_vars(Eigen::VectorXd& vars,
 		}
 		// std::cout<<"r got"<<std::endl;
 		Eigen::Vector3d ray = Reference_ray.normalized();
+		if (analizer.Special.size() > 0)
+		{
+			if (analizer.Special[i] == true)
+			{
+				ray = Reference_ray_2;
+			}
+		}
 		Eigen::Vector3d r = Eigen::Vector3d(vars[lrx], vars[lry], vars[lrz]);
 		Binormals.row(vm) = r.dot(norm) < 0 ? -r : r;
 		// the weights
@@ -751,7 +757,7 @@ void lsTools::calculate_extreme_pseudo_geodesic_values(Eigen::VectorXd &vars, co
 }
 
 // an extra condition for shading, which makes sure the light is othogonal to the curve tangent
-void lsTools::calculate_shading_condition_values(Eigen::VectorXd &vars, const Eigen::Vector3d &ray,
+void lsTools::calculate_shading_condition_values(Eigen::VectorXd &vars,
 												 const LSAnalizer &analizer, const int vars_start_loc, std::vector<Trip> &tripletes, Eigen::VectorXd &Energy)
 {
 	int vnbr = V.rows();
@@ -788,7 +794,14 @@ void lsTools::calculate_shading_condition_values(Eigen::VectorXd &vars, const Ei
 		int lv3 = vars_start_loc + v3;
 		int lv4 = vars_start_loc + v4;
 
-		Eigen::Vector3d norm = ray.normalized();
+		Eigen::Vector3d norm = Reference_ray.normalized();
+		if (analizer.Special.size() > 0)
+		{
+			if (analizer.Special[i] == true)
+			{
+				norm = Reference_ray_2;
+			}
+		}
 		// std::cout<<"correct given direction "<<norm.transpose()<<std::endl;
 		double fm = vars[lvm], f1 = vars[lv1], f2 = vars[lv2], f3 = vars[lv3], f4 = vars[lv4];
 		// conditions for shading
@@ -1075,12 +1088,12 @@ void lsTools::assemble_solver_extreme_cases_part_vertex_based(Eigen::VectorXd &v
 	H = J.transpose() * J;
 	B = -J.transpose() * energy;
 }
-void lsTools::assemble_solver_shading_condition(Eigen::VectorXd &vars, const Eigen::Vector3d &ray,
+void lsTools::assemble_solver_shading_condition(Eigen::VectorXd &vars,
 									   const LSAnalizer &analizer, const int vars_start_loc,
 									   spMat &H, Eigen::VectorXd &B, Eigen::VectorXd &Energy)
 {
 	std::vector<Trip> tripletes;
-	calculate_shading_condition_values(vars, ray,analizer, vars_start_loc, tripletes, Energy);
+	calculate_shading_condition_values(vars,analizer, vars_start_loc, tripletes, Energy);
 	int nvars = vars.size();
 	int ncondi = Energy.size();
 	spMat J;
@@ -1149,7 +1162,6 @@ void lsTools::assemble_solver_othogonal_to_given_face_directions(const Eigen::Ve
 
 void lsTools::Run_Level_Set_Opt() {
 	
-	count = 0;
 	Eigen::MatrixXd GradValueF, GradValueV;
 	Eigen::VectorXd PGEnergy, Eshading;
 	Eigen::VectorXd func = fvalues;
@@ -1248,7 +1260,8 @@ void lsTools::Run_Level_Set_Opt() {
 	// fix inner vers and smooth boundary
 	if (enable_inner_vers_fixed)
 	{
-		H += weight_mass * InnerV.asDiagonal();
+		// H += weight_mass * InnerV.asDiagonal();
+		std::cout << "Please don't use fixing_inner_vertex energy" << std::endl;
 	}
 	Eigen::VectorXd bcfvalue = Eigen::VectorXd::Zero(vnbr);
 	Eigen::VectorXd fbdenergy = Eigen::VectorXd::Zero(vnbr);
@@ -1316,14 +1329,16 @@ void lsTools::Run_Level_Set_Opt() {
 			}
 			if(Given_Const_Direction){
 				std::cout << "Direc " << Reference_ray.transpose() << ", ";
+
 			}
+			anas[0].Special = Second_Angle_Inner_Vers();
 			// std::cout<<"extreme before"<<std::endl;
 			assemble_solver_extreme_cases_part_vertex_based(Glob_lsvars, asymptotic, Given_Const_Direction, Reference_ray,
 															anas[0], vars_start_loc, pg_JTJ, pg_mJTF, PGEnergy);
 			// std::cout<<"extreme computed"<<std::endl;
 			if (Given_Const_Direction)
 			{
-				assemble_solver_shading_condition(Glob_lsvars, Reference_ray, anas[0], vars_start_loc, sd_H, sd_B, Eshading);
+				assemble_solver_shading_condition(Glob_lsvars, anas[0], vars_start_loc, sd_H, sd_B, Eshading);
 			}
 		}
 
