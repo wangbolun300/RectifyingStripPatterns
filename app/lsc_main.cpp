@@ -1514,25 +1514,27 @@ int main(int argc, char *argv[])
 			// ImGui::InputDouble("weight ls mass(big)", &lscif::weight_mass, 0, 0, "%.4f");
 			// ImGui::Checkbox("Fix Boundary", &lscif::fixBoundary_checkbox);
 		}
-		ImGui::InputInt("Ver_id", &lscif::update_ver_id, 0, 0);
-		ImGui::InputInt("ring nbr", &lscif::ring_nbr, 0, 0);
-		if (ImGui::Button("update vertex id", ImVec2(ImGui::GetWindowSize().x * 0.25f, 0.0f)))
+		if (ImGui::CollapsingHeader("Shading Paras", ImGuiTreeNodeFlags_DefaultOpen))
 		{
-			lscif::update_verlist.push_back(lscif::update_ver_id);
-			std::cout << "Current ver list" << std::endl;
-			for (int i = 0; i < lscif::update_verlist.size(); i++)
+			ImGui::InputInt("Ver_id", &lscif::update_ver_id, 0, 0);
+			ImGui::InputInt("ring nbr", &lscif::ring_nbr, 0, 0);
+			if (ImGui::Button("update vertex id", ImVec2(ImGui::GetWindowSize().x * 0.25f, 0.0f)))
 			{
-				std::cout << lscif::update_verlist[i] << ",";
+				lscif::update_verlist.push_back(lscif::update_ver_id);
+				std::cout << "Current ver list" << std::endl;
+				for (int i = 0; i < lscif::update_verlist.size(); i++)
+				{
+					std::cout << lscif::update_verlist[i] << ",";
+				}
+				std::cout << "\n";
 			}
-			std::cout << "\n";
+			ImGui::SameLine();
+			if (ImGui::Button("clear vertex list", ImVec2(ImGui::GetWindowSize().x * 0.25f, 0.0f)))
+			{
+				lscif::update_verlist.clear();
+				std::cout << "ver list got cleared" << std::endl;
+			}
 		}
-		ImGui::SameLine();
-		if (ImGui::Button("clear vertex list", ImVec2(ImGui::GetWindowSize().x * 0.25f, 0.0f)))
-		{
-			lscif::update_verlist.clear();
-			std::cout << "ver list got cleared" << std::endl;
-		}
-
 		ImGui::PushStyleColor(ImGuiCol_Button, (ImVec4)ImColor::HSV(0.0f, 0.6f, 0.6f));
 		ImGui::PushStyleColor(ImGuiCol_ButtonHovered, (ImVec4)ImColor::HSV(0.0f, 0.7f, 0.7f));
 		ImGui::PushStyleColor(ImGuiCol_ButtonActive, (ImVec4)ImColor::HSV(0.0f, 0.8f, 0.8f));

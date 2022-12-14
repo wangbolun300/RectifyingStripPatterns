@@ -200,7 +200,7 @@ std::vector<Trip> get_triplets_for_gradient_partial_parts_edge_based(std::array<
 	triplets.push_back(Trip(vB, vA, cfafb));
 	return triplets;
 }
-void lsTools::analysis_pseudo_geodesic_on_vertices(const Eigen::VectorXd& func_values, Eigen::VectorXd& LocalActInner,
+void lsTools::analysis_pseudo_geodesic_on_vertices(const Eigen::VectorXd& func_values, Eigen::VectorXi& LocalActInner,
 	std::vector<CGMesh::HalfedgeHandle>& heh0, std::vector<CGMesh::HalfedgeHandle>& heh1,
 	std::vector<double>& t1s, std::vector<double>& t2s) {
 	int ninner = IVids.size();
@@ -623,7 +623,7 @@ void lsTools::calculate_shading_condition_auxiliary_vars(Eigen::VectorXd& vars,
 
 }
 // deal with asymptotic and geodesic, for using fewer auxiliary variables
-void lsTools::calculate_extreme_pseudo_geodesic_values(Eigen::VectorXd &vars, const bool asymptotic, const bool use_given_direction, const Eigen::Vector3d &ray,
+void lsTools::calculate_extreme_pseudo_geodesic_values(Eigen::VectorXd &vars, const bool asymptotic,
 													   const LSAnalizer &analizer, const int vars_start_loc, std::vector<Trip> &tripletes, Eigen::VectorXd &Energy)
 {
 	int vnbr = V.rows();
@@ -712,12 +712,12 @@ void lsTools::calculate_extreme_pseudo_geodesic_values(Eigen::VectorXd &vars, co
 			}
 			
 		}
-		else{// geodesic or constant reference direction (for shading design)
+		else{// geodesic condition
 			Eigen::Vector3d norm = norm_v.row(vm);
-			if(use_given_direction){
-				norm = ray.normalized();
-				// std::cout<<"correct given direction "<<norm.transpose()<<std::endl;
-			}
+			// if(use_given_direction){
+			// 	norm = ray.normalized();
+			// 	// std::cout<<"correct given direction "<<norm.transpose()<<std::endl;
+			// }
 			Eigen::Vector3d r12 = norm.cross(Eigen::Vector3d(V.row(v1) - V.row(v2)));
 			Eigen::Vector3d r2m = norm.cross(Eigen::Vector3d(V.row(v2) - V.row(vm)));
 			Eigen::Vector3d rm1 = norm.cross(Eigen::Vector3d(V.row(vm) - V.row(v1)));
@@ -1051,6 +1051,7 @@ const LSAnalizer &analizer, const bool first_compute, const int vars_start_loc, 
 	B = -J.transpose() * energy;
 	PGE = energy;
 }
+// asymptotic, geodesic, shading
 void lsTools::assemble_solver_extreme_cases_part_vertex_based(Eigen::VectorXd &vars, const bool asymptotic,
 															  const bool use_given_direction, const Eigen::Vector3d &ray,
 															  const LSAnalizer &analizer, const int vars_start_loc, spMat &H, Eigen::VectorXd &B, Eigen::VectorXd &energy)
@@ -1062,8 +1063,8 @@ void lsTools::assemble_solver_extreme_cases_part_vertex_based(Eigen::VectorXd &v
 												   analizer, vars_start_loc, vnbr, tripletes, energy);
 												//    std::cout<<"trip got"<<std::endl;
 	}
-	else{
-		calculate_extreme_pseudo_geodesic_values(vars, asymptotic, use_given_direction, ray, analizer, vars_start_loc, tripletes, energy);
+	else{// 
+		calculate_extreme_pseudo_geodesic_values(vars, asymptotic, analizer, vars_start_loc, tripletes, energy);
 	}
 	
 	int nvars = vars.size();

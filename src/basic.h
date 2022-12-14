@@ -73,7 +73,7 @@ class TracingPrepare{
 class LSAnalizer {
 public:
     LSAnalizer() {};
-    Eigen::VectorXd LocalActInner;
+    Eigen::VectorXi LocalActInner;
     std::vector<CGMesh::HalfedgeHandle> heh0; 
     std::vector<CGMesh::HalfedgeHandle> heh1;
     std::vector<double> t1s;
@@ -178,13 +178,13 @@ private:
     // get the boundary vertices and one ring vertices from them
     void get_bnd_vers_and_handles();
     void get_all_the_edge_normals();// the edge normals and the active edges
-    void analysis_pseudo_geodesic_on_vertices(const Eigen::VectorXd& func_values, Eigen::VectorXd& LocalActInner,
+    void analysis_pseudo_geodesic_on_vertices(const Eigen::VectorXd& func_values, Eigen::VectorXi& LocalActInner,
         std::vector<CGMesh::HalfedgeHandle>& heh0, std::vector<CGMesh::HalfedgeHandle>& heh1,
         std::vector<double>& t1s, std::vector<double>& t2s);
     void analysis_pseudo_geodesic_on_vertices(const Eigen::VectorXd& func_values, LSAnalizer& analizer);
     void calculate_pseudo_geodesic_opt_expanded_function_values(Eigen::VectorXd& vars, const std::vector<double>& angle_degree,
         const LSAnalizer &analizer, const bool first_compute,const int vars_start_loc, const int aux_start_loc, std::vector<Trip>& tripletes, Eigen::VectorXd& Energy);
-    void calculate_extreme_pseudo_geodesic_values(Eigen::VectorXd &vars, const bool asymptotic, const bool use_given_direction, const Eigen::Vector3d& ray,
+    void calculate_extreme_pseudo_geodesic_values(Eigen::VectorXd &vars, const bool asymptotic,
                                                   const LSAnalizer &analizer, const int vars_start_loc, std::vector<Trip> &tripletes, Eigen::VectorXd &Energy);
     void calculate_boundary_direction_energy_function_values(const Eigen::MatrixXd& GradFValue,
         const std::vector<CGMesh::HalfedgeHandle>& edges, const Eigen::VectorXd& func, Eigen::VectorXd& lens, Eigen::VectorXd& energy);
@@ -319,7 +319,9 @@ public:
     bool enable_extreme_cases = false; // osculating plane othogonal to the normal direction, or contains the given direction
     bool Given_Const_Direction = false;// use the given direction but not the normal
     Eigen::Vector3d Reference_ray;  // the ray feed to the optimization as a constant direction
-    
+    std::vector<int> Second_Ray_vers; // the vertices for the second shading light direction
+    std::vector<int> Second_Ray_nbr_rings; // the nbr of rings associate to the vers corresponding to the second ray
+    Eigen::Vector3d Reference_ray_2; // the second reference ray
 
 
     double pseudo_geodesic_target_angle_degree; // the target pseudo-geodesic angle
@@ -336,7 +338,7 @@ public:
     bool Compute_Auxiliaries_Mesh = true;
     Eigen::MatrixXd Binormals;
     Eigen::VectorXd PGE;// pseudo geodesic energy
-    std::vector<int> Second_Ray_vers; // the vertices for the second shading light direction
+    
     // boundary conditions
     // int boundary_type = 
     // 
