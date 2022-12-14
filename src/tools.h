@@ -81,3 +81,4 @@ void select_mesh_boundary_curve_on_boundary_loop(CGMesh &lsmesh, const Eigen::Ma
                                                  const int start_edge, const int nbr_edges,
                                                  const std::vector<CGMesh::HalfedgeHandle> &Boundary_Edges,
                                                  std::vector<CGMesh::HalfedgeHandle> &selected);
+bool vector_contains_NAN(Eigen::VectorXd& B);

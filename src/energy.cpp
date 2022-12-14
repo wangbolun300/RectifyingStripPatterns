@@ -1049,6 +1049,7 @@ const LSAnalizer &analizer, const bool first_compute, const int vars_start_loc, 
 	J.setFromTriplets(tripletes.begin(), tripletes.end());
 	H = J.transpose() * J;
 	B = -J.transpose() * energy;
+	PGE = energy;
 }
 void lsTools::assemble_solver_extreme_cases_part_vertex_based(Eigen::VectorXd &vars, const bool asymptotic,
 															  const bool use_given_direction, const Eigen::Vector3d &ray,
@@ -1335,7 +1336,10 @@ void lsTools::Run_Level_Set_Opt() {
 		}
 		Compute_Auxiliaries = false;
 	}
-	
+	if(vector_contains_NAN(Blarge)){
+        std::cout<<"energy contains NAN"<<std::endl;
+		return;
+    }
 	Hlarge += 1e-6 * weight_mass * spMat(Eigen::VectorXd::Ones(final_size).asDiagonal());
 
 	Eigen::SimplicialLLT<Eigen::SparseMatrix<double>> solver(Hlarge);

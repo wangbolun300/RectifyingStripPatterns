@@ -1575,29 +1575,39 @@ void get_row_and_col_ver_ids_from_web_mat(const Eigen::MatrixXi &mat, const Eige
         vr[i] = tmp;
     }
 }
-void construct_duplication_mapping(const int vnbr, const Eigen::MatrixXi &mat, const Eigen::MatrixXi &qds, Eigen::VectorXi &mapping, int& nbr)
+void construct_duplication_mapping(const int vnbr, const Eigen::MatrixXi& F, Eigen::VectorXi &mapping, int& nbr)
 {
-    Eigen::MatrixXi cpmat = mat;
     mapping = Eigen::VectorXi::Ones(vnbr) * -1;
-
-    // first we point out the non -1 elements in mapping
-    for (int i = 0; i < qds.rows(); i++)
+    for (int i = 0; i < F.rows(); i++)
     {
-        for (int j = 0; j < qds.cols(); j++)
+        for (int j = 0; j < F.cols(); j++)
         {
-            if (qds(i, j) > 0)
-            {
-                int v0 = cpmat(i, j);
-                int v1 = cpmat(i, j + 1);
-                int v2 = cpmat(i + 1, j + 1);
-                int v3 = cpmat(i + 1, j);
-                mapping[v0] = 1;
-                mapping[v1] = 1;
-                mapping[v2] = 1;
-                mapping[v3] = 1;
-            }
+            int vid = F(i, j);
+            assert(vid >= 0);
+            mapping[vid] = 1;
         }
     }
+    // Eigen::MatrixXi cpmat = mat;
+    
+    // assert(qds.rows() + 1 == mat.rows() && qds.cols() + 1 == mat.cols());
+    // // first we point out the non -1 elements in mapping
+    // for (int i = 0; i < qds.rows(); i++)
+    // {
+    //     for (int j = 0; j < qds.cols(); j++)
+    //     {
+    //         if (qds(i, j) > 0)
+    //         {
+    //             int v0 = cpmat(i, j);
+    //             int v1 = cpmat(i, j + 1);
+    //             int v2 = cpmat(i + 1, j + 1);
+    //             int v3 = cpmat(i + 1, j);
+    //             mapping[v0] = 1;
+    //             mapping[v1] = 1;
+    //             mapping[v2] = 1;
+    //             mapping[v3] = 1;
+    //         }
+    //     }
+    // }
     int loc = 0;
     for (int i = 0; i < vnbr; i++)
     {
@@ -1607,15 +1617,27 @@ void construct_duplication_mapping(const int vnbr, const Eigen::MatrixXi &mat, c
             loc++;
         }
     }
-    nbr=loc;
+    assert(vnbr >= loc);
+    nbr = loc;
 }
 Eigen::MatrixXd remove_ver_duplicated(const Eigen::MatrixXd& ver, const Eigen::VectorXi& mapping, const int vnbr){
     Eigen::MatrixXd result(vnbr, 3);
-    for(int i=0;i<mapping.size();i++){
-        if(mapping(i)>=0){
-            result.row(mapping(i))=ver.row(i);
+    Eigen::VectorXi ck = Eigen::VectorXi::Zero(vnbr);
+    int counter = 0;
+    for (int i = 0; i < mapping.size(); i++)
+    {
+        if (mapping(i) >= 0)
+        {
+            result.row(mapping(i)) = ver.row(i);
+            ck[mapping(i)] = 1;
+            counter++;
         }
     }
+    for (int i = 0; i < vnbr; i++)
+    {
+        assert(ck[i] == 1); // check if every ver is assigned
+    }
+    assert(counter == vnbr);
     return result;
 }
 Eigen::MatrixXi remove_fac_duplicated(const Eigen::MatrixXi &f, const Eigen::MatrixXi &mapping)
@@ -1626,8 +1648,10 @@ Eigen::MatrixXi remove_fac_duplicated(const Eigen::MatrixXi &f, const Eigen::Mat
         for (int j = 0; j < f.cols(); j++)
         {
             result(i, j) = mapping(f(i, j));
+            assert(result(i, j) >= 0);
         }
     }
+    // std::cout<<"F\n"<<result<<std::endl;
     return result;
 }
 std::vector<Eigen::VectorXi> remove_quad_info_duplicated(const std::vector<Eigen::VectorXi> &vrl, const Eigen::MatrixXi &mapping)
@@ -1939,6 +1963,8 @@ void visual_extract_levelset_web(const CGMesh &lsmesh, const Eigen::MatrixXd &V,
     }
 }
 
+// void filter_out_isolate_vers(void)
+
 // threadshold_nbr is the nbr of quads we want to discard when too few quads in a row
 void extract_levelset_web(const CGMesh &lsmesh, const Eigen::MatrixXd &V,
                           const Eigen::MatrixXi &F, const Eigen::VectorXd &ls0, const Eigen::VectorXd &ls1,
@@ -2016,6 +2042,7 @@ void extract_levelset_web(const CGMesh &lsmesh, const Eigen::MatrixXd &V,
             bool intersect = get_polyline_intersection(V, F, poly0_e0[i], poly0_e1[i], poly1_e0[j], poly1_e1[j], fid0[i], fid1[j], ipoint);
             if (intersect)
             {
+                // double dis = 
                 verlist.push_back(ipoint);
                 gridmat(i, j) = vnbr;
                 vnbr++;
@@ -2033,6 +2060,7 @@ void extract_levelset_web(const CGMesh &lsmesh, const Eigen::MatrixXd &V,
         //     }
         // }
     }
+
     std::cout << "extracted ver nbr " << verlist.size() << std::endl;
     vers = vec_list_to_matrix(verlist);
     
@@ -2052,7 +2080,13 @@ void extract_levelset_web(const CGMesh &lsmesh, const Eigen::MatrixXd &V,
     // remove duplicated vertices
     Eigen::VectorXi mapping;
     int real_nbr;
-    construct_duplication_mapping(vers.rows(), gridmat, qds, mapping, real_nbr);
+    construct_duplication_mapping(vers.rows(), Faces, mapping, real_nbr);
+    // check if mapping is correct.
+    // for(int i=0;i<mapping.size();i++){
+
+    // }
+
+
     std::cout<<"mapping constructed"<<std::endl;
     // std::cout<<mapping<<std::endl;
     vers = remove_ver_duplicated(vers, mapping, real_nbr);
@@ -2899,4 +2933,20 @@ void lsTools::show_traced_binormals(Eigen::MatrixXd &bE0, Eigen::MatrixXd &bE1, 
             counter++;
         }
     }
+}
+void lsTools::show_max_pg_energy(Eigen::VectorXd &e)
+{
+    int ninner = anas[0].LocalActInner.size();
+    int vnbr = V.rows();
+    int rep = PGE.rows() / ninner;
+    Eigen::VectorXd result = Eigen::VectorXd::Zero(vnbr);
+    for (int i = 0; i < ninner; i++)
+    {
+        int vm = IVids[i];
+        for (int j = 0; j < rep; j++)
+        {
+            result[vm] += PGE[i + j * ninner];
+        }
+    }
+    e = result;
 }

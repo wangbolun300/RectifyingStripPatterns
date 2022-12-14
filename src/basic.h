@@ -335,6 +335,8 @@ public:
     bool Compute_Auxiliaries=true;
     bool Compute_Auxiliaries_Mesh = true;
     Eigen::MatrixXd Binormals;
+    Eigen::VectorXd PGE;// pseudo geodesic energy
+    std::vector<int> Second_Ray_vers; // the vertices for the second shading light direction
     // boundary conditions
     // int boundary_type = 
     // 
@@ -392,6 +394,7 @@ public:
     void show_traced_binormals(Eigen::MatrixXd &bE0, Eigen::MatrixXd &bE1, Eigen::MatrixXd &nE0, Eigen::MatrixXd &nE1, const double scale);
     
     void show_binormals(const Eigen::VectorXd &func, Eigen::MatrixXd &E0, Eigen::MatrixXd &E1, Eigen::MatrixXd &binormals, double ratio);
+    void show_max_pg_energy(Eigen::VectorXd& e);
     void print_info(const int vid);
 
     void Trace_One_Guide_Pseudo_Geodesic();

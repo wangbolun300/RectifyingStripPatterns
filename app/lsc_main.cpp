@@ -94,6 +94,10 @@ namespace lscif
     double weight_Mesh_pesudo_geodesic=30;
     double Mesh_opt_max_step_length=0.01;
 
+	int update_ver_id;
+	int ring_nbr;
+	std::vector<int> update_verlist;
+
 	static bool selectFEV[30] = {true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true};
 	std::vector<std::string> meshFileName;
 	std::vector<CGMesh> Meshes;
@@ -260,6 +264,11 @@ namespace lscif
 				if (lscif::tools.fvalues.rows() > 0)
 				{
 					std::cout << "level set value " << lscif::tools.fvalues[vid] << std::endl;
+					Eigen::VectorXd energy;
+					lscif::tools.show_max_pg_energy(energy);
+					if(energy.size()>0){
+						std::cout<<"local energy, "<<energy[vid]<<std::endl;
+					}
 				}
 				std::cout << "point position: (" << viewer.data().V(vid, 0) << ", " << viewer.data().V(vid, 1) << ", " << viewer.data().V(vid, 2) << ")\n\n";
 				lscif::tools.print_info(vid);
@@ -1136,6 +1145,19 @@ int main(int argc, char *argv[])
 					viewer.data().add_edges(E2, E3, blue);
 				}
 			}
+
+			if (ImGui::Button("draw error", ImVec2(ImGui::GetWindowSize().x * 0.23f, 0.0f)))
+			{
+				Eigen::VectorXd error;
+				lscif::tools.show_max_pg_energy(error);
+				if(error.size()==0){
+					std::cout<<"Please run Levelset Opt to get the pseudo-geodesic error"<<std::endl;
+					ImGui::End();
+					return;
+				}
+				
+				viewer.data().set_colors(error);
+			}
 			/*ImGui::SameLine();
 			if (ImGui::Button("draw binormals", ImVec2(ImGui::GetWindowSize().x * 0.23f, 0.0f)))
 			{
@@ -1341,10 +1363,11 @@ int main(int argc, char *argv[])
 				}
 				else
 				{
-					std::cout << "ERROR, Please load level sets" << std::endl;
+					std::cout << "ERROR, Please load both two level sets" << std::endl;
 					ImGui::End();
 					return;
 				}
+				std::cout<<"Saving the quad mesh"<<std::endl;
 				std::string fname = igl::file_dialog_save();
 				if (fname.length() == 0)
 				{
@@ -1491,6 +1514,25 @@ int main(int argc, char *argv[])
 			// ImGui::InputDouble("weight ls mass(big)", &lscif::weight_mass, 0, 0, "%.4f");
 			// ImGui::Checkbox("Fix Boundary", &lscif::fixBoundary_checkbox);
 		}
+		ImGui::InputInt("Ver_id", &lscif::update_ver_id, 0, 0);
+		ImGui::InputInt("ring nbr", &lscif::ring_nbr, 0, 0);
+		if (ImGui::Button("update vertex id", ImVec2(ImGui::GetWindowSize().x * 0.25f, 0.0f)))
+		{
+			lscif::update_verlist.push_back(lscif::update_ver_id);
+			std::cout << "Current ver list" << std::endl;
+			for (int i = 0; i < lscif::update_verlist.size(); i++)
+			{
+				std::cout << lscif::update_verlist[i] << ",";
+			}
+			std::cout << "\n";
+		}
+		ImGui::SameLine();
+		if (ImGui::Button("clear vertex list", ImVec2(ImGui::GetWindowSize().x * 0.25f, 0.0f)))
+		{
+			lscif::update_verlist.clear();
+			std::cout << "ver list got cleared" << std::endl;
+		}
+
 		ImGui::PushStyleColor(ImGuiCol_Button, (ImVec4)ImColor::HSV(0.0f, 0.6f, 0.6f));
 		ImGui::PushStyleColor(ImGuiCol_ButtonHovered, (ImVec4)ImColor::HSV(0.0f, 0.7f, 0.7f));
 		ImGui::PushStyleColor(ImGuiCol_ButtonActive, (ImVec4)ImColor::HSV(0.0f, 0.8f, 0.8f));
