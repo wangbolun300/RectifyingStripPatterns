@@ -2998,3 +2998,10 @@ Eigen::VectorXi lsTools::Second_Angle_Inner_Vers()
     }
     return result;
 }
+
+// // this is to find the boundary of the shadow. In the boundary, the light is tangent to the surface
+// void un_mark_innervers_tangent_to_light(const Eigen::Vector3d &light, CGMesh &lsmesh,
+//                                         const Eigen::VectorXi &InnerV, const std::vector<int> &IVids, Eigen::VectorXi &act_inner)
+// {
+
+// }

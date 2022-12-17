@@ -42,7 +42,7 @@ class EnergyPrepare{
     double max_step_length;
 
     bool Given_Const_Direction;
-    Eigen::Vector3d Reference_ray;
+    // Eigen::Vector3d Reference_ray;
 };
 class MeshEnergyPrepare{
     public:
@@ -56,7 +56,7 @@ class MeshEnergyPrepare{
     double target_angle;
 
     bool Given_Const_Direction;
-    Eigen::Vector3d Reference_ray;
+    // Eigen::Vector3d Reference_ray;
 };
 class TracingPrepare{
     public:
@@ -122,7 +122,7 @@ private:
     std::vector<double> II_N;                     // second fundamental form: N 
     
     
-    std::vector<int> refids;                      // output the ids of current dealing points. just for debug purpose
+    
     // spMat Dlpsqr;                       // the derivates of ||laplacian F||^2 for all the vertices.
     spMat QcH; // curved harmonic energy matrix
     spMat Dlps;       // the derivates of laplacian F for all the vertices.
@@ -320,8 +320,14 @@ public:
     bool enable_boundary_angles=false;
     bool enable_extreme_cases = false; // osculating plane othogonal to the normal direction, or contains the given direction
     bool Given_Const_Direction = false;// use the given direction but not the normal
-    Eigen::Vector3d Reference_ray;  // the ray feed to the optimization as a constant direction
-    Eigen::Vector3d Reference_ray_2; // the second reference ray
+    double Reference_theta;  // the ray feed to the optimization as a constant direction
+    double Reference_phi;
+    double Reference_theta2;  // the ray feed to the optimization as a constant direction
+    double Reference_phi2;
+    double Theta_tol; // the tolerances for theta and phi
+    double Phi_tol;
+    double Theta_tol2;
+    double Phi_tol2;
     std::vector<int> Second_Ray_vers; // the vertices for the second shading light direction
     int Second_Ray_nbr_rings = 1; // the nbr of rings associate to the vers corresponding to the second ray
     
@@ -341,6 +347,8 @@ public:
     bool Compute_Auxiliaries_Mesh = true;
     Eigen::MatrixXd Binormals;
     Eigen::VectorXd PGE;// pseudo geodesic energy
+
+    std::vector<int> refids;                      // output the ids of current dealing points. just for debug purpose
     
     // boundary conditions
     // int boundary_type = 

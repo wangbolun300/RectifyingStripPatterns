@@ -84,3 +84,4 @@ void select_mesh_boundary_curve_on_boundary_loop(CGMesh &lsmesh, const Eigen::Ma
 bool vector_contains_NAN(Eigen::VectorXd& B);
 void get_one_ring_vertices(CGMesh &lsmesh, const int id, std::vector<int> &pts);
 Eigen::VectorXi Second_Angle_Inner_Vers();
+Eigen::Vector3d angle_ray_converter(const double theta, const double phi);

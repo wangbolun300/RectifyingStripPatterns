@@ -102,12 +102,17 @@ namespace lscif
 	std::vector<std::string> meshFileName;
 	std::vector<CGMesh> Meshes;
 	lsTools tools;
-	double InputPx = 1.0;
-	double InputPy = 1.0;
-	double InputPz = 1.0;
-	double InputPx1 = 1.0;
-	double InputPy1 = 1.0;
-	double InputPz1 = 1.0;
+	double InputPx = 45;
+	double InputPy = 0;
+
+	double InputPx1 = 60;
+	double InputPy1 = -45;
+	
+	double InputThetaTol = 10; // give 10 degrees of tolerance
+	double InputThetaTol1 = 10; // give 10 degrees of tolerance
+	double InputPhiTol = 10; // give 10 degrees of tolerance
+	double InputPhiTol1 = 10; // give 10 degrees of tolerance
+
 	std::vector<int> VertexType;
 
 	// add a new mesh into the mesh lists, and show the new mesh along with previous showed meshes
@@ -536,16 +541,22 @@ int main(int argc, char *argv[])
 			ImGui::Checkbox("Const Direc", &lscif::Given_Const_Direction);
 			if (lscif::Given_Const_Direction)
 			{
-				ImGui::InputDouble("X0", &lscif::InputPx, 0, 0, "%.6f");
+				ImGui::InputDouble("T0", &lscif::InputPx, 0, 0, "%.6f");
 				ImGui::SameLine();
-				ImGui::InputDouble("Y0", &lscif::InputPy, 0, 0, "%.6f");
+				ImGui::InputDouble("P0", &lscif::InputPy, 0, 0, "%.6f");
 				ImGui::SameLine();
-				ImGui::InputDouble("Z0", &lscif::InputPz, 0, 0, "%.6f");
-				ImGui::InputDouble("X1", &lscif::InputPx1, 0, 0, "%.6f");
+				ImGui::InputDouble("Ttol0", &lscif::InputThetaTol, 0, 0, "%.6f");
 				ImGui::SameLine();
-				ImGui::InputDouble("Y1", &lscif::InputPy1, 0, 0, "%.6f");
+				ImGui::InputDouble("Ptol0", &lscif::InputPhiTol, 0, 0, "%.6f");
+				
+				ImGui::InputDouble("T1", &lscif::InputPx1, 0, 0, "%.6f");
 				ImGui::SameLine();
-				ImGui::InputDouble("Z1", &lscif::InputPz1, 0, 0, "%.6f");
+				ImGui::InputDouble("P1", &lscif::InputPy1, 0, 0, "%.6f");
+				ImGui::SameLine();
+				ImGui::InputDouble("Ttol1", &lscif::InputThetaTol1, 0, 0, "%.6f");
+				ImGui::SameLine();
+				ImGui::InputDouble("Ptol1", &lscif::InputPhiTol1, 0, 0, "%.6f");
+				
 				ImGui::InputDouble("weight shading", &lscif::weight_shading, 0, 0, "%.4f");
 			}
 
@@ -761,12 +772,21 @@ int main(int argc, char *argv[])
 				einit.start_angle = lscif::start_angle;
 				einit.enable_boundary_angles = lscif::enable_boundary_angles;
 				einit.Given_Const_Direction = lscif::Given_Const_Direction;
-				einit.Reference_ray = Eigen::Vector3d(lscif::InputPx, lscif::InputPy, lscif::InputPz);
 				lscif::tools.weight_shading = lscif::weight_shading;
 				lscif::tools.prepare_level_set_solving(einit);
 				lscif::tools.Second_Ray_vers = lscif::update_verlist;
 				lscif::tools.Second_Ray_nbr_rings = lscif::ring_nbr;
-				lscif::tools.Reference_ray_2 = Eigen::Vector3d(lscif::InputPx1, lscif::InputPy1, lscif::InputPz1);
+				lscif::tools.Reference_theta = lscif::InputPx;
+				lscif::tools.Reference_phi = lscif::InputPy;
+				lscif::tools.Reference_theta2 = lscif::InputPx1;
+				lscif::tools.Reference_phi2 = lscif::InputPy1;
+				lscif::tools.Theta_tol = lscif::InputThetaTol;
+				lscif::tools.Phi_tol = lscif::InputThetaTol1;
+				lscif::tools.Theta_tol2 = lscif::InputPhiTol;
+				lscif::tools.Phi_tol2 = lscif::InputPhiTol1;
+				
+				
+				
 
 				for (int i = 0; i < lscif::OpIter; i++)
 				{
@@ -824,8 +844,15 @@ int main(int argc, char *argv[])
 				initializer.weight_Mesh_edgelength = lscif::weight_Mesh_edgelength;
 				initializer.enable_extreme_cases=lscif::enable_extreme_cases;
 				initializer.Given_Const_Direction = lscif::Given_Const_Direction;
-				initializer.Reference_ray = Eigen::Vector3d(lscif::InputPx, lscif::InputPy, lscif::InputPz);
 				lscif::tools.weight_shading = lscif::weight_shading;
+				lscif::tools.Reference_theta = lscif::InputPx;
+				lscif::tools.Reference_phi = lscif::InputPy;
+				lscif::tools.Reference_theta2 = lscif::InputPx1;
+				lscif::tools.Reference_phi2 = lscif::InputPy1;
+				lscif::tools.Theta_tol = lscif::InputThetaTol;
+				lscif::tools.Phi_tol = lscif::InputThetaTol1;
+				lscif::tools.Theta_tol2 = lscif::InputPhiTol;
+				lscif::tools.Phi_tol2 = lscif::InputPhiTol1;
 				lscif::tools.prepare_mesh_optimization_solving(initializer);
 				for(int i=0;i<lscif::Nbr_Iterations_Mesh_Opt;i++){
 					lscif::tools.Run_Mesh_Opt();
@@ -861,8 +888,6 @@ int main(int argc, char *argv[])
 				einit.target_max_angle = lscif::target_max_angle;
 				einit.start_angle = lscif::start_angle;
 				einit.enable_boundary_angles = lscif::enable_boundary_angles;
-				einit.Given_Const_Direction = lscif::Given_Const_Direction;
-				einit.Reference_ray = Eigen::Vector3d(lscif::InputPx, lscif::InputPy, lscif::InputPz);
 				lscif::tools.weight_shading = lscif::weight_shading;
 				lscif::tools.prepare_level_set_solving(einit);
 				if(lscif::readed_LS1.size()==0){
@@ -933,8 +958,7 @@ int main(int argc, char *argv[])
 				einit.target_max_angle = lscif::target_max_angle;
 				einit.start_angle = lscif::start_angle;
 				einit.enable_boundary_angles = lscif::enable_boundary_angles;
-				einit.Given_Const_Direction = lscif::Given_Const_Direction;
-				einit.Reference_ray = Eigen::Vector3d(lscif::InputPx, lscif::InputPy, lscif::InputPz);
+				
 				lscif::tools.prepare_level_set_solving(einit);
 				lscif::tools.weight_geodesic=lscif::weight_geodesic;
 				
@@ -976,8 +1000,6 @@ int main(int argc, char *argv[])
 				initializer.target_angle = lscif::target_angle;
 				initializer.weight_Mesh_edgelength = lscif::weight_Mesh_edgelength;
 				initializer.enable_extreme_cases = lscif::enable_extreme_cases;
-				initializer.Given_Const_Direction = lscif::Given_Const_Direction;
-				initializer.Reference_ray = Eigen::Vector3d(lscif::InputPx, lscif::InputPy, lscif::InputPz);
 				lscif::tools.weight_geodesic=lscif::weight_geodesic;
 				lscif::tools.prepare_mesh_optimization_solving(initializer);
 				for (int i = 0; i < lscif::Nbr_Iterations_Mesh_Opt; i++)
@@ -1139,9 +1161,7 @@ int main(int argc, char *argv[])
 				{
 					std::cout << "Ploting the light directions" << std::endl;
 					Eigen::Vector3d direction;
-					direction(0) = lscif::InputPx;
-					direction(1) = lscif::InputPy;
-					direction(2) = lscif::InputPz;
+					direction = angle_ray_converter(lscif::InputPx, lscif::InputPy);
 					Eigen::MatrixXd light(lscif::tools.V.rows(), 3);
 					for (int i = 0; i < light.rows(); i++)
 					{
@@ -1432,11 +1452,11 @@ int main(int argc, char *argv[])
 			if (ImGui::Button("Extr Shading Lines", ImVec2(ImGui::GetWindowSize().x * 0.25f, 0.0f)))
 			{
 				int id = viewer.selected_data_index;
-				CGMesh updatedMesh;
 				
 				if(lscif::readed_LS1.size()!=lscif::tools.V.rows()){
 					std::cout<<"Please load a correct Level Set 1"<<std::endl;
 					ImGui::End();
+					return;
 				}
 				extract_shading_lines(lscif::tools.lsmesh, lscif::tools.V, lscif::tools.Boundary_Edges,
 									  lscif::tools.F, lscif::readed_LS1, lscif::nbr_lines_first_ls);
