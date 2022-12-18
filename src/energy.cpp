@@ -513,7 +513,7 @@ Eigen::Vector3d angle_ray_converter(const double theta, const double phi)
 }
 
 // the condition that the principle normal is othogonal to a vector in a region
-// aux: r, ray, theta, phi, theta_min, theta_max, phi_min, phi_max
+// aux: r, ray, theta, phi, theta_min, theta_max, phi_min, phi_max. in total 12 * ninner auxiliary variables
 void lsTools::calculate_shading_condition_auxiliary_vars(Eigen::VectorXd& vars,
 	const LSAnalizer &analizer, const int vars_start_loc, const int aux_start_loc, std::vector<Trip>& tripletes, Eigen::VectorXd& Energy) {
 	int vnbr = V.rows();
@@ -524,7 +524,7 @@ void lsTools::calculate_shading_condition_auxiliary_vars(Eigen::VectorXd& vars,
 	
 	tripletes.clear();
 	tripletes.reserve(ninner * 60); // 
-	Energy = Eigen::VectorXd::Zero(ninner * 4); // mesh total energy values
+	Energy = Eigen::VectorXd::Zero(ninner * 12); // mesh total energy values
 
 	
 	// std::cout<<"whyhhhhh"<<std::endl;
@@ -644,7 +644,7 @@ void lsTools::calculate_shading_condition_auxiliary_vars(Eigen::VectorXd& vars,
 		{
 			if (analizer.Special[i] == true)
 			{
-				target_theta=Reference_theta2 * LSC_PI / 180.;
+				target_theta = Reference_theta2 * LSC_PI / 180.;
 				target_phi = Reference_phi2 * LSC_PI / 180.;
 				target_theta_tol = Theta_tol2 * LSC_PI / 180.;
 				target_phi_tol = Phi_tol2 * LSC_PI / 180.;
@@ -726,13 +726,51 @@ void lsTools::calculate_shading_condition_auxiliary_vars(Eigen::VectorXd& vars,
 
 		Energy[i + ninner * 4] = norm.dot(tangent) / tnorm * scale;
 
-		// ray x = sin(theta)*cos(phi)
-		tripletes.push_back(Trip(i + ninner * 5, lrayx, -1 * scale)); // to rayx
-		tripletes.push_back(Trip(i + ninner * 5, lth, (cos(theta) * cos(phi)) * scale)); // to theta
-		todo
+		// ray x = cos(theta)*sin(phi)
+		tripletes.push_back(Trip(i + ninner * 5, lrayx, 1 * scale));					  // to rayx
+		tripletes.push_back(Trip(i + ninner * 5, lth, (sin(theta) * sin(phi)) * scale));  // to theta
+		tripletes.push_back(Trip(i + ninner * 5, lph, (-cos(theta) * cos(phi)) * scale)); // to phi
+
+		Energy[i + ninner * 5] = (ray[0] - cos(theta) * sin(phi)) * scale;
+
+		// ray y = cos(theta) * cos(phi)
+		tripletes.push_back(Trip(i + ninner * 6, lrayy, 1 * scale));					 // to rayx
+		tripletes.push_back(Trip(i + ninner * 6, lth, (sin(theta) * cos(phi)) * scale)); // to theta
+		tripletes.push_back(Trip(i + ninner * 6, lph, (cos(theta) * sin(phi)) * scale)); // to phi
+
+		Energy[i + ninner * 6] = (ray[1] - cos(theta) * cos(phi)) * scale;
+
+		// ray z = sin(theta)
+		tripletes.push_back(Trip(i + ninner * 7, lrayz, 1 * scale));					 // to rayx
+		tripletes.push_back(Trip(i + ninner * 7, lth, (-cos(theta)) * scale));			 // to theta
+
+		Energy[i + ninner * 7] = (ray[2] - sin(theta)) * scale;
+
+		// theta - theta_lower - tl^2 = 0, theta_lower is a constant
+		tripletes.push_back(Trip(i + ninner * 8, lth, 1 * scale));
+		tripletes.push_back(Trip(i + ninner * 8, ltl, -2 * tl * scale));
+
+		Energy[i + ninner * 8] = (theta - theta_lower - tl * tl) * scale;
+
+		// theta_upper - theta - tr^2 = 0
+		tripletes.push_back(Trip(i + ninner * 9, lth, -1 * scale));
+		tripletes.push_back(Trip(i + ninner * 9, ltr, -2 * tr * scale));
+
+		Energy[i + ninner * 9] = (theta_upper - theta - tr * tr) * scale;
+
+		// phi - phi_lower - pl^2 = 0
+		tripletes.push_back(Trip(i + ninner * 10, lph, 1 * scale));
+		tripletes.push_back(Trip(i + ninner * 10, lpl, -2 * pl * scale));
+
+		Energy[i + ninner * 10] = (phi - phi_lower - pl * pl) * scale;
+
+		// phi_upper - phi - pr^2 = 0
+		tripletes.push_back(Trip(i + ninner * 11, lph, -1 * scale));
+		tripletes.push_back(Trip(i + ninner * 11, lpr, -2 * pr * scale));
+
+		Energy[i + ninner * 11] = (phi_upper - phi - pr * pr) * scale;
 
 	}
-
 }
 // deal with asymptotic and geodesic, for using fewer auxiliary variables
 void lsTools::calculate_extreme_pseudo_geodesic_values(Eigen::VectorXd &vars, const bool asymptotic,
@@ -1301,8 +1339,16 @@ void lsTools::Run_Level_Set_Opt() {
 	analysis_pseudo_geodesic_on_vertices(func, anas[0]);
 	int ninner = anas[0].LocalActInner.size();
 	int final_size;
-	if(enable_extreme_cases){
-		final_size = vnbr + ninner*3;
+	if (enable_extreme_cases)
+	{
+		if (Given_Const_Direction)
+		{
+			final_size = vnbr + ninner * 12;
+		}
+		else
+		{
+			final_size = vnbr + ninner * 3;
+		}
 	}
 	else{
 		final_size = ninner * 10 + vnbr;// Change this when using more auxilary vars
