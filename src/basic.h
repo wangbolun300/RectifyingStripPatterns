@@ -12,7 +12,7 @@ typedef Eigen::SparseVector<int> SpVeci;
 typedef Eigen::Triplet<double> Trip;
 #define SCALAR_ZERO 1e-8
 #define MERGE_VERTEX_RATIO 0.01
-#define LSC_PI 3.14159265
+#define LSC_PI 3.14159265358979
 #define ANGLE_TOLERANCE 2.
 #define QUADRANT_TOLERANCE 0.04 // over 2 degree tolerance
 

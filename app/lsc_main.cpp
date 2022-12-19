@@ -113,6 +113,9 @@ namespace lscif
 	double InputPhiTol = 10; // give 10 degrees of tolerance
 	double InputPhiTol1 = 10; // give 10 degrees of tolerance
 
+	double Shading_Latitude = 34;
+
+
 	std::vector<int> VertexType;
 
 	// add a new mesh into the mesh lists, and show the new mesh along with previous showed meshes
@@ -490,11 +493,22 @@ int main(int argc, char *argv[])
 		ImGui::SameLine();
 		if (ImGui::Button("Debug", ImVec2(ImGui::GetWindowSize().x * 0.25f, 0.0f)))
 		{
-			Eigen::VectorXd test=Eigen::VectorXd::Random(10);
-			std::cout<<"test, "<<test.transpose()<<std::endl;
-			test.resize(5);
-			std::cout<<"test, "<<test.transpose()<<std::endl;
-			
+			// std::cout<<"write model flipped z coordinate"<<std::endl;
+			// Eigen::MatrixXd Vflip = lscif::tools.V;
+			// Vflip.col(2) *= -1;
+
+			// std::string fname = igl::file_dialog_save();
+			// if (fname.length() == 0)
+			// {
+			// 	ImGui::End();
+			// 	return;
+			// }
+			// else
+			// {
+			// 	igl::writeOBJ(fname, Vflip, lscif::tools.F);
+			// 	std::cout << "mesh saved" << std::endl;
+			// }
+			std::cout<<"value "<<lscif::weight_geodesic<<std::endl;
 		}
 
 		// Add new group
@@ -1556,7 +1570,8 @@ int main(int argc, char *argv[])
 		if (ImGui::CollapsingHeader("Shading Paras", ImGuiTreeNodeFlags_DefaultOpen))
 		{
 			ImGui::InputInt("Ver_id", &lscif::update_ver_id, 0, 0);
-			ImGui::InputInt("ring nbr", &lscif::ring_nbr, 0, 0);
+			ImGui::InputInt("Ring nbr", &lscif::ring_nbr, 0, 0);
+			ImGui::InputDouble("Latitude", &lscif::Shading_Latitude, 0, 0, "%.4f");
 			if (ImGui::Button("update vertex id", ImVec2(ImGui::GetWindowSize().x * 0.25f, 0.0f)))
 			{
 				lscif::update_verlist.push_back(lscif::update_ver_id);
