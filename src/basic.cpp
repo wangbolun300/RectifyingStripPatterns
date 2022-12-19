@@ -65,7 +65,7 @@ void lsTools::prepare_level_set_solving(const EnergyPrepare &Energy_initializer)
     enable_extreme_cases = Energy_initializer.enable_extreme_cases;
      
     Given_Const_Direction= Energy_initializer.Given_Const_Direction;
-    Reference_ray = Energy_initializer.Reference_ray;
+  
 }
 void lsTools::prepare_mesh_optimization_solving(const MeshEnergyPrepare& initializer){
     Mesh_opt_max_step_length=initializer.Mesh_opt_max_step_length;
@@ -76,7 +76,6 @@ void lsTools::prepare_mesh_optimization_solving(const MeshEnergyPrepare& initial
     enable_extreme_cases = initializer.enable_extreme_cases;
     weight_mass=initializer.weight_mass;
     Given_Const_Direction= initializer.Given_Const_Direction;
-    Reference_ray = initializer.Reference_ray;;
 }
 void lsTools::convert_paras_as_meshes(CGMesh &output)
 {

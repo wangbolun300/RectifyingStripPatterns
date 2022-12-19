@@ -201,14 +201,14 @@ private:
     void assemble_solver_pesudo_geodesic_energy_part_vertex_based(Eigen::VectorXd &vars, const std::vector<double> &angle_degree,
                                                                   const LSAnalizer &analizer, const bool first_compute, const int vars_start_loc, const int aux_start_loc, spMat &H, Eigen::VectorXd &B, Eigen::VectorXd &energy);
     void assemble_solver_strip_width_part(const Eigen::MatrixXd& GradValue,  spMat& H, Eigen::VectorXd& B);
-    void assemble_solver_extreme_cases_part_vertex_based(Eigen::VectorXd &vars, const bool asymptotic, const bool use_given_direction, const Eigen::Vector3d &ray,
+    void assemble_solver_extreme_cases_part_vertex_based(Eigen::VectorXd &vars, const bool asymptotic, const bool use_given_direction, 
                                                          const LSAnalizer &analizer, const int vars_start_loc, spMat &H, Eigen::VectorXd &B, Eigen::VectorXd &energy);
     void assemble_solver_fixed_boundary_direction_part(const Eigen::MatrixXd& GradFValue, const std::vector<CGMesh::HalfedgeHandle>& edges,
         const Eigen::VectorXd& func,
         spMat& H, Eigen::VectorXd& B, Eigen::VectorXd& energy);
-    void assemble_solver_shading_condition(Eigen::VectorXd &vars, 
-                                           const LSAnalizer &analizer, const int vars_start_loc, 
-                                           spMat &H, Eigen::VectorXd &B, Eigen::VectorXd &Energy);
+    // void assemble_solver_shading_condition(Eigen::VectorXd &vars, 
+    //                                        const LSAnalizer &analizer, const int vars_start_loc, 
+    //                                        spMat &H, Eigen::VectorXd &B, Eigen::VectorXd &Energy);
     void assemble_solver_othogonal_to_given_face_directions(const Eigen::VectorXd &func, const Eigen::MatrixXd &directions,
 														const Eigen::VectorXi &fids, spMat &H, Eigen::VectorXd &B, Eigen::VectorXd &energy);
     // void assemble_solver_pseudo_geodesic_part(spMat &H, Efunc& B);

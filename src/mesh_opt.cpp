@@ -926,10 +926,10 @@ void lsTools::Run_Mesh_Opt(){
     H += weight_Mesh_edgelength * Hel;
     B += weight_Mesh_edgelength * Bel;
     
-	spMat Hpg, Hsd;
-    Eigen::VectorXd Bpg, Bsd;
+	spMat Hpg;
+    Eigen::VectorXd Bpg;
     int aux_start_loc = vnbr * 3;// For mesh opt the auxiliary vars start from vnbr*3
-    Eigen::VectorXd MTEnergy, Eshading;
+    Eigen::VectorXd MTEnergy;
     if (!enable_extreme_cases) {
         assemble_solver_mesh_opt_part(Glob_Vars,
             anas[0], angle_degrees, first_compute, aux_start_loc, Hpg, Bpg, MTEnergy);
@@ -940,13 +940,10 @@ void lsTools::Run_Mesh_Opt(){
         {
             asymptotic = false;
         }
-        assemble_solver_mesh_extreme(Glob_Vars, aux_start_loc, func, asymptotic, Given_Const_Direction, Reference_ray, anas[0], Hpg, Bpg, MTEnergy);
-        if (Given_Const_Direction)
-        {
-            assemble_solver_shading_mesh_opt(func, Reference_ray, anas[0], Hsd, Bsd, Eshading);
-            H += weight_shading * Hsd;
-            B += weight_shading * Bsd;
-        }
+        Eigen::Vector3d any_ray;
+        // in mesh opt we do not optimize for shading
+        assemble_solver_mesh_extreme(Glob_Vars, aux_start_loc, func, asymptotic, false, any_ray, anas[0], Hpg, Bpg, MTEnergy);
+
     }
     Compute_Auxiliaries_Mesh = false;
     spMat Htotal(final_size, final_size);
@@ -1002,10 +999,6 @@ void lsTools::Run_Mesh_Opt(){
     else {
         double planar_energy = MTEnergy.norm();
         std::cout << "pg, " << planar_energy << ", max "<<MTEnergy.lpNorm<Eigen::Infinity>()<<", ";
-        if (Given_Const_Direction)
-        {
-            std::cout << "shadExtra, " << Eshading.norm() << ", ";
-        }
     }
     
     double energy_el = ElEnergy.norm();
