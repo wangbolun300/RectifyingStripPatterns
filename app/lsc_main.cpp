@@ -48,7 +48,7 @@ namespace lscif
 	double weight_pseudo_geodesic = 10;
 	double weight_strip_width = 1;
 	double weight_geodesic= 3;
-    double weight_shading = 0.01; // For shading: the light is othogonal to the tangent direction 
+    // double weight_shading = 0.01; // For shading: the light is othogonal to the tangent direction 
 
 	double maximal_step_length = 0.5;
 	bool enable_inner_vers_fixed = false;
@@ -103,7 +103,7 @@ namespace lscif
 	std::vector<CGMesh> Meshes;
 	lsTools tools;
 	double InputPx = 45;
-	double InputPy = 0;
+	double InputPy = 45;
 
 	double InputPx1 = 60;
 	double InputPy1 = -45;
@@ -557,7 +557,7 @@ int main(int argc, char *argv[])
 				ImGui::SameLine();
 				ImGui::InputDouble("Ptol1", &lscif::InputPhiTol1, 0, 0, "%.6f");
 				
-				ImGui::InputDouble("weight shading", &lscif::weight_shading, 0, 0, "%.4f");
+				// ImGui::InputDouble("weight shading", &lscif::weight_shading, 0, 0, "%.4f");
 			}
 
 			// ImGui::Checkbox("Fix Boundary", &lscif::fixBoundary_checkbox);
@@ -772,7 +772,7 @@ int main(int argc, char *argv[])
 				einit.start_angle = lscif::start_angle;
 				einit.enable_boundary_angles = lscif::enable_boundary_angles;
 				einit.Given_Const_Direction = lscif::Given_Const_Direction;
-				lscif::tools.weight_shading = lscif::weight_shading;
+				// lscif::tools.weight_shading = lscif::weight_shading;
 				lscif::tools.prepare_level_set_solving(einit);
 				lscif::tools.Second_Ray_vers = lscif::update_verlist;
 				lscif::tools.Second_Ray_nbr_rings = lscif::ring_nbr;
@@ -784,6 +784,7 @@ int main(int argc, char *argv[])
 				lscif::tools.Phi_tol = lscif::InputThetaTol1;
 				lscif::tools.Theta_tol2 = lscif::InputPhiTol;
 				lscif::tools.Phi_tol2 = lscif::InputPhiTol1;
+				lscif::tools.weight_geodesic=lscif::weight_geodesic;
 				
 				
 				
@@ -844,7 +845,7 @@ int main(int argc, char *argv[])
 				initializer.weight_Mesh_edgelength = lscif::weight_Mesh_edgelength;
 				initializer.enable_extreme_cases=lscif::enable_extreme_cases;
 				initializer.Given_Const_Direction = lscif::Given_Const_Direction;
-				lscif::tools.weight_shading = lscif::weight_shading;
+				// lscif::tools.weight_shading = lscif::weight_shading;
 				lscif::tools.Reference_theta = lscif::InputPx;
 				lscif::tools.Reference_phi = lscif::InputPy;
 				lscif::tools.Reference_theta2 = lscif::InputPx1;
@@ -888,7 +889,7 @@ int main(int argc, char *argv[])
 				einit.target_max_angle = lscif::target_max_angle;
 				einit.start_angle = lscif::start_angle;
 				einit.enable_boundary_angles = lscif::enable_boundary_angles;
-				lscif::tools.weight_shading = lscif::weight_shading;
+				// lscif::tools.weight_shading = lscif::weight_shading;
 				lscif::tools.prepare_level_set_solving(einit);
 				if(lscif::readed_LS1.size()==0){
 					std::cout<<"Please load LevelSet 1 as a reference"<<std::endl;
@@ -1148,6 +1149,7 @@ int main(int argc, char *argv[])
 			{
 				const Eigen::RowVector3d red(0.8, 0.2, 0.2);
 				const Eigen::RowVector3d blue(0.2, 0.2, 0.8);
+				const Eigen::RowVector3d yellow(0.2, 0.8, 0.8);
 
 				const Eigen::RowVector3d black(0, 0, 0);
 				const Eigen::RowVector3d green(0.2, 0.8, 0.2);
@@ -1160,17 +1162,26 @@ int main(int argc, char *argv[])
 				if (lscif::enable_extreme_cases && lscif::Given_Const_Direction)
 				{
 					std::cout << "Ploting the light directions" << std::endl;
-					Eigen::Vector3d direction;
-					direction = angle_ray_converter(lscif::InputPx, lscif::InputPy);
 					Eigen::MatrixXd light(lscif::tools.V.rows(), 3);
-					for (int i = 0; i < light.rows(); i++)
+					if (lscif::tools.Lights.rows() == 0)
 					{
-						light.row(i) = direction;
+						Eigen::Vector3d direction;
+						direction = angle_ray_converter(lscif::InputPx, lscif::InputPy);
+						
+						for (int i = 0; i < light.rows(); i++)
+						{
+							light.row(i) = direction;
+						}
+						
+					}
+					else{
+						light = lscif::tools.Lights;
+
 					}
 					Eigen::MatrixXd E2, E3;
 					E2 = lscif::tools.V + lscif::vector_scaling * light;
 					E3 = lscif::tools.V - lscif::vector_scaling * light;
-					viewer.data().add_edges(E2, E3, blue);
+					viewer.data().add_edges(E2, E3, yellow);
 				}
 			}
 

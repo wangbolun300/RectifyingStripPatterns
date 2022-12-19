@@ -2945,7 +2945,7 @@ void lsTools::show_max_pg_energy(Eigen::VectorXd &e)
         int vm = IVids[i];
         for (int j = 0; j < rep; j++)
         {
-            result[vm] += PGE[i + j * ninner];
+            result[vm] += abs(PGE[i + j * ninner]);
         }
     }
     e = result;

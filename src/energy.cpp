@@ -506,9 +506,9 @@ Eigen::Vector3d angle_ray_converter(const double theta, const double phi)
 	double theta_radian = theta * LSC_PI / 180.;
 	double phi_radian = phi * LSC_PI / 180.;
 	Eigen::Vector3d ray;
-	ray[0] = sin(theta_radian) * cos(phi_radian);
-	ray[1] = sin(theta_radian) * sin(phi_radian);
-	ray[2] = cos(phi_radian);
+	ray[0] = cos(theta_radian) * sin(phi_radian);
+	ray[1] = cos(theta_radian) * cos(phi_radian);
+	ray[2] = sin(phi_radian);
 	return ray;
 }
 
@@ -526,7 +526,10 @@ void lsTools::calculate_shading_condition_auxiliary_vars(Eigen::VectorXd& vars,
 	tripletes.clear();
 	tripletes.reserve(ninner * 60); // 
 	Energy = Eigen::VectorXd::Zero(ninner * 12); // mesh total energy values
-
+	if (Lights.rows() != vnbr)
+	{
+		Lights = Eigen::MatrixXd::Zero(vnbr, 3);
+	}
 	for (int i = 0; i < ninner; i++)
 	{
 		if (analizer.LocalActInner[i] == false) {
@@ -654,6 +657,7 @@ void lsTools::calculate_shading_condition_auxiliary_vars(Eigen::VectorXd& vars,
 		double phi_upper = target_phi + target_phi_tol;
 		double phi_lower = target_phi - target_phi_tol;
 		Binormals.row(vm) = r.dot(norm) < 0 ? -r : r; // orient the binormal
+		Lights.row(vm) = ray;
 		// the weights
 		double dis0 = ((V.row(v1) - V.row(v2)) * vars[lvm] + (V.row(v2) - V.row(vm)) * vars[lv1] + (V.row(vm) - V.row(v1)) * vars[lv2]).norm();
 		double dis1 = ((V.row(v3) - V.row(v4)) * vars[lvm] + (V.row(v4) - V.row(vm)) * vars[lv3] + (V.row(vm) - V.row(v3)) * vars[lv4]).norm();
@@ -694,15 +698,15 @@ void lsTools::calculate_shading_condition_auxiliary_vars(Eigen::VectorXd& vars,
 		Energy[i + ninner * 2] = (r.dot(r) - 1) * scale;
 		// std::cout<<"c3 got"<<std::endl;
 
-		// r * ray = 0
-		tripletes.push_back(Trip(i + ninner * 3, lrx, ray[0] * scale));
-		tripletes.push_back(Trip(i + ninner * 3, lry, ray[1] * scale));
-		tripletes.push_back(Trip(i + ninner * 3, lrz, ray[2] * scale));
+		// // r * ray = 0
+		tripletes.push_back(Trip(i + ninner * 3, lrx, weight_geodesic * ray[0] * scale));
+		tripletes.push_back(Trip(i + ninner * 3, lry, weight_geodesic * ray[1] * scale));
+		tripletes.push_back(Trip(i + ninner * 3, lrz, weight_geodesic * ray[2] * scale));
 
-		tripletes.push_back(Trip(i + ninner * 3, lrayx, r[0] * scale));
-		tripletes.push_back(Trip(i + ninner * 3, lrayy, r[1] * scale));
-		tripletes.push_back(Trip(i + ninner * 3, lrayz, r[2] * scale));
-		Energy[i + ninner * 3] = r.dot(ray) * scale;
+		tripletes.push_back(Trip(i + ninner * 3, lrayx, weight_geodesic * r[0] * scale));
+		tripletes.push_back(Trip(i + ninner * 3, lrayy, weight_geodesic * r[1] * scale));
+		tripletes.push_back(Trip(i + ninner * 3, lrayz, weight_geodesic * r[2] * scale));
+		Energy[i + ninner * 3] = weight_geodesic * r.dot(ray) * scale;
 
 		// tangent * ray = 0
 		Eigen::Vector3d v12 = V.row(v1) - V.row(v2);
@@ -713,17 +717,17 @@ void lsTools::calculate_shading_condition_auxiliary_vars(Eigen::VectorXd& vars,
 		Eigen::Vector3d tangent = v31 * (f4 - f3) * (f2 - f1) + v43 * (fm - f3) * (f2 - f1) + v12 * (fm - f1) * (f4 - f3);
 		double tnorm = tangent.norm();
 
-		tripletes.push_back(Trip(i + ninner * 4, lv1, (-d31 * (f4 - f3) - d43 * (fm - f3) - d12 * (f4 - f3)) / tnorm * scale));
-		tripletes.push_back(Trip(i + ninner * 4, lv2, (d31 * (f4 - f3) + d43 * (fm - f3)) / tnorm * scale));
-		tripletes.push_back(Trip(i + ninner * 4, lv3, (-d31 * (f2 - f1) - d43 * (f2 - f1) - d12 * (fm - f1)) / tnorm * scale));
-		tripletes.push_back(Trip(i + ninner * 4, lv4, (d31 * (f2 - f1) + d12 * (fm - f1)) / tnorm * scale));
-		tripletes.push_back(Trip(i + ninner * 4, lvm, (d43 * (f2 - f1) + d12 * (f4 - f3)) / tnorm * scale));
+		tripletes.push_back(Trip(i + ninner * 4, lv1, weight_geodesic * (-d31 * (f4 - f3) - d43 * (fm - f3) - d12 * (f4 - f3)) / tnorm * scale));
+		tripletes.push_back(Trip(i + ninner * 4, lv2, weight_geodesic * (d31 * (f4 - f3) + d43 * (fm - f3)) / tnorm * scale));
+		tripletes.push_back(Trip(i + ninner * 4, lv3, weight_geodesic * (-d31 * (f2 - f1) - d43 * (f2 - f1) - d12 * (fm - f1)) / tnorm * scale));
+		tripletes.push_back(Trip(i + ninner * 4, lv4, weight_geodesic * (d31 * (f2 - f1) + d12 * (fm - f1)) / tnorm * scale));
+		tripletes.push_back(Trip(i + ninner * 4, lvm, weight_geodesic * (d43 * (f2 - f1) + d12 * (f4 - f3)) / tnorm * scale));
 
-		tripletes.push_back(Trip(i + ninner * 4, lrayx, tangent[0] / tnorm * scale));
-		tripletes.push_back(Trip(i + ninner * 4, lrayy, tangent[1] / tnorm * scale));
-		tripletes.push_back(Trip(i + ninner * 4, lrayz, tangent[2] / tnorm * scale));
+		tripletes.push_back(Trip(i + ninner * 4, lrayx, weight_geodesic * tangent[0] / tnorm * scale));
+		tripletes.push_back(Trip(i + ninner * 4, lrayy, weight_geodesic * tangent[1] / tnorm * scale));
+		tripletes.push_back(Trip(i + ninner * 4, lrayz, weight_geodesic * tangent[2] / tnorm * scale));
 
-		Energy[i + ninner * 4] = ray.dot(tangent) / tnorm * scale;
+		Energy[i + ninner * 4] = weight_geodesic * ray.dot(tangent) / tnorm * scale;
 
 		// ray x = cos(theta)*sin(phi)
 		tripletes.push_back(Trip(i + ninner * 5, lrayx, 1 * scale));					  // to rayx
@@ -770,6 +774,16 @@ void lsTools::calculate_shading_condition_auxiliary_vars(Eigen::VectorXd& vars,
 		Energy[i + ninner * 11] = (phi_upper - phi - pr * pr) * scale;
 
 	}
+	double max_e = 0;
+	int max_loc = -1;
+	for(int i = 0;i<Energy.size();i++){
+		if(abs(Energy[i])>max_e){
+			max_e = abs(Energy[i]);
+			max_loc = i;
+		}
+	}
+	int howmany = max_loc / ninner;
+	std::cout<<"me, "<<max_e<<", mloc, "<<howmany<<",";
 }
 // deal with asymptotic and geodesic, for using fewer auxiliary variables
 void lsTools::calculate_extreme_pseudo_geodesic_values(Eigen::VectorXd &vars, const bool asymptotic,
@@ -1160,6 +1174,7 @@ void lsTools::assemble_solver_extreme_cases_part_vertex_based(Eigen::VectorXd &v
 	J.setFromTriplets(tripletes.begin(), tripletes.end());
 	H = J.transpose() * J;
 	B = -J.transpose() * energy;
+	PGE = energy;
 }
 
 // the condition that f0+f1+f2=0;

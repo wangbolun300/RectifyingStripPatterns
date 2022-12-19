@@ -307,7 +307,7 @@ public:
     double weight_pseudo_geodesic_energy;// weight of the pseudo-geodesic energy
     double weight_strip_width;
     double weight_geodesic; // For AAG
-    double weight_shading; // For shading: the light is othogonal to the tangent direction 
+    // double weight_shading; // For shading: the light is othogonal to the tangent direction 
     // Don't Use Strip Width Condition When Opt Multiple Functions
     double strip_width = 1;       // strip width, defined as h/w, h: level set function value difference. w: distance between two points on the surface
     double max_step_length;
@@ -346,6 +346,7 @@ public:
     bool Compute_Auxiliaries=true;
     bool Compute_Auxiliaries_Mesh = true;
     Eigen::MatrixXd Binormals;
+    Eigen::MatrixXd Lights;
     Eigen::VectorXd PGE;// pseudo geodesic energy
 
     std::vector<int> refids;                      // output the ids of current dealing points. just for debug purpose
