@@ -2938,7 +2938,7 @@ void lsTools::show_max_pg_energy(Eigen::VectorXd &e)
 {
     int ninner = anas[0].LocalActInner.size();
     int vnbr = V.rows();
-    int rep = PGE.rows() / ninner;
+    int rep = PGE.size() / ninner;
     Eigen::VectorXd result = Eigen::VectorXd::Zero(vnbr);
     for (int i = 0; i < ninner; i++)
     {
@@ -2949,6 +2949,22 @@ void lsTools::show_max_pg_energy(Eigen::VectorXd &e)
         }
     }
     e = result;
+}
+void lsTools::show_max_pg_energy_all(Eigen::MatrixXd &energy)
+{
+    int ninner = anas[0].LocalActInner.size();
+    int vnbr = V.rows();
+    int rep = PGE.size() / ninner;
+    Eigen::MatrixXd result = Eigen::MatrixXd::Zero(vnbr, rep);
+    for (int i = 0; i < ninner; i++)
+    {
+        int vm = IVids[i];
+        for (int j = 0; j < rep; j++)
+        {
+            result(vm, j) = PGE[i + j * ninner];
+        }
+    }
+    energy = result;
 }
 // ref is the reference vertices marked in the vertex list of the mesh
 void get_one_ring_vertices_simple(const Eigen::VectorXi &ref, CGMesh &lsmesh, Eigen::VectorXi &ring1)

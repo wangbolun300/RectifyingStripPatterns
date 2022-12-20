@@ -102,16 +102,16 @@ namespace lscif
 	std::vector<std::string> meshFileName;
 	std::vector<CGMesh> Meshes;
 	lsTools tools;
-	double InputPx = 45;
-	double InputPy = 45;
+	double InputPx = 0; // theta
+	double InputPy = 180; // phi
 
 	double InputPx1 = 60;
 	double InputPy1 = -45;
 	
-	double InputThetaTol = 10; // give 10 degrees of tolerance
-	double InputThetaTol1 = 10; // give 10 degrees of tolerance
-	double InputPhiTol = 10; // give 10 degrees of tolerance
-	double InputPhiTol1 = 10; // give 10 degrees of tolerance
+	double InputThetaTol = 23.5; // give 10 degrees of tolerance
+	double InputThetaTol1 = 23.5; // give 10 degrees of tolerance
+	double InputPhiTol = 45; // give 10 degrees of tolerance
+	double InputPhiTol1 = 45; // give 10 degrees of tolerance
 
 	double Shading_Latitude = 34;
 
@@ -280,6 +280,9 @@ namespace lscif
 					if(energy.size()>0){
 						std::cout<<"local energy, "<<energy[vid]<<std::endl;
 					}
+					Eigen::MatrixXd energy_all;
+					lscif::tools.show_max_pg_energy_all(energy_all);
+					std::cout<<energy_all.row(vid)<<std::endl;
 				}
 				std::cout << "point position: (" << viewer.data().V(vid, 0) << ", " << viewer.data().V(vid, 1) << ", " << viewer.data().V(vid, 2) << ")\n\n";
 				lscif::tools.print_info(vid);
@@ -493,22 +496,13 @@ int main(int argc, char *argv[])
 		ImGui::SameLine();
 		if (ImGui::Button("Debug", ImVec2(ImGui::GetWindowSize().x * 0.25f, 0.0f)))
 		{
-			// std::cout<<"write model flipped z coordinate"<<std::endl;
-			// Eigen::MatrixXd Vflip = lscif::tools.V;
-			// Vflip.col(2) *= -1;
-
-			// std::string fname = igl::file_dialog_save();
-			// if (fname.length() == 0)
-			// {
-			// 	ImGui::End();
-			// 	return;
-			// }
-			// else
-			// {
-			// 	igl::writeOBJ(fname, Vflip, lscif::tools.F);
-			// 	std::cout << "mesh saved" << std::endl;
-			// }
-			std::cout<<"value "<<lscif::weight_geodesic<<std::endl;
+			std::cout<<"checking the angle between the light and the target light"<<std::endl;
+			Eigen::Vector3d target_light = angle_ray_converter(lscif::InputPx, lscif::InputPy);
+			std::cout<<"target light, "<<target_light.transpose()<<std::endl;
+			auto light = lscif::tools.Lights;
+			for(int i = 0;i<light.rows();i++){
+				std::cout<<light.row(i).dot(target_light)<<std::endl;
+			}
 		}
 
 		// Add new group
@@ -1163,7 +1157,7 @@ int main(int argc, char *argv[])
 			{
 				const Eigen::RowVector3d red(0.8, 0.2, 0.2);
 				const Eigen::RowVector3d blue(0.2, 0.2, 0.8);
-				const Eigen::RowVector3d yellow(0.2, 0.8, 0.8);
+				const Eigen::RowVector3d yellow(241./255, 196./255, 15./255);
 
 				const Eigen::RowVector3d black(0, 0, 0);
 				const Eigen::RowVector3d green(0.2, 0.8, 0.2);
@@ -1572,7 +1566,7 @@ int main(int argc, char *argv[])
 			ImGui::InputInt("Ver_id", &lscif::update_ver_id, 0, 0);
 			ImGui::InputInt("Ring nbr", &lscif::ring_nbr, 0, 0);
 			ImGui::InputDouble("Latitude", &lscif::Shading_Latitude, 0, 0, "%.4f");
-			if (ImGui::Button("update vertex id", ImVec2(ImGui::GetWindowSize().x * 0.25f, 0.0f)))
+			if (ImGui::Button("UpdateVertexID", ImVec2(ImGui::GetWindowSize().x * 0.25f, 0.0f)))
 			{
 				lscif::update_verlist.push_back(lscif::update_ver_id);
 				std::cout << "Current ver list" << std::endl;
@@ -1583,10 +1577,27 @@ int main(int argc, char *argv[])
 				std::cout << "\n";
 			}
 			ImGui::SameLine();
-			if (ImGui::Button("clear vertex list", ImVec2(ImGui::GetWindowSize().x * 0.25f, 0.0f)))
+			if (ImGui::Button("ClearVertexList", ImVec2(ImGui::GetWindowSize().x * 0.25f, 0.0f)))
 			{
 				lscif::update_verlist.clear();
 				std::cout << "ver list got cleared" << std::endl;
+			}
+			ImGui::SameLine();
+			if (ImGui::Button("SaveRotatedMesh", ImVec2(ImGui::GetWindowSize().x * 0.25f, 0.0f)))
+			{
+				std::cout << "Rotate the mesh in the earth axis according to the input latitude.\nNow saving the mesh" << std::endl;
+				Eigen::MatrixXd Vnew;
+				rotate_z_axis_to_earth_axis(lscif::tools.V, Vnew, lscif::Shading_Latitude);
+
+				std::string fname = igl::file_dialog_save();
+				if (fname.length() == 0)
+				{
+					std::cout << "\nLSC: save mesh failed" << std::endl;
+					ImGui::End();
+					return;
+				}
+				igl::writeOBJ(fname, Vnew, lscif::tools.F);
+				std::cout << "mesh saved" << std::endl;
 			}
 		}
 		ImGui::PushStyleColor(ImGuiCol_Button, (ImVec4)ImColor::HSV(0.0f, 0.6f, 0.6f));

@@ -85,3 +85,4 @@ bool vector_contains_NAN(Eigen::VectorXd& B);
 void get_one_ring_vertices(CGMesh &lsmesh, const int id, std::vector<int> &pts);
 Eigen::VectorXi Second_Angle_Inner_Vers();
 Eigen::Vector3d angle_ray_converter(const double theta, const double phi);
+void rotate_z_axis_to_earth_axis(const Eigen::MatrixXd& Vori, Eigen::MatrixXd& Vnew, const double latitude_degree);

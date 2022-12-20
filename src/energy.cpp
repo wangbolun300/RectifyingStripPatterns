@@ -508,7 +508,7 @@ Eigen::Vector3d angle_ray_converter(const double theta, const double phi)
 	Eigen::Vector3d ray;
 	ray[0] = cos(theta_radian) * sin(phi_radian);
 	ray[1] = cos(theta_radian) * cos(phi_radian);
-	ray[2] = sin(phi_radian);
+	ray[2] = sin(theta_radian);
 	return ray;
 }
 
@@ -656,6 +656,7 @@ void lsTools::calculate_shading_condition_auxiliary_vars(Eigen::VectorXd& vars,
 		double theta_lower = target_theta - target_theta_tol;
 		double phi_upper = target_phi + target_phi_tol;
 		double phi_lower = target_phi - target_phi_tol;
+		//std::cout<<"up_lower, "<<theta_upper<<", "<<theta_lower<<" "<<phi_upper<<" "<<phi_lower<<", ";
 		Binormals.row(vm) = r.dot(norm) < 0 ? -r : r; // orient the binormal
 		Lights.row(vm) = ray;
 		// the weights

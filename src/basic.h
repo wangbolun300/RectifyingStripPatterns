@@ -409,6 +409,7 @@ public:
     
     void show_binormals(const Eigen::VectorXd &func, Eigen::MatrixXd &E0, Eigen::MatrixXd &E1, Eigen::MatrixXd &binormals, double ratio);
     void show_max_pg_energy(Eigen::VectorXd& e);
+    void show_max_pg_energy_all(Eigen::MatrixXd &energy);
     void print_info(const int vid);
 
     void Trace_One_Guide_Pseudo_Geodesic();
