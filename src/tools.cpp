@@ -3080,7 +3080,7 @@ Eigen::VectorXi lsTools::shading_detect_parallel_patch(const double theta, const
         // get_one_ring_vertices(lsmesh, vm, ids);
         Eigen::Vector3d normal = norm_v.row(vm);
         diff[vm] = 1 - abs(normal.dot(target_light));
-        if (diff[vm] > 0.85)
+        if (diff[vm] > 0.75)
         {
             otho[i] = 0;
             removed ++;

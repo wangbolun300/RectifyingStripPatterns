@@ -630,14 +630,14 @@ void lsTools::calculate_shading_condition_auxiliary_vars(Eigen::VectorXd& vars,
 		}
 
 		// the weight of ray * tangent for the places who does not have solutions 
-		double weight_loose = 1;
-		if (analizer.HighEnergy.size() == ninner)
-		{
-			if (analizer.HighEnergy[i] == false)
-			{
-				weight_loose = weight_geodesic;
-			}
-		}
+		double weight_loose = weight_geodesic;
+		// if (analizer.HighEnergy.size() == ninner)
+		// {
+		// 	if (analizer.HighEnergy[i] == false)
+		// 	{
+		// 		weight_loose = weight_geodesic;
+		// 	}
+		// }
 		Eigen::Vector3d r = Eigen::Vector3d(vars[lrx], vars[lry], vars[lrz]);
 		Eigen::Vector3d ray = Eigen::Vector3d(vars[lrayx], vars[lrayy], vars[lrayz]);
 		
@@ -707,7 +707,7 @@ void lsTools::calculate_shading_condition_auxiliary_vars(Eigen::VectorXd& vars,
 
 		Energy[i + ninner * 2] = (r.dot(r) - 1) * scale;
 		// std::cout<<"c3 got"<<std::endl;
-		double weight_test = 0;
+		double weight_test = 1;
 		// // r * ray = 0
 		tripletes.push_back(Trip(i + ninner * 3, lrx, weight_test * ray[0] * scale));
 		tripletes.push_back(Trip(i + ninner * 3, lry, weight_test * ray[1] * scale));
