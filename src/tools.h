@@ -81,8 +81,11 @@ void select_mesh_boundary_curve_on_boundary_loop(CGMesh &lsmesh, const Eigen::Ma
                                                  const int start_edge, const int nbr_edges,
                                                  const std::vector<CGMesh::HalfedgeHandle> &Boundary_Edges,
                                                  std::vector<CGMesh::HalfedgeHandle> &selected);
-bool vector_contains_NAN(Eigen::VectorXd& B);
+bool vector_contains_NAN(Eigen::VectorXd &B);
 void get_one_ring_vertices(CGMesh &lsmesh, const int id, std::vector<int> &pts);
 Eigen::VectorXi Second_Angle_Inner_Vers();
 Eigen::Vector3d angle_ray_converter(const double theta, const double phi);
-void rotate_z_axis_to_earth_axis(const Eigen::MatrixXd& Vori, Eigen::MatrixXd& Vnew, const double latitude_degree);
+void rotate_z_axis_to_earth_axis(const Eigen::MatrixXd &Vori, Eigen::MatrixXd &Vnew, const double latitude_degree);
+void mesh_unit_scale(const Eigen::MatrixXd &V, Eigen::MatrixXd &Vout);
+void mark_high_energy_vers(const Eigen::VectorXd &energy, const int ninner, const double percentage,
+                           const std::vector<int> &IVids, Eigen::VectorXi &he, std::vector<int>& refid);

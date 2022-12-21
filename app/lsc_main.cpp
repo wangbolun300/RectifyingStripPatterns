@@ -114,6 +114,8 @@ namespace lscif
 	double InputPhiTol1 = 45; // give 10 degrees of tolerance
 
 	double Shading_Latitude = 34;
+	bool enable_max_energy_check = false;
+	double max_e_percentage = 10;
 
 
 	std::vector<int> VertexType;
@@ -201,21 +203,28 @@ namespace lscif
 				// if (id > 1)
 				//	viewer.selected_data_index = id - 2;
 				// std::cout << "The current Mesh ID is" << viewer.selected_data_index << std::endl;
-
-				viewer.erase_mesh(id);
-				if (id > -1)
+				if (lscif::Meshes.size() == 1)
 				{
-					lscif::meshFileName.erase(lscif::meshFileName.begin() + id);
-					lscif::Meshes.erase(lscif::Meshes.begin() + id);
-				}
-				if (lscif::Meshes.size() > id)
-				{
-					viewer.selected_data_index = id;
+					std::cout << "Do not delete the last mesh" << std::endl;
+					// ImGui::End();
 				}
 				else
 				{
+					viewer.erase_mesh(id);
+					if (id > -1)
+					{
+						lscif::meshFileName.erase(lscif::meshFileName.begin() + id);
+						lscif::Meshes.erase(lscif::Meshes.begin() + id);
+					}
+					if (lscif::Meshes.size() > id)
+					{
+						viewer.selected_data_index = id;
+					}
+					else
+					{
 
-					viewer.selected_data_index = id - 1;
+						viewer.selected_data_index = id - 1;
+					}
 				}
 			}
 
@@ -284,6 +293,9 @@ namespace lscif
 					lscif::tools.show_max_pg_energy_all(energy_all);
 					std::cout<<energy_all.row(vid)<<std::endl;
 				}
+				Eigen::VectorXd diff;
+				lscif::tools.shading_detect_parallel_patch(lscif::InputPx, lscif::InputPy, diff);
+				std::cout<<"light surface parallel "<<diff[vid]<<std::endl;
 				std::cout << "point position: (" << viewer.data().V(vid, 0) << ", " << viewer.data().V(vid, 1) << ", " << viewer.data().V(vid, 2) << ")\n\n";
 				lscif::tools.print_info(vid);
 				// viewer.data().add_points(igl::slice(viewer.data().V, vids, 1), hot_red);
@@ -503,6 +515,11 @@ int main(int argc, char *argv[])
 			for(int i = 0;i<light.rows();i++){
 				std::cout<<light.row(i).dot(target_light)<<std::endl;
 			}
+			Eigen::VectorXd diff;
+			std::cout<<"ploting the angle between the light and the surface"<<std::endl;
+			lscif::tools.shading_detect_parallel_patch(lscif::InputPx, lscif::InputPy, diff);
+			viewer.data().set_colors(diff);
+
 		}
 
 		// Add new group
@@ -564,7 +581,14 @@ int main(int argc, char *argv[])
 				ImGui::InputDouble("Ttol1", &lscif::InputThetaTol1, 0, 0, "%.6f");
 				ImGui::SameLine();
 				ImGui::InputDouble("Ptol1", &lscif::InputPhiTol1, 0, 0, "%.6f");
-				
+				ImGui::Checkbox("MarkMaxEnergy", &lscif::enable_max_energy_check);
+				ImGui::SameLine();
+				if (ImGui::Button("ClearMaxEnergy", ImVec2(ImGui::GetWindowSize().x * 0.23f, 0.0f)))
+				{
+					lscif::tools.clear_high_energy_markers_in_analizer();
+				}
+				ImGui::SameLine();
+				ImGui::InputDouble("MaxEnergyPercent", &lscif::max_e_percentage, 0, 0, "%.6f");
 				// ImGui::InputDouble("weight shading", &lscif::weight_shading, 0, 0, "%.4f");
 			}
 
@@ -793,6 +817,8 @@ int main(int argc, char *argv[])
 				lscif::tools.Theta_tol2 = lscif::InputPhiTol;
 				lscif::tools.Phi_tol2 = lscif::InputPhiTol1;
 				lscif::tools.weight_geodesic=lscif::weight_geodesic;
+				lscif::tools.enable_max_energy_check = lscif::enable_max_energy_check;
+				lscif::tools.max_energy_percentage = lscif::max_e_percentage;
 				
 				
 				
@@ -1205,6 +1231,16 @@ int main(int argc, char *argv[])
 				
 				viewer.data().set_colors(error);
 			}
+			ImGui::SameLine();
+			if (ImGui::Button("draw RefPts", ImVec2(ImGui::GetWindowSize().x * 0.23f, 0.0f)))
+			{
+				std::cout<<"drawing the reference points in yellow"<<std::endl;
+				Eigen::MatrixXd pts;
+				lscif::tools.show_current_reference_points(pts);
+				const Eigen::RowVector3d yellow(241./255, 196./255, 15./255);
+				viewer.data().add_points(pts, yellow);
+				
+			}
 			/*ImGui::SameLine();
 			if (ImGui::Button("draw binormals", ImVec2(ImGui::GetWindowSize().x * 0.23f, 0.0f)))
 			{
@@ -1214,17 +1250,21 @@ int main(int argc, char *argv[])
 
 				viewer.data().add_edges(E0, E1, green);
 			}*/
-			if (ImGui::Button("MeshUnitScale", ImVec2(ImGui::GetWindowSize().x * 0.23f, 0.0f)))
+			if (ImGui::Button("SaveUnitScaleMesh", ImVec2(ImGui::GetWindowSize().x * 0.23f, 0.0f)))
 			{
-				int id = viewer.selected_data_index;
-				CGMesh updatedMesh;
-				CGMesh inputMesh = lscif::Meshes[id];
-
-				lscif::MP.MeshUnitScale(inputMesh, updatedMesh);
-				lscif::updateMeshViewer(viewer, updatedMesh);
-				lscif::meshFileName.push_back("unit_" + lscif::meshFileName[id]);
-				lscif::Meshes.push_back(updatedMesh);
-				viewer.selected_data_index = id;
+				std::cout << "This button is to unit scale the target mesh and save the result mesh\n ";
+				Eigen::MatrixXd vout;
+				mesh_unit_scale(lscif::tools.V, vout);
+				std::string fname = igl::file_dialog_save();
+				if (fname.length() == 0)
+				{
+					ImGui::End();
+				}
+				else
+				{
+					igl::writeOBJ(fname, vout, lscif::tools.F);
+					std::cout << "mesh saved" << std::endl;
+				}
 			}
 			ImGui::SameLine();
 			if (ImGui::Button("Focus Selected Mesh", ImVec2(ImGui::GetWindowSize().x * 0.23f, 0.0f)))
@@ -1240,21 +1280,29 @@ int main(int argc, char *argv[])
 				// if (id > 1)
 				//	viewer.selected_data_index = id - 2;
 				// std::cout << "The current Mesh ID is" << viewer.selected_data_index << std::endl;
-
-				viewer.erase_mesh(id);
-				if (id > -1)
+				if (lscif::Meshes.size() == 1)
 				{
-					lscif::meshFileName.erase(lscif::meshFileName.begin() + id);
-					lscif::Meshes.erase(lscif::Meshes.begin() + id);
-				}
-				if (lscif::Meshes.size() > id)
-				{
-					viewer.selected_data_index = id;
+					std::cout << "Do not delete the last mesh" << std::endl;
+					ImGui::End();
+					return;
 				}
 				else
 				{
+					viewer.erase_mesh(id);
+					if (id > -1)
+					{
+						lscif::meshFileName.erase(lscif::meshFileName.begin() + id);
+						lscif::Meshes.erase(lscif::Meshes.begin() + id);
+					}
+					if (lscif::Meshes.size() > id)
+					{
+						viewer.selected_data_index = id;
+					}
+					else
+					{
 
-					viewer.selected_data_index = id - 1;
+						viewer.selected_data_index = id - 1;
+					}
 				}
 			}
 			ImGui::SameLine();

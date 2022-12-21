@@ -3035,3 +3035,102 @@ void rotate_z_axis_to_earth_axis(const Eigen::MatrixXd& Vori, Eigen::MatrixXd& V
     Vt = rotation * Vt; // 3 x n
     Vnew = Vt.transpose();
 }
+
+void mesh_unit_scale(const Eigen::MatrixXd &V, Eigen::MatrixXd &Vout)
+{
+    double xmin = V.col(0).minCoeff();
+    double xmax = V.col(0).maxCoeff();
+
+    double ymin = V.col(1).minCoeff();
+    double ymax = V.col(1).maxCoeff();
+
+    double zmin = V.col(2).minCoeff();
+    double zmax = V.col(2).maxCoeff();
+
+    Eigen::Vector3d Vmin = Eigen::Vector3d(xmin, ymin, zmin);
+    Eigen::Vector3d Vmax = Eigen::Vector3d(xmax, ymax, zmax);
+    Eigen::Vector3d Vcent = (Vmax + Vmin) / 2;
+    double diagnal = (Vmax - Vmin).norm();
+    double ratio = 1. / diagnal;
+    Vout = V;
+    for (int i = 0; i < V.rows(); i++)
+    {
+        Vout.row(i) -= Vcent;
+    }
+    Vout *= ratio;
+    std::cout<<"Unit Scale the Mesh, the scaling ratio, "<<ratio<<", the translation, "<<Vcent.norm()<<std::endl;
+}
+
+// for shading system, if the surface patch is parallel to the light, then the only solution is 
+// the asymptotic curves, which is hard to meet the trend of the level set. thus we mark these points out.
+// theta and phi are the main light direction, diff records how close to othogonal
+Eigen::VectorXi lsTools::shading_detect_parallel_patch(const double theta, const double phi, Eigen::VectorXd& diff)
+{
+    int ninner = anas[0].LocalActInner.size();
+    int vnbr = V.rows();
+    diff = Eigen::VectorXd::Zero(vnbr);
+    int candi_size = Second_Ray_vers.size();
+    Eigen::VectorXi otho = Eigen::VectorXi::Ones(ninner) * 1; // mark the vertices whose normal is othogonal to the light as 0.
+    Eigen::Vector3d target_light = angle_ray_converter(theta, phi);
+    int removed = 0;
+    for (int i = 0; i < ninner; i++)
+    {
+        int vm = IVids[i];
+        std::vector<int> ids;
+        // get_one_ring_vertices(lsmesh, vm, ids);
+        Eigen::Vector3d normal = norm_v.row(vm);
+        diff[vm] = 1 - abs(normal.dot(target_light));
+        if (diff[vm] > 0.85)
+        {
+            otho[i] = 0;
+            removed ++;
+        }
+    }
+    // std::cout<<removed<<" vertices got removed because locally the surface is tangent to the light"<<std::endl;
+    return otho;
+}
+
+template <typename Tn>
+std::vector<int> sort_indices(const std::vector<Tn> &v)
+{
+    std::vector<int> idx(v.size());
+    std::iota(idx.begin(), idx.end(), 0);
+    std::sort(idx.begin(), idx.end(), [&v](int i1, int i2)
+              { return v[i1] > v[i2]; });
+    return idx;
+}
+// mark the high energy vertices as 0 in the "he" vector
+void mark_high_energy_vers(const Eigen::VectorXd &energy, const int ninner, const double percentage,
+                           const std::vector<int> &IVids, Eigen::VectorXi &he, std::vector<int>& refid)
+{
+    he.resize(ninner);
+    refid.clear();
+    // first get all the energy on each ver
+    int rep = energy.size() / ninner;
+    Eigen::MatrixXd emat = Eigen::MatrixXd::Zero(ninner, rep);
+    std::vector<double> evec(ninner);
+    for (int i = 0; i < ninner; i++)
+    {
+        for (int j = 0; j < rep; j++)
+        {
+            emat(i, j) = energy[i + j * ninner];
+        }
+        evec[i] = emat.row(i).norm();
+    }
+    std::vector<int> order = sort_indices(evec);
+    std::cout << "first and last of sorting " << evec[order.front()] << ", " << evec[order.back()] << std::endl;
+    he = Eigen::VectorXi::Ones(ninner);
+    int npick = ninner * percentage / 100;
+    std::cout << "Marking Points\n";
+    for (int i = 0; i < npick; i++)
+    {
+        he[order[i]] = 0;
+        int vm = IVids[order[i]];
+        std::cout << "id, " << vm << ", energy, " << evec[order[i]] << std::endl;
+        refid.push_back(vm);
+    }
+
+}
+void lsTools::clear_high_energy_markers_in_analizer(){
+    anas[0].HighEnergy.resize(0);
+}

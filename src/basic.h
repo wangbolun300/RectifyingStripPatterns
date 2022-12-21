@@ -75,6 +75,8 @@ public:
     LSAnalizer() {};
     Eigen::VectorXi LocalActInner;
     Eigen::VectorXi Special; // record special ids
+    Eigen::VectorXi ShadSpecial;
+    Eigen::VectorXi HighEnergy;
     std::vector<CGMesh::HalfedgeHandle> heh0; 
     std::vector<CGMesh::HalfedgeHandle> heh1;
     std::vector<double> t1s;
@@ -248,6 +250,7 @@ private:
     void extract_one_curve(const double value, Eigen::MatrixXd& E0, Eigen::MatrixXd &E1);
     void estimate_strip_width_according_to_tracing();
     Eigen::VectorXi Second_Angle_Inner_Vers();// the inner vertices use the second shading angle
+    
 
     // Mesh Optimization Part
 
@@ -320,6 +323,8 @@ public:
     bool enable_boundary_angles=false;
     bool enable_extreme_cases = false; // osculating plane othogonal to the normal direction, or contains the given direction
     bool Given_Const_Direction = false;// use the given direction but not the normal
+    bool enable_max_energy_check = false;
+
     double Reference_theta;  // the ray feed to the optimization as a constant direction
     double Reference_phi;
     double Reference_theta2;  // the ray feed to the optimization as a constant direction
@@ -328,6 +333,7 @@ public:
     double Phi_tol;
     double Theta_tol2;
     double Phi_tol2;
+    double max_energy_percentage=0;
     std::vector<int> Second_Ray_vers; // the vertices for the second shading light direction
     int Second_Ray_nbr_rings = 1; // the nbr of rings associate to the vers corresponding to the second ray
     
@@ -410,6 +416,7 @@ public:
     void show_binormals(const Eigen::VectorXd &func, Eigen::MatrixXd &E0, Eigen::MatrixXd &E1, Eigen::MatrixXd &binormals, double ratio);
     void show_max_pg_energy(Eigen::VectorXd& e);
     void show_max_pg_energy_all(Eigen::MatrixXd &energy);
+    Eigen::VectorXi shading_detect_parallel_patch(const double theta, const double phi, Eigen::VectorXd& diff);
     void print_info(const int vid);
 
     void Trace_One_Guide_Pseudo_Geodesic();
@@ -425,6 +432,7 @@ public:
     void initialize_level_set_by_select_boundary_segment(const TracingPrepare& Tracing_initializer);
     void extract_levelset_curves(const int nbr, std::vector<Eigen::MatrixXd> &E0, std::vector<Eigen::MatrixXd> &E1);
     void make_sphere_ls_example(int rowid);
+    void clear_high_energy_markers_in_analizer();
 };
 
 // // partial derivate tools, regard level set function as variates.
