@@ -115,6 +115,7 @@ namespace lscif
 
 	double Shading_Latitude = 34;
 	bool enable_max_energy_check = false;
+	bool shading_init = false;
 	double max_e_percentage = 10;
 
 
@@ -589,6 +590,7 @@ int main(int argc, char *argv[])
 				}
 				ImGui::SameLine();
 				ImGui::InputDouble("MaxEnergyPercent", &lscif::max_e_percentage, 0, 0, "%.6f");
+				ImGui::Checkbox("ShadingInit", &lscif::shading_init);
 				// ImGui::InputDouble("weight shading", &lscif::weight_shading, 0, 0, "%.4f");
 			}
 
@@ -819,7 +821,7 @@ int main(int argc, char *argv[])
 				lscif::tools.weight_geodesic=lscif::weight_geodesic;
 				lscif::tools.enable_max_energy_check = lscif::enable_max_energy_check;
 				lscif::tools.max_energy_percentage = lscif::max_e_percentage;
-				
+				lscif::tools.enable_shading_init = lscif::shading_init;
 				
 				
 

@@ -1,233 +1,160 @@
+#include <igl/circulation.h>
+#include <igl/collapse_edge.h>
+#include <igl/edge_flaps.h>
+#include <igl/decimate.h>
+#include <igl/shortest_edge_and_midpoint.h>
+#include <igl/parallel_for.h>
 #include <igl/read_triangle_mesh.h>
-#include <igl/hessian_energy.h>
-#include <igl/curved_hessian_energy.h>
-#include <igl/massmatrix.h>
-#include <igl/cotmatrix.h>
-#include <igl/isolines_map.h>
-#include <igl/parula.h>
-#include <igl/vertex_components.h>
-#include <igl/remove_unreferenced.h>
 #include <igl/opengl/glfw/Viewer.h>
-#include <igl/heat_geodesics.h>
-
 #include <Eigen/Core>
-#include <Eigen/SparseCholesky>
-
 #include <iostream>
 #include <set>
-#include <limits>
-#include <stdlib.h>
-
-
 
 
 int main(int argc, char * argv[])
 {
-  typedef Eigen::SparseMatrix<double> SparseMat;
-  srand(57);
-  
-  //Read our mesh
-  Eigen::MatrixXd V;
-  Eigen::MatrixXi F;
-  if(!igl::read_triangle_mesh(
-                              argc>1?argv[1]:  "/Users/wangb0d/bolun/D/vs/libigl-example-project/libigl-tutorial-data-master/beetle.off",V,F)) {
-    std::cout << "Failed to load mesh." << std::endl;
-  }
-  
-  //Constructing an exact function to smooth
-  igl::HeatGeodesicsData<double> hgData;
-  igl::heat_geodesics_precompute(V, F, hgData);
-  Eigen::VectorXd heatDist;
-  Eigen::VectorXi gamma(1); gamma << 1947; //1631;
-  igl::heat_geodesics_solve(hgData, gamma, heatDist);
-  Eigen::VectorXd zexact =
-  0.1*(heatDist.array() + (-heatDist.maxCoeff())).pow(2)
-  + 3*V.block(0,1,V.rows(),1).array().cos();
-  
-  //Make the exact function noisy
-  const double s = 0.1*(zexact.maxCoeff() - zexact.minCoeff());
-  Eigen::VectorXd znoisy = zexact + s*Eigen::VectorXd::Random(zexact.size());
-  
-  //Constructing the squared Laplacian and squared Hessian energy
-  SparseMat L, M;
-  igl::cotmatrix(V, F, L);
-  igl::massmatrix(V, F, igl::MASSMATRIX_TYPE_BARYCENTRIC, M);
-  Eigen::SimplicialLDLT<SparseMat> solver(M);
-  SparseMat MinvL = solver.solve(L);
-  SparseMat QL = L.transpose()*MinvL;
-  SparseMat QH;
-  igl::hessian_energy(V, F, QH);
-  SparseMat QcH;
-  igl::curved_hessian_energy(V, F, QcH);
-  
-  //Solve to find Laplacian-smoothed Hessian-smoothed, and
-  // curved-Hessian-smoothed solutions
-   double al = 3e-7;
-  Eigen::SimplicialLDLT<SparseMat> lapSolver(al*QL + (1.-al)*M);
-  Eigen::VectorXd zl = lapSolver.solve(al*M*znoisy);
-  
-  const double ah = 2e-7;
-  Eigen::SimplicialLDLT<SparseMat> hessSolver(ah*QH + (1.-ah)*M);
-  Eigen::VectorXd zh = hessSolver.solve(ah*M*znoisy);
-   double ach = 3e-7;
-  Eigen::SimplicialLDLT<SparseMat> curvedHessSolver(ach*QcH + (1.-ach)*M);
-  Eigen::VectorXd zch = curvedHessSolver.solve(ach*M*znoisy);
-  
-  //Viewer that shows all functions: zexact, znoisy, zl, zh
-  igl::opengl::glfw::Viewer viewer;
-  viewer.data().set_mesh(V,F);
-  viewer.data().show_lines = false;
-  viewer.callback_key_down =
-  [&](igl::opengl::glfw::Viewer & viewer, unsigned char key, int mod)->bool
+  using namespace std;
+  using namespace Eigen;
+  using namespace igl;
+  cout<<"Usage: ./703_Decimation_bin [filename.(off|obj|ply)]"<<endl;
+  cout<<"  [space]  toggle animation."<<endl;
+  cout<<"  'r'  reset."<<endl;
+  // Load a closed manifold mesh
+  string filename("/Users/wangb0d/bolun/D/vs/levelset/tetwild/fTetWild/build/wsb.obj");
+  if(argc>=2)
   {
-    //Graduate result to show isolines, then compute color matrix
-    const Eigen::VectorXd* z;
-    Eigen::VectorXd zx;
-    switch(key) {
-      case '1':
-        z = &zexact;
-        break;
-      case '2':
-        z = &znoisy;
-        break;
-      case '3':
-        z = &zl;
-        break;
-      case '4':
-        z = &zh;
-        break;
-      case '5':
-        z = &zch;
-        break;
-      case '6':
-      {
-        // std::cout<<zl.norm()<<std::endl;
-        // zl = lapSolver.solve(al*M*zl);
-        // z=&zl;
-        SparseMat JTJ=al*QL+(1.-al)*M;
-        Eigen::VectorXd right=-al*QL*zl;
-        Eigen::SimplicialLDLT<SparseMat> tsolver(JTJ);
-        Eigen::VectorXd delta=tsolver.solve(right).eval();
-        zl+=delta;
-        z=&zl;
-        std::cout<<"*delta "<<delta.norm()<<std::endl;
-        std::cout<<"zl "<<zl.norm()<<std::endl;
+    filename = argv[1];
+  }
+  MatrixXd V,OV;
+  MatrixXi F,OF;
+  read_triangle_mesh(filename,OV,OF);
 
-        break;
-      }
-        
-      case '7':
-      {
-        std::cout<<zh.norm()<<std::endl;
-        zh = hessSolver.solve(ah*M*zh);
-        z=&zh;
-        break;
-      }
-        
-      case '8':
-      {
-        // std::cout<<zch.norm()<<std::endl;
-        // zch = curvedHessSolver.solve(ach*M*zch);
-        // z=&zch;
-        ach=1e-3;
-        SparseMat JTJ=ach*QcH + (1.-ach)*M;
-        Eigen::VectorXd right=-ach*QcH*zch;
-        Eigen::SimplicialLDLT<SparseMat> tsolver(JTJ);
-        Eigen::VectorXd delta=tsolver.solve(right);
-        zch+=delta;
-        z=&zch;
-        std::cout<<"*delta "<<delta.norm()<<std::endl;
-        std::cout<<"zch "<<zch.norm()<<std::endl;
-        break;
-      }
-      case '9':{
-        
-        SparseMat mJT=(2*al-1)*M-ah*QL;
-        Eigen::VectorXd delta=lapSolver.solve(mJT*zl);
-        zl-=delta;
-        std::cout<<"delta "<<delta.norm()<<std::endl;
-        z=&zl;
-        break;
-      }
-  
-      default:
-        return false;
-    }
-    viewer.data().set_data(*z);
-    return true;
-  };
-  std::cout << R"(Smoothing a noisy function.
-Usage:
-1  Show original function
-2  Show noisy function
-3  Biharmonic smoothing (zero Neumann boundary)
-4  Biharmonic smoothing (natural planar Hessian boundary)
-5  Biharmonic smoothing (natural curved Hessian boundary)
-)";
-  Eigen::MatrixXd CM;
-  igl::parula(Eigen::VectorXd::LinSpaced(21,0,1).eval(),false,CM);
-  igl::isolines_map(Eigen::MatrixXd(CM),CM);
-  viewer.data().set_colormap(CM);
-  viewer.data().set_data(znoisy);
-  viewer.launch();
-  
-  
-  //Constructing a step function to smooth
-  Eigen::VectorXd zstep = Eigen::VectorXd::Zero(V.rows());
-  for(int i=0; i<V.rows(); ++i) {
-    zstep(i) = V(i,2)<-0.25 ? 1. : (V(i,2)>0.31 ? 2. : 0);
-  }
-  
-  //Smooth that function
-  const double sl = 2e-5;
-  Eigen::SimplicialLDLT<SparseMat> stepLapSolver(sl*QL + (1.-sl)*M);
-  Eigen::VectorXd stepzl = stepLapSolver.solve(al*M*zstep);
-  const double sh = 6e-6;
-  Eigen::SimplicialLDLT<SparseMat> stepHessSolver(sh*QH + (1.-sh)*M);
-  Eigen::VectorXd stepzh = stepHessSolver.solve(ah*M*zstep);
-  const double sch = 2e-5;
-  Eigen::SimplicialLDLT<SparseMat> stepCurvedHessSolver(sl*QcH + (1.-sch)*M);
-  Eigen::VectorXd stepzch = stepCurvedHessSolver.solve(ach*M*zstep);
-  
-  //Display functions
-  igl::opengl::glfw::Viewer viewer2;
-  viewer2.data().set_mesh(V,F);
-  viewer2.data().show_lines = false;
-  viewer2.callback_key_down =
-  [&](igl::opengl::glfw::Viewer & viewer, unsigned char key, int mod)->bool
+  igl::opengl::glfw::Viewer viewer;
+
+  // Prepare array-based edge data structures and priority queue
+  VectorXi EMAP;
+  MatrixXi E,EF,EI;
+  igl::min_heap< std::tuple<double,int,int> > Q;
+  Eigen::VectorXi EQ;
+  // If an edge were collapsed, we'd collapse it to these points:
+  MatrixXd C;
+  int num_collapsed;
+
+  // Function to reset original mesh and data structures
+  const auto & reset = [&]()
   {
-    //Graduate result to show isolines, then compute color matrix
-    const Eigen::VectorXd* z;
-    switch(key) {
-      case '1':
-        z = &zstep;
+    F = OF;
+    V = OV;
+    edge_flaps(F,E,EMAP,EF,EI);
+    C.resize(E.rows(),V.cols());
+    VectorXd costs(E.rows());
+    // https://stackoverflow.com/questions/2852140/priority-queue-clear-method
+    // Q.clear();
+    Q = {};
+    EQ = Eigen::VectorXi::Zero(E.rows());
+    {
+      Eigen::VectorXd costs(E.rows());
+      igl::parallel_for(E.rows(),[&](const int e)
+      {
+        double cost = e;
+        RowVectorXd p(1,3);
+        shortest_edge_and_midpoint(e,V,F,E,EMAP,EF,EI,cost,p);
+        C.row(e) = p;
+        costs(e) = cost;
+      },10000);
+      for(int e = 0;e<E.rows();e++)
+      {
+        Q.emplace(costs(e),e,0);
+      }
+    }
+
+    num_collapsed = 0;
+    viewer.data().clear();
+    viewer.data().set_mesh(V,F);
+    viewer.data().set_face_based(true);
+  };
+
+  const auto &pre_draw = [&](igl::opengl::glfw::Viewer & viewer)->bool
+  {
+    // return false;
+    // If animating then collapse 10% of edges
+    if(viewer.core().is_animating && !Q.empty())
+    {
+      bool something_collapsed = false;
+      // collapse edge
+      const int max_iter = std::ceil(0.01*Q.size());
+      for(int j = 0;j<max_iter;j++)
+      {
+        if(!collapse_edge(shortest_edge_and_midpoint,V,F,E,EMAP,EF,EI,Q,EQ,C))
+        {
+          break;
+        }
+        something_collapsed = true;
+        num_collapsed++;
+      }
+
+      if(something_collapsed)
+      {
+        viewer.data().clear();
+        viewer.data().set_mesh(V,F);
+        viewer.data().set_face_based(true);
+      }
+    }
+    return false;
+  };
+
+  const auto &key_down =
+    [&](igl::opengl::glfw::Viewer &viewer,unsigned char key,int mod)->bool
+  {
+    switch(key)
+    {
+      case ' ':
+        viewer.core().is_animating ^= 1;
         break;
-      case '2':
-        z = &stepzl;
+      case 'R':
+      case 'r':
+        reset();
         break;
-      case '3':
-        z = &stepzh;
+      case 's':
+      case 'S':
+      {
+        std::string fname = igl::file_dialog_save();
+        if (fname.length() == 0)
+        {
+        }
+        else
+        {
+          igl::writeOBJ(fname, V, F);
+          std::cout << "mesh saved" << std::endl;
+        }
         break;
-      case '4':
-        z = &stepzch;
+      }
+
+      case 'c':
+      case 'C':
+      {
+        std::cout<<"run 10 iterations"<<std::endl;
+        for (int itr = 0; itr < 10; itr++)
+        {
+          collapse_edge(shortest_edge_and_midpoint, V, F, E, EMAP, EF, EI, Q, EQ, C);
+        }
+        std::cout<<"F size "<<F.rows()<<std::endl;
+        viewer.data().clear();
+        viewer.data().set_mesh(V, F);
         break;
+      }
+
       default:
         return false;
     }
-    viewer.data().set_data(*z);
     return true;
   };
-  std::cout << R"(Smoothing a step function.
-Usage:
-1  Show step function
-2  Biharmonic smoothing (zero Neumann boundary)
-3  Biharmonic smoothing (natural planar Hessian boundary)
-4  Biharmonic smoothing (natural curved Hessian boundary)
-)";
-  
-  viewer2.data().set_colormap(CM);
-  viewer2.data().set_data(zstep);
-  viewer2.launch();
-  
-  return 0;
+
+  reset();
+  viewer.data().set_mesh(V, F);
+  viewer.core().background_color.setConstant(1);
+  viewer.core().is_animating = true;
+  viewer.callback_key_down = key_down;
+  viewer.callback_pre_draw = pre_draw;
+  return viewer.launch();
 }

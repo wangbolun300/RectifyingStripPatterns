@@ -191,9 +191,9 @@ private:
                                                   const LSAnalizer &analizer, const int vars_start_loc, std::vector<Trip> &tripletes, Eigen::VectorXd &Energy);
     void calculate_boundary_direction_energy_function_values(const Eigen::MatrixXd& GradFValue,
         const std::vector<CGMesh::HalfedgeHandle>& edges, const Eigen::VectorXd& func, Eigen::VectorXd& lens, Eigen::VectorXd& energy);
-    void calculate_shading_condition_values(Eigen::VectorXd &vars,
-												 const LSAnalizer &analizer, const int vars_start_loc, std::vector<Trip> &tripletes, Eigen::VectorXd &Energy);
     void calculate_shading_condition_auxiliary_vars(Eigen::VectorXd& vars,
+	const LSAnalizer &analizer, const int vars_start_loc, const int aux_start_loc, std::vector<Trip>& tripletes, Eigen::VectorXd& Energy);
+    void calculate_shading_init(Eigen::VectorXd& vars,
 	const LSAnalizer &analizer, const int vars_start_loc, const int aux_start_loc, std::vector<Trip>& tripletes, Eigen::VectorXd& Energy);
     void assemble_solver_laplacian_part(spMat &H, Efunc &B);
     void assemble_solver_biharmonic_smoothing(const Eigen::VectorXd& func, spMat &H, Eigen::VectorXd &B); //Biharmonic smoothing (natural curved Hessian boundary)
@@ -324,6 +324,7 @@ public:
     bool enable_extreme_cases = false; // osculating plane othogonal to the normal direction, or contains the given direction
     bool Given_Const_Direction = false;// use the given direction but not the normal
     bool enable_max_energy_check = false;
+    bool enable_shading_init = false;
 
     double Reference_theta;  // the ray feed to the optimization as a constant direction
     double Reference_phi;
