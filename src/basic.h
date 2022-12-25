@@ -193,6 +193,8 @@ private:
         const std::vector<CGMesh::HalfedgeHandle>& edges, const Eigen::VectorXd& func, Eigen::VectorXd& lens, Eigen::VectorXd& energy);
     void calculate_shading_condition_auxiliary_vars(Eigen::VectorXd& vars,
 	const LSAnalizer &analizer, const int vars_start_loc, const int aux_start_loc, std::vector<Trip>& tripletes, Eigen::VectorXd& Energy);
+    void calculate_shading_condition_inequivalent(Eigen::VectorXd& vars,
+	const LSAnalizer &analizer, const int vars_start_loc, const int aux_start_loc, std::vector<Trip>& tripletes, Eigen::VectorXd& Energy);
     void calculate_shading_init(Eigen::VectorXd& vars,
 	const LSAnalizer &analizer, const int vars_start_loc, const int aux_start_loc, std::vector<Trip>& tripletes, Eigen::VectorXd& Energy);
     void assemble_solver_laplacian_part(spMat &H, Efunc &B);
@@ -309,7 +311,7 @@ public:
     double weight_boundary;              // weight of the boundary energy
     double weight_pseudo_geodesic_energy;// weight of the pseudo-geodesic energy
     double weight_strip_width;
-    double weight_geodesic; // For AAG
+    double weight_geodesic; // For AAG and shading
     // double weight_shading; // For shading: the light is othogonal to the tangent direction 
     // Don't Use Strip Width Condition When Opt Multiple Functions
     double strip_width = 1;       // strip width, defined as h/w, h: level set function value difference. w: distance between two points on the surface
@@ -337,6 +339,7 @@ public:
     double max_energy_percentage=0;
     std::vector<int> Second_Ray_vers; // the vertices for the second shading light direction
     int Second_Ray_nbr_rings = 1; // the nbr of rings associate to the vers corresponding to the second ray
+    double weight_binormal;
     
 
 

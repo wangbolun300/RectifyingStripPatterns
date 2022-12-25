@@ -532,9 +532,8 @@ void angle_range_calculator(double theta, double phi, double theta_tol, double p
 	double tan1 = tan(phi_lower);
 	double tan2 = tan(phi_upper);
 
-	tanmin = min(tan1, tan2);
-	tanmax = max(tan1, tan2);
-
+	tanmin = std::min(tan1, tan2);
+	tanmax = std::max(tan1, tan2);
 }
 
 // the condition that the principle normal is othogonal to a vector in a region
@@ -627,7 +626,7 @@ void lsTools::calculate_shading_condition_auxiliary_vars(Eigen::VectorXd& vars,
 			vars[lph] = Reference_phi * LSC_PI / 180.;
 			
 			double theta_tol = Theta_tol * LSC_PI / 180.; // convert to radian
-			double phi_tol = Theta_tol * LSC_PI / 180.;
+			double phi_tol = Phi_tol * LSC_PI / 180.;
 			if (analizer.Special.size() > 0)
 			{
 				if (analizer.Special[i] == true)
@@ -828,6 +827,288 @@ void lsTools::calculate_shading_condition_auxiliary_vars(Eigen::VectorXd& vars,
 	}
 	int howmany = max_loc / ninner;
 	std::cout<<"me, "<<max_e<<", mloc, "<<howmany<<",";
+}
+
+// reformulate the problem as inequivalent problems without sin / cos
+void lsTools::calculate_shading_condition_inequivalent(Eigen::VectorXd &vars,
+													   const LSAnalizer &analizer, const int vars_start_loc, const int aux_start_loc, std::vector<Trip> &tripletes, Eigen::VectorXd &Energy)
+{
+	int vnbr = V.rows();
+	if (Binormals.rows() != vnbr)
+	{
+		Binormals = Eigen::MatrixXd::Zero(vnbr, 3);
+	}
+	int ninner = analizer.LocalActInner.size();
+
+	tripletes.clear();
+	tripletes.reserve(ninner * 60);				 //
+	Energy = Eigen::VectorXd::Zero(ninner * 12); // mesh total energy values
+	if (Lights.rows() != vnbr)
+	{
+		Lights = Eigen::MatrixXd::Zero(vnbr, 3);
+	}
+	for (int i = 0; i < ninner; i++)
+	{
+		if (analizer.LocalActInner[i] == false)
+		{
+			std::cout << "singularity" << std::endl;
+			continue;
+		}
+		int vm = IVids[i];
+		CGMesh::HalfedgeHandle inhd = analizer.heh0[i], outhd = analizer.heh1[i];
+		int v1 = lsmesh.from_vertex_handle(inhd).idx();
+		int v2 = lsmesh.to_vertex_handle(inhd).idx();
+		int v3 = lsmesh.from_vertex_handle(outhd).idx();
+		int v4 = lsmesh.to_vertex_handle(outhd).idx();
+
+		double t1 = analizer.t1s[i];
+		double t2 = analizer.t2s[i];
+
+		Eigen::Vector3d ver0 = V.row(v1) + (V.row(v2) - V.row(v1)) * t1;
+		Eigen::Vector3d ver1 = V.row(vm);
+		Eigen::Vector3d ver2 = V.row(v3) + (V.row(v4) - V.row(v3)) * t2;
+
+		// the locations
+		int lvm = vars_start_loc + vm;
+		int lv1 = vars_start_loc + v1;
+		int lv2 = vars_start_loc + v2;
+		int lv3 = vars_start_loc + v3;
+		int lv4 = vars_start_loc + v4;
+
+		int lrx = i + aux_start_loc;
+		int lry = i + aux_start_loc + ninner;
+		int lrz = i + aux_start_loc + ninner * 2;
+
+		int lzl = i + aux_start_loc + ninner * 3;
+		int lzr = i + aux_start_loc + ninner * 4;
+		int lxl = i + aux_start_loc + ninner * 5;
+		int lxr = i + aux_start_loc + ninner * 6;
+		int lyr = i + aux_start_loc + ninner * 7;
+
+		int lrayx = i + aux_start_loc + ninner * 8;
+		int lrayy = i + aux_start_loc + ninner * 9;
+		int lrayz = i + aux_start_loc + ninner * 10;
+
+		Eigen::Vector3d norm = norm_v.row(vm);
+		Eigen::Vector3d v31 = V.row(v3) - V.row(v1);
+		Eigen::Vector3d v43 = V.row(v4) - V.row(v3);
+		Eigen::Vector3d v21 = V.row(v2) - V.row(v1);
+		double f1 = vars(lv1);
+		double f2 = vars(lv2);
+		double f3 = vars(lv3);
+		double f4 = vars(lv4);
+		double fm = vars(lvm);
+		double zmin, zmax, tanmin, tanmax;
+
+		angle_range_calculator(Reference_theta, Reference_phi, Theta_tol, Phi_tol, zmin, zmax, tanmin, tanmax);
+		if (analizer.Special.size() > 0)
+		{
+			if (analizer.Special[i] == true)
+			{
+				angle_range_calculator(Reference_theta2, Reference_phi2, Theta_tol2, Phi_tol2, zmin, zmax, tanmin, tanmax);
+			}
+		}
+		// Eigen::Vector3d real_u = norm.cross(ver2 - ver0);
+		// real_u = real_u.normalized();
+		if (Compute_Auxiliaries)
+		{
+			// std::cout<<"init auxiliaries"<<std::endl;
+			// Eigen::Vector3d real_s = v31 * (f4 - f3) * (f2 - f1) + v43 * (fm - f3) * (f2 - f1) - v21 * (fm - f1) * (f4 - f3);
+			Eigen::Vector3d real_r = (ver1 - ver0).normalized().cross((ver2 - ver1).normalized());
+
+			real_r = real_r.normalized();
+
+			// the binormal
+			vars[lrx] = real_r[0];
+			vars[lry] = real_r[1];
+			vars[lrz] = real_r[2];
+
+			// the ray and theta, phi
+			Eigen::Vector3d real_ray = angle_ray_converter(Reference_theta, Reference_phi);
+			double x = real_ray[0];
+			double y = real_ray[1];
+			double z = real_ray[2];
+			double zl = sqrt(z - zmin);
+			double zr = sqrt(zmax - z);
+			double xl = sqrt(x / y - tanmin);
+			double xr = sqrt(tanmax - x / y);
+			double yr = sqrt(-y);
+			if (y > 0)
+			{
+				std::cout << "Error, Please Check Here: calculate_shading_condition_inequivalent" << std::endl;
+			}
+			vars[lzl] = zl;
+			vars[lzr] = zr;
+			vars[lxl] = xl;
+			vars[lxr] = xr;
+			vars[lyr] = yr;
+
+			vars[lrayx] = real_ray[0];
+			vars[lrayy] = real_ray[1];
+			vars[lrayz] = real_ray[2];
+		}
+		
+
+		// the weight of ray * tangent for the places who does not have solutions
+		double weight_loose = 1;
+		if (analizer.HighEnergy.size() == ninner)
+		{
+			if (analizer.HighEnergy[i] == false)
+			{
+				weight_loose = weight_geodesic;
+			}
+		}
+		Eigen::Vector3d r = Eigen::Vector3d(vars[lrx], vars[lry], vars[lrz]);
+		Eigen::Vector3d ray = Eigen::Vector3d(vars[lrayx], vars[lrayy], vars[lrayz]);
+		if(ray[1]>0){ // flip y to make sure that y < 0
+			ray[1] *= -1;
+			vars[lrayy] *= -1;
+		}
+
+		double zl = vars[lzl];
+		double zr = vars[lzr];
+		double xl = vars[lxl];
+		double xr = vars[lxr];
+		double yr = vars[lyr];
+
+		// std::cout<<"up_lower, "<<theta_upper<<", "<<theta_lower<<" "<<phi_upper<<" "<<phi_lower<<", ";
+		Binormals.row(vm) = r.dot(norm) < 0 ? -r : r; // orient the binormal
+		Lights.row(vm) = ray;
+		// the weights
+		double dis0 = ((V.row(v1) - V.row(v2)) * vars[lvm] + (V.row(v2) - V.row(vm)) * vars[lv1] + (V.row(vm) - V.row(v1)) * vars[lv2]).norm();
+		double dis1 = ((V.row(v3) - V.row(v4)) * vars[lvm] + (V.row(v4) - V.row(vm)) * vars[lv3] + (V.row(vm) - V.row(v3)) * vars[lv4]).norm();
+		double scale = mass_uniform.coeff(vm, vm);
+		// r dot (vm+(t1-1)*vf-t1*vt)
+		// vf = v1, vt = v2
+		tripletes.push_back(Trip(i, lrx, ((V(v1, 0) - V(v2, 0)) * vars[lvm] + (V(v2, 0) - V(vm, 0)) * vars[lv1] + (V(vm, 0) - V(v1, 0)) * vars[lv2]) / dis0 * scale * weight_binormal));
+		tripletes.push_back(Trip(i, lry, ((V(v1, 1) - V(v2, 1)) * vars[lvm] + (V(v2, 1) - V(vm, 1)) * vars[lv1] + (V(vm, 1) - V(v1, 1)) * vars[lv2]) / dis0 * scale * weight_binormal));
+		tripletes.push_back(Trip(i, lrz, ((V(v1, 2) - V(v2, 2)) * vars[lvm] + (V(v2, 2) - V(vm, 2)) * vars[lv1] + (V(vm, 2) - V(v1, 2)) * vars[lv2]) / dis0 * scale * weight_binormal));
+
+		double r12 = (V.row(v1) - V.row(v2)).dot(r);
+		double rm1 = (V.row(vm) - V.row(v1)).dot(r);
+		double r2m = (V.row(v2) - V.row(vm)).dot(r);
+		tripletes.push_back(Trip(i, lvm, r12 / dis0 * scale * weight_binormal));
+		tripletes.push_back(Trip(i, lv1, r2m / dis0 * scale * weight_binormal));
+		tripletes.push_back(Trip(i, lv2, rm1 / dis0 * scale * weight_binormal));
+		Energy[i] = (r12 * vars[lvm] + rm1 * vars[lv2] + r2m * vars[lv1]) / dis0 * scale * weight_binormal;
+
+		// vf = v3, vt = v4
+		tripletes.push_back(Trip(i + ninner, lrx, ((V(v3, 0) - V(v4, 0)) * vars[lvm] + (V(v4, 0) - V(vm, 0)) * vars[lv3] + (V(vm, 0) - V(v3, 0)) * vars[lv4]) / dis1 * scale * weight_binormal));
+		tripletes.push_back(Trip(i + ninner, lry, ((V(v3, 1) - V(v4, 1)) * vars[lvm] + (V(v4, 1) - V(vm, 1)) * vars[lv3] + (V(vm, 1) - V(v3, 1)) * vars[lv4]) / dis1 * scale * weight_binormal));
+		tripletes.push_back(Trip(i + ninner, lrz, ((V(v3, 2) - V(v4, 2)) * vars[lvm] + (V(v4, 2) - V(vm, 2)) * vars[lv3] + (V(vm, 2) - V(v3, 2)) * vars[lv4]) / dis1 * scale * weight_binormal));
+
+		r12 = (V.row(v3) - V.row(v4)).dot(r);
+		rm1 = (V.row(vm) - V.row(v3)).dot(r);
+		r2m = (V.row(v4) - V.row(vm)).dot(r);
+		tripletes.push_back(Trip(i + ninner, lvm, r12 / dis1 * scale * weight_binormal));
+		tripletes.push_back(Trip(i + ninner, lv3, r2m / dis1 * scale * weight_binormal));
+		tripletes.push_back(Trip(i + ninner, lv4, rm1 / dis1 * scale * weight_binormal));
+
+		Energy[i + ninner] = (r12 * vars[lvm] + rm1 * vars[lv4] + r2m * vars[lv3]) / dis1 * scale * weight_binormal;
+
+		// r*r=1
+		tripletes.push_back(Trip(i + ninner * 2, lrx, 2 * vars(lrx) * scale * weight_binormal));
+		tripletes.push_back(Trip(i + ninner * 2, lry, 2 * vars(lry) * scale * weight_binormal));
+		tripletes.push_back(Trip(i + ninner * 2, lrz, 2 * vars(lrz) * scale * weight_binormal));
+
+		Energy[i + ninner * 2] = (r.dot(r) - 1) * scale * weight_binormal;
+		// std::cout<<"c3 got"<<std::endl;
+
+		double weight_test = 1;
+
+		// // r * ray = 0
+		tripletes.push_back(Trip(i + ninner * 3, lrx, weight_test * ray[0] * scale));
+		tripletes.push_back(Trip(i + ninner * 3, lry, weight_test * ray[1] * scale));
+		tripletes.push_back(Trip(i + ninner * 3, lrz, weight_test * ray[2] * scale));
+
+		tripletes.push_back(Trip(i + ninner * 3, lrayx, weight_test * r[0] * scale));
+		tripletes.push_back(Trip(i + ninner * 3, lrayy, weight_test * r[1] * scale));
+		tripletes.push_back(Trip(i + ninner * 3, lrayz, weight_test * r[2] * scale));
+		Energy[i + ninner * 3] = weight_test * r.dot(ray) * scale;
+
+		// tangent * ray = 0
+		Eigen::Vector3d v12 = V.row(v1) - V.row(v2);
+
+		double d31 = ray.dot(v31);
+		double d43 = ray.dot(v43);
+		double d12 = ray.dot(v12);
+		Eigen::Vector3d tangent = v31 * (f4 - f3) * (f2 - f1) + v43 * (fm - f3) * (f2 - f1) + v12 * (fm - f1) * (f4 - f3);
+		double tnorm = tangent.norm();
+
+		tripletes.push_back(Trip(i + ninner * 4, lv1, weight_loose * (-d31 * (f4 - f3) - d43 * (fm - f3) - d12 * (f4 - f3)) / tnorm * scale));
+		tripletes.push_back(Trip(i + ninner * 4, lv2, weight_loose * (d31 * (f4 - f3) + d43 * (fm - f3)) / tnorm * scale));
+		tripletes.push_back(Trip(i + ninner * 4, lv3, weight_loose * (-d31 * (f2 - f1) - d43 * (f2 - f1) - d12 * (fm - f1)) / tnorm * scale));
+		tripletes.push_back(Trip(i + ninner * 4, lv4, weight_loose * (d31 * (f2 - f1) + d12 * (fm - f1)) / tnorm * scale));
+		tripletes.push_back(Trip(i + ninner * 4, lvm, weight_loose * (d43 * (f2 - f1) + d12 * (f4 - f3)) / tnorm * scale));
+
+		tripletes.push_back(Trip(i + ninner * 4, lrayx, weight_loose * tangent[0] / tnorm * scale));
+		tripletes.push_back(Trip(i + ninner * 4, lrayy, weight_loose * tangent[1] / tnorm * scale));
+		tripletes.push_back(Trip(i + ninner * 4, lrayz, weight_loose * tangent[2] / tnorm * scale));
+
+		Energy[i + ninner * 4] = weight_loose * ray.dot(tangent) / tnorm * scale;
+
+		if (analizer.ShadSpecial.size() != ninner)
+		{
+			std::cout << "Please check the surface patches that are parallel to the light" << std::endl;
+		}
+		if (analizer.ShadSpecial[i] == 0) // if this patch is parallel to the light, skip
+		{
+			continue;
+		}
+		// z - zmin - zl^2 = 0
+		tripletes.push_back(Trip(i + ninner * 5, lrayz, 1 * scale));
+		tripletes.push_back(Trip(i + ninner * 5, lzl, (-2 * zl) * scale));
+
+		Energy[i + ninner * 5] = (ray[2] - zmin - zl * zl) * scale;
+
+		// zmax - z - zr^2 = 0
+		tripletes.push_back(Trip(i + ninner * 6, lrayz, -1 * scale));
+		tripletes.push_back(Trip(i + ninner * 6, lzr, (-2 * zr) * scale));
+
+		Energy[i + ninner * 6] = (zmax - ray[2] - zr * zr) * scale;
+		
+		// x/y >= tanmin -> x - tanmin * y + xl^2 = 0, since y < 0
+		tripletes.push_back(Trip(i + ninner * 7, lrayx, 1 * scale));
+		tripletes.push_back(Trip(i + ninner * 7, lrayy, -tanmin * scale));
+		tripletes.push_back(Trip(i + ninner * 7, lxl, (2 * xl) * scale));
+
+		Energy[i + ninner * 7] = (ray[0] - tanmin * ray[1] + xl * xl) * scale;
+		
+		// x/y <= tanmax -> x - tanmax * y - xr^2 = 0, since y < 0
+		tripletes.push_back(Trip(i + ninner * 8, lrayx, 1 * scale));
+		tripletes.push_back(Trip(i + ninner * 8, lrayy, -tanmax * scale));
+		tripletes.push_back(Trip(i + ninner * 8, lxr, (-2 * xr) * scale));
+
+		Energy[i + ninner * 8] = (ray[0] - tanmax * ray[1] - xr * xr) * scale;
+
+		// y <= 0 -> y + yr*yr = 0
+		tripletes.push_back(Trip(i + ninner * 9, lrayy, 1 * scale));
+		tripletes.push_back(Trip(i + ninner * 9, lyr, 2 * yr * scale));
+
+		Energy[i + ninner * 9] = (ray[1] + yr * yr) * scale;
+
+		// ray * ray =1
+		tripletes.push_back(Trip(i + ninner * 10, lrayx, 2 * ray[0] * scale)); 
+		tripletes.push_back(Trip(i + ninner * 10, lrayy, 2 * ray[1] * scale)); 
+		tripletes.push_back(Trip(i + ninner * 10, lrayz, 2 * ray[2] * scale));
+
+		Energy[i + ninner * 10] = (ray.dot(ray) - 1) * scale;
+
+		
+
+	}
+	double max_e = 0;
+	int max_loc = -1;
+	for (int i = 0; i < Energy.size(); i++)
+	{
+		if (abs(Energy[i]) > max_e)
+		{
+			max_e = abs(Energy[i]);
+			max_loc = i;
+		}
+	}
+	int howmany = max_loc / ninner;
+	std::cout << "me, " << max_e << ", mloc, " << howmany << ",";
 }
 
 void lsTools::calculate_shading_init(Eigen::VectorXd& vars,
@@ -1262,6 +1543,207 @@ void lsTools::calculate_boundary_direction_energy_function_values(const Eigen::M
 		}
 	}
 }
+
+void lsTools::calculate_binormal_regulizer(Eigen::VectorXd& vars,
+	const LSAnalizer &analizer, const int vars_start_loc, const int aux_start_loc, std::vector<Trip>& tripletes, Eigen::VectorXd& Energy) {
+	int vnbr = V.rows();
+	if (Binormals.rows() != vnbr)
+	{
+		Binormals = Eigen::MatrixXd::Zero(vnbr, 3);
+	}
+	int ninner = analizer.LocalActInner.size();
+
+	tripletes.clear();
+	tripletes.reserve(ninner * 60); // 
+	Energy = Eigen::VectorXd::Zero(ninner * 12); // mesh total energy values
+	if (Lights.rows() != vnbr)
+	{
+		Lights = Eigen::MatrixXd::Zero(vnbr, 3);
+	}
+	for (int i = 0; i < ninner; i++)
+	{
+		if (analizer.LocalActInner[i] == false) {
+			std::cout << "singularity" << std::endl;
+			continue;
+		}
+		int vm = IVids[i];
+		CGMesh::HalfedgeHandle inhd = analizer.heh0[i], outhd = analizer.heh1[i];
+		int v1 = lsmesh.from_vertex_handle(inhd).idx();
+		int v2 = lsmesh.to_vertex_handle(inhd).idx();
+		int v3 = lsmesh.from_vertex_handle(outhd).idx();
+		int v4 = lsmesh.to_vertex_handle(outhd).idx();
+		
+		double t1 = analizer.t1s[i];
+		double t2 = analizer.t2s[i];
+		
+		Eigen::Vector3d ver0 = V.row(v1) + (V.row(v2) - V.row(v1)) * t1;
+		Eigen::Vector3d ver1 = V.row(vm);
+		Eigen::Vector3d ver2 = V.row(v3) + (V.row(v4) - V.row(v3)) * t2;
+		
+		// the locations
+		int lvm = vars_start_loc + vm;
+		int lv1 = vars_start_loc + v1;
+		int lv2 = vars_start_loc + v2;
+		int lv3 = vars_start_loc + v3;
+		int lv4 = vars_start_loc + v4;
+
+		int lrx = i + aux_start_loc;
+		int lry = i + aux_start_loc + ninner;
+		int lrz = i + aux_start_loc + ninner * 2;
+
+		int lrayx = i + aux_start_loc + ninner * 3;
+		int lrayy = i + aux_start_loc + ninner * 4;
+		int lrayz = i + aux_start_loc + ninner * 5;
+
+		Eigen::Vector3d norm = norm_v.row(vm);
+		Eigen::Vector3d v31 = V.row(v3) - V.row(v1);
+		Eigen::Vector3d v43 = V.row(v4) - V.row(v3);
+		Eigen::Vector3d v21 = V.row(v2) - V.row(v1);
+		double f1 = vars(lv1);
+		double f2 = vars(lv2);
+		double f3 = vars(lv3);
+		double f4 = vars(lv4);
+		double fm = vars(lvm);
+		
+		// Eigen::Vector3d real_u = norm.cross(ver2 - ver0);
+		// real_u = real_u.normalized();
+		if (Compute_Auxiliaries) {
+			// std::cout<<"init auxiliaries"<<std::endl;
+			// Eigen::Vector3d real_s = v31 * (f4 - f3) * (f2 - f1) + v43 * (fm - f3) * (f2 - f1) - v21 * (fm - f1) * (f4 - f3);
+			Eigen::Vector3d real_r = (ver1 - ver0).normalized().cross((ver2 - ver1).normalized());
+			
+			real_r = real_r.normalized();
+			
+			// the binormal r
+			vars[lrx] = real_r[0];
+			vars[lry] = real_r[1];
+			vars[lrz] = real_r[2];
+
+			// the ray and theta, phi
+			Eigen::Vector3d real_ray = angle_ray_converter(Reference_theta, Reference_phi);
+			
+			vars[lrayx] = real_ray[0];
+			vars[lrayy] = real_ray[1];
+			vars[lrayz] = real_ray[2];
+		}
+
+		// the weight of ray * tangent for the places who does not have solutions 
+		double weight_loose = weight_geodesic;
+		// if (analizer.HighEnergy.size() == ninner)
+		// {
+		// 	if (analizer.HighEnergy[i] == false)
+		// 	{
+		// 		weight_loose = weight_geodesic;
+		// 	}
+		// }
+		Eigen::Vector3d r = Eigen::Vector3d(vars[lrx], vars[lry], vars[lrz]);
+		Eigen::Vector3d ray = Eigen::Vector3d(vars[lrayx], vars[lrayy], vars[lrayz]);
+		
+		double target_theta = Reference_theta * LSC_PI / 180.;
+
+		//std::cout<<"up_lower, "<<theta_upper<<", "<<theta_lower<<" "<<phi_upper<<" "<<phi_lower<<", ";
+		Binormals.row(vm) = r.dot(norm) < 0 ? -r : r; // orient the binormal
+		Lights.row(vm) = ray;
+		// the weights
+		double dis0 = ((V.row(v1) - V.row(v2)) * vars[lvm] + (V.row(v2) - V.row(vm)) * vars[lv1] + (V.row(vm) - V.row(v1)) * vars[lv2]).norm();
+		double dis1 = ((V.row(v3) - V.row(v4)) * vars[lvm] + (V.row(v4) - V.row(vm)) * vars[lv3] + (V.row(vm) - V.row(v3)) * vars[lv4]).norm();
+		double scale = mass_uniform.coeff(vm, vm);
+		// r dot (vm+(t1-1)*vf-t1*vt)
+		// vf = v1, vt = v2
+		tripletes.push_back(Trip(i, lrx, ((V(v1, 0) - V(v2, 0)) * vars[lvm] + (V(v2, 0) - V(vm, 0)) * vars[lv1] + (V(vm, 0) - V(v1, 0)) * vars[lv2]) / dis0 * scale));
+		tripletes.push_back(Trip(i, lry, ((V(v1, 1) - V(v2, 1)) * vars[lvm] + (V(v2, 1) - V(vm, 1)) * vars[lv1] + (V(vm, 1) - V(v1, 1)) * vars[lv2]) / dis0 * scale));
+		tripletes.push_back(Trip(i, lrz, ((V(v1, 2) - V(v2, 2)) * vars[lvm] + (V(v2, 2) - V(vm, 2)) * vars[lv1] + (V(vm, 2) - V(v1, 2)) * vars[lv2]) / dis0 * scale));
+
+		double r12 = (V.row(v1) - V.row(v2)).dot(r);
+		double rm1 = (V.row(vm) - V.row(v1)).dot(r);
+		double r2m = (V.row(v2) - V.row(vm)).dot(r);
+		tripletes.push_back(Trip(i, lvm, r12 / dis0 * scale));
+		tripletes.push_back(Trip(i, lv1, r2m / dis0 * scale));
+		tripletes.push_back(Trip(i, lv2, rm1 / dis0 * scale));
+		Energy[i] = (r12 * vars[lvm] + rm1 * vars[lv2] + r2m * vars[lv1]) / dis0 * scale;
+
+		// vf = v3, vt = v4
+		tripletes.push_back(Trip(i + ninner, lrx, ((V(v3, 0) - V(v4, 0)) * vars[lvm] + (V(v4, 0) - V(vm, 0)) * vars[lv3] + (V(vm, 0) - V(v3, 0)) * vars[lv4]) / dis1 * scale));
+		tripletes.push_back(Trip(i + ninner, lry, ((V(v3, 1) - V(v4, 1)) * vars[lvm] + (V(v4, 1) - V(vm, 1)) * vars[lv3] + (V(vm, 1) - V(v3, 1)) * vars[lv4]) / dis1 * scale));
+		tripletes.push_back(Trip(i + ninner, lrz, ((V(v3, 2) - V(v4, 2)) * vars[lvm] + (V(v4, 2) - V(vm, 2)) * vars[lv3] + (V(vm, 2) - V(v3, 2)) * vars[lv4]) / dis1 * scale));
+
+		r12 = (V.row(v3) - V.row(v4)).dot(r);
+		rm1 = (V.row(vm) - V.row(v3)).dot(r);
+		r2m = (V.row(v4) - V.row(vm)).dot(r);
+		tripletes.push_back(Trip(i + ninner, lvm, r12 / dis1 * scale));
+		tripletes.push_back(Trip(i + ninner, lv3, r2m / dis1 * scale));
+		tripletes.push_back(Trip(i + ninner, lv4, rm1 / dis1 * scale));
+
+		Energy[i + ninner] = (r12 * vars[lvm] + rm1 * vars[lv4] + r2m * vars[lv3]) / dis1 * scale;
+
+		// r*r=1
+		tripletes.push_back(Trip(i + ninner * 2, lrx, 2 * vars(lrx) * scale));
+		tripletes.push_back(Trip(i + ninner * 2, lry, 2 * vars(lry) * scale));
+		tripletes.push_back(Trip(i + ninner * 2, lrz, 2 * vars(lrz) * scale));
+
+		Energy[i + ninner * 2] = (r.dot(r) - 1) * scale;
+		// std::cout<<"c3 got"<<std::endl;
+		double weight_test = 1;
+
+		// // r * ray = 0
+		tripletes.push_back(Trip(i + ninner * 3, lrx, weight_test * ray[0] * scale));
+		tripletes.push_back(Trip(i + ninner * 3, lry, weight_test * ray[1] * scale));
+		tripletes.push_back(Trip(i + ninner * 3, lrz, weight_test * ray[2] * scale));
+
+		tripletes.push_back(Trip(i + ninner * 3, lrayx, weight_test * r[0] * scale));
+		tripletes.push_back(Trip(i + ninner * 3, lrayy, weight_test * r[1] * scale));
+		tripletes.push_back(Trip(i + ninner * 3, lrayz, weight_test * r[2] * scale));
+		Energy[i + ninner * 3] = weight_test * r.dot(ray) * scale;
+
+		// tangent * ray = 0
+		Eigen::Vector3d v12 = V.row(v1) - V.row(v2);
+
+		double d31 = ray.dot(v31);
+		double d43 = ray.dot(v43);
+		double d12 = ray.dot(v12);
+		Eigen::Vector3d tangent = v31 * (f4 - f3) * (f2 - f1) + v43 * (fm - f3) * (f2 - f1) + v12 * (fm - f1) * (f4 - f3);
+		double tnorm = tangent.norm();
+
+		tripletes.push_back(Trip(i + ninner * 4, lv1, weight_loose * (-d31 * (f4 - f3) - d43 * (fm - f3) - d12 * (f4 - f3)) / tnorm * scale));
+		tripletes.push_back(Trip(i + ninner * 4, lv2, weight_loose * (d31 * (f4 - f3) + d43 * (fm - f3)) / tnorm * scale));
+		tripletes.push_back(Trip(i + ninner * 4, lv3, weight_loose * (-d31 * (f2 - f1) - d43 * (f2 - f1) - d12 * (fm - f1)) / tnorm * scale));
+		tripletes.push_back(Trip(i + ninner * 4, lv4, weight_loose * (d31 * (f2 - f1) + d12 * (fm - f1)) / tnorm * scale));
+		tripletes.push_back(Trip(i + ninner * 4, lvm, weight_loose * (d43 * (f2 - f1) + d12 * (f4 - f3)) / tnorm * scale));
+
+		tripletes.push_back(Trip(i + ninner * 4, lrayx, weight_loose * tangent[0] / tnorm * scale));
+		tripletes.push_back(Trip(i + ninner * 4, lrayy, weight_loose * tangent[1] / tnorm * scale));
+		tripletes.push_back(Trip(i + ninner * 4, lrayz, weight_loose * tangent[2] / tnorm * scale));
+
+		Energy[i + ninner * 4] = weight_loose * ray.dot(tangent) / tnorm * scale;
+
+		//////////////////////////////
+		// ray * ray =1
+		tripletes.push_back(Trip(i + ninner * 5, lrayx, 2 * ray[0] * scale)); 
+		tripletes.push_back(Trip(i + ninner * 5, lrayy, 2 * ray[1] * scale)); 
+		tripletes.push_back(Trip(i + ninner * 5, lrayz, 2 * ray[2] * scale));
+
+		Energy[i + ninner * 5] = (ray.dot(ray) - 1) * scale;
+
+		// ray_z * ray_z = sin(theta)^2
+		double sin_square = sin(target_theta) * sin(target_theta);
+		tripletes.push_back(Trip(i + ninner * 6, lrayz, 2 * ray[2] * scale));
+		Energy[i + ninner * 6] = (ray[2] * ray[2] - sin_square) * scale;
+
+		/////////////////////////////
+	}
+	double max_e = 0;
+	int max_loc = -1;
+	for (int i = 0; i < Energy.size(); i++)
+	{
+		if (abs(Energy[i]) > max_e)
+		{
+			max_e = abs(Energy[i]);
+			max_loc = i;
+		}
+	}
+	int howmany = max_loc / ninner;
+	std::cout << "initme, " << max_e << ", mloc, " << howmany << ",";
+}
 void lsTools::assemble_solver_fixed_boundary_direction_part(const Eigen::MatrixXd& GradFValue, const std::vector<CGMesh::HalfedgeHandle>& edges,
 	const Eigen::VectorXd& func,
 	spMat& H, Eigen::VectorXd& B, Eigen::VectorXd& energy) {
@@ -1407,7 +1889,9 @@ void lsTools::assemble_solver_extreme_cases_part_vertex_based(Eigen::VectorXd &v
 	{ // shading condition
 		if (!enable_shading_init)
 		{
-			calculate_shading_condition_auxiliary_vars(vars,
+			// calculate_shading_condition_auxiliary_vars(vars,
+			// 										   analizer, vars_start_loc, vnbr, tripletes, energy);
+			calculate_shading_condition_inequivalent(vars,
 													   analizer, vars_start_loc, vnbr, tripletes, energy);
 		}
 		else

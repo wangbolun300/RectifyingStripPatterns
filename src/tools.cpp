@@ -2242,6 +2242,13 @@ void write_polyline_xyz(const std::vector<std::vector<Eigen::Vector3d>> &lines, 
     }
     file.close();
 }
+Eigen::Vector3d orient_vector(const Eigen::Vector3d& base, const Eigen::Vector3d &vec){
+    if(vec.dot(base)<0){
+        return -vec;
+    }
+    return vec;
+}
+
 #include <igl/point_mesh_squared_distance.h>
 void extract_shading_lines(const CGMesh &lsmesh, const Eigen::MatrixXd &V, const std::vector<CGMesh::HalfedgeHandle> &loop,
                            const Eigen::MatrixXi &F, const Eigen::VectorXd &ls,
@@ -2301,11 +2308,19 @@ void extract_shading_lines(const CGMesh &lsmesh, const Eigen::MatrixXd &V, const
     }
     std::vector<std::vector<Eigen::Vector3d>> bilist = lines;
     int counter = 0;
+    Eigen::Vector3d bbase = B.row(0);
     for (int i = 0; i < lines.size(); i++)
     {
+        Eigen::Vector3d base = B.row(counter);
+        if(base.dot(bbase)<0){
+            base *= -1;
+        }
+
         for (int j = 0; j < lines[i].size(); j++)
         {
-            bilist[i][j] = B.row(counter);
+            Eigen::Vector3d direction = orient_vector(base, B.row(counter));
+            base = direction;
+            bilist[i][j] = direction;
             counter++;
         }
     }
