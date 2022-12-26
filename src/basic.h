@@ -185,23 +185,25 @@ private:
         std::vector<CGMesh::HalfedgeHandle>& heh0, std::vector<CGMesh::HalfedgeHandle>& heh1,
         std::vector<double>& t1s, std::vector<double>& t2s);
     void analysis_pseudo_geodesic_on_vertices(const Eigen::VectorXd& func_values, LSAnalizer& analizer);
-    void calculate_pseudo_geodesic_opt_expanded_function_values(Eigen::VectorXd& vars, const std::vector<double>& angle_degree,
-        const LSAnalizer &analizer, const bool first_compute,const int vars_start_loc, const int aux_start_loc, std::vector<Trip>& tripletes, Eigen::VectorXd& Energy);
+    void calculate_pseudo_geodesic_opt_expanded_function_values(Eigen::VectorXd &vars, const std::vector<double> &angle_degree,
+                                                                const LSAnalizer &analizer, const bool first_compute, const int vars_start_loc, const int aux_start_loc, std::vector<Trip> &tripletes, Eigen::VectorXd &Energy);
     void calculate_extreme_pseudo_geodesic_values(Eigen::VectorXd &vars, const bool asymptotic,
                                                   const LSAnalizer &analizer, const int vars_start_loc, std::vector<Trip> &tripletes, Eigen::VectorXd &Energy);
-    void calculate_boundary_direction_energy_function_values(const Eigen::MatrixXd& GradFValue,
-        const std::vector<CGMesh::HalfedgeHandle>& edges, const Eigen::VectorXd& func, Eigen::VectorXd& lens, Eigen::VectorXd& energy);
-    void calculate_shading_condition_auxiliary_vars(Eigen::VectorXd& vars,
-	const LSAnalizer &analizer, const int vars_start_loc, const int aux_start_loc, std::vector<Trip>& tripletes, Eigen::VectorXd& Energy);
-    void calculate_shading_condition_inequivalent(Eigen::VectorXd& vars,
-	const LSAnalizer &analizer, const int vars_start_loc, const int aux_start_loc, std::vector<Trip>& tripletes, Eigen::VectorXd& Energy);
-    void calculate_shading_init(Eigen::VectorXd& vars,
-	const LSAnalizer &analizer, const int vars_start_loc, const int aux_start_loc, std::vector<Trip>& tripletes, Eigen::VectorXd& Energy);
+    void calculate_boundary_direction_energy_function_values(const Eigen::MatrixXd &GradFValue,
+                                                             const std::vector<CGMesh::HalfedgeHandle> &edges, const Eigen::VectorXd &func, Eigen::VectorXd &lens, Eigen::VectorXd &energy);
+    void calculate_shading_condition_auxiliary_vars(Eigen::VectorXd &vars,
+                                                    const LSAnalizer &analizer, const int vars_start_loc, const int aux_start_loc, std::vector<Trip> &tripletes, Eigen::VectorXd &Energy);
+    void calculate_shading_condition_inequivalent(Eigen::VectorXd &vars,
+                                                  const LSAnalizer &analizer, const int vars_start_loc, const int aux_start_loc, std::vector<Trip> &tripletes, Eigen::VectorXd &Energy);
+    void calculate_shading_init(Eigen::VectorXd &vars,
+                                const LSAnalizer &analizer, const int vars_start_loc, const int aux_start_loc, std::vector<Trip> &tripletes, Eigen::VectorXd &Energy);
+    void calculate_binormal_regulizer(Eigen::VectorXd& vars,
+	const LSAnalizer &analizer, const int vars_start_loc, const int aux_start_loc,std::vector<Trip> &tripletes,  Eigen::VectorXd& Energy);
     void assemble_solver_laplacian_part(spMat &H, Efunc &B);
-    void assemble_solver_biharmonic_smoothing(const Eigen::VectorXd& func, spMat &H, Eigen::VectorXd &B); //Biharmonic smoothing (natural curved Hessian boundary)
-    void assemble_solver_boundary_condition_part(const Eigen::VectorXd& func, spMat& H, Eigen::VectorXd& B, Eigen::VectorXd& bcfvalue);
+    void assemble_solver_biharmonic_smoothing(const Eigen::VectorXd &func, spMat &H, Eigen::VectorXd &B); // Biharmonic smoothing (natural curved Hessian boundary)
+    void assemble_solver_boundary_condition_part(const Eigen::VectorXd &func, spMat &H, Eigen::VectorXd &B, Eigen::VectorXd &bcfvalue);
     void assemble_solver_fixed_values_part(const std::vector<CGMesh::HalfedgeHandle> &hds, const double assigned_value,
-												const Eigen::VectorXd &func, spMat &H, Eigen::VectorXd &B, Eigen::VectorXd &bcfvalue);
+                                           const Eigen::VectorXd &func, spMat &H, Eigen::VectorXd &B, Eigen::VectorXd &bcfvalue);
     void assemble_solver_pesudo_geodesic_energy_part_vertex_based(Eigen::VectorXd &vars, const std::vector<double> &angle_degree,
                                                                   const LSAnalizer &analizer, const bool first_compute, const int vars_start_loc, const int aux_start_loc, spMat &H, Eigen::VectorXd &B, Eigen::VectorXd &energy);
     void assemble_solver_strip_width_part(const Eigen::MatrixXd& GradValue,  spMat& H, Eigen::VectorXd& B);
@@ -210,6 +212,10 @@ private:
     void assemble_solver_fixed_boundary_direction_part(const Eigen::MatrixXd& GradFValue, const std::vector<CGMesh::HalfedgeHandle>& edges,
         const Eigen::VectorXd& func,
         spMat& H, Eigen::VectorXd& B, Eigen::VectorXd& energy);
+
+    void assemble_solver_binormal_regulizer(Eigen::VectorXd &vars,
+												 const LSAnalizer &analizer, const int vars_start_loc,
+												 const int aux_start_loc, spMat &H, Eigen::VectorXd &B, Eigen::VectorXd &energy);
     // void assemble_solver_shading_condition(Eigen::VectorXd &vars, 
     //                                        const LSAnalizer &analizer, const int vars_start_loc, 
     //                                        spMat &H, Eigen::VectorXd &B, Eigen::VectorXd &Energy);
@@ -312,6 +318,7 @@ public:
     double weight_pseudo_geodesic_energy;// weight of the pseudo-geodesic energy
     double weight_strip_width;
     double weight_geodesic; // For AAG and shading
+    double weight_smt_binormal = 0; // smooth the binormals
     // double weight_shading; // For shading: the light is othogonal to the tangent direction 
     // Don't Use Strip Width Condition When Opt Multiple Functions
     double strip_width = 1;       // strip width, defined as h/w, h: level set function value difference. w: distance between two points on the surface

@@ -1115,6 +1115,67 @@ bool read_bi_normals(Eigen::MatrixXd &bn){
     return true;
 }
 
+// read csv data line by line and save the data by rows
+bool read_csv_data_lbl(const std::string fname, std::vector<std::vector<double>> &data){
+    std::cout<<"reading "<<fname<<std::endl;
+    if (fname.length() == 0)
+        return false;
+
+    std::ifstream infile;
+    std::vector<std::vector<double>> results;
+
+    infile.open(fname);
+    if (!infile.is_open())
+    {
+        std::cout << "Path Wrong!!!!" << std::endl;
+        std::cout << "path, " << fname << std::endl;
+        return false;
+    }
+
+    int l = 0;
+    while (infile) // there is input overload classfile
+    {
+        std::string s;
+        if (!getline(infile, s))
+            break;
+
+        if (s[0] != '#')
+        {
+            std::istringstream ss(s);
+            std::vector<double> record;
+            int c = 0;
+            while (ss)
+            {
+                std::string line;
+                if (!getline(ss, line, ','))
+                    break;
+                try
+                {
+
+                    record.push_back(std::stod(line));
+                    c++;
+
+                }
+                catch (const std::invalid_argument e)
+                {
+                    std::cout << "NaN found in file " << fname
+                              <<  std::endl;
+                    e.what();
+                }
+            }
+
+            
+            results.push_back(record);
+        }
+    }
+    data = results;
+    if (!infile.eof())
+    {
+        std::cerr << "Could not read file " << fname << "\n";
+    }
+    std::cout<<fname<<" get readed"<<std::endl;
+    return true;
+}
 // get vid1, vid2, vidA and vidB.
 // here we do not assume fvalues[vid1]>fvalues[vid2], we need to consider it outside
 std::array<int,4> get_vers_around_edge(CGMesh& lsmesh, int edgeid, int& fid1, int &fid2){
@@ -2248,7 +2309,23 @@ Eigen::Vector3d orient_vector(const Eigen::Vector3d& base, const Eigen::Vector3d
     }
     return vec;
 }
-
+std::array<double, 3> barycenter_coordinate(const Eigen::Vector3d &v0, const Eigen::Vector3d &v1, const Eigen::Vector3d &v2, const Eigen::Vector3d &p)
+{
+    double t0 = (v1 - v2).cross(v2 - p).norm();
+    double t1 = (v0 - v2).cross(v2 - p).norm();
+    double t2 = (v1 - v0).cross(v1 - p).norm();
+    double all = (v1 - v0).cross(v1 - v2).norm();
+    if (t0 + t1 + t2 > all + 1e-4 || t0 + t1 + t2 < all - 1e-4)
+    {
+        std::cout << "barycenter coordinate not accurate, " << t0 + t1 + t2 << " " << all << std::endl;
+        std::cout <<v0.transpose()<< "\n"<<v1.transpose()<< "\n"<<v2.transpose()<< "\n"<<p<< "\n";
+    }
+    std::array<double, 3> result;
+    result[0] = t0 / all;
+    result[1] = t1 / all;
+    result[2] = t2 / all;
+    return result;
+}
 #include <igl/point_mesh_squared_distance.h>
 void extract_shading_lines(const CGMesh &lsmesh, const Eigen::MatrixXd &V, const std::vector<CGMesh::HalfedgeHandle> &loop,
                            const Eigen::MatrixXi &F, const Eigen::VectorXd &ls,
@@ -2302,7 +2379,13 @@ void extract_shading_lines(const CGMesh &lsmesh, const Eigen::MatrixXd &V, const
         int v0 = F(fid, 0);
         int v1 = F(fid, 1);
         int v2 = F(fid, 2);
-        Eigen::Vector3d dir = bn.row(v0) + bn.row(v1) + bn.row(v2);
+        Eigen::Vector3d pt = verlist[i];
+        Eigen::Vector3d ver0 = V.row(v0);
+        Eigen::Vector3d ver1 = V.row(v1);
+        Eigen::Vector3d ver2 = V.row(v2);
+        std::array<double, 3> coor = barycenter_coordinate(ver0, ver1, ver2, pt);
+
+        Eigen::Vector3d dir = coor[0] * bn.row(v0) + coor[1] * bn.row(v1) + coor[2] * bn.row(v2);
         dir = dir.normalized();
         B.row(i) = dir;
     }
@@ -3148,4 +3231,96 @@ void mark_high_energy_vers(const Eigen::VectorXd &energy, const int ninner, cons
 }
 void lsTools::clear_high_energy_markers_in_analizer(){
     anas[0].HighEnergy.resize(0);
+}
+
+
+
+CGMesh polyline_to_strip_mesh(const std::vector<std::vector<Eigen::Vector3d>> &ply, const std::vector<std::vector<Eigen::Vector3d>> &bi, const double ratio)
+{
+    CGMesh mesh;
+    if (ply.empty())
+    {
+        std::cout << "Please load the polylines" << std::endl;
+        return mesh;
+    }
+
+    int vnbr = 0;
+    for (auto line : ply)
+    {
+        for (auto ver : line)
+        {
+            vnbr++;
+        }
+    }
+    std::vector<std::vector<CGMesh::VertexHandle>> vhd_ori, vhd_off;
+    vhd_ori.reserve(ply.size());
+    vhd_off.reserve(ply.size());
+    for (int i = 0; i < ply.size(); i++)
+    {
+        std::vector<CGMesh::VertexHandle> vhd0, vhd1;
+        for (int j = 0; j < ply[i].size(); j++)
+        {
+            Eigen::Vector3d p0 = ply[i][j];
+            Eigen::Vector3d p1 = p0 + bi[i][j] * ratio;
+            vhd0.push_back(mesh.add_vertex(CGMesh::Point(p0[0], p0[1], p0[2])));
+            vhd1.push_back(mesh.add_vertex(CGMesh::Point(p1[0], p1[1], p1[2])));
+        }
+        vhd_ori.push_back(vhd0);
+        vhd_off.push_back(vhd1);
+    }
+    for (int i = 0; i < ply.size(); i++)
+    {
+        for (int j = 0; j < ply[i].size() - 1; j++)
+        {
+            std::vector<CGMesh::VertexHandle> fhds;
+            fhds.push_back(vhd_ori[i][j]);
+            fhds.push_back(vhd_ori[i][j + 1]);
+            fhds.push_back(vhd_off[i][j + 1]);
+            fhds.push_back(vhd_off[i][j]);
+            mesh.add_face(fhds);
+        }
+    }
+    return mesh;
+}
+
+std::vector<std::vector<Eigen::Vector3d>> xyz_to_vec_list(const std::vector<std::vector<double>> &x, const std::vector<std::vector<double>> &y, const std::vector<std::vector<double>> &z)
+{
+    std::vector<std::vector<Eigen::Vector3d>> result;
+    result.reserve(x.size());
+    for (int i = 0; i < x.size(); i++)
+    {
+        std::vector<Eigen::Vector3d> line;
+        for (int j = 0; j < x[i].size(); j++)
+        {
+            Eigen::Vector3d ver;
+            ver[0] = x[i][j];
+            ver[1] = y[i][j];
+            ver[2] = z[i][j];
+            line.push_back(ver);
+        }
+        result.push_back(line);
+    }
+    return result;
+}
+
+void read_plylines_and_binormals(std::vector<std::vector<Eigen::Vector3d>>& ply, std::vector<std::vector<Eigen::Vector3d>>& bin){
+    ply.clear();
+    bin.clear();
+    std::cout<<"Reading the binormal files and polyline files. Please type down the prefix"<<std::endl;
+    std::string fname = igl::file_dialog_save();
+    if (fname.length() == 0)
+    {
+        std::cout<<"Please type something "<<std::endl;
+    }
+    std::vector<std::vector<double>> vx, vy, vz, nx, ny, nz;
+    read_csv_data_lbl(fname+"_x.csv", vx);
+    read_csv_data_lbl(fname+"_y.csv", vy);
+    read_csv_data_lbl(fname+"_z.csv", vz);
+    read_csv_data_lbl(fname+"_b_x.csv", nx);
+    read_csv_data_lbl(fname+"_b_y.csv", ny);
+    read_csv_data_lbl(fname+"_b_z.csv", nz);
+
+    ply = xyz_to_vec_list(vx, vy, vz);
+    bin = xyz_to_vec_list(nx, ny, nz);
+
 }

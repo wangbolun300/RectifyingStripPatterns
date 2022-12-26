@@ -118,7 +118,11 @@ namespace lscif
 	bool shading_init = false;
 	double max_e_percentage = 10;
 	double weight_binormal = 1;
-
+	double weight_smt_binormal = 0;
+	std::vector<std::vector<Eigen::Vector3d>> Poly_readed;
+	std::vector<std::vector<Eigen::Vector3d>> Bino_readed;
+	std::vector<std::vector<Eigen::Vector3d>> Poly_opt;
+	std::vector<std::vector<Eigen::Vector3d>> Bino_opt;
 
 	std::vector<int> VertexType;
 
@@ -514,7 +518,8 @@ int main(int argc, char *argv[])
 			Eigen::Vector3d target_light = angle_ray_converter(lscif::InputPx, lscif::InputPy);
 			std::cout<<"target light, "<<target_light.transpose()<<std::endl;
 			auto light = lscif::tools.Lights;
-			for(int i = 0;i<light.rows();i++){
+			for(int i = 0;i<light.rows();i++)
+			{
 				std::cout<<light.row(i).dot(target_light)<<std::endl;
 			}
 			Eigen::VectorXd diff;
@@ -544,11 +549,10 @@ int main(int argc, char *argv[])
 			ImGui::InputDouble("weight pseudo-geodesic", &lscif::weight_pseudo_geodesic, 0, 0, "%.4f");
 			ImGui::InputDouble("weight Strip width(Need SW Enabled)", &lscif::weight_strip_width, 0, 0, "%.4f");
 			ImGui::InputDouble("MaxStpLenght(Need PG Enabled)", &lscif::maximal_step_length, 0, 0, "%.4f");
-			
+
 			ImGui::Checkbox("Enable functional Energy", &lscif::enable_functional_degrees);
 			ImGui::SameLine();
 			ImGui::Checkbox("Enable Extreme Cases", &lscif::enable_extreme_cases);
-			
 
 			if (lscif::enable_functional_degrees)
 			{
@@ -564,53 +568,24 @@ int main(int argc, char *argv[])
 			ImGui::Checkbox("Enable Smooth Boundary", &lscif::enable_inner_vers_fixed);
 			ImGui::SameLine();
 			ImGui::Checkbox("Enable Boundary Angles", &lscif::enable_boundary_angles);
-			ImGui::PushItemWidth(50);
-			ImGui::Checkbox("Const Direc", &lscif::Given_Const_Direction);
-			if (lscif::Given_Const_Direction)
-			{
-				ImGui::InputDouble("T0", &lscif::InputPx, 0, 0, "%.6f");
-				ImGui::SameLine();
-				ImGui::InputDouble("P0", &lscif::InputPy, 0, 0, "%.6f");
-				ImGui::SameLine();
-				ImGui::InputDouble("Ttol0", &lscif::InputThetaTol, 0, 0, "%.6f");
-				ImGui::SameLine();
-				ImGui::InputDouble("Ptol0", &lscif::InputPhiTol, 0, 0, "%.6f");
-				
-				ImGui::InputDouble("T1", &lscif::InputPx1, 0, 0, "%.6f");
-				ImGui::SameLine();
-				ImGui::InputDouble("P1", &lscif::InputPy1, 0, 0, "%.6f");
-				ImGui::SameLine();
-				ImGui::InputDouble("Ttol1", &lscif::InputThetaTol1, 0, 0, "%.6f");
-				ImGui::SameLine();
-				ImGui::InputDouble("Ptol1", &lscif::InputPhiTol1, 0, 0, "%.6f");
-				ImGui::Checkbox("MarkMaxEnergy", &lscif::enable_max_energy_check);
-				ImGui::SameLine();
-				if (ImGui::Button("ClearMaxEnergy", ImVec2(ImGui::GetWindowSize().x * 0.23f, 0.0f)))
-				{
-					lscif::tools.clear_high_energy_markers_in_analizer();
-				}
-				ImGui::SameLine();
-				ImGui::InputDouble("MaxEnergyPercent", &lscif::max_e_percentage, 0, 0, "%.6f");
-				ImGui::Checkbox("ShadingInit", &lscif::shading_init);
-				ImGui::SameLine();
-				ImGui::InputDouble("weight binormal", &lscif::weight_binormal, 0, 0, "%.4f");
-			}
-
-			// ImGui::Checkbox("Fix Boundary", &lscif::fixBoundary_checkbox);
+			
 		}
 
-		if (ImGui::CollapsingHeader("Tracing", ImGuiTreeNodeFlags_DefaultOpen))
-		{
+		// ImGui::Checkbox("Fix Boundary", &lscif::fixBoundary_checkbox);
+	
 
-			ImGui::InputInt("Select 1 boundary", &lscif::which_seg_id, 0, 0);
-			ImGui::InputInt("every i segments", &lscif::nbr_of_intervals, 0, 0);
-			ImGui::InputInt("start bnd edge ", &lscif::start_bnd_he, 0, 0);
-			ImGui::InputInt("nbr bnd edges ", &lscif::nbr_edges, 0, 0);
-			ImGui::InputDouble("start angle", &lscif::start_angle, 0, 0, "%.4f");
-			ImGui::InputDouble("corner angle", &lscif::threadshold_angel_degree, 0, 0, "%.4f");
-			
-			// ImGui::SameLine();
-			// ImGui::Checkbox("Fix Boundary", &lscif::fixBoundary_checkbox);
+	if (ImGui::CollapsingHeader("Tracing", ImGuiTreeNodeFlags_DefaultOpen))
+	{
+
+		ImGui::InputInt("Select 1 boundary", &lscif::which_seg_id, 0, 0);
+		ImGui::InputInt("every i segments", &lscif::nbr_of_intervals, 0, 0);
+		ImGui::InputInt("start bnd edge ", &lscif::start_bnd_he, 0, 0);
+		ImGui::InputInt("nbr bnd edges ", &lscif::nbr_edges, 0, 0);
+		ImGui::InputDouble("start angle", &lscif::start_angle, 0, 0, "%.4f");
+		ImGui::InputDouble("corner angle", &lscif::threadshold_angel_degree, 0, 0, "%.4f");
+
+		// ImGui::SameLine();
+		// ImGui::Checkbox("Fix Boundary", &lscif::fixBoundary_checkbox);
 		}
 		ImGui::Separator();
 
@@ -825,8 +800,7 @@ int main(int argc, char *argv[])
 				lscif::tools.max_energy_percentage = lscif::max_e_percentage;
 				lscif::tools.enable_shading_init = lscif::shading_init;
 				lscif::tools.weight_binormal = lscif::weight_binormal;
-				
-				
+				lscif::tools.weight_smt_binormal = lscif::weight_smt_binormal;
 
 				for (int i = 0; i < lscif::OpIter; i++)
 				{
@@ -1329,6 +1303,25 @@ int main(int argc, char *argv[])
 
 				viewer.data().set_points(igl::slice(viewer.data().V, vids, 1), lscif::hot_red);
 			}
+
+			if (ImGui::Button("ReadPlylines", ImVec2(ImGui::GetWindowSize().x * 0.23f, 0.0f))){
+				int id = viewer.selected_data_index;
+				read_plylines_and_binormals(lscif::Poly_readed, lscif::Bino_readed);
+				CGMesh updatemesh = polyline_to_strip_mesh(lscif::Poly_readed, lscif::Bino_readed, lscif::vector_scaling);
+				lscif::updateMeshViewer(viewer, updatemesh);
+				lscif::meshFileName.push_back("ply_" + lscif::meshFileName[id]);
+				lscif::Meshes.push_back(updatemesh);
+				viewer.selected_data_index = id;
+			}
+			ImGui::SameLine();
+			if (ImGui::Button("OptiPolylines", ImVec2(ImGui::GetWindowSize().x * 0.23f, 0.0f))){
+				if(lscif::Poly_readed.empty()){
+					std::cout << "ERROR, Please load the polylines first" << std::endl;
+					ImGui::End();
+					return;
+				}
+
+			}
 		}
 
 		ImGui::SetNextItemOpen(true);
@@ -1651,6 +1644,38 @@ int main(int argc, char *argv[])
 				}
 				igl::writeOBJ(fname, Vnew, lscif::tools.F);
 				std::cout << "mesh saved" << std::endl;
+			}
+			ImGui::Checkbox("Const Direc", &lscif::Given_Const_Direction);
+			if (lscif::Given_Const_Direction)
+			{
+				ImGui::PushItemWidth(50);
+				ImGui::InputDouble("T0", &lscif::InputPx, 0, 0, "%.6f");
+				ImGui::SameLine();
+				ImGui::InputDouble("P0", &lscif::InputPy, 0, 0, "%.6f");
+				ImGui::SameLine();
+				ImGui::InputDouble("Ttol0", &lscif::InputThetaTol, 0, 0, "%.6f");
+				ImGui::SameLine();
+				ImGui::InputDouble("Ptol0", &lscif::InputPhiTol, 0, 0, "%.6f");
+
+				ImGui::InputDouble("T1", &lscif::InputPx1, 0, 0, "%.6f");
+				ImGui::SameLine();
+				ImGui::InputDouble("P1", &lscif::InputPy1, 0, 0, "%.6f");
+				ImGui::SameLine();
+				ImGui::InputDouble("Ttol1", &lscif::InputThetaTol1, 0, 0, "%.6f");
+				ImGui::SameLine();
+				ImGui::InputDouble("Ptol1", &lscif::InputPhiTol1, 0, 0, "%.6f");
+				ImGui::Checkbox("MarkMaxEnergy", &lscif::enable_max_energy_check);
+				ImGui::SameLine();
+				if (ImGui::Button("ClearMaxEnergy", ImVec2(ImGui::GetWindowSize().x * 0.23f, 0.0f)))
+				{
+					lscif::tools.clear_high_energy_markers_in_analizer();
+				}
+				ImGui::SameLine();
+				ImGui::InputDouble("MaxEnergyPercent", &lscif::max_e_percentage, 0, 0, "%.6f");
+				ImGui::Checkbox("ShadingInit", &lscif::shading_init);
+				ImGui::SameLine();
+				ImGui::InputDouble("weight binormal", &lscif::weight_binormal, 0, 0, "%.4f");
+				ImGui::InputDouble("weight smtBinormal", &lscif::weight_smt_binormal, 0, 0, "%.4f");
 			}
 		}
 		ImGui::PushStyleColor(ImGuiCol_Button, (ImVec4)ImColor::HSV(0.0f, 0.6f, 0.6f));

@@ -89,3 +89,5 @@ void rotate_z_axis_to_earth_axis(const Eigen::MatrixXd &Vori, Eigen::MatrixXd &V
 void mesh_unit_scale(const Eigen::MatrixXd &V, Eigen::MatrixXd &Vout);
 void mark_high_energy_vers(const Eigen::VectorXd &energy, const int ninner, const double percentage,
                            const std::vector<int> &IVids, Eigen::VectorXi &he, std::vector<int>& refid);
+void read_plylines_and_binormals(std::vector<std::vector<Eigen::Vector3d>>& ply, std::vector<std::vector<Eigen::Vector3d>>& bin);
+CGMesh polyline_to_strip_mesh(const std::vector<std::vector<Eigen::Vector3d>> &ply, const std::vector<std::vector<Eigen::Vector3d>> &bi, const double ratio);
