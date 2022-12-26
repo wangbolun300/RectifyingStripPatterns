@@ -13,6 +13,7 @@ src/energy.cpp
 src/functional.cpp
 src/mesh_opt.cpp
 src/mesh_opt.h
+src/polyline.cpp
 )
 ################################################################################
 # Subfolders
