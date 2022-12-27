@@ -91,3 +91,9 @@ void mark_high_energy_vers(const Eigen::VectorXd &energy, const int ninner, cons
                            const std::vector<int> &IVids, Eigen::VectorXi &he, std::vector<int>& refid);
 void read_plylines_and_binormals(std::vector<std::vector<Eigen::Vector3d>>& ply, std::vector<std::vector<Eigen::Vector3d>>& bin);
 CGMesh polyline_to_strip_mesh(const std::vector<std::vector<Eigen::Vector3d>> &ply, const std::vector<std::vector<Eigen::Vector3d>> &bi, const double ratio);
+
+std::vector<Eigen::Vector3d> sample_one_polyline_based_on_length(const std::vector<Eigen::Vector3d>& polyline, const double avg);
+std::vector<Eigen::Vector3d> sample_one_polyline_and_binormals_based_on_length(const std::vector<Eigen::Vector3d> &polyline, const int nbr,
+                                                                               const std::vector<Eigen::Vector3d> &binormals, std::vector<Eigen::Vector3d> &bn_out);
+double polyline_length(const std::vector<Eigen::Vector3d>& line);
+void write_polyline_xyz(const std::vector<std::vector<Eigen::Vector3d>> &lines, const std::string prefix);

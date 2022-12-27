@@ -102,6 +102,7 @@ namespace lscif
 	std::vector<std::string> meshFileName;
 	std::vector<CGMesh> Meshes;
 	lsTools tools;
+	PolyOpt poly_tool;
 	double InputPx = 0; // theta
 	double InputPy = 180; // phi
 
@@ -1311,6 +1312,7 @@ int main(int argc, char *argv[])
 				lscif::updateMeshViewer(viewer, updatemesh);
 				lscif::meshFileName.push_back("ply_" + lscif::meshFileName[id]);
 				lscif::Meshes.push_back(updatemesh);
+				lscif::poly_tool.init(lscif::Poly_readed, lscif::Bino_readed, lscif::nbr_lines_first_ls);
 				viewer.selected_data_index = id;
 			}
 			ImGui::SameLine();
@@ -1320,6 +1322,22 @@ int main(int argc, char *argv[])
 					ImGui::End();
 					return;
 				}
+				lscif::poly_tool.weight_smooth= lscif::weight_laplacian;
+				lscif::poly_tool.weight_mass = lscif::weight_mass;
+				lscif::poly_tool.weight_binormal = lscif::weight_pseudo_geodesic;
+				lscif::poly_tool.max_step = lscif::maximal_step_length;
+				lscif::poly_tool.strip_scale = lscif::vector_scaling;
+				lscif::poly_tool.binormal_ratio = lscif::weight_geodesic;
+				for(int i =0;i<lscif::OpIter; i++){
+					lscif::poly_tool.opt();
+				}
+				CGMesh updatemesh = lscif::poly_tool.RecMesh;
+				int id = viewer.selected_data_index;
+				lscif::updateMeshViewer(viewer, updatemesh);
+				lscif::meshFileName.push_back("ply_" + lscif::meshFileName[id]);
+				lscif::Meshes.push_back(updatemesh);
+				viewer.selected_data_index = id;
+				std::cout<<"waiting for instructions"<<std::endl;
 
 			}
 		}

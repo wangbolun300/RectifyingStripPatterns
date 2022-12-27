@@ -2237,6 +2237,32 @@ void sample_polyline_and_extend_verlist(const std::vector<Eigen::Vector3d>& poly
     }
     verlist.push_back(polyline.back());
 }
+void sample_polyline_and_extend_verlist(const std::vector<Eigen::Vector3d> &polyline, const int nbr, const double avg, std::vector<Eigen::Vector3d> &verlist,
+                                        std::vector<int> &segid, std::vector<double> &t)
+{
+    assert(nbr >= 3);
+    // double avg = length / (nbr - 1); // this is the relationship between avg and nbr
+    verlist.push_back(polyline[0]);
+    segid.push_back(0);
+    t.push_back(0);
+    int start = 0;
+    for (int i = 0; i < nbr - 2; i++)
+    {
+        int seg;
+        Eigen::Vector3d pt;
+        find_next_pt_on_polyline(start, polyline, avg, verlist.back(), seg, pt);
+        verlist.push_back(pt);
+        segid.push_back(seg);
+        double local_t = get_t_of_segment(pt, polyline[seg], polyline[seg + 1]);
+        t.push_back(local_t);
+        assert(local_t >= 0 && local_t <= 1);
+        start = seg;
+    }
+    verlist.push_back(polyline.back());
+    segid.push_back(nbr - 2);
+    t.push_back(1);
+    assert(t.size()==segid.size()&& t.size()==verlist.size());
+}
 std::vector<Eigen::Vector3d> sample_one_polyline_based_on_length(const std::vector<Eigen::Vector3d>& polyline, const double avg){
     std::vector<Eigen::Vector3d> pts;
     double length = polyline_length(polyline);
@@ -2255,6 +2281,26 @@ std::vector<Eigen::Vector3d> sample_one_polyline_based_on_length(const std::vect
     }
     sample_polyline_and_extend_verlist(polyline, nbr, length, pts);
     return pts;
+}
+std::vector<Eigen::Vector3d> sample_one_polyline_and_binormals_based_on_length(const std::vector<Eigen::Vector3d> &polyline, const int nbr,
+                                                                               const std::vector<Eigen::Vector3d> &binormals, std::vector<Eigen::Vector3d> &bn_out)
+{
+    double length = polyline_length(polyline);
+    double avg = length / (nbr - 1);
+    std::vector<Eigen::Vector3d> verlist;
+    std::vector<int> segid;
+    std::vector<double> tlist;
+    // std::cout<<"check in"<<std::endl;
+    sample_polyline_and_extend_verlist(polyline, nbr, avg, verlist, segid, tlist);
+    // std::cout<<"check out"<<std::endl;
+    for(int i=0;i<verlist.size();i++){
+        int id0 = segid[i];
+        double t = tlist[i];
+        Eigen::Vector3d bn = binormals[id0] * (1 - t) + binormals[id0 + 1] * t;
+        bn_out.push_back(bn.normalized());
+    }
+    return verlist;
+    // std::cout<<"check out out out"<<std::endl;
 }
 // void sample_polyline_based_on_length(const std::vector<Eigen::Vector3d>& polyline, const double length)
 void sample_polylines(const std::vector<std::vector<Eigen::Vector3d>> &polylines, const int nbr, const double length_total,
