@@ -1341,7 +1341,34 @@ int main(int argc, char *argv[])
 
 			}
 		}
+		ImGui::SameLine();
+		if (ImGui::Button("SavePolylines", ImVec2(ImGui::GetWindowSize().x * 0.23f, 0.0f)))
+		{
+			if (lscif::poly_tool.ply_extracted.empty())
+			{
+				std::cout << "ERROR, Please opt the polyline first" << std::endl;
+				ImGui::End();
+				return;
+			}
+			std::cout<<"Rotating the mesh to the coordinate system computed by latitude"<<std::endl;
+			lscif::poly_tool.rotate_back_the_model_to_horizontal_coordinates(lscif::Shading_Latitude);
+			lscif::poly_tool.save_polyline_and_binormals_as_files(true); // true means save the rotated polylines
+		}
+		ImGui::SameLine();
+		if (ImGui::Button("Orient&SavePlys", ImVec2(ImGui::GetWindowSize().x * 0.23f, 0.0f)))
 
+		{
+			int id = viewer.selected_data_index;
+			read_plylines_and_binormals(lscif::Poly_readed, lscif::Bino_readed);
+			std::vector<std::vector<Eigen::Vector3d>> biout;
+			lscif::poly_tool.orient_binormals_of_plyline(lscif::Bino_readed, biout);
+			CGMesh updatemesh = polyline_to_strip_mesh(lscif::Poly_readed, biout, lscif::vector_scaling);
+			lscif::updateMeshViewer(viewer, updatemesh);
+			lscif::meshFileName.push_back("ply_" + lscif::meshFileName[id]);
+			lscif::Meshes.push_back(updatemesh);
+			viewer.selected_data_index = id;
+			lscif::poly_tool.save_polyline_and_binormals_as_files(lscif::Poly_readed, biout); // true means save the rotated polylines
+		}
 		ImGui::SetNextItemOpen(true);
 		if (ImGui::TreeNode("Mesh Management"))
 		{

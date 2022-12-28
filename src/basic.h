@@ -107,6 +107,10 @@ public:
     Eigen::VectorXd OriVars; // original vars
     Eigen::VectorXi Front;   // the vertex id of the front point
     Eigen::VectorXi Back;    // the vertex id of the back point
+    std::vector<std::vector<Eigen::Vector3d>> ply_extracted;
+    std::vector<std::vector<Eigen::Vector3d>> bin_extracted;
+    std::vector<std::vector<Eigen::Vector3d>> ply_rotated;
+    std::vector<std::vector<Eigen::Vector3d>> bin_rotated;
     CGMesh RecMesh;// rectifying mesh
     double weight_smooth;
     // double weight_plysmooth;
@@ -123,8 +127,11 @@ public:
     void assemble_binormal_condition(spMat& H, Eigen::VectorXd& B, Eigen::VectorXd &energy);
 
     void extract_rectifying_plane_mesh();
-    void rotate_back_the_model_to_horizontal_coordinates(const double angle);
-    void save_polyline_and_binormals_as_files();
+    void extract_polylines_and_binormals();
+    void rotate_back_the_model_to_horizontal_coordinates(const double latitude);
+    void orient_binormals_of_plyline(const std::vector<std::vector<Eigen::Vector3d>> &bi, std::vector<std::vector<Eigen::Vector3d>> &bout);
+    void save_polyline_and_binormals_as_files(const bool rotated = false);
+    void save_polyline_and_binormals_as_files(const std::vector<std::vector<Eigen::Vector3d>> &ply, const std::vector<std::vector<Eigen::Vector3d>> &bi);
 };
 // The basic tool of LSC. Please initialize it with a mesh
 class lsTools

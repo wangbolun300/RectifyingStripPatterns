@@ -3169,7 +3169,7 @@ Eigen::VectorXi lsTools::Second_Angle_Inner_Vers()
 // rotate the z axis to make it align with the earth axis (pointing to the north)
 void rotate_z_axis_to_earth_axis(const Eigen::MatrixXd& Vori, Eigen::MatrixXd& Vnew, const double latitude_degree){
     double latitude_radian = latitude_degree * LSC_PI / 180.;
-    double rho = LSC_PI / 2 - latitude_radian;
+    double rho = (LSC_PI / 2 - latitude_radian); // this is correct rotation
     Eigen::Matrix3d rotation;
     rotation << 1, 0, 0,
         0, cos(rho), -sin(rho),

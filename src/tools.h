@@ -97,3 +97,4 @@ std::vector<Eigen::Vector3d> sample_one_polyline_and_binormals_based_on_length(c
                                                                                const std::vector<Eigen::Vector3d> &binormals, std::vector<Eigen::Vector3d> &bn_out);
 double polyline_length(const std::vector<Eigen::Vector3d>& line);
 void write_polyline_xyz(const std::vector<std::vector<Eigen::Vector3d>> &lines, const std::string prefix);
+Eigen::Vector3d orient_vector(const Eigen::Vector3d& base, const Eigen::Vector3d &vec);

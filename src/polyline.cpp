@@ -1,6 +1,7 @@
 #include <lsc/basic.h>
 #include <lsc/tools.h>
-
+#include<igl/file_dialog_open.h>
+#include<igl/file_dialog_save.h>
 void sample_polylines_and_binormals_evenly(const int nbr_segs, const std::vector<std::vector<Eigen::Vector3d>> &ply_in, const std::vector<std::vector<Eigen::Vector3d>> &bi_in,
                             std::vector<std::vector<Eigen::Vector3d>> &ply, std::vector<std::vector<Eigen::Vector3d>> &bi)
 {
@@ -101,6 +102,8 @@ void PolyOpt::init(const std::vector<std::vector<Eigen::Vector3d>> &ply_in, cons
     }
     OriVars = PlyVars;
     RecMesh = polyline_to_strip_mesh(ply, bi, strip_scale);
+    ply_extracted = ply;
+    bin_extracted = bi;
 }
 
 void PolyOpt::assemble_gravity(spMat &H, Eigen::VectorXd &B, Eigen::VectorXd &energy)
@@ -406,6 +409,93 @@ void PolyOpt::extract_rectifying_plane_mesh()
         RecMesh.point(*v_it) = CGMesh::Point(pt(0), pt(1), pt(2));
     }
 }
+void PolyOpt::rotate_back_the_model_to_horizontal_coordinates(const double latitude_degree)
+{
+    double latitude_radian = latitude_degree * LSC_PI / 180.;
+    double rho = -(LSC_PI / 2 - latitude_radian); // this is correct rotation
+    Eigen::Matrix3d rotation;
+    rotation << 1, 0, 0,
+        0, cos(rho), -sin(rho),
+        0, sin(rho), cos(rho);
+    ply_rotated = ply_extracted;
+    bin_rotated = bin_extracted;
+    for (int i = 0; i < ply_rotated.size(); i++)
+    {
+        for (int j = 0; j < ply_rotated[i].size(); j++)
+        {
+            ply_rotated[i][j] = rotation * ply_rotated[i][j];
+            bin_rotated[i][j] = rotation * bin_rotated[i][j];
+        }
+    }
+}
+void PolyOpt::extract_polylines_and_binormals()
+{
+    int vnbr = PlyVars.size() / 6;
+    int counter = 0;
+    for (int i = 0; i < ply_extracted.size(); i++)
+    {
+        for (int j = 0; j < ply_extracted[i].size(); j++)
+        {
+            ply_extracted[i][j][0] = PlyVars[counter];
+            ply_extracted[i][j][1] = PlyVars[counter + vnbr];
+            ply_extracted[i][j][2] = PlyVars[counter + vnbr * 2];
+            bin_extracted[i][j][0] = PlyVars[counter + vnbr * 3];
+            bin_extracted[i][j][1] = PlyVars[counter + vnbr * 4];
+            bin_extracted[i][j][2] = PlyVars[counter + vnbr * 5];
+            counter ++;
+        }
+    }
+    assert(counter == vnbr);
+}
+// if rotated, we save the rotated mesh; otherwise we save the mesh extracted from optimizer.
+void PolyOpt::save_polyline_and_binormals_as_files(const bool rotated)
+{
+    std::cout << "Saving the binormal files, please provide the prefix" << std::endl;
+    std::string fname = igl::file_dialog_save();
+    std::vector<std::vector<Eigen::Vector3d>> lines, binormals;
+    if (rotated)
+    {
+        lines = ply_rotated;
+        binormals = bin_rotated;
+    }
+    else
+    {
+        lines = ply_extracted;
+        binormals = bin_extracted;
+    }
+    write_polyline_xyz(lines, fname);
+    write_polyline_xyz(binormals, fname + "_b");
+    std::cout << "files get saved" << std::endl;
+}
+void PolyOpt::save_polyline_and_binormals_as_files(const std::vector<std::vector<Eigen::Vector3d>> &ply, const std::vector<std::vector<Eigen::Vector3d>> &bi)
+{
+    std::string fname = igl::file_dialog_save();
+    write_polyline_xyz(ply, fname);
+    write_polyline_xyz(bi, fname + "_b");
+    std::cout << "files get saved" << std::endl;
+}
+void PolyOpt::orient_binormals_of_plyline(const std::vector<std::vector<Eigen::Vector3d>> &bi, std::vector<std::vector<Eigen::Vector3d>> &bout)
+{
+    std::vector<std::vector<Eigen::Vector3d>> bilist = bi;
+    // int counter = 0;
+    Eigen::Vector3d bbase = bi[0][0];
+    for (int i = 0; i < bi.size(); i++)
+    {
+        Eigen::Vector3d base = bi[i][0];
+        if (base.dot(bbase) < 0)
+        {
+            base *= -1;
+        }
+
+        for (int j = 0; j < bi[i].size(); j++)
+        {
+            Eigen::Vector3d direction = orient_vector(base, bi[i][j]);
+            base = direction;
+            bilist[i][j] = direction;
+        }
+    }
+    bout = bilist;
+}
 void PolyOpt::opt()
 {
     spMat H;
@@ -460,5 +550,6 @@ void PolyOpt::opt()
 
     std::cout << "Ply mass, " << energy_gravity << ", smth, " << energy_smoothness << ", binormal, " << energy_binormal << ", step, " << stplength << std::endl;
     extract_rectifying_plane_mesh();
+    extract_polylines_and_binormals();
     //
 }
