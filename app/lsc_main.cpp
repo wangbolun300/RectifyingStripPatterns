@@ -1639,6 +1639,49 @@ int main(int argc, char *argv[])
 					std::cout << "Quad mesh saved" << std::endl;
 				}
 			}
+			ImGui::SameLine();
+			if (ImGui::Button("ShadingUnitScale", ImVec2(ImGui::GetWindowSize().x * 0.25f, 0.0f)))
+			{
+				std::cout << "This button is to unit scale the target mesh and polylines and save the results\n ";
+				std::cout << "Reading triangle mesh\n ";
+				std::string fname = igl::file_dialog_open();
+				if (fname.length() == 0)
+				{
+					std::cout << "\nLSC: read mesh failed" << std::endl;
+					ImGui::End();
+					return;
+				}
+				Eigen::MatrixXd Vtri, Vply;
+				Eigen::MatrixXi Ftri;
+				igl::readOBJ(fname, Vtri, Ftri);
+				read_plylines_and_binormals(lscif::Poly_readed, lscif::Bino_readed);
+				lscif::poly_tool.polyline_to_matrix(lscif::Poly_readed, Vply);
+
+				int size1 = Vtri.rows();
+				int size2 = Vply.rows();
+				Eigen::MatrixXd Vall(size1 + size2, 3);
+				Vall.topRows(size1) = Vtri;
+				Vall.bottomRows(size2) = Vply;
+
+				Eigen::MatrixXd vout;
+				mesh_unit_scale(Vall, vout);
+				Vtri = vout.topRows(size1);
+				Vply = vout.bottomRows(size2);
+				lscif::poly_tool.vertex_matrix_to_polyline(lscif::Poly_readed, Vply);
+
+				std::cout << "Saving the result mesh and polylines, please provide the prifix" << std::endl;
+				fname = igl::file_dialog_save();
+				if (fname.length() == 0)
+				{
+					ImGui::End();
+				}
+				else
+				{
+					igl::writeOBJ(fname + ".obj", Vtri, lscif::tools.F);
+					lscif::poly_tool.save_polyline_and_binormals_as_files(fname, lscif::Poly_readed, lscif::Bino_readed); // true means save the rotated polylines
+					std::cout << "mesh saved" << std::endl;
+				}
+			}
 		}
 		if (ImGui::CollapsingHeader("Mesh Optimization", ImGuiTreeNodeFlags_DefaultOpen))
 		{

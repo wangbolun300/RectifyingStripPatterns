@@ -409,6 +409,31 @@ void PolyOpt::extract_rectifying_plane_mesh()
         RecMesh.point(*v_it) = CGMesh::Point(pt(0), pt(1), pt(2));
     }
 }
+void PolyOpt::polyline_to_matrix(const std::vector<std::vector<Eigen::Vector3d>> &ply, Eigen::MatrixXd &V)
+{
+    std::vector<Eigen::Vector3d> verlist;
+    for (auto line : ply)
+    {
+        for (auto pt : line)
+        {
+            verlist.push_back(pt);
+        }
+    }
+    V = vec_list_to_matrix(verlist);
+
+}
+void PolyOpt::vertex_matrix_to_polyline(std::vector<std::vector<Eigen::Vector3d>> &ply, Eigen::MatrixXd& V){
+    int counter = 0;
+    for (int i =0;i<ply.size();i++)
+    {
+        for (int j =0;j<ply[i].size();j++)
+        {
+            Eigen::Vector3d pt = V.row(counter);
+            ply[i][j] = pt;
+            counter++;
+        }
+    }
+}
 void PolyOpt::rotate_back_the_model_to_horizontal_coordinates(const double latitude_degree)
 {
     double latitude_radian = latitude_degree * LSC_PI / 180.;
@@ -470,6 +495,13 @@ void PolyOpt::save_polyline_and_binormals_as_files(const bool rotated)
 void PolyOpt::save_polyline_and_binormals_as_files(const std::vector<std::vector<Eigen::Vector3d>> &ply, const std::vector<std::vector<Eigen::Vector3d>> &bi)
 {
     std::string fname = igl::file_dialog_save();
+    write_polyline_xyz(ply, fname);
+    write_polyline_xyz(bi, fname + "_b");
+    std::cout << "files get saved" << std::endl;
+}
+void PolyOpt::save_polyline_and_binormals_as_files(const std::string &fname,
+                                                   const std::vector<std::vector<Eigen::Vector3d>> &ply, const std::vector<std::vector<Eigen::Vector3d>> &bi)
+{
     write_polyline_xyz(ply, fname);
     write_polyline_xyz(bi, fname + "_b");
     std::cout << "files get saved" << std::endl;

@@ -359,10 +359,10 @@ void lsTools::calculate_pseudo_geodesic_opt_expanded_function_values(Eigen::Vect
 		// r can flip to the opposite position, but u cannot, since it is the side vector.
 		if (u.dot(real_u) < 0)
 		{
-			vars(lux) *= -1;
-			vars(luy) *= -1;
-			vars(luz) *= -1;
-			u *= -1;
+			vars(lux) = real_u[0];
+			vars(luy) = real_u[1];
+			vars(luz) = real_u[2];
+			u = real_u;
 			std::cout<<"flip u"<<std::endl;
 		}
 
@@ -2090,7 +2090,9 @@ void lsTools::Run_Level_Set_Opt() {
 
 			assemble_solver_pesudo_geodesic_energy_part_vertex_based(Glob_lsvars, angle_degree, anas[0],
 																	 first_compute, vars_start_loc, aux_start_loc, pg_JTJ, pg_mJTF, PGEnergy);
-			
+			assemble_solver_binormal_regulizer(Glob_lsvars, anas[0], vars_start_loc, aux_start_loc, smbi_H, smbi_B, e_smbi);
+			Hlarge = sum_uneven_spMats(Hlarge, weight_smt_binormal * smbi_H);
+			Blarge = sum_uneven_vectors(Blarge, weight_smt_binormal * smbi_B);
 		}
 		else {
 			bool asymptotic = true;
@@ -2118,14 +2120,13 @@ void lsTools::Run_Level_Set_Opt() {
 															anas[0], vars_start_loc, pg_JTJ, pg_mJTF, PGEnergy);
 			// std::cout<<"extreme computed"<<std::endl;
 
-			assemble_solver_binormal_regulizer(Glob_lsvars, anas[0], vars_start_loc, aux_start_loc, smbi_H, smbi_B, e_smbi);
+			
 		}
 
 		Hlarge = sum_uneven_spMats(Hlarge, weight_pseudo_geodesic_energy * pg_JTJ);
 		Blarge = sum_uneven_vectors(Blarge, weight_pseudo_geodesic_energy * pg_mJTF);
 		
-		Hlarge = sum_uneven_spMats(Hlarge, weight_smt_binormal * smbi_H);
-		Blarge = sum_uneven_vectors(Blarge, weight_smt_binormal * smbi_B);
+		
 		// std::cout<<"extreme computed 1"<<std::endl;
 		// if (enable_extreme_cases && Given_Const_Direction)
 		// {
@@ -2181,7 +2182,11 @@ void lsTools::Run_Level_Set_Opt() {
 		else {
 			double planar_energy = PGEnergy.norm();
 			double max_energy_ls = PGEnergy.lpNorm<Eigen::Infinity>();
-			std::cout << "extreme_pg, " << planar_energy << " lsmax," << max_energy_ls << ", smbi, " << e_smbi.norm() << ", ";
+			std::cout << "extreme_pg, " << planar_energy << " lsmax," << max_energy_ls<<", ";
+			if(e_smbi.size()>0){
+				std::cout<< "smbi, "<<e_smbi.norm()<<", ";
+			}
+			 
 		}
 	}
 

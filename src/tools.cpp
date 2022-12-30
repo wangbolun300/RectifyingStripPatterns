@@ -1492,7 +1492,7 @@ void get_quad_left_right_ver_id_from_web_mat(const Eigen::MatrixXi &mat, const b
 
 void get_row_and_col_ver_ids_from_web_mat(const Eigen::MatrixXi &mat, const Eigen::MatrixXi &quads,
                                           std::vector<Eigen::VectorXi> &vrl, std::vector<Eigen::VectorXi> &vrr, std::vector<Eigen::VectorXi> &vcl,
-                                          std::vector<Eigen::VectorXi> &vcr, std::vector<Eigen::VectorXi> &vr)
+                                          std::vector<Eigen::VectorXi> &vcr, std::vector<Eigen::VectorXi> &vr, std::vector<Eigen::VectorXi> &vc )
 {
     std::vector<int> ids;
     int maxsize1;
@@ -1505,6 +1505,7 @@ void get_row_and_col_ver_ids_from_web_mat(const Eigen::MatrixXi &mat, const Eige
     vcr.clear();
     
     vr.clear();
+    vc.clear();
     for (int i = 0; i < quads.rows(); i++)
     {
         ids.clear();
@@ -1595,7 +1596,7 @@ void get_row_and_col_ver_ids_from_web_mat(const Eigen::MatrixXi &mat, const Eige
     }
 
     maxsize1 = 0;
-    // get the whole polylines 
+    // get the whole polylines in each row
     for (int i = 0; i < mat.rows(); i++)
     {
         ids.clear();
@@ -1634,6 +1635,48 @@ void get_row_and_col_ver_ids_from_web_mat(const Eigen::MatrixXi &mat, const Eige
         int size = vr[i].size();
         tmp.segment(0, size) = vr[i];
         vr[i] = tmp;
+    }
+
+    maxsize1 = 0;
+    // get the whole polylines in each col
+    for (int i = 0; i < mat.cols(); i++)
+    {
+        ids.clear();
+        for (int j = 0; j < mat.rows(); j++)
+        { // make sure there are only 2 elements, recording the first and last non -1 id
+            if (mat(j, i) >= 0 && ids.size() == 0)
+            {
+                ids.push_back(j);
+                ids.push_back(j);
+            }
+            if (mat(j, i) >= 0)
+            {
+                ids[1] = j;
+            }
+        }
+
+        if (ids.size() > 0)
+        {
+            if (ids[1] - ids[0] + 1 > maxsize1) // ids[1] - ids[0] is the number of quads, meaning nbr of vers is +2
+            {
+                maxsize1 = ids[1] - ids[0] + 1;
+            }
+        }
+        if (ids.size() > 0)
+        {
+            Eigen::VectorXi left = mat.col(i).segment(ids[0], ids[1] - ids[0] + 1);
+
+            vc.push_back(left);
+            
+        }
+    }
+    vecbase1 = Eigen::VectorXi::Ones(maxsize1) * -1;
+    for (int i = 0; i < vc.size(); i++)
+    {
+        Eigen::VectorXi tmp = vecbase1;
+        int size = vc[i].size();
+        tmp.segment(0, size) = vc[i];
+        vc[i] = tmp;
     }
 }
 void construct_duplication_mapping(const int vnbr, const Eigen::MatrixXi& F, Eigen::VectorXi &mapping, int& nbr)
@@ -1767,7 +1810,7 @@ std::vector<Eigen::VectorXi> remove_quad_info_duplicated(const std::vector<Eigen
 }
 void extract_web_from_index_mat(const Eigen::MatrixXi &mat, Eigen::MatrixXi &F, const int threads, std::vector<Eigen::VectorXi> &vrl,
                                 std::vector<Eigen::VectorXi> &vrr, std::vector<Eigen::VectorXi> &vcl,
-                                std::vector<Eigen::VectorXi> &vcr, std::vector<Eigen::VectorXi> &vr, Eigen::MatrixXi &qds)
+                                std::vector<Eigen::VectorXi> &vcr, std::vector<Eigen::VectorXi> &vr, std::vector<Eigen::VectorXi> &vc, Eigen::MatrixXi &qds)
 {
     std::array<int, 4> face;
     std::vector<std::array<int, 4>> tface, filted_face;
@@ -1820,7 +1863,7 @@ void extract_web_from_index_mat(const Eigen::MatrixXi &mat, Eigen::MatrixXi &F, 
         F(i, 2) = filted_face[i][2];
         F(i, 3) = filted_face[i][3];
     }
-    get_row_and_col_ver_ids_from_web_mat(mat, qds, vrl, vrr, vcl, vcr, vr);
+    get_row_and_col_ver_ids_from_web_mat(mat, qds, vrl, vrr, vcl, vcr, vr, vc);
 }
 void extract_web_mxn(const int rows, const int cols, Eigen::MatrixXi& F){
     std::array<int, 4> face;
@@ -1866,28 +1909,32 @@ void write_one_info_file(const std::string &fname, const std::vector<Eigen::Vect
 }
 void save_quad_left_right_info(const std::string &namebase, std::vector<Eigen::VectorXi> &vrl,
                                std::vector<Eigen::VectorXi> &vrr, std::vector<Eigen::VectorXi> &vcl,
-                               std::vector<Eigen::VectorXi> &vcr, std::vector<Eigen::VectorXi> &vr)
+                               std::vector<Eigen::VectorXi> &vcr, std::vector<Eigen::VectorXi> &vr, std::vector<Eigen::VectorXi> &vc)
 {
     std::ofstream file;
     std::vector<Eigen::VectorXi> current;
     std::string fname = namebase + "_rowleft.csv";
-    current=vrl;
+    current = vrl;
     write_one_info_file(fname, current, file);
-    
+
     fname = namebase + "_rowright.csv";
-    current=vrr;
+    current = vrr;
     write_one_info_file(fname, current, file);
 
     fname = namebase + "_colleft.csv";
-    current=vcl;
+    current = vcl;
     write_one_info_file(fname, current, file);
 
     fname = namebase + "_colright.csv";
-    current=vcr;
+    current = vcr;
     write_one_info_file(fname, current, file);
 
     fname = namebase + "_rows.csv";
-    current=vr;
+    current = vr;
+    write_one_info_file(fname, current, file);
+
+    fname = namebase + "_cols.csv";
+    current = vc;
     write_one_info_file(fname, current, file);
 }
 
@@ -2135,8 +2182,9 @@ void extract_levelset_web(const CGMesh &lsmesh, const Eigen::MatrixXd &V,
     std::vector<Eigen::VectorXi> vcl;
     std::vector<Eigen::VectorXi> vcr;
     std::vector<Eigen::VectorXi> vr;
+    std::vector<Eigen::VectorXi> vc;
     Eigen::MatrixXi qds;
-    extract_web_from_index_mat(gridmat, Faces, threadshold_nbr, vrl, vrr, vcl, vcr, vr, qds);
+    extract_web_from_index_mat(gridmat, Faces, threadshold_nbr, vrl, vrr, vcl, vcr, vr, vc, qds);
 
     // remove duplicated vertices
     Eigen::VectorXi mapping;
@@ -2157,10 +2205,11 @@ void extract_levelset_web(const CGMesh &lsmesh, const Eigen::MatrixXd &V,
     vcl = remove_quad_info_duplicated(vcl, mapping);
     vcr = remove_quad_info_duplicated(vcr, mapping);
     vr = remove_quad_info_duplicated(vr, mapping);
+    vc = remove_quad_info_duplicated(vc, mapping);
     
     std::cout<<"Saving the info for each row or col of quads"<<std::endl;
     std::string fname = igl::file_dialog_save();
-    save_quad_left_right_info(fname, vrl, vrr, vcl, vcr, vr);
+    save_quad_left_right_info(fname, vrl, vrr, vcl, vcr, vr, vc);
     std::cout<<"Each row and col of quads got saved"<<std::endl;
 }
 double polyline_length(const std::vector<Eigen::Vector3d>& line){

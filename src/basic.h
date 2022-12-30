@@ -132,6 +132,10 @@ public:
     void orient_binormals_of_plyline(const std::vector<std::vector<Eigen::Vector3d>> &bi, std::vector<std::vector<Eigen::Vector3d>> &bout);
     void save_polyline_and_binormals_as_files(const bool rotated = false);
     void save_polyline_and_binormals_as_files(const std::vector<std::vector<Eigen::Vector3d>> &ply, const std::vector<std::vector<Eigen::Vector3d>> &bi);
+    void save_polyline_and_binormals_as_files(const std::string &fname,
+                                              const std::vector<std::vector<Eigen::Vector3d>> &ply, const std::vector<std::vector<Eigen::Vector3d>> &bi);
+    void polyline_to_matrix(const std::vector<std::vector<Eigen::Vector3d>> &ply, Eigen::MatrixXd &V);
+    void vertex_matrix_to_polyline(std::vector<std::vector<Eigen::Vector3d>> &ply, Eigen::MatrixXd& V);
 };
 // The basic tool of LSC. Please initialize it with a mesh
 class lsTools
