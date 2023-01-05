@@ -391,7 +391,6 @@ bool angles_match(const double angle_degree1, const double angle_degree2)
     return false;
 }
 
-// TODO modify for asymptotic
 bool binormal_correct_angle(const Eigen::Vector3d &seg_in, const Eigen::Vector3d &seg_out, const Eigen::Vector3d &pnorm, const double angle_degree)
 {
     Eigen::Vector3d dirin = seg_in.normalized();
@@ -463,7 +462,7 @@ void pseudo_geodesic_intersection_filter_by_closeness(
     int size = curve.size();
     Eigen::Vector3d dire1 = (curve[size - 1] - curve[size - 2]).normalized();
     int closest_id = -1;
-    // TODO should we consider the angle consistancy? to avoid cases like 5 degree flip to 355 degree?
+
     // int closest_id_consider_angle=-1;
     double closest_distance = std::numeric_limits<double>::max();
 
@@ -491,7 +490,7 @@ void pseudo_geodesic_intersection_filter_by_closeness(
     id = closest_id;
     return;
 }
-// TODO need to fix the bug inside.
+
 void initial_segment_intersection_filter_by_closeness(
     const double angle_degree,
     const Eigen::Vector3d &start_point,
@@ -577,7 +576,7 @@ bool lsTools::get_checking_edges(const std::vector<int> &start_point_ids, const 
     ninfo.edges.clear();
     point_to_check.clear();
     int eid=lsmesh.edge_handle(edge_middle).idx();
-    if (ninfo.round > 5)
+    if (ninfo.round > 2)
     { // search only two rings
         return false;
     }

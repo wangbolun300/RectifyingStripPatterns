@@ -103,10 +103,13 @@ public:
     PolyOpt(){};
     // sample_nbr is the nbr of resampling points on the longest polyline. -1 means do not sample.
     void init(const std::vector<std::vector<Eigen::Vector3d>> &ply, const std::vector<std::vector<Eigen::Vector3d>> &bi, const int sample_nbr);
+    int VerNbr;
     Eigen::VectorXd PlyVars; // vars for the polylines
     Eigen::VectorXd OriVars; // original vars
+    // Eigen::MatrixXd OriV; // original vertex list of the (sampled) polylines 
     Eigen::VectorXi Front;   // the vertex id of the front point
     Eigen::VectorXi Back;    // the vertex id of the back point
+    Eigen::MatrixXd norm_v;
     std::vector<std::vector<Eigen::Vector3d>> ply_extracted;
     std::vector<std::vector<Eigen::Vector3d>> bin_extracted;
     std::vector<std::vector<Eigen::Vector3d>> ply_rotated;
@@ -115,17 +118,20 @@ public:
     double weight_smooth;
     // double weight_plysmooth;
     double weight_mass;
-    double weight_binormal;
+    double weight_binormal; // the weight for correct binormals 
     double binormal_ratio; // the ratio added to binormal smoothness
     double max_step = 1;
     double strip_scale = 1;
+    double weight_angle; // the weight for binormals having a expected angle with the surface normals
+    double target_angle;
+    bool first_compute = true;
 
     void opt();
     // make the values not far from original data
     void assemble_gravity(spMat& H, Eigen::VectorXd& B, Eigen::VectorXd &energy);
     void assemble_polyline_smooth(spMat& H, Eigen::VectorXd& B, Eigen::VectorXd &energy);
     void assemble_binormal_condition(spMat& H, Eigen::VectorXd& B, Eigen::VectorXd &energy);
-
+    void assemble_angle_condition(spMat& H, Eigen::VectorXd& B, Eigen::VectorXd &energy);
     void extract_rectifying_plane_mesh();
     void extract_polylines_and_binormals();
     void rotate_back_the_model_to_horizontal_coordinates(const double latitude);
@@ -136,6 +142,7 @@ public:
                                               const std::vector<std::vector<Eigen::Vector3d>> &ply, const std::vector<std::vector<Eigen::Vector3d>> &bi);
     void polyline_to_matrix(const std::vector<std::vector<Eigen::Vector3d>> &ply, Eigen::MatrixXd &V);
     void vertex_matrix_to_polyline(std::vector<std::vector<Eigen::Vector3d>> &ply, Eigen::MatrixXd& V);
+    void get_normal_vector_from_reference(const Eigen::MatrixXd& Vr, const Eigen::MatrixXi& Fr, const Eigen::MatrixXd& nr);
 };
 // The basic tool of LSC. Please initialize it with a mesh
 class lsTools
@@ -144,7 +151,6 @@ private:
     MeshProcessing MP;
     
     Eigen::MatrixXd norm_f;               // normal per face
-    Eigen::MatrixXd norm_v;               // normal perf vertex
     Eigen::MatrixXd angF;                 // angel per vertex of each F. nx3, n is the number of faces
     Eigen::VectorXd areaF;                // the area of each face.
     Eigen::VectorXd areaPF;               // the area of each face in parametric domain;
@@ -347,6 +353,7 @@ public:
     void init(CGMesh &mesh);
     CGMesh lsmesh;                        // the input mesh
     Eigen::MatrixXd V;
+    Eigen::MatrixXd norm_v;               // normal perf vertex
     Eigen::MatrixXi F;
     Eigen::MatrixXi E;
     Eigen::VectorXi bnd;     // boundary loop

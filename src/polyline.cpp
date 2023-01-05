@@ -36,6 +36,8 @@ void sample_polylines_and_binormals_evenly(const int nbr_segs, const std::vector
 
 }
 
+
+
 void PolyOpt::init(const std::vector<std::vector<Eigen::Vector3d>> &ply_in, const std::vector<std::vector<Eigen::Vector3d>> &bi_in, const int sample_nbr)
 {
     std::vector<std::vector<Eigen::Vector3d>> ply;
@@ -57,6 +59,7 @@ void PolyOpt::init(const std::vector<std::vector<Eigen::Vector3d>> &ply_in, cons
             vnbr++;
         }
     }
+    VerNbr = vnbr;
     // x0, x1, ..., xn, y0, ..., zn, bx0, ... bxn, ..., bzn
     PlyVars.resize(vnbr * 2 * 3);
     Front.resize(vnbr);
@@ -375,6 +378,144 @@ void PolyOpt::assemble_binormal_condition(spMat &H, Eigen::VectorXd &B, Eigen::V
     H = J.transpose() * J;
     B = -J.transpose() * energy;
 }
+// the binormals has an angle theta with surface normals
+void PolyOpt::assemble_angle_condition(spMat& H, Eigen::VectorXd& B, Eigen::VectorXd &energy){
+    
+    if (Front.size() == 0)
+    {
+        std::cout << "please use assemble_angle_condition after init the PolyOpt" << std::endl;
+        return;
+    }
+
+    std::vector<Trip> tripletes;
+    int vnbr = Front.size();
+    energy = Eigen::VectorXd::Zero(vnbr * 2);
+    tripletes.reserve(vnbr * 6);
+    double angle_radian = target_angle * LSC_PI / 180.;
+    double cos_angle = cos(angle_radian);
+    double sin_angle = sin(angle_radian);
+    for (int i = 0; i < vnbr; i++)
+    {
+        int vid = i;
+        int fr = Front[vid];
+        int bk = Back[vid];
+        bool compute_front = true;
+        bool compute_back = true;
+        
+        if (fr == -1)
+        {
+            fr = 0;
+            compute_front = false;
+            continue;
+        }
+        if (bk == -1)
+        {
+            bk = 0;
+            compute_back = false;
+            continue;
+        }
+        // locations
+        int lx = vid;
+        int ly = vid + vnbr;
+        int lz = vid + vnbr * 2;
+
+        int lnx = vid + vnbr * 3;
+        int lny = vid + vnbr * 4;
+        int lnz = vid + vnbr * 5;
+
+        int lfx = fr;
+        int lfy = fr + vnbr;
+        int lfz = fr + vnbr * 2;
+        int lbx = bk;
+        int lby = bk + vnbr;
+        int lbz = bk + vnbr * 2;
+
+        // int lux = vid + vnbr * 6;
+        // int luy = vid + vnbr * 7;
+        // int luz = vid + vnbr * 8;
+        // int lh = vid + vnbr * 9;
+        Eigen::Vector3d ver(PlyVars[lx], PlyVars[ly], PlyVars[lz]);
+        Eigen::Vector3d vfr(PlyVars[lfx], PlyVars[lfy], PlyVars[lfz]);
+        Eigen::Vector3d vbk(PlyVars[lbx], PlyVars[lby], PlyVars[lbz]);
+        Eigen::Vector3d nbi(PlyVars[lnx], PlyVars[lny], PlyVars[lnz]);
+        // Eigen::Vector3d nfr(PlyVars[lfnx], PlyVars[lfny], PlyVars[lfnz]);
+        // Eigen::Vector3d nbk(PlyVars[lbnx], PlyVars[lbny], PlyVars[lbnz]);
+        Eigen::Vector3d tangent = vbk - vfr;
+        Eigen::Vector3d norm = norm_v.row(vid);
+        // if(first_compute){
+        //     Eigen::Vector3d real_u = norm.cross(tangent).normalized();
+        //     Eigen::Vector3d real_h = nbi.dot(real_u);
+        //     PlyVars[lux] = real_u[0];
+        //     PlyVars[luy] = real_u[1];
+        //     PlyVars[luz] = real_u[2];
+        //     PlyVars[lh] = real_h;
+        //      first_compute = false;
+        // }
+        Eigen::Vector3d real_u = norm.cross(tangent).normalized();
+
+        double dis0 = (ver - vfr).norm();
+        double dis1 = (ver - vbk).norm();
+
+        // (binormal * n)^2 = cos^2
+        double ndb = norm.dot(nbi);
+        tripletes.push_back(Trip(i, lnx, 2 * ndb * norm(0)));
+        tripletes.push_back(Trip(i, lny, 2 * ndb * norm(1)));
+        tripletes.push_back(Trip(i, lnz, 2 * ndb * norm(2)));
+
+        energy[i] = ndb * ndb - cos_angle * cos_angle;
+
+        // (binormal * n) * (binormal * u) = sin * cos
+        double udb = real_u.dot(nbi);
+
+        tripletes.push_back(Trip(i + vnbr, lnx, ndb * real_u[0] + udb * norm[0]));
+        tripletes.push_back(Trip(i + vnbr, lny, ndb * real_u[1] + udb * norm[1]));
+        tripletes.push_back(Trip(i + vnbr, lnz, ndb * real_u[2] + udb * norm[2]));
+
+        energy[i + vnbr] = ndb * udb - sin_angle * cos_angle;
+    }
+    spMat J;
+    J.resize(energy.size(), vnbr * 6);
+    J.setFromTriplets(tripletes.begin(), tripletes.end());
+    H = J.transpose() * J;
+    B = -J.transpose() * energy;
+}
+#include <igl/point_mesh_squared_distance.h>
+// please use me after initializing the polylines
+// Vr, Fr and nr are for the reference surfaces
+void PolyOpt::get_normal_vector_from_reference(const Eigen::MatrixXd &Vr, const Eigen::MatrixXi &Fr, const Eigen::MatrixXd &nr)
+{
+    Eigen::MatrixXd C;
+    Eigen::VectorXi I;
+    Eigen::VectorXd D;
+    Eigen::MatrixXd vers;
+    int vnbr = VerNbr;
+    vers.resize(vnbr,3);
+    norm_v.resize(vnbr,3);
+    for (int i = 0; i < vnbr; i++)
+    {
+        vers(i, 0) = PlyVars[i];
+        vers(i, 1) = PlyVars[i + vnbr];
+        vers(i, 2) = PlyVars[i + vnbr * 2];
+    }
+    igl::point_mesh_squared_distance(vers, Vr, Fr, D, I, C);
+    for (int i = 0; i < vnbr; i++)
+    {
+        int fid = I(i);
+        int v0 = Fr(fid, 0);
+        int v1 = Fr(fid, 1);
+        int v2 = Fr(fid, 2);
+        Eigen::Vector3d pt = vers.row(i);
+        Eigen::Vector3d ver0 = Vr.row(v0);
+        Eigen::Vector3d ver1 = Vr.row(v1);
+        Eigen::Vector3d ver2 = Vr.row(v2);
+        std::array<double, 3> coor = barycenter_coordinate(ver0, ver1, ver2, pt);
+
+        Eigen::Vector3d dir = coor[0] * nr.row(v0) + coor[1] * nr.row(v1) + coor[2] * nr.row(v2);
+        dir = dir.normalized();
+        norm_v.row(i) = dir;
+    }
+
+}
 
 void PolyOpt::extract_rectifying_plane_mesh()
 {
@@ -557,6 +698,13 @@ void PolyOpt::opt()
     H += weight_binormal * Hbin;
     B += weight_binormal * Bbin;
 
+    spMat Hangle;
+    Eigen::VectorXd Bangle, Eangle;
+    if(weight_angle > 0){
+        assemble_angle_condition(Hangle, Bangle,Eangle);
+        H += weight_angle * Hangle;
+        B += weight_angle * Bangle;
+    }
     Eigen::SimplicialLLT<Eigen::SparseMatrix<double>> solver(H);
 
     // assert(solver.info() == Eigen::Success);
@@ -579,8 +727,12 @@ void PolyOpt::opt()
     double energy_smoothness = esmt.norm();
     double energy_binormal = ebin.norm();
     double stplength = dx.norm();
-
-    std::cout << "Ply mass, " << energy_gravity << ", smth, " << energy_smoothness << ", binormal, " << energy_binormal << ", step, " << stplength << std::endl;
+    
+    std::cout << "Ply mass, " << energy_gravity << ", smth, " << energy_smoothness << ", binormal, " << energy_binormal << ", step, " << stplength<<std::endl;;
+    if(weight_angle > 0){
+        double energy_angle = Eangle.norm();
+        std::cout<<"Energy angle, "<<energy_angle<<"\n";
+    }
     extract_rectifying_plane_mesh();
     extract_polylines_and_binormals();
     //

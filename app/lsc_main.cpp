@@ -103,6 +103,7 @@ namespace lscif
 	std::vector<CGMesh> Meshes;
 	lsTools tools;
 	PolyOpt poly_tool;
+	double weight_angle = 0;
 	double InputPx = 0; // theta
 	double InputPy = 180; // phi
 
@@ -550,6 +551,7 @@ int main(int argc, char *argv[])
 			ImGui::InputDouble("weight pseudo-geodesic", &lscif::weight_pseudo_geodesic, 0, 0, "%.4f");
 			ImGui::InputDouble("weight Strip width(Need SW Enabled)", &lscif::weight_strip_width, 0, 0, "%.4f");
 			ImGui::InputDouble("MaxStpLenght(Need PG Enabled)", &lscif::maximal_step_length, 0, 0, "%.4f");
+			ImGui::InputDouble("WeightAngle", &lscif::weight_angle, 0, 0, "%.4f");
 
 			ImGui::Checkbox("Enable functional Energy", &lscif::enable_functional_degrees);
 			ImGui::SameLine();
@@ -1328,7 +1330,15 @@ int main(int argc, char *argv[])
 				lscif::poly_tool.max_step = lscif::maximal_step_length;
 				lscif::poly_tool.strip_scale = lscif::vector_scaling;
 				lscif::poly_tool.binormal_ratio = lscif::weight_geodesic;
-				for(int i =0;i<lscif::OpIter; i++){
+				lscif::poly_tool.weight_angle = lscif::weight_angle;
+				lscif::poly_tool.target_angle = lscif::target_angle;
+
+				for (int i = 0; i < lscif::OpIter; i++)
+				{
+					if (lscif::weight_angle > 0)
+					{
+						lscif::poly_tool.get_normal_vector_from_reference(lscif::tools.V, lscif::tools.F, lscif::tools.norm_v);
+					}
 					lscif::poly_tool.opt();
 				}
 				CGMesh updatemesh = lscif::poly_tool.RecMesh;
@@ -1682,6 +1692,22 @@ int main(int argc, char *argv[])
 					std::cout << "mesh saved" << std::endl;
 				}
 			}
+		}
+
+		ImGui::SameLine();
+		if (ImGui::Button("ReadQuadPlyLines", ImVec2(ImGui::GetWindowSize().x * 0.25f, 0.0f)))
+		{
+			int id = viewer.selected_data_index;
+			read_origami_and_convert_to_polylines(lscif::Poly_readed, lscif::Bino_readed);
+			CGMesh updatemesh = polyline_to_strip_mesh(lscif::Poly_readed, lscif::Bino_readed, lscif::vector_scaling);
+			// std::cout<<"get the strip mesh"<<std::endl;
+			lscif::updateMeshViewer(viewer, updatemesh);
+			
+			// std::cout<<"get the strip mesh"<<std::endl;
+			lscif::meshFileName.push_back("ply_" + lscif::meshFileName[id]);
+			lscif::Meshes.push_back(updatemesh);
+			// std::cout<<"before init the poly opt"<<std::endl;
+			lscif::poly_tool.init(lscif::Poly_readed, lscif::Bino_readed, -1); // we do not sample the polylines
 		}
 		if (ImGui::CollapsingHeader("Mesh Optimization", ImGuiTreeNodeFlags_DefaultOpen))
 		{

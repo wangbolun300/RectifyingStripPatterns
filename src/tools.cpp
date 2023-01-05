@@ -1,5 +1,6 @@
 #include <lsc/basic.h>
 #include <lsc/tools.h>
+#include <igl/readOBJ.h>
 
 bool triangles_coplanar(const Eigen::Vector3d &t0, const Eigen::Vector3d &t1, const Eigen::Vector3d &t2,
                         const Eigen::Vector3d &p0, const Eigen::Vector3d &p1, const Eigen::Vector3d &p2)
@@ -2410,12 +2411,13 @@ std::array<double, 3> barycenter_coordinate(const Eigen::Vector3d &v0, const Eig
     double t1 = (v0 - v2).cross(v2 - p).norm();
     double t2 = (v1 - v0).cross(v1 - p).norm();
     double all = (v1 - v0).cross(v1 - v2).norm();
-    if (t0 + t1 + t2 > all + 1e-4 || t0 + t1 + t2 < all - 1e-4)
-    {
-        std::cout << "barycenter coordinate not accurate, " << t0 + t1 + t2 << " " << all << std::endl;
-        std::cout <<v0.transpose()<< "\n"<<v1.transpose()<< "\n"<<v2.transpose()<< "\n"<<p<< "\n";
-    }
+    // if ((t0 + t1 + t2) / all > 1 + 1e-3 || (t0 + t1 + t2) / all < 1 - 1e-3)
+    // {
+    //     std::cout << "barycenter coordinate not accurate, " << t0 + t1 + t2 << " " << all << std::endl;
+    //     std::cout <<v0.transpose()<< "\n"<<v1.transpose()<< "\n"<<v2.transpose()<< "\n"<<p<< "\n";
+    // }
     std::array<double, 3> result;
+    all = t0 + t1 + t2;
     result[0] = t0 / all;
     result[1] = t1 / all;
     result[2] = t2 / all;
@@ -3419,3 +3421,55 @@ void read_plylines_and_binormals(std::vector<std::vector<Eigen::Vector3d>>& ply,
     bin = xyz_to_vec_list(nx, ny, nz);
 
 }
+
+void read_origami_and_convert_to_polylines(std::vector<std::vector<Eigen::Vector3d>>& ply, std::vector<std::vector<Eigen::Vector3d>>& bin){
+    ply.clear();
+    bin.clear();
+    // get the quad mesh
+    std::cout << "\nreading quad mesh file" << std::endl;
+    std::string fname = igl::file_dialog_open();
+    if (fname.length() == 0)
+    {
+        std::cout << "reading failed" << std::endl;
+        return;
+    }
+    Eigen::MatrixXd Vqd;
+    Eigen::MatrixXi Fqd;
+    igl::readOBJ(fname, Vqd, Fqd);
+    std::cout<<"Mesh readed, nbr cols, "<<Vqd.cols()<<std::endl<<std::endl;
+    if(Vqd.cols()!=6){
+        std::cout<<"Please read the quad mesh attached with binormal vector info"<<std::endl;
+        return;
+    }
+    Eigen::MatrixXd V = Vqd.leftCols(3);
+    Eigen::MatrixXd bn = Vqd.rightCols(3);
+    // std::cout<<"V"<<V<<std::endl;
+    // std::cout<<"B"<<bn<<std::endl;
+    // get the binormals 
+
+    std::cout<<"reading the row-info"<<std::endl;
+    fname = igl::file_dialog_open();
+    if (fname.length() == 0)
+    {
+        std::cout << "reading failed" << std::endl;
+        return;
+    }
+    std::vector<std::vector<double>> row;
+    read_csv_data_lbl(fname, row);
+    for(int i = 0;i<row.size();i++){
+        std::vector<Eigen::Vector3d> line, binormal;
+        for(int j=0;j<row[i].size();j++){
+            int id = row[i][j];
+            if(id<0){
+                break;
+            }
+            Eigen::Vector3d vertex = V.row(id), vbin = bn.row(id);
+            line.push_back(vertex);
+            binormal.push_back(vbin);
+        }
+        ply.push_back(line);
+        bin.push_back(binormal);
+    }
+    std::cout<<"readed polyline: the nbr, "<<ply.size()<<std::endl;
+}
+
