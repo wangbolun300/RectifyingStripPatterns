@@ -100,3 +100,5 @@ void write_polyline_xyz(const std::vector<std::vector<Eigen::Vector3d>> &lines, 
 Eigen::Vector3d orient_vector(const Eigen::Vector3d& base, const Eigen::Vector3d &vec);
 void read_origami_and_convert_to_polylines(std::vector<std::vector<Eigen::Vector3d>>& ply, std::vector<std::vector<Eigen::Vector3d>>& bin);
 std::array<double, 3> barycenter_coordinate(const Eigen::Vector3d &v0, const Eigen::Vector3d &v1, const Eigen::Vector3d &v2, const Eigen::Vector3d &p);
+void update_qd_mesh_with_plylines();
+Eigen::Vector3d get_light_rotated_back_from_earth_axis(const double latitude_degree, const double theta, const double phi);

@@ -440,7 +440,7 @@ void PolyOpt::assemble_angle_condition(spMat& H, Eigen::VectorXd& B, Eigen::Vect
         Eigen::Vector3d nbi(PlyVars[lnx], PlyVars[lny], PlyVars[lnz]);
         // Eigen::Vector3d nfr(PlyVars[lfnx], PlyVars[lfny], PlyVars[lfnz]);
         // Eigen::Vector3d nbk(PlyVars[lbnx], PlyVars[lbny], PlyVars[lbnz]);
-        Eigen::Vector3d tangent = vbk - vfr;
+        Eigen::Vector3d tangent = -(vbk - vfr);// This sign is changable depends on what user defines of the curve tangent directions
         Eigen::Vector3d norm = norm_v.row(vid);
         // if(first_compute){
         //     Eigen::Vector3d real_u = norm.cross(tangent).normalized();
@@ -635,6 +635,7 @@ void PolyOpt::save_polyline_and_binormals_as_files(const bool rotated)
 }
 void PolyOpt::save_polyline_and_binormals_as_files(const std::vector<std::vector<Eigen::Vector3d>> &ply, const std::vector<std::vector<Eigen::Vector3d>> &bi)
 {
+    std::cout<<"saving polyline files, please provide the prefix"<<std::endl;
     std::string fname = igl::file_dialog_save();
     write_polyline_xyz(ply, fname);
     write_polyline_xyz(bi, fname + "_b");
@@ -659,6 +660,7 @@ void PolyOpt::orient_binormals_of_plyline(const std::vector<std::vector<Eigen::V
         {
             base *= -1;
         }
+        bbase = base;
 
         for (int j = 0; j < bi[i].size(); j++)
         {

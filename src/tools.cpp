@@ -3230,7 +3230,19 @@ void rotate_z_axis_to_earth_axis(const Eigen::MatrixXd& Vori, Eigen::MatrixXd& V
     Vt = rotation * Vt; // 3 x n
     Vnew = Vt.transpose();
 }
-
+Eigen::Vector3d get_light_rotated_back_from_earth_axis(const double latitude_degree, const double theta, const double phi)
+{
+    double latitude_radian = latitude_degree * LSC_PI / 180.;
+    double rho = -(LSC_PI / 2 - latitude_radian); // this is correct rotation
+    Eigen::Matrix3d rotation;
+    rotation << 1, 0, 0,
+        0, cos(rho), -sin(rho),
+        0, sin(rho), cos(rho);
+    Eigen::Vector3d light = angle_ray_converter(theta, phi);
+    std::cout<<"after rotation, "<<light<<std::endl;
+    light = rotation * light;
+    return light;
+}
 void mesh_unit_scale(const Eigen::MatrixXd &V, Eigen::MatrixXd &Vout)
 {
     double xmin = V.col(0).minCoeff();
@@ -3426,7 +3438,7 @@ void read_origami_and_convert_to_polylines(std::vector<std::vector<Eigen::Vector
     ply.clear();
     bin.clear();
     // get the quad mesh
-    std::cout << "\nreading quad mesh file" << std::endl;
+    std::cout << "\nreading quad mesh file with attached binormals" << std::endl;
     std::string fname = igl::file_dialog_open();
     if (fname.length() == 0)
     {
@@ -3471,5 +3483,50 @@ void read_origami_and_convert_to_polylines(std::vector<std::vector<Eigen::Vector
         bin.push_back(binormal);
     }
     std::cout<<"readed polyline: the nbr, "<<ply.size()<<std::endl;
+}
+
+void update_qd_mesh_with_plylines(){
+    std::vector<std::vector<Eigen::Vector3d>> ply, bin;
+    std::cout << "\nreading quad mesh file with attached binormals" << std::endl;
+    std::string fname = igl::file_dialog_open();
+    if (fname.length() == 0)
+    {
+        std::cout << "reading failed" << std::endl;
+        return;
+    }
+    Eigen::MatrixXd Vqd;
+    Eigen::MatrixXi Fqd;
+    igl::readOBJ(fname, Vqd, Fqd);
+    std::cout << "Mesh readed, nbr cols, " << Vqd.cols() << std::endl
+              << std::endl;
+    if (Vqd.cols() != 6)
+    {
+        std::cout << "Please read the quad mesh attached with binormal vector info" << std::endl;
+        return;
+    }
+    read_plylines_and_binormals(ply, bin);
+
+    int counter = 0;
+    for(int i=0;i<ply.size();i++){
+        for(int j=0;j<ply[i].size();j++){
+            Eigen::Vector3d vertex = ply[i][j];
+            Eigen::Vector3d binormal = bin[i][j];
+            Vqd.row(counter) << vertex[0], vertex[1], vertex[2], binormal[0], binormal[1], binormal[2];
+            counter ++;
+        }
+    }
+    std::cout<<"now saving the updated quad mesh "<<std::endl;
+    std::ofstream file;
+    fname = igl::file_dialog_save();
+    file.open(fname);
+    for (int i = 0; i < counter; i++)
+    {
+        file << "v " << Vqd(i, 0) << " " << Vqd(i, 1) << " " << Vqd(i, 2) << " " << Vqd(i, 3) << " " << Vqd(i, 4) << " " << Vqd(i, 5) << std::endl;
+    }
+    for (int i = 0; i < Fqd.rows(); i++)
+    {
+        file << "f " << Fqd(i, 0) + 1 << " " << Fqd(i, 1) + 1 << " " << Fqd(i, 2) + 1 << " " << Fqd(i, 3) + 1 << std::endl;
+    }
+    file.close();
 }
 

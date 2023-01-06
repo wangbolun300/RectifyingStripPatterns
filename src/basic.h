@@ -74,9 +74,9 @@ class LSAnalizer {
 public:
     LSAnalizer() {};
     Eigen::VectorXi LocalActInner;
-    Eigen::VectorXi Special; // record special ids
-    Eigen::VectorXi ShadSpecial;
-    Eigen::VectorXi HighEnergy;
+    Eigen::VectorXi Special; // record if we apply the second condition in shading
+    Eigen::VectorXi ShadSpecial; // detect if parallel to the light
+    Eigen::VectorXi HighEnergy; // detect high energy vertices
     std::vector<CGMesh::HalfedgeHandle> heh0; 
     std::vector<CGMesh::HalfedgeHandle> heh1;
     std::vector<double> t1s;

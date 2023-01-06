@@ -516,18 +516,20 @@ int main(int argc, char *argv[])
 		ImGui::SameLine();
 		if (ImGui::Button("Debug", ImVec2(ImGui::GetWindowSize().x * 0.25f, 0.0f)))
 		{
-			std::cout<<"checking the angle between the light and the target light"<<std::endl;
-			Eigen::Vector3d target_light = angle_ray_converter(lscif::InputPx, lscif::InputPy);
-			std::cout<<"target light, "<<target_light.transpose()<<std::endl;
-			auto light = lscif::tools.Lights;
-			for(int i = 0;i<light.rows();i++)
-			{
-				std::cout<<light.row(i).dot(target_light)<<std::endl;
-			}
-			Eigen::VectorXd diff;
-			std::cout<<"ploting the angle between the light and the surface"<<std::endl;
-			lscif::tools.shading_detect_parallel_patch(lscif::InputPx, lscif::InputPy, diff);
-			viewer.data().set_colors(diff);
+			 Eigen::Vector3d light =  get_light_rotated_back_from_earth_axis(lscif::Shading_Latitude, lscif::InputPx, lscif::InputPy);
+			 std::cout<<"The light direction rotated back is\n "<<light<<std::endl;
+			// std::cout<<"checking the angle between the light and the target light"<<std::endl;
+			// Eigen::Vector3d target_light = angle_ray_converter(lscif::InputPx, lscif::InputPy);
+			// std::cout<<"target light, "<<target_light.transpose()<<std::endl;
+			// auto light = lscif::tools.Lights;
+			// for(int i = 0;i<light.rows();i++)
+			// {
+			// 	std::cout<<light.row(i).dot(target_light)<<std::endl;
+			// }
+			// Eigen::VectorXd diff;
+			// std::cout<<"ploting the angle between the light and the surface"<<std::endl;
+			// lscif::tools.shading_detect_parallel_patch(lscif::InputPx, lscif::InputPy, diff);
+			// viewer.data().set_colors(diff);
 
 		}
 
@@ -1360,14 +1362,13 @@ int main(int argc, char *argv[])
 				ImGui::End();
 				return;
 			}
-			std::cout<<"Rotating the mesh to the coordinate system computed by latitude"<<std::endl;
-			lscif::poly_tool.rotate_back_the_model_to_horizontal_coordinates(lscif::Shading_Latitude);
-			lscif::poly_tool.save_polyline_and_binormals_as_files(true); // true means save the rotated polylines
+			lscif::poly_tool.save_polyline_and_binormals_as_files(false); // true means save the rotated polylines
 		}
 		ImGui::SameLine();
 		if (ImGui::Button("Orient&SavePlys", ImVec2(ImGui::GetWindowSize().x * 0.23f, 0.0f)))
 
 		{
+			std::cout<<"this function is to orient binormals if there are inverted ones"<<std::endl;
 			int id = viewer.selected_data_index;
 			read_plylines_and_binormals(lscif::Poly_readed, lscif::Bino_readed);
 			std::vector<std::vector<Eigen::Vector3d>> biout;
@@ -1378,6 +1379,18 @@ int main(int argc, char *argv[])
 			lscif::Meshes.push_back(updatemesh);
 			viewer.selected_data_index = id;
 			lscif::poly_tool.save_polyline_and_binormals_as_files(lscif::Poly_readed, biout); // true means save the rotated polylines
+		}
+		if (ImGui::Button("RotateBackPly", ImVec2(ImGui::GetWindowSize().x * 0.23f, 0.0f)))
+		{
+			if (lscif::poly_tool.ply_extracted.empty())
+			{
+				std::cout << "ERROR, Please opt the polyline first" << std::endl;
+				ImGui::End();
+				return;
+			}
+			std::cout<<"Rotating the mesh to the coordinate system computed by latitude"<<std::endl;
+			lscif::poly_tool.rotate_back_the_model_to_horizontal_coordinates(lscif::Shading_Latitude);
+			lscif::poly_tool.save_polyline_and_binormals_as_files(true); // true means save the rotated polylines
 		}
 		ImGui::SetNextItemOpen(true);
 		if (ImGui::TreeNode("Mesh Management"))
@@ -1708,6 +1721,12 @@ int main(int argc, char *argv[])
 			lscif::Meshes.push_back(updatemesh);
 			// std::cout<<"before init the poly opt"<<std::endl;
 			lscif::poly_tool.init(lscif::Poly_readed, lscif::Bino_readed, -1); // we do not sample the polylines
+		}
+		ImGui::SameLine();
+		if (ImGui::Button("UpdateQuadWithPlylines", ImVec2(ImGui::GetWindowSize().x * 0.25f, 0.0f)))
+
+		{
+			update_qd_mesh_with_plylines();
 		}
 		if (ImGui::CollapsingHeader("Mesh Optimization", ImGuiTreeNodeFlags_DefaultOpen))
 		{
