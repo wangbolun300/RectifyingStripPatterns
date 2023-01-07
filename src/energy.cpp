@@ -1025,7 +1025,14 @@ void lsTools::calculate_shading_condition_inequivalent(Eigen::VectorXd &vars,
 
 		Energy[i + ninner * 2] = (r.dot(r) - 1) * scale * weight_binormal;
 		// std::cout<<"c3 got"<<std::endl;
-
+		if (analizer.ShadSpecial.size() != ninner)
+		{
+			std::cout << "Please check the surface patches that are parallel to the light" << std::endl;
+		}
+		if (analizer.ShadSpecial[i] == 0) // if this patch is parallel to the light, skip
+		{
+			continue;
+		}
 		double weight_test = 1;
 		if (analizer.Special.size() > 0)
 		{
@@ -1078,34 +1085,45 @@ void lsTools::calculate_shading_condition_inequivalent(Eigen::VectorXd &vars,
 
 				// tangent * np = 0
 				Eigen::Vector3d v12 = V.row(v1) - V.row(v2);
-				double d31 = ray.dot(v31);
-				double d43 = ray.dot(v43);
-				double d12 = ray.dot(v12);
+				double d31 = np.dot(v31);
+				double d43 = np.dot(v43);
+				double d12 = np.dot(v12);
 				Eigen::Vector3d tangent = v31 * (f4 - f3) * (f2 - f1) + v43 * (fm - f3) * (f2 - f1) + v12 * (fm - f1) * (f4 - f3);
 				double tnorm = tangent.norm();
-				TODO: fix the following to np instead of ray
-				tripletes.push_back(Trip(i + ninner * 4, lv1, weight_loose * (-d31 * (f4 - f3) - d43 * (fm - f3) - d12 * (f4 - f3)) / tnorm * scale));
-				tripletes.push_back(Trip(i + ninner * 4, lv2, weight_loose * (d31 * (f4 - f3) + d43 * (fm - f3)) / tnorm * scale));
-				tripletes.push_back(Trip(i + ninner * 4, lv3, weight_loose * (-d31 * (f2 - f1) - d43 * (f2 - f1) - d12 * (fm - f1)) / tnorm * scale));
-				tripletes.push_back(Trip(i + ninner * 4, lv4, weight_loose * (d31 * (f2 - f1) + d12 * (fm - f1)) / tnorm * scale));
-				tripletes.push_back(Trip(i + ninner * 4, lvm, weight_loose * (d43 * (f2 - f1) + d12 * (f4 - f3)) / tnorm * scale));
 
-				tripletes.push_back(Trip(i + ninner * 4, lrayx, weight_loose * tangent[0] / tnorm * scale));
-				tripletes.push_back(Trip(i + ninner * 4, lrayy, weight_loose * tangent[1] / tnorm * scale));
-				tripletes.push_back(Trip(i + ninner * 4, lrayz, weight_loose * tangent[2] / tnorm * scale));
+				tripletes.push_back(Trip(i + ninner * 4, lv1, 1 * (-d31 * (f4 - f3) - d43 * (fm - f3) - d12 * (f4 - f3)) / tnorm * scale));
+				tripletes.push_back(Trip(i + ninner * 4, lv2, 1 * (d31 * (f4 - f3) + d43 * (fm - f3)) / tnorm * scale));
+				tripletes.push_back(Trip(i + ninner * 4, lv3, 1 * (-d31 * (f2 - f1) - d43 * (f2 - f1) - d12 * (fm - f1)) / tnorm * scale));
+				tripletes.push_back(Trip(i + ninner * 4, lv4, 1 * (d31 * (f2 - f1) + d12 * (fm - f1)) / tnorm * scale));
+				tripletes.push_back(Trip(i + ninner * 4, lvm, 1 * (d43 * (f2 - f1) + d12 * (f4 - f3)) / tnorm * scale));
 
-				Energy[i + ninner * 4] = weight_loose * ray.dot(tangent) / tnorm * scale;
+				tripletes.push_back(Trip(i + ninner * 4, lnpx, 1 * tangent[0] / tnorm * scale));
+				tripletes.push_back(Trip(i + ninner * 4, lnpy, 1 * tangent[1] / tnorm * scale));
+				tripletes.push_back(Trip(i + ninner * 4, lnpz, 1 * tangent[2] / tnorm * scale));
+
+				Energy[i + ninner * 4] = 1 * np.dot(tangent) / tnorm * scale;
+
+				// np * np = 1
+				tripletes.push_back(Trip(i + ninner * 11, lnpx, 2 * np[0] * scale));
+				tripletes.push_back(Trip(i + ninner * 11, lnpy, 2 * np[1] * scale));
+				tripletes.push_back(Trip(i + ninner * 11, lnpz, 2 * np[2] * scale));
+
+				Energy[i + ninner * 11] = (np.dot(np) - 1) * scale;
+
+				// ray * np = 0
+				tripletes.push_back(Trip(i + ninner * 12, lnpx, ray[0] * scale));
+				tripletes.push_back(Trip(i + ninner * 12, lnpy, ray[1] * scale));
+				tripletes.push_back(Trip(i + ninner * 12, lnpz, ray[2] * scale));
+
+				tripletes.push_back(Trip(i + ninner * 12, lrayx, np[0] * scale));
+				tripletes.push_back(Trip(i + ninner * 12, lrayy, np[1] * scale));
+				tripletes.push_back(Trip(i + ninner * 12, lrayz, np[2] * scale));
+
+				Energy[i + ninner * 12] = np.dot(ray) * scale;
 			}
 		}
 
-		if (analizer.ShadSpecial.size() != ninner)
-		{
-			std::cout << "Please check the surface patches that are parallel to the light" << std::endl;
-		}
-		if (analizer.ShadSpecial[i] == 0) // if this patch is parallel to the light, skip
-		{
-			continue;
-		}
+		
 		// z - zmin - zl^2 = 0
 		tripletes.push_back(Trip(i + ninner * 5, lrayz, 1 * scale));
 		tripletes.push_back(Trip(i + ninner * 5, lzl, (-2 * zl) * scale));
@@ -1144,10 +1162,6 @@ void lsTools::calculate_shading_condition_inequivalent(Eigen::VectorXd &vars,
 		tripletes.push_back(Trip(i + ninner * 10, lrayz, 2 * ray[2] * scale));
 
 		Energy[i + ninner * 10] = (ray.dot(ray) - 1) * scale;
-
-		
-
-		
 
 	}
 	double max_e = 0;

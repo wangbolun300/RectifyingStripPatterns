@@ -95,7 +95,14 @@ void lsTools::convert_paras_as_meshes(CGMesh &output)
         output.set_point(viter, pt);
     }
 }
-spMat get_uniformed_mass(spMat& mass){
+// each element is the sqrt of area
+spMat get_uniformed_mass(spMat& mass_in){
+    spMat mass = mass_in;
+    for (int i = 0; i < mass.rows(); i++)
+    {
+        double area = mass.coeffRef(i, i);
+        mass.coeffRef(i, i) = sqrt(area);
+    }
     int nbr = mass.rows();
     double avg = 0; // avrage area
     for (int i = 0; i < nbr; i++)
