@@ -1043,8 +1043,8 @@ void lsTools::Run_AAG_Mesh_Opt(Eigen::VectorXd& func0, Eigen::VectorXd& func1, E
     }
     int ninner = anas[0].LocalActInner.size();
     int vnbr=V.rows();
-	int final_size =  vnbr * 3 + ninner;// Change this when using more auxilary vars. Only G use auxiliaries
-   
+    int final_size = vnbr * 3 + ninner * 3; // Change this when using more auxilary vars. Only G use auxiliaries
+
     spMat H;
     Eigen::VectorXd B;
     H.resize(vnbr * 3, vnbr * 3);
@@ -1087,6 +1087,137 @@ void lsTools::Run_AAG_Mesh_Opt(Eigen::VectorXd& func0, Eigen::VectorXd& func1, E
     assemble_solver_mesh_extreme(Glob_Vars, aux_start_loc, func1, true, false, any_ray, anas[1], Hpg[1], Bpg[1], MTEnergy[1]);
     // G
     assemble_solver_mesh_extreme(Glob_Vars, aux_start_loc, func2, false, false, any_ray, anas[2], Hpg[2], Bpg[2], MTEnergy[2]);
+
+    Compute_Auxiliaries_Mesh = false;
+    spMat Htotal(final_size, final_size);
+    Eigen::VectorXd Btotal=Eigen::VectorXd::Zero(final_size);
+    // first make the naive energies the correct size
+    Htotal = sum_uneven_spMats(H, Htotal);
+    Btotal = sum_uneven_vectors(B, Btotal);
+
+    // add the PG energy
+    Htotal = sum_uneven_spMats(weight_Mesh_pesudo_geodesic * (Hpg[0] + Hpg[1]), Htotal);
+    Htotal += weight_Mesh_pesudo_geodesic * weight_geodesic * Hpg[2];
+    Btotal = sum_uneven_vectors(weight_Mesh_pesudo_geodesic * (Bpg[0] + Bpg[1]), Btotal);
+    Btotal += weight_Mesh_pesudo_geodesic * weight_geodesic * Bpg[2];
+
+    Htotal += spMat(weight_mass * 1e-6 * Eigen::VectorXd::Ones(final_size).asDiagonal());
+
+    if(vector_contains_NAN(Btotal)){
+        std::cout<<"energy contains NAN"<<std::endl;
+    }
+
+    Eigen::SimplicialLLT<Eigen::SparseMatrix<double>> solver(Htotal);
+
+    if (solver.info() != Eigen::Success)
+    {
+        std::cout << "solver fail" << std::endl;
+        return;
+    }
+
+    Eigen::VectorXd dx = solver.solve(Btotal).eval(); 
+
+    dx *= 0.75;
+    double mesh_opt_step_length = dx.norm();
+    // double inf_norm=dx.cwiseAbs().maxCoeff();
+    if (mesh_opt_step_length > Mesh_opt_max_step_length)
+    {
+        dx *= Mesh_opt_max_step_length / mesh_opt_step_length;
+    }
+    vars += dx.topRows(vnbr * 3);
+    Glob_Vars += dx;
+    V.col(0)=vars.topRows(vnbr);
+    V.col(1)=vars.middleRows(vnbr,vnbr);
+    V.col(2)=vars.bottomRows(vnbr);
+    if (vars != Glob_Vars.topRows(vnbr * 3)) {
+        std::cout << "vars diff from glob vars" << std::endl;
+    }
+    double energy_smooth=(V.transpose()*QcH*V).norm();
+    std::cout<<"Mesh Opt: smooth, "<< energy_smooth <<", ";
+    /*double energy_mvl = (MVLap * vars).norm();*/
+    double energy_ls[3];
+    energy_ls[0] = MTEnergy[0].norm();
+    energy_ls[1] = MTEnergy[1].norm();
+    energy_ls[2] = MTEnergy[2].norm();
+    std::cout << "pg, " << energy_ls[0]<<", "<< energy_ls[1]<<", "<< energy_ls[2]<<", pgmax, "<<MTEnergy[0].lpNorm<Eigen::Infinity>()
+		<<", "<<MTEnergy[1].lpNorm<Eigen::Infinity>()<<", "<<MTEnergy[2].lpNorm<Eigen::Infinity>()<<", ";
+
+    double energy_el = ElEnergy.norm();
+    std::cout << "el, " << energy_el << ", ";
+    step_length=dx.norm();
+    std::cout<<"step "<<step_length<<std::endl;
+    update_mesh_properties();
+    Last_Opt_Mesh=true;
+}
+
+// in the order of gga
+void lsTools::Run_AGG_Mesh_Opt(Eigen::VectorXd& func0, Eigen::VectorXd& func1, Eigen::VectorXd& func2){
+
+    // levelset unit scale
+    bool first_compute = true; // if we need initialize auxiliary vars
+    if (!Last_Opt_Mesh)
+    {
+        Eigen::MatrixXd GradValueF[3], GradValueV[3];
+        get_gradient_hessian_values(func0, GradValueV[0], GradValueF[0]);
+        get_gradient_hessian_values(func1, GradValueV[1], GradValueF[1]);
+        levelset_unit_scale(func0, GradValueF[0], 1);
+        levelset_unit_scale(func1, GradValueF[1], 1);
+        func2 = -func0 - func1;
+        std::cout << "** Mesh Opt initialization done" << std::endl;
+        Compute_Auxiliaries_Mesh=true;
+        analysis_pseudo_geodesic_on_vertices(func0, anas[0]);
+        analysis_pseudo_geodesic_on_vertices(func1, anas[1]);
+        analysis_pseudo_geodesic_on_vertices(func2, anas[2]);
+        first_compute = true;// if last time opt levelset, we re-compute the auxiliary vars
+    }
+    int ninner = anas[0].LocalActInner.size();
+    int vnbr = V.rows();
+    int final_size = vnbr * 3 + ninner * 6; // Change this when using more auxilary vars. Only G use auxiliaries
+
+    spMat H;
+    Eigen::VectorXd B;
+    H.resize(vnbr * 3, vnbr * 3);
+    B = Eigen::VectorXd::Zero(vnbr * 3);
+    if (Glob_Vars.size() == 0) {
+        std::cout << "Initializing Global Variable For Mesh Opt ... " << std::endl;
+        Glob_Vars=Eigen::VectorXd::Zero(final_size);// We change the size if opt more than 1 level set
+        Glob_Vars.segment(0, vnbr) = V.col(0);
+        Glob_Vars.segment(vnbr, vnbr) = V.col(1);
+		Glob_Vars.segment(vnbr * 2, vnbr) = V.col(2);
+    }
+    Eigen::VectorXd vars;// the variables feed to the energies without auxiliary variables
+    vars.resize(vnbr * 3);
+    vars.topRows(vnbr) = V.col(0);
+    vars.middleRows(vnbr, vnbr) = V.col(1);
+    vars.bottomRows(vnbr) = V.col(2);
+    
+    spMat Hsmooth;
+    Eigen::VectorXd Bsmooth;
+    assemble_solver_mesh_smoothing(vars, Hsmooth, Bsmooth);// as smooth as possible
+    //assemble_solver_mean_value_laplacian(vars, Hsmooth, Bsmooth);
+    H += weight_Mesh_smoothness * Hsmooth;
+    B += weight_Mesh_smoothness * Bsmooth;
+    
+    spMat Hel;
+    Eigen::VectorXd Bel;
+    Eigen::VectorXd ElEnergy;
+    assemble_solver_mesh_edge_length_part(vars, Hel, Bel, ElEnergy);// as rigid as possible
+    H += weight_Mesh_edgelength * Hel;
+    B += weight_Mesh_edgelength * Bel;
+
+	spMat Hpg[3];
+    Eigen::VectorXd Bpg[3];
+    
+    Eigen::VectorXd MTEnergy[3];
+    Eigen::Vector3d any_ray;
+    // A
+    int aux_start_loc = vnbr * 3;// For mesh opt the auxiliary vars start from vnbr*3
+    assemble_solver_mesh_extreme(Glob_Vars, aux_start_loc, func0, false, false, any_ray, anas[0], Hpg[0], Bpg[0], MTEnergy[0]);
+    // A
+    aux_start_loc = vnbr * 3 + ninner * 3;
+    assemble_solver_mesh_extreme(Glob_Vars, aux_start_loc, func1, false, false, any_ray, anas[1], Hpg[1], Bpg[1], MTEnergy[1]);
+    // G
+    assemble_solver_mesh_extreme(Glob_Vars, aux_start_loc, func2, true, false, any_ray, anas[2], Hpg[2], Bpg[2], MTEnergy[2]);
 
     Compute_Auxiliaries_Mesh = false;
     spMat Htotal(final_size, final_size);

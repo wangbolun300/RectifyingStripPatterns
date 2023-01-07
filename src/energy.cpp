@@ -1178,6 +1178,7 @@ void lsTools::calculate_shading_condition_inequivalent(Eigen::VectorXd &vars,
 	std::cout << "me, " << max_e << ", mloc, " << howmany << ",";
 }
 
+// the principle normal on a circle.
 void lsTools::calculate_shading_init(Eigen::VectorXd& vars,
 	const LSAnalizer &analizer, const int vars_start_loc, const int aux_start_loc, std::vector<Trip>& tripletes, Eigen::VectorXd& Energy) {
 	int vnbr = V.rows();
@@ -1228,6 +1229,10 @@ void lsTools::calculate_shading_init(Eigen::VectorXd& vars,
 		int lrayx = i + aux_start_loc + ninner * 3;
 		int lrayy = i + aux_start_loc + ninner * 4;
 		int lrayz = i + aux_start_loc + ninner * 5;
+		
+		int lnpx = i + aux_start_loc + ninner * 6;
+		int lnpy = i + aux_start_loc + ninner * 7;
+		int lnpz = i + aux_start_loc + ninner * 8;
 
 		Eigen::Vector3d norm = norm_v.row(vm);
 		Eigen::Vector3d v31 = V.row(v3) - V.row(v1);
@@ -1259,6 +1264,12 @@ void lsTools::calculate_shading_init(Eigen::VectorXd& vars,
 			vars[lrayx] = real_ray[0];
 			vars[lrayy] = real_ray[1];
 			vars[lrayz] = real_ray[2];
+
+			Eigen::Vector3d real_np = real_r.cross(ver2 - ver0);
+			real_np = real_np.normalized();
+			vars[lnpx] = real_np[0];
+			vars[lnpy] = real_np[1];
+			vars[lnpz] = real_np[2];
 		}
 
 		// the weight of ray * tangent for the places who does not have solutions 
@@ -1272,6 +1283,7 @@ void lsTools::calculate_shading_init(Eigen::VectorXd& vars,
 		// }
 		Eigen::Vector3d r = Eigen::Vector3d(vars[lrx], vars[lry], vars[lrz]);
 		Eigen::Vector3d ray = Eigen::Vector3d(vars[lrayx], vars[lrayy], vars[lrayz]);
+		Eigen::Vector3d np = Eigen::Vector3d(vars[lnpx], vars[lnpy], vars[lnpz]);
 		
 		double target_theta = Reference_theta * LSC_PI / 180.;
 
@@ -1318,37 +1330,93 @@ void lsTools::calculate_shading_init(Eigen::VectorXd& vars,
 		Energy[i + ninner * 2] = (r.dot(r) - 1) * scale;
 		// std::cout<<"c3 got"<<std::endl;
 		double weight_test = 1;
+		if (analizer.Special.size() > 0)
+		{
+			if (analizer.Special[i] == false) // this part blocks light
+			{
+				// // r * ray = 0
+				tripletes.push_back(Trip(i + ninner * 3, lrx, weight_test * ray[0] * scale));
+				tripletes.push_back(Trip(i + ninner * 3, lry, weight_test * ray[1] * scale));
+				tripletes.push_back(Trip(i + ninner * 3, lrz, weight_test * ray[2] * scale));
 
-		// // r * ray = 0
-		tripletes.push_back(Trip(i + ninner * 3, lrx, weight_test * ray[0] * scale));
-		tripletes.push_back(Trip(i + ninner * 3, lry, weight_test * ray[1] * scale));
-		tripletes.push_back(Trip(i + ninner * 3, lrz, weight_test * ray[2] * scale));
+				tripletes.push_back(Trip(i + ninner * 3, lrayx, weight_test * r[0] * scale));
+				tripletes.push_back(Trip(i + ninner * 3, lrayy, weight_test * r[1] * scale));
+				tripletes.push_back(Trip(i + ninner * 3, lrayz, weight_test * r[2] * scale));
+				Energy[i + ninner * 3] = weight_test * r.dot(ray) * scale;
 
-		tripletes.push_back(Trip(i + ninner * 3, lrayx, weight_test * r[0] * scale));
-		tripletes.push_back(Trip(i + ninner * 3, lrayy, weight_test * r[1] * scale));
-		tripletes.push_back(Trip(i + ninner * 3, lrayz, weight_test * r[2] * scale));
-		Energy[i + ninner * 3] = weight_test * r.dot(ray) * scale;
+				// tangent * ray = 0
+				Eigen::Vector3d v12 = V.row(v1) - V.row(v2);
 
-		// tangent * ray = 0
-		Eigen::Vector3d v12 = V.row(v1) - V.row(v2);
+				double d31 = ray.dot(v31);
+				double d43 = ray.dot(v43);
+				double d12 = ray.dot(v12);
+				Eigen::Vector3d tangent = v31 * (f4 - f3) * (f2 - f1) + v43 * (fm - f3) * (f2 - f1) + v12 * (fm - f1) * (f4 - f3);
+				double tnorm = tangent.norm();
 
-		double d31 = ray.dot(v31);
-		double d43 = ray.dot(v43);
-		double d12 = ray.dot(v12);
-		Eigen::Vector3d tangent = v31 * (f4 - f3) * (f2 - f1) + v43 * (fm - f3) * (f2 - f1) + v12 * (fm - f1) * (f4 - f3);
-		double tnorm = tangent.norm();
+				tripletes.push_back(Trip(i + ninner * 4, lv1, weight_loose * (-d31 * (f4 - f3) - d43 * (fm - f3) - d12 * (f4 - f3)) / tnorm * scale));
+				tripletes.push_back(Trip(i + ninner * 4, lv2, weight_loose * (d31 * (f4 - f3) + d43 * (fm - f3)) / tnorm * scale));
+				tripletes.push_back(Trip(i + ninner * 4, lv3, weight_loose * (-d31 * (f2 - f1) - d43 * (f2 - f1) - d12 * (fm - f1)) / tnorm * scale));
+				tripletes.push_back(Trip(i + ninner * 4, lv4, weight_loose * (d31 * (f2 - f1) + d12 * (fm - f1)) / tnorm * scale));
+				tripletes.push_back(Trip(i + ninner * 4, lvm, weight_loose * (d43 * (f2 - f1) + d12 * (f4 - f3)) / tnorm * scale));
 
-		tripletes.push_back(Trip(i + ninner * 4, lv1, weight_loose * (-d31 * (f4 - f3) - d43 * (fm - f3) - d12 * (f4 - f3)) / tnorm * scale));
-		tripletes.push_back(Trip(i + ninner * 4, lv2, weight_loose * (d31 * (f4 - f3) + d43 * (fm - f3)) / tnorm * scale));
-		tripletes.push_back(Trip(i + ninner * 4, lv3, weight_loose * (-d31 * (f2 - f1) - d43 * (f2 - f1) - d12 * (fm - f1)) / tnorm * scale));
-		tripletes.push_back(Trip(i + ninner * 4, lv4, weight_loose * (d31 * (f2 - f1) + d12 * (fm - f1)) / tnorm * scale));
-		tripletes.push_back(Trip(i + ninner * 4, lvm, weight_loose * (d43 * (f2 - f1) + d12 * (f4 - f3)) / tnorm * scale));
+				tripletes.push_back(Trip(i + ninner * 4, lrayx, weight_loose * tangent[0] / tnorm * scale));
+				tripletes.push_back(Trip(i + ninner * 4, lrayy, weight_loose * tangent[1] / tnorm * scale));
+				tripletes.push_back(Trip(i + ninner * 4, lrayz, weight_loose * tangent[2] / tnorm * scale));
 
-		tripletes.push_back(Trip(i + ninner * 4, lrayx, weight_loose * tangent[0] / tnorm * scale));
-		tripletes.push_back(Trip(i + ninner * 4, lrayy, weight_loose * tangent[1] / tnorm * scale));
-		tripletes.push_back(Trip(i + ninner * 4, lrayz, weight_loose * tangent[2] / tnorm * scale));
+				Energy[i + ninner * 4] = weight_loose * ray.dot(tangent) / tnorm * scale;
+			}
+			else
+			{
+				// np * r = 0
+				tripletes.push_back(Trip(i + ninner * 3, lrx, np[0] * scale));
+				tripletes.push_back(Trip(i + ninner * 3, lry, np[1] * scale));
+				tripletes.push_back(Trip(i + ninner * 3, lrz, np[2] * scale));
 
-		Energy[i + ninner * 4] = weight_loose * ray.dot(tangent) / tnorm * scale;
+				tripletes.push_back(Trip(i + ninner * 3, lnpx, r[0] * scale));
+				tripletes.push_back(Trip(i + ninner * 3, lnpy, r[1] * scale));
+				tripletes.push_back(Trip(i + ninner * 3, lnpz, r[2] * scale));
+
+				Energy[i + ninner * 3] = r.dot(np) * scale;
+
+				// tangent * np = 0
+				Eigen::Vector3d v12 = V.row(v1) - V.row(v2);
+				double d31 = np.dot(v31);
+				double d43 = np.dot(v43);
+				double d12 = np.dot(v12);
+				Eigen::Vector3d tangent = v31 * (f4 - f3) * (f2 - f1) + v43 * (fm - f3) * (f2 - f1) + v12 * (fm - f1) * (f4 - f3);
+				double tnorm = tangent.norm();
+
+				tripletes.push_back(Trip(i + ninner * 4, lv1, 1 * (-d31 * (f4 - f3) - d43 * (fm - f3) - d12 * (f4 - f3)) / tnorm * scale));
+				tripletes.push_back(Trip(i + ninner * 4, lv2, 1 * (d31 * (f4 - f3) + d43 * (fm - f3)) / tnorm * scale));
+				tripletes.push_back(Trip(i + ninner * 4, lv3, 1 * (-d31 * (f2 - f1) - d43 * (f2 - f1) - d12 * (fm - f1)) / tnorm * scale));
+				tripletes.push_back(Trip(i + ninner * 4, lv4, 1 * (d31 * (f2 - f1) + d12 * (fm - f1)) / tnorm * scale));
+				tripletes.push_back(Trip(i + ninner * 4, lvm, 1 * (d43 * (f2 - f1) + d12 * (f4 - f3)) / tnorm * scale));
+
+				tripletes.push_back(Trip(i + ninner * 4, lnpx, 1 * tangent[0] / tnorm * scale));
+				tripletes.push_back(Trip(i + ninner * 4, lnpy, 1 * tangent[1] / tnorm * scale));
+				tripletes.push_back(Trip(i + ninner * 4, lnpz, 1 * tangent[2] / tnorm * scale));
+
+				Energy[i + ninner * 4] = 1 * np.dot(tangent) / tnorm * scale;
+
+				// np * np = 1
+				tripletes.push_back(Trip(i + ninner * 7, lnpx, 2 * np[0] * scale));
+				tripletes.push_back(Trip(i + ninner * 7, lnpy, 2 * np[1] * scale));
+				tripletes.push_back(Trip(i + ninner * 7, lnpz, 2 * np[2] * scale));
+
+				Energy[i + ninner * 7] = (np.dot(np) - 1) * scale;
+
+				// ray * np = 0
+				tripletes.push_back(Trip(i + ninner * 8, lnpx, ray[0] * scale));
+				tripletes.push_back(Trip(i + ninner * 8, lnpy, ray[1] * scale));
+				tripletes.push_back(Trip(i + ninner * 8, lnpz, ray[2] * scale));
+
+				tripletes.push_back(Trip(i + ninner * 8, lrayx, np[0] * scale));
+				tripletes.push_back(Trip(i + ninner * 8, lrayy, np[1] * scale));
+				tripletes.push_back(Trip(i + ninner * 8, lrayz, np[2] * scale));
+
+				Energy[i + ninner * 8] = np.dot(ray) * scale;
+			}
+		}
 
 		//////////////////////////////
 		// ray * ray =1
@@ -1514,8 +1582,8 @@ void lsTools::get_traced_boundary_triangle_direction_derivatives() {
 	jacobian.resize(size, V.rows());
 	std::vector<Trip> triplets;
 	triplets.reserve(size * 3);
-	refids.clear();
-	refids.reserve(size * 3);
+	// refids.clear();
+	// refids.reserve(size * 3);
 	for (int i = 0; i < size; i++) {
 		CGMesh::HalfedgeHandle hd = tracing_start_edges[i];
 		CGMesh::HalfedgeHandle op = lsmesh.opposite_halfedge_handle(hd);
@@ -1543,9 +1611,9 @@ void lsTools::get_traced_boundary_triangle_direction_derivatives() {
 		triplets.push_back(Trip(i, F(fid, 0), c1));
 		triplets.push_back(Trip(i, F(fid, 1), c2));
 		triplets.push_back(Trip(i, F(fid, 2), c3));
-		refids.push_back(F(fid, 0));
-		refids.push_back(F(fid, 1));
-		refids.push_back(F(fid, 2));
+		// refids.push_back(F(fid, 0));
+		// refids.push_back(F(fid, 1));
+		// refids.push_back(F(fid, 2));
 	}
 	jacobian.setFromTriplets(triplets.begin(), triplets.end());
 	DBdirections = jacobian;
@@ -2369,6 +2437,161 @@ void lsTools::Run_AAG(Eigen::VectorXd& func0, Eigen::VectorXd& func1, Eigen::Vec
 		assemble_solver_extreme_cases_part_vertex_based(Glob_lsvars, false, false, anas[2],
 														vars_start_loc,
 														pg_JTJ[2], pg_mJTF[2], PGEnergy[2]);
+		Compute_Auxiliaries = false;
+		H += weight_pseudo_geodesic_energy * (pg_JTJ[0] + pg_JTJ[1] + weight_geodesic* pg_JTJ[2]);
+		B += weight_pseudo_geodesic_energy * (pg_mJTF[0] + pg_mJTF[1] + weight_geodesic* pg_mJTF[2]);
+	}
+	
+	H += 1e-6 * weight_mass * spMat(Eigen::VectorXd::Ones(final_size).asDiagonal());
+
+	Eigen::SimplicialLLT<Eigen::SparseMatrix<double>> solver(H);
+
+	// assert(solver.info() == Eigen::Success);
+	if (solver.info() != Eigen::Success)
+	{
+		// solving failed
+		std::cout << "solver fail" << std::endl;
+		return;
+	}
+	// std::cout<<"solved successfully"<<std::endl;
+	Eigen::VectorXd dx = solver.solve(B).eval();
+	dx *= 0.75;
+	// std::cout << "step length " << dx.norm() << std::endl;
+	double level_set_step_length = dx.norm();
+	if (level_set_step_length > max_step_length)
+	{
+		dx *= max_step_length / level_set_step_length;
+	}
+	
+
+	// energy evaluation
+	double energy_biharmonic[3];
+	energy_biharmonic[0] = func0.transpose() * QcH * func0;
+	energy_biharmonic[1] = func1.transpose() * QcH * func1;
+	energy_biharmonic[2] = func2.transpose() * QcH * func2;
+	std::cout << "energy: harm " << energy_biharmonic[0] << ", "<<energy_biharmonic[1] << ", "<<energy_biharmonic[2] << ", ";
+	if (enable_pseudo_geodesic_energy)
+	{
+		double energy_pg[3];
+		energy_pg[0]=PGEnergy[0].norm();
+		energy_pg[1]=PGEnergy[1].norm();
+		energy_pg[2]=PGEnergy[2].norm();
+		std::cout << "pg, " << energy_pg[0]<<", "<< energy_pg[1]<<", "<< energy_pg[2]<<", pgmax, "<<PGEnergy[0].lpNorm<Eigen::Infinity>()
+		<<", "<<PGEnergy[1].lpNorm<Eigen::Infinity>()<<", "<<PGEnergy[2].lpNorm<Eigen::Infinity>()<<", ";
+	}
+
+	if (enable_strip_width_energy)
+	{
+
+		Eigen::VectorXd ener0, ener1, ener2; 
+		ener0= GradValueF[0].rowwise().norm();
+		ener1= GradValueF[1].rowwise().norm();
+		ener2= GradValueF[2].rowwise().norm();
+		ener0 = ener0.asDiagonal() * ener0;
+		ener1 = ener1.asDiagonal() * ener1;
+		ener2 = ener2.asDiagonal() * ener2;
+		Eigen::VectorXd wds = Eigen::VectorXd::Ones(fnbr) * strip_width * strip_width;
+
+		ener0 -= wds;
+		ener1 -= wds;
+		ener2 -= wds;
+		double stp_energy[3];
+		stp_energy[0] = Eigen::VectorXd(ener0).dot(ener0);
+		stp_energy[1] = Eigen::VectorXd(ener1).dot(ener1);
+		stp_energy[2] = Eigen::VectorXd(ener2).dot(ener2);
+		std::cout << "strip, " << stp_energy[0] << ", "<< stp_energy[1] << ", "<< stp_energy[2] << ", ";
+	}
+	std::cout<<"extra, "<<extra_energy.norm()<<", ";
+	step_length = dx.norm();
+	std::cout << "step " << step_length << std::endl;
+
+	func0 += dx.topRows(vnbr);
+	func1 += dx.middleRows(vnbr,vnbr);
+	func2 += dx.middleRows(vnbr * 2, vnbr);
+	Glob_lsvars += dx;
+	Last_Opt_Mesh = false;
+}
+
+void lsTools::Run_AGG(Eigen::VectorXd& func0, Eigen::VectorXd& func1, Eigen::VectorXd& func2){
+	Eigen::MatrixXd GradValueF[3], GradValueV[3];
+	Eigen::VectorXd PGEnergy[3];
+
+	int vnbr = V.rows();
+	int fnbr = F.rows();
+	bool first_compute = true; // if we need initialize auxiliary vars
+	get_gradient_hessian_values(func0, GradValueV[0], GradValueF[0]);
+	get_gradient_hessian_values(func1, GradValueV[1], GradValueF[1]);
+	
+	// initialize the level set with some number
+	if (Glob_lsvars.size() == 0)
+	{ // initialize the 3rd levelset only here
+		levelset_unit_scale(func0, GradValueF[0], 1);
+		levelset_unit_scale(func1, GradValueF[1], 1);
+		func2 = -func0 - func1; // func0 + func1 + func2 = 0
+	}
+	get_gradient_hessian_values(func2, GradValueV[2], GradValueF[2]);
+
+	analysis_pseudo_geodesic_on_vertices(func0, anas[0]);
+	analysis_pseudo_geodesic_on_vertices(func1, anas[1]);
+	analysis_pseudo_geodesic_on_vertices(func2, anas[2]);
+	int ninner = anas[0].LocalActInner.size();
+	int final_size = vnbr * 3; // Change this when using more auxilary vars. Only G use auxiliaries
+	
+	if (Glob_lsvars.size() == 0) {
+		
+		first_compute = true;
+		std::cout << "Initializing Global Variable For LevelSet Opt ... " << std::endl;
+		Glob_lsvars = Eigen::VectorXd::Zero(final_size);// We change the size if opt more than 1 level set
+		Glob_lsvars.segment(0, vnbr) = func0;
+		Glob_lsvars.segment(vnbr, vnbr) = func1;
+		Glob_lsvars.segment(vnbr * 2, vnbr) = func2;
+	}
+	if(Last_Opt_Mesh){
+		Compute_Auxiliaries = true;
+		std::cout<<"Recomputing Auxiliaries"<<std::endl;
+	}
+	
+	spMat H;
+	H.resize(final_size, final_size);
+	Eigen::VectorXd B=Eigen::VectorXd::Zero(final_size);
+
+	spMat LTL0, LTL1, LTL2;				 // left of laplacian
+	Eigen::VectorXd mLTF0, mLTF1, mLTF2; // right of laplacian
+	assemble_solver_biharmonic_smoothing(func0, LTL0, mLTF0);
+	assemble_solver_biharmonic_smoothing(func1, LTL1, mLTF1);
+	assemble_solver_biharmonic_smoothing(func2, LTL2, mLTF2);
+	H += weight_laplacian * three_spmat_in_diag(LTL0, LTL1, weight_geodesic* LTL2, final_size);
+	B += weight_laplacian * three_vec_in_row(mLTF0, mLTF1, weight_geodesic* mLTF2, final_size);
+
+	// strip width condition
+	
+	if (enable_strip_width_energy)
+	{
+		spMat sw_JTJ[3];
+		Eigen::VectorXd sw_mJTF[3];
+		assemble_solver_strip_width_part(GradValueF[0], sw_JTJ[0], sw_mJTF[0]);// by default the strip width is 1. Unless tracing info updated the info
+		assemble_solver_strip_width_part(GradValueF[1], sw_JTJ[1], sw_mJTF[1]);// by default the strip width is 1. Unless tracing info updated the info
+		assemble_solver_strip_width_part(GradValueF[2], sw_JTJ[2], sw_mJTF[2]);// by default the strip width is 1. Unless tracing info updated the info
+		H += weight_strip_width * three_spmat_in_diag(sw_JTJ[0], sw_JTJ[1], weight_geodesic* sw_JTJ[2], final_size);
+		B += weight_strip_width * three_vec_in_row(sw_mJTF[0], sw_mJTF[1], weight_geodesic* sw_mJTF[2], final_size);
+	}
+	spMat extraH;
+	Eigen::VectorXd extraB;
+	Eigen::VectorXd extra_energy;
+	assemble_AAG_extra_condition(final_size, vnbr, func0, func1, func2, extraH, extraB, extra_energy);
+	H += weight_boundary * extraH;
+	B += weight_boundary * extraB;
+	if (enable_pseudo_geodesic_energy )
+	{
+
+		spMat pg_JTJ[3];
+		Eigen::VectorXd pg_mJTF[3];
+		int vars_start_loc = 0;
+		assemble_solver_extreme_cases_part_vertex_based(Glob_lsvars, false, false, anas[0], vars_start_loc, pg_JTJ[0], pg_mJTF[0], PGEnergy[0]);
+		vars_start_loc = vnbr;
+		assemble_solver_extreme_cases_part_vertex_based(Glob_lsvars, false, false, anas[1], vars_start_loc, pg_JTJ[1], pg_mJTF[1], PGEnergy[1]);
+		vars_start_loc = vnbr * 2;
+		assemble_solver_extreme_cases_part_vertex_based(Glob_lsvars, true, false, anas[2], vars_start_loc, pg_JTJ[2], pg_mJTF[2], PGEnergy[2]);
 		Compute_Auxiliaries = false;
 		H += weight_pseudo_geodesic_energy * (pg_JTJ[0] + pg_JTJ[1] + weight_geodesic* pg_JTJ[2]);
 		B += weight_pseudo_geodesic_energy * (pg_mJTF[0] + pg_mJTF[1] + weight_geodesic* pg_mJTF[2]);
