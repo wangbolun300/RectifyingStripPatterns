@@ -3140,16 +3140,17 @@ void lsTools::show_max_pg_energy(Eigen::VectorXd &e)
     int ninner = anas[0].LocalActInner.size();
     int vnbr = V.rows();
     int rep = PGE.size() / ninner;
-    Eigen::VectorXd result = Eigen::VectorXd::Zero(vnbr);
+    // Eigen::VectorXd result = Eigen::VectorXd::Zero(vnbr);
+    Eigen::MatrixXd result = Eigen::MatrixXd::Zero(vnbr, rep);
     for (int i = 0; i < ninner; i++)
     {
         int vm = IVids[i];
         for (int j = 0; j < rep; j++)
         {
-            result[vm] += abs(PGE[i + j * ninner]);
+            result(vm, j) = PGE[i + j * ninner];
         }
     }
-    e = result;
+    e = result.rowwise().norm();
 }
 void lsTools::show_max_pg_energy_all(Eigen::MatrixXd &energy)
 {

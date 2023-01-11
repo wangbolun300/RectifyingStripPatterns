@@ -1975,6 +1975,25 @@ const LSAnalizer &analizer, const bool first_compute, const int vars_start_loc, 
 	B = -J.transpose() * energy;
 	PGE = energy;
 }
+
+// this function gives a matrix which remove the influence of weight_binormal from the energy, thus gives real energy
+// size is the size of the pseudo-geodesic energy (for shading),
+// 
+spMat remove_weight_binormal_influence_in_energy(const int ninner, const int size, const double weight_binormal){
+	
+	Eigen::VectorXd result = Eigen::VectorXd::Ones(size);
+	Eigen::VectorXd weight;
+	if(weight_binormal>0){
+		weight = Eigen::VectorXd::Ones(ninner * 3) * (1 / weight_binormal);
+	}
+	else{
+		std::cout<<"Warining: You set weight_binormal as 0, meaning you are optimizing nothing!"<<std::endl;
+		weight = Eigen::VectorXd::Ones(ninner * 3);
+	}
+	result.segment(0, ninner * 3) = weight;
+	return spMat(result.asDiagonal());
+}
+
 // asymptotic, geodesic, shading
 void lsTools::assemble_solver_extreme_cases_part_vertex_based(Eigen::VectorXd &vars, const bool asymptotic,
 															  const bool use_given_direction,
@@ -1982,6 +2001,7 @@ void lsTools::assemble_solver_extreme_cases_part_vertex_based(Eigen::VectorXd &v
 {
 	std::vector<Trip> tripletes;
 	int vnbr = V.rows();
+	int ninner = analizer.LocalActInner.size();
 	if (!asymptotic && use_given_direction)
 	{ // shading condition
 		if (!enable_shading_init)
@@ -1990,6 +2010,8 @@ void lsTools::assemble_solver_extreme_cases_part_vertex_based(Eigen::VectorXd &v
 			// 										   analizer, vars_start_loc, vnbr, tripletes, energy);
 			calculate_shading_condition_inequivalent(vars,
 													   analizer, vars_start_loc, vnbr, tripletes, energy);
+			spMat rescale = remove_weight_binormal_influence_in_energy(ninner, energy.size(), weight_binormal);
+			energy = rescale * energy;
 		}
 		else
 		{
