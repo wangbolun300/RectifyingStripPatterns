@@ -2,6 +2,7 @@
 #include <lsc/tools.h>
 #include<igl/file_dialog_open.h>
 #include<igl/file_dialog_save.h>
+
 void sample_polylines_and_binormals_evenly(const int nbr_segs, const std::vector<std::vector<Eigen::Vector3d>> &ply_in, const std::vector<std::vector<Eigen::Vector3d>> &bi_in,
                             std::vector<std::vector<Eigen::Vector3d>> &ply, std::vector<std::vector<Eigen::Vector3d>> &bi)
 {
@@ -108,7 +109,27 @@ void PolyOpt::init(const std::vector<std::vector<Eigen::Vector3d>> &ply_in, cons
     ply_extracted = ply;
     bin_extracted = bi;
 }
+void PolyOpt::force_smoothing_binormals(){
+    int counter = 0;
+    for (int i = 0; i < ply_extracted.size(); i++)
+    {
+        int lnx = counter + VerNbr * 3;
+        int lny = counter + VerNbr * 4;
+        int lnz = counter + VerNbr * 5;
+        Eigen::Vector3d bin = Eigen::Vector3d(PlyVars[lnx], PlyVars[lny], PlyVars[lnz]);
+        for (int j = 0; j < ply_extracted[i].size(); j++)
+        {
+            lnx = counter + VerNbr * 3;
+            lny = counter + VerNbr * 4;
+            lnz = counter + VerNbr * 5;
+            PlyVars[lnx] = bin[0];
+            PlyVars[lny] = bin[1];
+            PlyVars[lnz] = bin[2];
 
+            counter++;
+        }
+    }
+}
 void PolyOpt::assemble_gravity(spMat &H, Eigen::VectorXd &B, Eigen::VectorXd &energy)
 {
     if (Front.size() == 0)
@@ -267,6 +288,9 @@ void PolyOpt::assemble_polyline_smooth(spMat &H, Eigen::VectorXd &B, Eigen::Vect
     H = J.transpose() * J;
     B = -J.transpose() * energy;
     // std::cout<<"check 3"<<std::endl;
+}
+void PolyOpt::assemble_smooth_neighbouring_polyline_binormal(spMat& H, Eigen::VectorXd& B, Eigen::VectorXd &energy){
+    
 }
 void PolyOpt::assemble_binormal_condition(spMat &H, Eigen::VectorXd &B, Eigen::VectorXd &energy)
 {

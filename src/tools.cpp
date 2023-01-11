@@ -2445,7 +2445,10 @@ void extract_shading_lines(const CGMesh &lsmesh, const Eigen::MatrixXd &V, const
         get_iso_lines(lsmesh, loop, V, F, ls, value, polylines, left_large);
         for (int j = 0; j < polylines.size(); j++)
         {
-            lines.push_back(polylines[j]);
+            if(polylines[j].size()>3){// remove too short elements
+                lines.push_back(polylines[j]);
+            }
+            
         }
     }
     std::cout << "Writing the Polylines, please provide the file prefix" << std::endl;
@@ -2484,6 +2487,9 @@ void extract_shading_lines(const CGMesh &lsmesh, const Eigen::MatrixXd &V, const
 
         Eigen::Vector3d dir = coor[0] * bn.row(v0) + coor[1] * bn.row(v1) + coor[2] * bn.row(v2);
         dir = dir.normalized();
+        if(dir == Eigen::Vector3d(0,0,0)){
+            dir = Eigen::Vector3d(1,0,0);
+        }
         B.row(i) = dir;
     }
     std::vector<std::vector<Eigen::Vector3d>> bilist = lines;
@@ -3184,6 +3190,7 @@ void get_one_ring_vertices_simple(const Eigen::VectorXi &ref, CGMesh &lsmesh, Ei
 
 Eigen::VectorXi lsTools::Second_Angle_Inner_Vers()
 {
+    
     int ninner = anas[0].LocalActInner.size();
     int vnbr = V.rows();
     Eigen::VectorXi result = Eigen::VectorXi::Zero(ninner);
@@ -3193,20 +3200,28 @@ Eigen::VectorXi lsTools::Second_Angle_Inner_Vers()
     {
         ref[id] = 1;
     }
+
     for (int i = 0; i < Second_Ray_nbr_rings; i++)
     {
         Eigen::VectorXi ring;
         get_one_ring_vertices_simple(ref, lsmesh, ring);
         ref = ring;
     }
+
     // map the marks into inner vertex list
-    for(int i =0;i<ref.size();i++){
-        if(ref[i]<0){
+    for (int i = 0; i < ref.size(); i++)
+    {
+        if (ref[i] < 0)
+        {
             continue;
         }
         int location = InnerV[i];
-        result[location] = 1;
+        if(location>=0){
+            result[location] = 1;
+        }
+        
     }
+    
     return result;
 }
 
@@ -3287,7 +3302,7 @@ Eigen::VectorXi lsTools::shading_detect_parallel_patch(const double theta, const
         // get_one_ring_vertices(lsmesh, vm, ids);
         Eigen::Vector3d normal = norm_v.row(vm);
         diff[vm] = 1 - abs(normal.dot(target_light));
-        if (diff[vm] > 0.75)
+        if (diff[vm] > 0.9)
         {
             otho[i] = 0;
             removed ++;

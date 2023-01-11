@@ -1019,7 +1019,25 @@ void lsTools::estimate_strip_width_according_to_tracing(){
     double function_value_diff=abs(assigned_trace_ls.back()-assigned_trace_ls[0]);
     strip_width=function_value_diff/dis_real;
 }
-void lsTools::print_info(const int vid){
+void lsTools::print_info(const int vid)
+{
+    if (Given_Const_Direction)
+    {
+        int ninner = anas[0].LocalActInner.size();
+        int vnbr = V.rows();
+        int vm = IVids[vid];
+        int xloc = vm + vnbr + ninner * 8;
+        int yloc = vm + vnbr + ninner * 9;
+        int zloc = vm + vnbr + ninner * 10;
+        if (enable_shading_init)
+        {
+            xloc = vm + vnbr + ninner * 3;
+            yloc = vm + vnbr + ninner * 4;
+            zloc = vm + vnbr + ninner * 5;
+        }
+        std::cout << "the light, " << Glob_lsvars[xloc] << ", " << Glob_lsvars[yloc] << ", " << Glob_lsvars[zloc] << "\n";
+    }
+
     // LSAnalizer anl;
     // analysis_pseudo_geodesic_on_vertices(fvalues,anl);
     // int ninner = anl.LocalActInner.size();

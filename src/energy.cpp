@@ -893,6 +893,7 @@ void lsTools::calculate_shading_condition_inequivalent(Eigen::VectorXd &vars,
 		int lnpx = i + aux_start_loc + ninner * 11;
 		int lnpy = i + aux_start_loc + ninner * 12;
 		int lnpz = i + aux_start_loc + ninner * 13;
+		assert(lnpz < vars.size());
 
 		Eigen::Vector3d norm = norm_v.row(vm);
 		Eigen::Vector3d v31 = V.row(v3) - V.row(v1);
@@ -1034,95 +1035,102 @@ void lsTools::calculate_shading_condition_inequivalent(Eigen::VectorXd &vars,
 			continue;
 		}
 		double weight_test = 1;
-		if (analizer.Special.size() > 0)
-		{
-			if (analizer.Special[i] == false) // this part blocks light
-			{
-				// r * ray = 0
-				tripletes.push_back(Trip(i + ninner * 3, lrx, weight_test * ray[0] * scale));
-				tripletes.push_back(Trip(i + ninner * 3, lry, weight_test * ray[1] * scale));
-				tripletes.push_back(Trip(i + ninner * 3, lrz, weight_test * ray[2] * scale));
-
-				tripletes.push_back(Trip(i + ninner * 3, lrayx, weight_test * r[0] * scale));
-				tripletes.push_back(Trip(i + ninner * 3, lrayy, weight_test * r[1] * scale));
-				tripletes.push_back(Trip(i + ninner * 3, lrayz, weight_test * r[2] * scale));
-				Energy[i + ninner * 3] = weight_test * r.dot(ray) * scale;
-
-				// tangent * ray = 0
-				Eigen::Vector3d v12 = V.row(v1) - V.row(v2);
-
-				double d31 = ray.dot(v31);
-				double d43 = ray.dot(v43);
-				double d12 = ray.dot(v12);
-				Eigen::Vector3d tangent = v31 * (f4 - f3) * (f2 - f1) + v43 * (fm - f3) * (f2 - f1) + v12 * (fm - f1) * (f4 - f3);
-				double tnorm = tangent.norm();
-
-				tripletes.push_back(Trip(i + ninner * 4, lv1, weight_loose * (-d31 * (f4 - f3) - d43 * (fm - f3) - d12 * (f4 - f3)) / tnorm * scale));
-				tripletes.push_back(Trip(i + ninner * 4, lv2, weight_loose * (d31 * (f4 - f3) + d43 * (fm - f3)) / tnorm * scale));
-				tripletes.push_back(Trip(i + ninner * 4, lv3, weight_loose * (-d31 * (f2 - f1) - d43 * (f2 - f1) - d12 * (fm - f1)) / tnorm * scale));
-				tripletes.push_back(Trip(i + ninner * 4, lv4, weight_loose * (d31 * (f2 - f1) + d12 * (fm - f1)) / tnorm * scale));
-				tripletes.push_back(Trip(i + ninner * 4, lvm, weight_loose * (d43 * (f2 - f1) + d12 * (f4 - f3)) / tnorm * scale));
-
-				tripletes.push_back(Trip(i + ninner * 4, lrayx, weight_loose * tangent[0] / tnorm * scale));
-				tripletes.push_back(Trip(i + ninner * 4, lrayy, weight_loose * tangent[1] / tnorm * scale));
-				tripletes.push_back(Trip(i + ninner * 4, lrayz, weight_loose * tangent[2] / tnorm * scale));
-
-				Energy[i + ninner * 4] = weight_loose * ray.dot(tangent) / tnorm * scale;
+		bool compute_block = true; // block the light or let the light pass through
+		if(analizer.Special.size() > 0){// if we set multiple conditions on one surface
+			if (analizer.Special[i] == false){
+				compute_block = true;
 			}
-			else
-			{	// this part allows the light passing through
-
-				// np * r = 0
-				tripletes.push_back(Trip(i + ninner * 3, lrx, np[0] * scale));
-				tripletes.push_back(Trip(i + ninner * 3, lry, np[1] * scale));
-				tripletes.push_back(Trip(i + ninner * 3, lrz, np[2] * scale));
-
-				tripletes.push_back(Trip(i + ninner * 3, lnpx, r[0] * scale));
-				tripletes.push_back(Trip(i + ninner * 3, lnpy, r[1] * scale));
-				tripletes.push_back(Trip(i + ninner * 3, lnpz, r[2] * scale));
-
-				Energy[i + ninner * 3] =  r.dot(np) * scale;
-
-				// tangent * np = 0
-				Eigen::Vector3d v12 = V.row(v1) - V.row(v2);
-				double d31 = np.dot(v31);
-				double d43 = np.dot(v43);
-				double d12 = np.dot(v12);
-				Eigen::Vector3d tangent = v31 * (f4 - f3) * (f2 - f1) + v43 * (fm - f3) * (f2 - f1) + v12 * (fm - f1) * (f4 - f3);
-				double tnorm = tangent.norm();
-
-				tripletes.push_back(Trip(i + ninner * 4, lv1, 1 * (-d31 * (f4 - f3) - d43 * (fm - f3) - d12 * (f4 - f3)) / tnorm * scale));
-				tripletes.push_back(Trip(i + ninner * 4, lv2, 1 * (d31 * (f4 - f3) + d43 * (fm - f3)) / tnorm * scale));
-				tripletes.push_back(Trip(i + ninner * 4, lv3, 1 * (-d31 * (f2 - f1) - d43 * (f2 - f1) - d12 * (fm - f1)) / tnorm * scale));
-				tripletes.push_back(Trip(i + ninner * 4, lv4, 1 * (d31 * (f2 - f1) + d12 * (fm - f1)) / tnorm * scale));
-				tripletes.push_back(Trip(i + ninner * 4, lvm, 1 * (d43 * (f2 - f1) + d12 * (f4 - f3)) / tnorm * scale));
-
-				tripletes.push_back(Trip(i + ninner * 4, lnpx, 1 * tangent[0] / tnorm * scale));
-				tripletes.push_back(Trip(i + ninner * 4, lnpy, 1 * tangent[1] / tnorm * scale));
-				tripletes.push_back(Trip(i + ninner * 4, lnpz, 1 * tangent[2] / tnorm * scale));
-
-				Energy[i + ninner * 4] = 1 * np.dot(tangent) / tnorm * scale;
-
-				// np * np = 1
-				tripletes.push_back(Trip(i + ninner * 11, lnpx, 2 * np[0] * scale));
-				tripletes.push_back(Trip(i + ninner * 11, lnpy, 2 * np[1] * scale));
-				tripletes.push_back(Trip(i + ninner * 11, lnpz, 2 * np[2] * scale));
-
-				Energy[i + ninner * 11] = (np.dot(np) - 1) * scale;
-
-				// ray * np = 0
-				tripletes.push_back(Trip(i + ninner * 12, lnpx, ray[0] * scale));
-				tripletes.push_back(Trip(i + ninner * 12, lnpy, ray[1] * scale));
-				tripletes.push_back(Trip(i + ninner * 12, lnpz, ray[2] * scale));
-
-				tripletes.push_back(Trip(i + ninner * 12, lrayx, np[0] * scale));
-				tripletes.push_back(Trip(i + ninner * 12, lrayy, np[1] * scale));
-				tripletes.push_back(Trip(i + ninner * 12, lrayz, np[2] * scale));
-
-				Energy[i + ninner * 12] = np.dot(ray) * scale;
+			else{
+				compute_block = false;
 			}
 		}
+		if(enable_let_ray_through){// if the surface totally let the ray through,
+			compute_block = false;
+		}
+		if (compute_block) // this part blocks light
+		{
+			// r * ray = 0
+			tripletes.push_back(Trip(i + ninner * 3, lrx, weight_test * ray[0] * scale));
+			tripletes.push_back(Trip(i + ninner * 3, lry, weight_test * ray[1] * scale));
+			tripletes.push_back(Trip(i + ninner * 3, lrz, weight_test * ray[2] * scale));
 
+			tripletes.push_back(Trip(i + ninner * 3, lrayx, weight_test * r[0] * scale));
+			tripletes.push_back(Trip(i + ninner * 3, lrayy, weight_test * r[1] * scale));
+			tripletes.push_back(Trip(i + ninner * 3, lrayz, weight_test * r[2] * scale));
+			Energy[i + ninner * 3] = weight_test * r.dot(ray) * scale;
+
+			// tangent * ray = 0
+			Eigen::Vector3d v12 = V.row(v1) - V.row(v2);
+
+			double d31 = ray.dot(v31);
+			double d43 = ray.dot(v43);
+			double d12 = ray.dot(v12);
+			Eigen::Vector3d tangent = v31 * (f4 - f3) * (f2 - f1) + v43 * (fm - f3) * (f2 - f1) + v12 * (fm - f1) * (f4 - f3);
+			double tnorm = tangent.norm();
+
+			tripletes.push_back(Trip(i + ninner * 4, lv1, weight_loose * (-d31 * (f4 - f3) - d43 * (fm - f3) - d12 * (f4 - f3)) / tnorm * scale));
+			tripletes.push_back(Trip(i + ninner * 4, lv2, weight_loose * (d31 * (f4 - f3) + d43 * (fm - f3)) / tnorm * scale));
+			tripletes.push_back(Trip(i + ninner * 4, lv3, weight_loose * (-d31 * (f2 - f1) - d43 * (f2 - f1) - d12 * (fm - f1)) / tnorm * scale));
+			tripletes.push_back(Trip(i + ninner * 4, lv4, weight_loose * (d31 * (f2 - f1) + d12 * (fm - f1)) / tnorm * scale));
+			tripletes.push_back(Trip(i + ninner * 4, lvm, weight_loose * (d43 * (f2 - f1) + d12 * (f4 - f3)) / tnorm * scale));
+
+			tripletes.push_back(Trip(i + ninner * 4, lrayx, weight_loose * tangent[0] / tnorm * scale));
+			tripletes.push_back(Trip(i + ninner * 4, lrayy, weight_loose * tangent[1] / tnorm * scale));
+			tripletes.push_back(Trip(i + ninner * 4, lrayz, weight_loose * tangent[2] / tnorm * scale));
+
+			Energy[i + ninner * 4] = weight_loose * ray.dot(tangent) / tnorm * scale;
+		}
+		else // let the light pass through
+		{
+			// np * r = 0
+			tripletes.push_back(Trip(i + ninner * 3, lrx, np[0] * scale));
+			tripletes.push_back(Trip(i + ninner * 3, lry, np[1] * scale));
+			tripletes.push_back(Trip(i + ninner * 3, lrz, np[2] * scale));
+
+			tripletes.push_back(Trip(i + ninner * 3, lnpx, r[0] * scale));
+			tripletes.push_back(Trip(i + ninner * 3, lnpy, r[1] * scale));
+			tripletes.push_back(Trip(i + ninner * 3, lnpz, r[2] * scale));
+
+			Energy[i + ninner * 3] = r.dot(np) * scale;
+
+			// tangent * np = 0
+			Eigen::Vector3d v12 = V.row(v1) - V.row(v2);
+			double d31 = np.dot(v31);
+			double d43 = np.dot(v43);
+			double d12 = np.dot(v12);
+			Eigen::Vector3d tangent = v31 * (f4 - f3) * (f2 - f1) + v43 * (fm - f3) * (f2 - f1) + v12 * (fm - f1) * (f4 - f3);
+			double tnorm = tangent.norm();
+
+			tripletes.push_back(Trip(i + ninner * 4, lv1, 1 * (-d31 * (f4 - f3) - d43 * (fm - f3) - d12 * (f4 - f3)) / tnorm * scale));
+			tripletes.push_back(Trip(i + ninner * 4, lv2, 1 * (d31 * (f4 - f3) + d43 * (fm - f3)) / tnorm * scale));
+			tripletes.push_back(Trip(i + ninner * 4, lv3, 1 * (-d31 * (f2 - f1) - d43 * (f2 - f1) - d12 * (fm - f1)) / tnorm * scale));
+			tripletes.push_back(Trip(i + ninner * 4, lv4, 1 * (d31 * (f2 - f1) + d12 * (fm - f1)) / tnorm * scale));
+			tripletes.push_back(Trip(i + ninner * 4, lvm, 1 * (d43 * (f2 - f1) + d12 * (f4 - f3)) / tnorm * scale));
+
+			tripletes.push_back(Trip(i + ninner * 4, lnpx, 1 * tangent[0] / tnorm * scale));
+			tripletes.push_back(Trip(i + ninner * 4, lnpy, 1 * tangent[1] / tnorm * scale));
+			tripletes.push_back(Trip(i + ninner * 4, lnpz, 1 * tangent[2] / tnorm * scale));
+
+			Energy[i + ninner * 4] = 1 * np.dot(tangent) / tnorm * scale;
+
+			// np * np = 1
+			tripletes.push_back(Trip(i + ninner * 11, lnpx, 2 * np[0] * scale));
+			tripletes.push_back(Trip(i + ninner * 11, lnpy, 2 * np[1] * scale));
+			tripletes.push_back(Trip(i + ninner * 11, lnpz, 2 * np[2] * scale));
+
+			Energy[i + ninner * 11] = (np.dot(np) - 1) * scale;
+
+			// ray * np = 0
+			tripletes.push_back(Trip(i + ninner * 12, lnpx, ray[0] * scale));
+			tripletes.push_back(Trip(i + ninner * 12, lnpy, ray[1] * scale));
+			tripletes.push_back(Trip(i + ninner * 12, lnpz, ray[2] * scale));
+
+			tripletes.push_back(Trip(i + ninner * 12, lrayx, np[0] * scale));
+			tripletes.push_back(Trip(i + ninner * 12, lrayy, np[1] * scale));
+			tripletes.push_back(Trip(i + ninner * 12, lrayz, np[2] * scale));
+
+			Energy[i + ninner * 12] = np.dot(ray) * scale;
+		}
 		
 		// z - zmin - zl^2 = 0
 		tripletes.push_back(Trip(i + ninner * 5, lrayz, 1 * scale));
@@ -1229,7 +1237,7 @@ void lsTools::calculate_shading_init(Eigen::VectorXd& vars,
 		int lrayx = i + aux_start_loc + ninner * 3;
 		int lrayy = i + aux_start_loc + ninner * 4;
 		int lrayz = i + aux_start_loc + ninner * 5;
-		
+	
 		int lnpx = i + aux_start_loc + ninner * 6;
 		int lnpy = i + aux_start_loc + ninner * 7;
 		int lnpz = i + aux_start_loc + ninner * 8;
@@ -1330,93 +1338,103 @@ void lsTools::calculate_shading_init(Eigen::VectorXd& vars,
 		Energy[i + ninner * 2] = (r.dot(r) - 1) * scale;
 		// std::cout<<"c3 got"<<std::endl;
 		double weight_test = 1;
-		if (analizer.Special.size() > 0)
-		{
-			if (analizer.Special[i] == false) // this part blocks light
-			{
-				// // r * ray = 0
-				tripletes.push_back(Trip(i + ninner * 3, lrx, weight_test * ray[0] * scale));
-				tripletes.push_back(Trip(i + ninner * 3, lry, weight_test * ray[1] * scale));
-				tripletes.push_back(Trip(i + ninner * 3, lrz, weight_test * ray[2] * scale));
-
-				tripletes.push_back(Trip(i + ninner * 3, lrayx, weight_test * r[0] * scale));
-				tripletes.push_back(Trip(i + ninner * 3, lrayy, weight_test * r[1] * scale));
-				tripletes.push_back(Trip(i + ninner * 3, lrayz, weight_test * r[2] * scale));
-				Energy[i + ninner * 3] = weight_test * r.dot(ray) * scale;
-
-				// tangent * ray = 0
-				Eigen::Vector3d v12 = V.row(v1) - V.row(v2);
-
-				double d31 = ray.dot(v31);
-				double d43 = ray.dot(v43);
-				double d12 = ray.dot(v12);
-				Eigen::Vector3d tangent = v31 * (f4 - f3) * (f2 - f1) + v43 * (fm - f3) * (f2 - f1) + v12 * (fm - f1) * (f4 - f3);
-				double tnorm = tangent.norm();
-
-				tripletes.push_back(Trip(i + ninner * 4, lv1, weight_loose * (-d31 * (f4 - f3) - d43 * (fm - f3) - d12 * (f4 - f3)) / tnorm * scale));
-				tripletes.push_back(Trip(i + ninner * 4, lv2, weight_loose * (d31 * (f4 - f3) + d43 * (fm - f3)) / tnorm * scale));
-				tripletes.push_back(Trip(i + ninner * 4, lv3, weight_loose * (-d31 * (f2 - f1) - d43 * (f2 - f1) - d12 * (fm - f1)) / tnorm * scale));
-				tripletes.push_back(Trip(i + ninner * 4, lv4, weight_loose * (d31 * (f2 - f1) + d12 * (fm - f1)) / tnorm * scale));
-				tripletes.push_back(Trip(i + ninner * 4, lvm, weight_loose * (d43 * (f2 - f1) + d12 * (f4 - f3)) / tnorm * scale));
-
-				tripletes.push_back(Trip(i + ninner * 4, lrayx, weight_loose * tangent[0] / tnorm * scale));
-				tripletes.push_back(Trip(i + ninner * 4, lrayy, weight_loose * tangent[1] / tnorm * scale));
-				tripletes.push_back(Trip(i + ninner * 4, lrayz, weight_loose * tangent[2] / tnorm * scale));
-
-				Energy[i + ninner * 4] = weight_loose * ray.dot(tangent) / tnorm * scale;
+		bool compute_block = true; // block the light or let the light pass through
+		if(analizer.Special.size() > 0){// if we set multiple conditions on one surface
+			if (analizer.Special[i] == false){
+				compute_block = true;
 			}
-			else
-			{
-				// np * r = 0
-				tripletes.push_back(Trip(i + ninner * 3, lrx, np[0] * scale));
-				tripletes.push_back(Trip(i + ninner * 3, lry, np[1] * scale));
-				tripletes.push_back(Trip(i + ninner * 3, lrz, np[2] * scale));
-
-				tripletes.push_back(Trip(i + ninner * 3, lnpx, r[0] * scale));
-				tripletes.push_back(Trip(i + ninner * 3, lnpy, r[1] * scale));
-				tripletes.push_back(Trip(i + ninner * 3, lnpz, r[2] * scale));
-
-				Energy[i + ninner * 3] = r.dot(np) * scale;
-
-				// tangent * np = 0
-				Eigen::Vector3d v12 = V.row(v1) - V.row(v2);
-				double d31 = np.dot(v31);
-				double d43 = np.dot(v43);
-				double d12 = np.dot(v12);
-				Eigen::Vector3d tangent = v31 * (f4 - f3) * (f2 - f1) + v43 * (fm - f3) * (f2 - f1) + v12 * (fm - f1) * (f4 - f3);
-				double tnorm = tangent.norm();
-
-				tripletes.push_back(Trip(i + ninner * 4, lv1, 1 * (-d31 * (f4 - f3) - d43 * (fm - f3) - d12 * (f4 - f3)) / tnorm * scale));
-				tripletes.push_back(Trip(i + ninner * 4, lv2, 1 * (d31 * (f4 - f3) + d43 * (fm - f3)) / tnorm * scale));
-				tripletes.push_back(Trip(i + ninner * 4, lv3, 1 * (-d31 * (f2 - f1) - d43 * (f2 - f1) - d12 * (fm - f1)) / tnorm * scale));
-				tripletes.push_back(Trip(i + ninner * 4, lv4, 1 * (d31 * (f2 - f1) + d12 * (fm - f1)) / tnorm * scale));
-				tripletes.push_back(Trip(i + ninner * 4, lvm, 1 * (d43 * (f2 - f1) + d12 * (f4 - f3)) / tnorm * scale));
-
-				tripletes.push_back(Trip(i + ninner * 4, lnpx, 1 * tangent[0] / tnorm * scale));
-				tripletes.push_back(Trip(i + ninner * 4, lnpy, 1 * tangent[1] / tnorm * scale));
-				tripletes.push_back(Trip(i + ninner * 4, lnpz, 1 * tangent[2] / tnorm * scale));
-
-				Energy[i + ninner * 4] = 1 * np.dot(tangent) / tnorm * scale;
-
-				// np * np = 1
-				tripletes.push_back(Trip(i + ninner * 7, lnpx, 2 * np[0] * scale));
-				tripletes.push_back(Trip(i + ninner * 7, lnpy, 2 * np[1] * scale));
-				tripletes.push_back(Trip(i + ninner * 7, lnpz, 2 * np[2] * scale));
-
-				Energy[i + ninner * 7] = (np.dot(np) - 1) * scale;
-
-				// ray * np = 0
-				tripletes.push_back(Trip(i + ninner * 8, lnpx, ray[0] * scale));
-				tripletes.push_back(Trip(i + ninner * 8, lnpy, ray[1] * scale));
-				tripletes.push_back(Trip(i + ninner * 8, lnpz, ray[2] * scale));
-
-				tripletes.push_back(Trip(i + ninner * 8, lrayx, np[0] * scale));
-				tripletes.push_back(Trip(i + ninner * 8, lrayy, np[1] * scale));
-				tripletes.push_back(Trip(i + ninner * 8, lrayz, np[2] * scale));
-
-				Energy[i + ninner * 8] = np.dot(ray) * scale;
+			else{
+				compute_block = false;
 			}
 		}
+		if(enable_let_ray_through){// if the surface totally let the ray through,
+			compute_block = false;
+		}
+		if (compute_block)
+		{
+			// // r * ray = 0
+			tripletes.push_back(Trip(i + ninner * 3, lrx, weight_test * ray[0] * scale));
+			tripletes.push_back(Trip(i + ninner * 3, lry, weight_test * ray[1] * scale));
+			tripletes.push_back(Trip(i + ninner * 3, lrz, weight_test * ray[2] * scale));
+
+			tripletes.push_back(Trip(i + ninner * 3, lrayx, weight_test * r[0] * scale));
+			tripletes.push_back(Trip(i + ninner * 3, lrayy, weight_test * r[1] * scale));
+			tripletes.push_back(Trip(i + ninner * 3, lrayz, weight_test * r[2] * scale));
+			Energy[i + ninner * 3] = weight_test * r.dot(ray) * scale;
+
+			// tangent * ray = 0
+			Eigen::Vector3d v12 = V.row(v1) - V.row(v2);
+
+			double d31 = ray.dot(v31);
+			double d43 = ray.dot(v43);
+			double d12 = ray.dot(v12);
+			Eigen::Vector3d tangent = v31 * (f4 - f3) * (f2 - f1) + v43 * (fm - f3) * (f2 - f1) + v12 * (fm - f1) * (f4 - f3);
+			double tnorm = tangent.norm();
+
+			tripletes.push_back(Trip(i + ninner * 4, lv1, weight_loose * (-d31 * (f4 - f3) - d43 * (fm - f3) - d12 * (f4 - f3)) / tnorm * scale));
+			tripletes.push_back(Trip(i + ninner * 4, lv2, weight_loose * (d31 * (f4 - f3) + d43 * (fm - f3)) / tnorm * scale));
+			tripletes.push_back(Trip(i + ninner * 4, lv3, weight_loose * (-d31 * (f2 - f1) - d43 * (f2 - f1) - d12 * (fm - f1)) / tnorm * scale));
+			tripletes.push_back(Trip(i + ninner * 4, lv4, weight_loose * (d31 * (f2 - f1) + d12 * (fm - f1)) / tnorm * scale));
+			tripletes.push_back(Trip(i + ninner * 4, lvm, weight_loose * (d43 * (f2 - f1) + d12 * (f4 - f3)) / tnorm * scale));
+
+			tripletes.push_back(Trip(i + ninner * 4, lrayx, weight_loose * tangent[0] / tnorm * scale));
+			tripletes.push_back(Trip(i + ninner * 4, lrayy, weight_loose * tangent[1] / tnorm * scale));
+			tripletes.push_back(Trip(i + ninner * 4, lrayz, weight_loose * tangent[2] / tnorm * scale));
+
+			Energy[i + ninner * 4] = weight_loose * ray.dot(tangent) / tnorm * scale;
+		}
+		else
+		{	// let the light pass through
+			// np * r = 0
+			tripletes.push_back(Trip(i + ninner * 3, lrx, np[0] * scale));
+			tripletes.push_back(Trip(i + ninner * 3, lry, np[1] * scale));
+			tripletes.push_back(Trip(i + ninner * 3, lrz, np[2] * scale));
+
+			tripletes.push_back(Trip(i + ninner * 3, lnpx, r[0] * scale));
+			tripletes.push_back(Trip(i + ninner * 3, lnpy, r[1] * scale));
+			tripletes.push_back(Trip(i + ninner * 3, lnpz, r[2] * scale));
+
+			Energy[i + ninner * 3] = r.dot(np) * scale;
+
+			// tangent * np = 0
+			Eigen::Vector3d v12 = V.row(v1) - V.row(v2);
+			double d31 = np.dot(v31);
+			double d43 = np.dot(v43);
+			double d12 = np.dot(v12);
+			Eigen::Vector3d tangent = v31 * (f4 - f3) * (f2 - f1) + v43 * (fm - f3) * (f2 - f1) + v12 * (fm - f1) * (f4 - f3);
+			double tnorm = tangent.norm();
+
+			tripletes.push_back(Trip(i + ninner * 4, lv1, 1 * (-d31 * (f4 - f3) - d43 * (fm - f3) - d12 * (f4 - f3)) / tnorm * scale));
+			tripletes.push_back(Trip(i + ninner * 4, lv2, 1 * (d31 * (f4 - f3) + d43 * (fm - f3)) / tnorm * scale));
+			tripletes.push_back(Trip(i + ninner * 4, lv3, 1 * (-d31 * (f2 - f1) - d43 * (f2 - f1) - d12 * (fm - f1)) / tnorm * scale));
+			tripletes.push_back(Trip(i + ninner * 4, lv4, 1 * (d31 * (f2 - f1) + d12 * (fm - f1)) / tnorm * scale));
+			tripletes.push_back(Trip(i + ninner * 4, lvm, 1 * (d43 * (f2 - f1) + d12 * (f4 - f3)) / tnorm * scale));
+
+			tripletes.push_back(Trip(i + ninner * 4, lnpx, 1 * tangent[0] / tnorm * scale));
+			tripletes.push_back(Trip(i + ninner * 4, lnpy, 1 * tangent[1] / tnorm * scale));
+			tripletes.push_back(Trip(i + ninner * 4, lnpz, 1 * tangent[2] / tnorm * scale));
+
+			Energy[i + ninner * 4] = 1 * np.dot(tangent) / tnorm * scale;
+
+			// np * np = 1
+			tripletes.push_back(Trip(i + ninner * 7, lnpx, 2 * np[0] * scale));
+			tripletes.push_back(Trip(i + ninner * 7, lnpy, 2 * np[1] * scale));
+			tripletes.push_back(Trip(i + ninner * 7, lnpz, 2 * np[2] * scale));
+
+			Energy[i + ninner * 7] = (np.dot(np) - 1) * scale;
+
+			// ray * np = 0
+			tripletes.push_back(Trip(i + ninner * 8, lnpx, ray[0] * scale));
+			tripletes.push_back(Trip(i + ninner * 8, lnpy, ray[1] * scale));
+			tripletes.push_back(Trip(i + ninner * 8, lnpz, ray[2] * scale));
+
+			tripletes.push_back(Trip(i + ninner * 8, lrayx, np[0] * scale));
+			tripletes.push_back(Trip(i + ninner * 8, lrayy, np[1] * scale));
+			tripletes.push_back(Trip(i + ninner * 8, lrayz, np[2] * scale));
+
+			Energy[i + ninner * 8] = np.dot(ray) * scale;
+		}
+		
 
 		//////////////////////////////
 		// ray * ray =1
@@ -2225,9 +2243,7 @@ void lsTools::Run_Level_Set_Opt() {
 
 			assemble_solver_pesudo_geodesic_energy_part_vertex_based(Glob_lsvars, angle_degree, anas[0],
 																	 first_compute, vars_start_loc, aux_start_loc, pg_JTJ, pg_mJTF, PGEnergy);
-			assemble_solver_binormal_regulizer(Glob_lsvars, anas[0], vars_start_loc, aux_start_loc, smbi_H, smbi_B, e_smbi);
-			Hlarge = sum_uneven_spMats(Hlarge, weight_smt_binormal * smbi_H);
-			Blarge = sum_uneven_vectors(Blarge, weight_smt_binormal * smbi_B);
+			
 		}
 		else {
 			bool asymptotic = true;
@@ -2236,7 +2252,7 @@ void lsTools::Run_Level_Set_Opt() {
 				asymptotic = false;
 			}
 			if(Given_Const_Direction){
-				std::cout << "Direc, ";
+				std::cout << "Direc, "<<angle_ray_converter(Reference_theta, Reference_phi).transpose();
 
 			}
 			// get the vertices associated to the second angle
@@ -2245,6 +2261,7 @@ void lsTools::Run_Level_Set_Opt() {
 			// mark the angles
 			Eigen::VectorXd diff;
 			anas[0].ShadSpecial = shading_detect_parallel_patch(Reference_theta, Reference_phi, diff);
+
 			if (enable_max_energy_check && anas[0].HighEnergy.size() == 0) // mark the max energy points
 			{
 				mark_high_energy_vers(PGE, ninner, max_energy_percentage, IVids, anas[0].HighEnergy, refids);
@@ -2254,6 +2271,9 @@ void lsTools::Run_Level_Set_Opt() {
 			assemble_solver_extreme_cases_part_vertex_based(Glob_lsvars, asymptotic, Given_Const_Direction,
 															anas[0], vars_start_loc, pg_JTJ, pg_mJTF, PGEnergy);
 			// std::cout<<"extreme computed"<<std::endl;
+			assemble_solver_binormal_regulizer(Glob_lsvars, anas[0], vars_start_loc, aux_start_loc, smbi_H, smbi_B, e_smbi);
+			Hlarge = sum_uneven_spMats(Hlarge, weight_smt_binormal * smbi_H);
+			Blarge = sum_uneven_vectors(Blarge, weight_smt_binormal * smbi_B);
 
 			
 		}

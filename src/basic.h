@@ -132,6 +132,7 @@ public:
     void assemble_polyline_smooth(spMat& H, Eigen::VectorXd& B, Eigen::VectorXd &energy);
     void assemble_binormal_condition(spMat& H, Eigen::VectorXd& B, Eigen::VectorXd &energy);
     void assemble_angle_condition(spMat& H, Eigen::VectorXd& B, Eigen::VectorXd &energy);
+    void assemble_smooth_neighbouring_polyline_binormal(spMat& H, Eigen::VectorXd& B, Eigen::VectorXd &energy);
     void extract_rectifying_plane_mesh();
     void extract_polylines_and_binormals();
     void rotate_back_the_model_to_horizontal_coordinates(const double latitude);
@@ -143,6 +144,7 @@ public:
     void polyline_to_matrix(const std::vector<std::vector<Eigen::Vector3d>> &ply, Eigen::MatrixXd &V);
     void vertex_matrix_to_polyline(std::vector<std::vector<Eigen::Vector3d>> &ply, Eigen::MatrixXd& V);
     void get_normal_vector_from_reference(const Eigen::MatrixXd& Vr, const Eigen::MatrixXi& Fr, const Eigen::MatrixXd& nr);
+    void force_smoothing_binormals();
 };
 // The basic tool of LSC. Please initialize it with a mesh
 class lsTools
@@ -382,15 +384,16 @@ public:
     bool Given_Const_Direction = false;// use the given direction but not the normal
     bool enable_max_energy_check = false;
     bool enable_shading_init = false;
+    bool enable_let_ray_through = false; // optimize that whole surface let ray through for shading
 
     double Reference_theta;  // the ray feed to the optimization as a constant direction
     double Reference_phi;
-    double Reference_theta2;  // the ray feed to the optimization as a constant direction
-    double Reference_phi2;
+    // double Reference_theta2;  // the ray feed to the optimization as a constant direction
+    // double Reference_phi2;
     double Theta_tol; // the tolerances for theta and phi
     double Phi_tol;
-    double Theta_tol2;
-    double Phi_tol2;
+    // double Theta_tol2;
+    // double Phi_tol2;
     double max_energy_percentage=0;
     std::vector<int> Second_Ray_vers; // the vertices for the second shading light direction
     int Second_Ray_nbr_rings = 1; // the nbr of rings associate to the vers corresponding to the second ray
@@ -415,7 +418,7 @@ public:
     Eigen::VectorXd PGE;// pseudo geodesic energy
 
     std::vector<int> refids;                      // output the ids of current dealing points. just for debug purpose
-    
+    // Eigen::Vector3d ray_catcher(int vid);
     // boundary conditions
     // int boundary_type = 
     // 

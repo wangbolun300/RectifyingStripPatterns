@@ -118,6 +118,7 @@ namespace lscif
 	double Shading_Latitude = 34;
 	bool enable_max_energy_check = false;
 	bool shading_init = false;
+	bool let_ray_through = false;
 	double max_e_percentage = 10;
 	double weight_binormal = 1;
 	double weight_smt_binormal = 0;
@@ -303,6 +304,7 @@ namespace lscif
 				}
 				Eigen::VectorXd diff;
 				lscif::tools.shading_detect_parallel_patch(lscif::InputPx, lscif::InputPy, diff);
+				
 				std::cout<<"light surface parallel "<<diff[vid]<<std::endl;
 				std::cout << "point position: (" << viewer.data().V(vid, 0) << ", " << viewer.data().V(vid, 1) << ", " << viewer.data().V(vid, 2) << ")\n\n";
 				lscif::tools.print_info(vid);
@@ -794,18 +796,19 @@ int main(int argc, char *argv[])
 				lscif::tools.Second_Ray_nbr_rings = lscif::ring_nbr;
 				lscif::tools.Reference_theta = lscif::InputPx;
 				lscif::tools.Reference_phi = lscif::InputPy;
-				lscif::tools.Reference_theta2 = lscif::InputPx1;
-				lscif::tools.Reference_phi2 = lscif::InputPy1;
+				// lscif::tools.Reference_theta2 = lscif::InputPx1;
+				// lscif::tools.Reference_phi2 = lscif::InputPy1;
 				lscif::tools.Theta_tol = lscif::InputThetaTol;
-				lscif::tools.Phi_tol = lscif::InputThetaTol1;
-				lscif::tools.Theta_tol2 = lscif::InputPhiTol;
-				lscif::tools.Phi_tol2 = lscif::InputPhiTol1;
+				lscif::tools.Phi_tol = lscif::InputPhiTol;
+				// lscif::tools.Theta_tol2 = lscif::InputPhiTol;
+				// lscif::tools.Phi_tol2 = lscif::InputPhiTol1;
 				lscif::tools.weight_geodesic=lscif::weight_geodesic;
 				lscif::tools.enable_max_energy_check = lscif::enable_max_energy_check;
 				lscif::tools.max_energy_percentage = lscif::max_e_percentage;
 				lscif::tools.enable_shading_init = lscif::shading_init;
 				lscif::tools.weight_binormal = lscif::weight_binormal;
 				lscif::tools.weight_smt_binormal = lscif::weight_smt_binormal;
+				lscif::tools.enable_let_ray_through = lscif::let_ray_through;
 
 				for (int i = 0; i < lscif::OpIter; i++)
 				{
@@ -866,12 +869,12 @@ int main(int argc, char *argv[])
 				// lscif::tools.weight_shading = lscif::weight_shading;
 				lscif::tools.Reference_theta = lscif::InputPx;
 				lscif::tools.Reference_phi = lscif::InputPy;
-				lscif::tools.Reference_theta2 = lscif::InputPx1;
-				lscif::tools.Reference_phi2 = lscif::InputPy1;
+				// lscif::tools.Reference_theta2 = lscif::InputPx1;
+				// lscif::tools.Reference_phi2 = lscif::InputPy1;
 				lscif::tools.Theta_tol = lscif::InputThetaTol;
-				lscif::tools.Phi_tol = lscif::InputThetaTol1;
-				lscif::tools.Theta_tol2 = lscif::InputPhiTol;
-				lscif::tools.Phi_tol2 = lscif::InputPhiTol1;
+				lscif::tools.Phi_tol = lscif::InputPhiTol;
+				// lscif::tools.Theta_tol2 = lscif::InputPhiTol;
+				// lscif::tools.Phi_tol2 = lscif::InputPhiTol1;
 				lscif::tools.prepare_mesh_optimization_solving(initializer);
 				for(int i=0;i<lscif::Nbr_Iterations_Mesh_Opt;i++){
 					lscif::tools.Run_Mesh_Opt();
@@ -1397,6 +1400,7 @@ int main(int argc, char *argv[])
 				lscif::meshFileName.push_back("ply_" + lscif::meshFileName[id]);
 				lscif::Meshes.push_back(updatemesh);
 				lscif::poly_tool.init(lscif::Poly_readed, lscif::Bino_readed, lscif::nbr_lines_first_ls);
+				std::cout<<"Sample nbr: "<<lscif::nbr_lines_first_ls<<std::endl;
 				viewer.selected_data_index = id;
 			}
 			ImGui::SameLine();
@@ -1471,6 +1475,26 @@ int main(int argc, char *argv[])
 			std::cout<<"Rotating the mesh to the coordinate system computed by latitude"<<std::endl;
 			lscif::poly_tool.rotate_back_the_model_to_horizontal_coordinates(lscif::Shading_Latitude);
 			lscif::poly_tool.save_polyline_and_binormals_as_files(true); // true means save the rotated polylines
+		}
+		ImGui::SameLine();
+		if (ImGui::Button("ForcePlyBinm", ImVec2(ImGui::GetWindowSize().x * 0.23f, 0.0f)))
+		{
+			if (lscif::poly_tool.ply_extracted.empty())
+			{
+				std::cout << "ERROR, Please opt the polyline first" << std::endl;
+				ImGui::End();
+				return;
+			}
+			lscif::poly_tool.force_smoothing_binormals();
+			std::cout<<"The binormals are forced to be smoothed"<<std::endl;
+
+			CGMesh updatemesh = lscif::poly_tool.RecMesh;
+			int id = viewer.selected_data_index;
+			lscif::updateMeshViewer(viewer, updatemesh);
+			lscif::meshFileName.push_back("Smt_" + lscif::meshFileName[id]);
+			lscif::Meshes.push_back(updatemesh);
+			viewer.selected_data_index = id;
+			std::cout << "waiting for instructions" << std::endl;
 		}
 		ImGui::SetNextItemOpen(true);
 		if (ImGui::TreeNode("Mesh Management"))
@@ -1836,6 +1860,32 @@ int main(int argc, char *argv[])
 				std::cout << "\n";
 			}
 			ImGui::SameLine();
+			if (ImGui::Button("LoadVertexID", ImVec2(ImGui::GetWindowSize().x * 0.25f, 0.0f)))
+			{
+				std::cout<<"Read Vertex ID file row by row"<<std::endl;
+				std::string fname = igl::file_dialog_open();
+				if (fname.length() == 0)
+				{
+					std::cout << "\nLSC: read file failed" << std::endl;
+					ImGui::End();
+					return;
+				}
+				std::vector<std::vector<double>> readed;
+				read_csv_data_lbl(fname, readed);
+				std::vector<int> list(readed[0].size());
+				for (int i = 0; i < list.size(); i++)
+				{
+					list[i] = readed[0][i];
+				}
+				lscif::update_verlist = list;
+				for (int i = 0; i < lscif::update_verlist.size(); i++)
+				{
+					std::cout << lscif::update_verlist[i] << ",";
+				}
+				std::cout << "\n";
+
+			}
+			ImGui::SameLine();
 			if (ImGui::Button("ClearVertexList", ImVec2(ImGui::GetWindowSize().x * 0.25f, 0.0f)))
 			{
 				lscif::update_verlist.clear();
@@ -1859,6 +1909,9 @@ int main(int argc, char *argv[])
 				std::cout << "mesh saved" << std::endl;
 			}
 			ImGui::Checkbox("Const Direc", &lscif::Given_Const_Direction);
+			ImGui::SameLine();
+			ImGui::Checkbox("Light Through", &lscif::let_ray_through);
+			
 			if (lscif::Given_Const_Direction)
 			{
 				ImGui::PushItemWidth(50);
@@ -1870,13 +1923,13 @@ int main(int argc, char *argv[])
 				ImGui::SameLine();
 				ImGui::InputDouble("Ptol0", &lscif::InputPhiTol, 0, 0, "%.6f");
 
-				ImGui::InputDouble("T1", &lscif::InputPx1, 0, 0, "%.6f");
-				ImGui::SameLine();
-				ImGui::InputDouble("P1", &lscif::InputPy1, 0, 0, "%.6f");
-				ImGui::SameLine();
-				ImGui::InputDouble("Ttol1", &lscif::InputThetaTol1, 0, 0, "%.6f");
-				ImGui::SameLine();
-				ImGui::InputDouble("Ptol1", &lscif::InputPhiTol1, 0, 0, "%.6f");
+				// ImGui::InputDouble("T1", &lscif::InputPx1, 0, 0, "%.6f");
+				// ImGui::SameLine();
+				// ImGui::InputDouble("P1", &lscif::InputPy1, 0, 0, "%.6f");
+				// ImGui::SameLine();
+				// ImGui::InputDouble("Ttol1", &lscif::InputThetaTol1, 0, 0, "%.6f");
+				// ImGui::SameLine();
+				// ImGui::InputDouble("Ptol1", &lscif::InputPhiTol1, 0, 0, "%.6f");
 				ImGui::Checkbox("MarkMaxEnergy", &lscif::enable_max_energy_check);
 				ImGui::SameLine();
 				if (ImGui::Button("ClearMaxEnergy", ImVec2(ImGui::GetWindowSize().x * 0.23f, 0.0f)))

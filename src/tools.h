@@ -102,3 +102,4 @@ void read_origami_and_convert_to_polylines(std::vector<std::vector<Eigen::Vector
 std::array<double, 3> barycenter_coordinate(const Eigen::Vector3d &v0, const Eigen::Vector3d &v1, const Eigen::Vector3d &v2, const Eigen::Vector3d &p);
 void update_qd_mesh_with_plylines();
 Eigen::Vector3d get_light_rotated_back_from_earth_axis(const double latitude_degree, const double theta, const double phi);
+bool read_csv_data_lbl(const std::string fname, std::vector<std::vector<double>> &data);
