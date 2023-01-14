@@ -43,6 +43,7 @@ void PolyOpt::init(const std::vector<std::vector<Eigen::Vector3d>> &ply_in, cons
 {
     std::vector<std::vector<Eigen::Vector3d>> ply;
     std::vector<std::vector<Eigen::Vector3d>> bi;
+    Eigen::VectorXd endpts;
     if (sample_nbr == -1) // do not sample the polylines
     {
         ply = ply_in;
@@ -63,6 +64,7 @@ void PolyOpt::init(const std::vector<std::vector<Eigen::Vector3d>> &ply_in, cons
     VerNbr = vnbr;
     // x0, x1, ..., xn, y0, ..., zn, bx0, ... bxn, ..., bzn
     PlyVars.resize(vnbr * 2 * 3);
+    endpts = Eigen::VectorXd::Zero(vnbr * 6);
     Front.resize(vnbr);
     Back.resize(vnbr);
     int counter = 0;
@@ -84,16 +86,28 @@ void PolyOpt::init(const std::vector<std::vector<Eigen::Vector3d>> &ply_in, cons
             PlyVars[lnx] = bin[0];
             PlyVars[lny] = bin[1];
             PlyVars[lnz] = bin[2];
-            if (j == 0)
+            if (j == 0) // first point of the seg
             {
+                endpts[lpx] = 1;
+                endpts[lpy] = 1;
+                endpts[lpz] = 1;
+                // endpts[lnx] = 1;
+                // endpts[lny] = 1;
+                // endpts[lnz] = 1;
                 Front[counter] = -1;
             }
             else
             {
                 Front[counter] = counter - 1;
             }
-            if (j == ply[i].size() - 1)
+            if (j == ply[i].size() - 1) // last point of the seg
             {
+                endpts[lpx] = 1;
+                endpts[lpy] = 1;
+                endpts[lpz] = 1;
+                // endpts[lnx] = 1;
+                // endpts[lny] = 1;
+                // endpts[lnz] = 1;
                 Back[counter] = -1;
             }
             else
@@ -108,6 +122,7 @@ void PolyOpt::init(const std::vector<std::vector<Eigen::Vector3d>> &ply_in, cons
     RecMesh = polyline_to_strip_mesh(ply, bi, strip_scale);
     ply_extracted = ply;
     bin_extracted = bi;
+    endpts_signs = endpts.asDiagonal();
 }
 void PolyOpt::force_smoothing_binormals(){
     int counter = 0;
@@ -140,7 +155,7 @@ void PolyOpt::assemble_gravity(spMat &H, Eigen::VectorXd &B, Eigen::VectorXd &en
 
     // std::vector<Trip> tripletes;
     int vnbr = Front.size();
-    H = Eigen::VectorXd::Ones(vnbr * 6).asDiagonal();
+    H = spMat(Eigen::VectorXd::Ones(vnbr * 6).asDiagonal()) + endpts_signs * (ratio_endpts - 1);
     energy = Eigen::VectorXd::Zero(vnbr * 6);
     // tripletes.reserve(vnbr * 6);
     // for (int i = 0; i < PlyVars.size(); i++)
@@ -152,7 +167,7 @@ void PolyOpt::assemble_gravity(spMat &H, Eigen::VectorXd &B, Eigen::VectorXd &en
     // }
     energy.segment(0, vnbr * 3) = (PlyVars - OriVars).segment(0, vnbr * 3);
 
-    B = -energy;
+    B = -H * energy;
 }
 void PolyOpt::assemble_polyline_smooth(spMat &H, Eigen::VectorXd &B, Eigen::VectorXd &energy)
 {

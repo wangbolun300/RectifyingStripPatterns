@@ -554,6 +554,7 @@ void get_one_ring_vertices(CGMesh &lsmesh, const int id, std::vector<int> &pts)
     for (CGMesh::VertexVertexIter vvi = lsmesh.vv_begin(vh); vvi != lsmesh.vv_end(vh); ++vvi)
     {
         CGMesh::VertexHandle ver = vvi.handle();
+        assert(ver.idx()>=0);
         pts.push_back(ver.idx());
         //std::cout << ver.idx() << ", ";
     }

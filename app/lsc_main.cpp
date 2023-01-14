@@ -88,6 +88,8 @@ namespace lscif
 	Eigen::VectorXd readed_LS1;
 	Eigen::VectorXd readed_LS2;
 	Eigen::VectorXd readed_LS3;
+	CGMesh readed_mesh1;
+	CGMesh readed_mesh2;
 	int Nbr_Iterations_Mesh_Opt=10;
 	double weight_Mesh_smoothness=0.01;
 	double weight_Mesh_edgelength = 1;
@@ -122,6 +124,7 @@ namespace lscif
 	double max_e_percentage = 10;
 	double weight_binormal = 1;
 	double weight_smt_binormal = 0;
+	double weight_endpoint_ratio = 1;
 	std::vector<std::vector<Eigen::Vector3d>> Poly_readed;
 	std::vector<std::vector<Eigen::Vector3d>> Bino_readed;
 	std::vector<std::vector<Eigen::Vector3d>> Poly_opt;
@@ -518,8 +521,9 @@ int main(int argc, char *argv[])
 		ImGui::SameLine();
 		if (ImGui::Button("Debug", ImVec2(ImGui::GetWindowSize().x * 0.25f, 0.0f)))
 		{
-			 Eigen::Vector3d light =  get_light_rotated_back_from_earth_axis(lscif::Shading_Latitude, lscif::InputPx, lscif::InputPy);
-			 std::cout<<"The light direction rotated back is\n "<<light<<std::endl;
+			
+			//  Eigen::Vector3d light =  get_light_rotated_back_from_earth_axis(lscif::Shading_Latitude, lscif::InputPx, lscif::InputPy);
+			//  std::cout<<"The light direction rotated back is\n "<<light<<std::endl;
 			// std::cout<<"checking the angle between the light and the target light"<<std::endl;
 			// Eigen::Vector3d target_light = angle_ray_converter(lscif::InputPx, lscif::InputPy);
 			// std::cout<<"target light, "<<target_light.transpose()<<std::endl;
@@ -556,6 +560,7 @@ int main(int argc, char *argv[])
 			ImGui::InputDouble("weight Strip width(Need SW Enabled)", &lscif::weight_strip_width, 0, 0, "%.4f");
 			ImGui::InputDouble("MaxStpLenght(Need PG Enabled)", &lscif::maximal_step_length, 0, 0, "%.4f");
 			ImGui::InputDouble("WeightAngle", &lscif::weight_angle, 0, 0, "%.4f");
+			ImGui::InputDouble("RatioEndPts", &lscif::weight_endpoint_ratio, 0, 0, "%.4f");
 
 			ImGui::Checkbox("Enable functional Energy", &lscif::enable_functional_degrees);
 			ImGui::SameLine();
@@ -1418,6 +1423,7 @@ int main(int argc, char *argv[])
 				lscif::poly_tool.binormal_ratio = lscif::weight_geodesic;
 				lscif::poly_tool.weight_angle = lscif::weight_angle;
 				lscif::poly_tool.target_angle = lscif::target_angle;
+				lscif::poly_tool.ratio_endpts = lscif::weight_endpoint_ratio;
 
 				for (int i = 0; i < lscif::OpIter; i++)
 				{
@@ -1598,6 +1604,51 @@ int main(int argc, char *argv[])
 				lscif::readed_LS1.resize(0);
 				lscif::readed_LS2.resize(0);
 				std::cout << "The readed Level Sets Got Cleared" << std::endl;
+			}
+			if (ImGui::Button("Load First mesh", ImVec2(ImGui::GetWindowSize().x * 0.25f, 0.0f)))
+			{
+				std::string fname = igl::file_dialog_open();
+				if (fname.length() == 0)
+				{
+					std::cout << "\nLSC: read mesh failed" << std::endl;
+					ImGui::End();
+					return;
+				}
+
+				OpenMesh::IO::read_mesh(lscif::readed_mesh1, fname);
+				std::cout << "mesh 1 get readed " << std::endl;
+			}
+			ImGui::SameLine();
+			if (ImGui::Button("Load Second mesh", ImVec2(ImGui::GetWindowSize().x * 0.25f, 0.0f)))
+			{
+				std::string fname = igl::file_dialog_open();
+				if (fname.length() == 0)
+				{
+					std::cout << "\nLSC: read mesh failed" << std::endl;
+					ImGui::End();
+					return;
+				}
+
+				OpenMesh::IO::read_mesh(lscif::readed_mesh2, fname);
+				std::cout << "mesh 2 get readed " << std::endl;
+			}
+			ImGui::SameLine();
+			if (ImGui::Button("ShowVerTypes", ImVec2(ImGui::GetWindowSize().x * 0.25f, 0.0f)))
+			{
+				Eigen::VectorXi info;
+				Eigen::MatrixXd P1;
+				Eigen::MatrixXd P2;
+				project_mesh_and_get_shading_info(lscif::readed_mesh1, lscif::readed_mesh2, lscif::ring_nbr, info, P1, P2);
+				std::cout<<"the first type is green, the second is red"<<std::endl;
+				
+				viewer.data().add_points(P2, lscif::hot_red);
+				viewer.data().add_points(P1, lscif::sea_green);
+				std::cout<<"Nbr first, "<<P1.rows()<<std::endl;
+				std::cout<<"Nbr second, "<<P2.rows()<<std::endl;
+				std::cout<<"Passing the info to the level-set system"<<std::endl;
+				lscif::tools.shading_condition_info=info;
+				
+
 			}
 
 			if (ImGui::CollapsingHeader(" Quad Mesh Size Paras", ImGuiTreeNodeFlags_DefaultOpen))

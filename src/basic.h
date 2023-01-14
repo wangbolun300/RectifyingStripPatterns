@@ -115,14 +115,17 @@ public:
     std::vector<std::vector<Eigen::Vector3d>> ply_rotated;
     std::vector<std::vector<Eigen::Vector3d>> bin_rotated;
     CGMesh RecMesh;// rectifying mesh
+    spMat endpts_signs;
     double weight_smooth;
     // double weight_plysmooth;
     double weight_mass;
+    
     double weight_binormal; // the weight for correct binormals 
     double binormal_ratio; // the ratio added to binormal smoothness
     double max_step = 1;
     double strip_scale = 1;
     double weight_angle; // the weight for binormals having a expected angle with the surface normals
+    double ratio_endpts;
     double target_angle;
     bool first_compute = true;
 
@@ -179,11 +182,6 @@ private:
     spMat Dlps;       // the derivates of laplacian F for all the vertices.
     spMat mass;       // mass(i,i) is the area of the voronoi cell of vertex vi
     spMat mass_uniform; // the uniformed mass matrix to make sure the average area is 1.
-
-    // vertex-based pseudo-energy values
-    Eigen::VectorXi InnerV; // the vector show if it is a inner ver (1) or not (0).
-    std::vector<int> IVids; // the ids of the inner vers.
-
     
     std::vector<CGMesh::HalfedgeHandle> tracing_start_edges;
     std::vector<double> pseudo_geodesic_angles_per_ver;
@@ -306,7 +304,7 @@ private:
 
     void extract_one_curve(const double value, Eigen::MatrixXd& E0, Eigen::MatrixXd &E1);
     void estimate_strip_width_according_to_tracing();
-    Eigen::VectorXi Second_Angle_Inner_Vers();// the inner vertices use the second shading angle
+    // Eigen::VectorXi Second_Angle_Inner_Vers();// the inner vertices use the second shading angle
     
 
     // Mesh Optimization Part
@@ -361,6 +359,10 @@ public:
     Eigen::VectorXi bnd;     // boundary loop
     Eigen::MatrixXd paras;   // parameters of the mesh vertices, nx2
     Eigen::VectorXd fvalues; // function values
+    Eigen::VectorXi InnerV; // the vector show if it is a inner ver (1) or not (0).
+    std::vector<int> IVids; // the ids of the inner vers, size is ninner
+
+
     double weight_assign_face_value; // weight of the assigned value shown in the solver
     double weight_mass;              // weight of the mass function energy
     double weight_laplacian;              // weight of the laplacian energy
@@ -398,7 +400,7 @@ public:
     std::vector<int> Second_Ray_vers; // the vertices for the second shading light direction
     int Second_Ray_nbr_rings = 1; // the nbr of rings associate to the vers corresponding to the second ray
     double weight_binormal;
-    
+    Eigen::VectorXi shading_condition_info;
 
 
     double pseudo_geodesic_target_angle_degree; // the target pseudo-geodesic angle

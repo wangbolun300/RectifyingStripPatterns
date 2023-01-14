@@ -103,3 +103,5 @@ std::array<double, 3> barycenter_coordinate(const Eigen::Vector3d &v0, const Eig
 void update_qd_mesh_with_plylines();
 Eigen::Vector3d get_light_rotated_back_from_earth_axis(const double latitude_degree, const double theta, const double phi);
 bool read_csv_data_lbl(const std::string fname, std::vector<std::vector<double>> &data);
+void project_mesh_and_get_shading_info(CGMesh &ref, CGMesh &base, const int nbr_rings, Eigen::VectorXi &info,
+                                       Eigen::MatrixXd &P1, Eigen::MatrixXd &P2);

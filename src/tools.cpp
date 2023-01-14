@@ -3173,6 +3173,7 @@ void get_one_ring_vertices_simple(const Eigen::VectorXi &ref, CGMesh &lsmesh, Ei
 {
     int vsize = ref.size();
     ring1 = ref;
+    // std::cout<<"inside 1"<<std::endl;
     for (int i = 0; i < vsize; i++)
     {
         if (ref[i] < 0)
@@ -3181,50 +3182,56 @@ void get_one_ring_vertices_simple(const Eigen::VectorXi &ref, CGMesh &lsmesh, Ei
         }
         int vid = i;
         std::vector<int> pts;
+        // std::cout<<"inside 2"<<std::endl;
         get_one_ring_vertices(lsmesh, vid, pts);
+        // std::cout<<"inside 3"<<std::endl;
         for (int p : pts)
         {
+            if(p<0||p>=ref.size()){
+                std::cout<<"p out of boundary, "<<p<<std::endl;
+            }
             ring1[p] = 1;
         }
+        // std::cout<<"inside 4"<<std::endl;
     }
 }
 
-Eigen::VectorXi lsTools::Second_Angle_Inner_Vers()
-{
+// Eigen::VectorXi lsTools::Second_Angle_Inner_Vers()
+// {
     
-    int ninner = anas[0].LocalActInner.size();
-    int vnbr = V.rows();
-    Eigen::VectorXi result = Eigen::VectorXi::Zero(ninner);
-    int candi_size = Second_Ray_vers.size();
-    Eigen::VectorXi ref = Eigen::VectorXi::Ones(vnbr) * -1; // mark the related vertices as 1, others as -1
-    for (int id : Second_Ray_vers)
-    {
-        ref[id] = 1;
-    }
+//     int ninner = anas[0].LocalActInner.size();
+//     int vnbr = V.rows();
+//     Eigen::VectorXi result = Eigen::VectorXi::Zero(ninner);
+//     int candi_size = Second_Ray_vers.size();
+//     Eigen::VectorXi ref = Eigen::VectorXi::Ones(vnbr) * -1; // mark the related vertices as 1, others as -1
+//     for (int id : Second_Ray_vers)
+//     {
+//         ref[id] = 1;
+//     }
 
-    for (int i = 0; i < Second_Ray_nbr_rings; i++)
-    {
-        Eigen::VectorXi ring;
-        get_one_ring_vertices_simple(ref, lsmesh, ring);
-        ref = ring;
-    }
+//     for (int i = 0; i < Second_Ray_nbr_rings; i++)
+//     {
+//         Eigen::VectorXi ring;
+//         get_one_ring_vertices_simple(ref, lsmesh, ring);
+//         ref = ring;
+//     }
 
-    // map the marks into inner vertex list
-    for (int i = 0; i < ref.size(); i++)
-    {
-        if (ref[i] < 0)
-        {
-            continue;
-        }
-        int location = InnerV[i];
-        if(location>=0){
-            result[location] = 1;
-        }
+//     // map the marks into inner vertex list
+//     for (int i = 0; i < ref.size(); i++)
+//     {
+//         if (ref[i] < 0)
+//         {
+//             continue;
+//         }
+//         int location = InnerV[i];
+//         if(location>=0){
+//             result[location] = 1;
+//         }
         
-    }
+//     }
     
-    return result;
-}
+//     return result;
+// }
 
 // // this is to find the boundary of the shadow. In the boundary, the light is tangent to the surface
 // void un_mark_innervers_tangent_to_light(const Eigen::Vector3d &light, CGMesh &lsmesh,
@@ -3292,7 +3299,6 @@ Eigen::VectorXi lsTools::shading_detect_parallel_patch(const double theta, const
     int ninner = anas[0].LocalActInner.size();
     int vnbr = V.rows();
     diff = Eigen::VectorXd::Zero(vnbr);
-    int candi_size = Second_Ray_vers.size();
     Eigen::VectorXi otho = Eigen::VectorXi::Ones(ninner) * 1; // mark the vertices whose normal is othogonal to the light as 0.
     Eigen::Vector3d target_light = angle_ray_converter(theta, phi);
     int removed = 0;
@@ -3545,4 +3551,124 @@ void update_qd_mesh_with_plylines(){
     }
     file.close();
 }
+int closest_point_id_in_F(const Eigen::Vector3d& query, const Eigen::MatrixXd& V, const Eigen::MatrixXi& F, const int fid){
+    std::array<int,3> ids;
+    ids[0] = F(fid, 0);
+    ids[1] = F(fid, 1);
+    ids[2] = F(fid, 2);
+    double mindis = 1000;
+    int minid = -1;
+    for(int i=0;i<3;i++){
+        Eigen::Vector3d ver = V.row(ids[i]);
+        double dis = (ver-query).norm();
+        if(dis<mindis){
+            mindis = dis;
+            minid = ids[i];
+        }
+    }
+    if (minid == -1 || mindis > 1e-16)
+    {
+        std::cout<<"Error in closest_point_id_in_F, minid, "<<minid<<" mindis, "<<mindis<<std::endl;
+    }
+    return minid;
+}
 
+int the_nbr_of_ones(const Eigen::VectorXi &vec)
+{
+    int nbr = 0;
+    for (int i = 0; i < vec.size(); i++)
+    {
+        if (vec[i] == 1)
+        {
+            nbr++;
+        }
+    }
+    return nbr;
+}
+// classify the vertices of the base into 3 types: the patch which corresponds to ref, the transition part, and the rest of the mesh.
+void project_mesh_and_get_shading_info(CGMesh &ref, CGMesh &base, const int nbr_rings, Eigen::VectorXi &info,
+                                       Eigen::MatrixXd &P1, Eigen::MatrixXd &P2)
+{
+    lsTools reftool(ref);
+    lsTools bastool(base);
+    reftool.initialize_mesh_properties();
+    bastool.initialize_mesh_properties();
+    int rvnbr = reftool.V.rows();
+    int bvnbr = bastool.V.rows();
+    int ninner = bastool.IVids.size();
+    Eigen::VectorXi InnerV = bastool.InnerV;
+    Eigen::MatrixXd C;
+    Eigen::VectorXi I;
+    Eigen::VectorXd D;
+    Eigen::VectorXi mapping = Eigen::VectorXi::Ones(bvnbr) * -1;  // the list (size is the same as the vertex list) shows the type of the conditions
+    Eigen::VectorXi neighbours = Eigen::VectorXi::Ones(bvnbr) * -1;
+    std::vector<int> bnd;// boundary of the first type
+    igl::point_mesh_squared_distance(reftool.V, bastool.V, bastool.F, D, I, C);
+    std::vector<int> removed;
+    std::vector<Eigen::Vector3d> points1, points2;
+    int nbr_bnd = 0;
+    for (int i = 0; i < rvnbr; i++)
+    {
+        int fid = I(i);
+        int v0 = bastool.F(fid, 0);
+        int v1 = bastool.F(fid, 1);
+        int v2 = bastool.F(fid, 2);
+        // the vertex id on base mesh
+        int vid = closest_point_id_in_F(reftool.V.row(i), bastool.V, bastool.F, fid);
+        if(vid<0){
+            std::cout<<"did not find the closest one!"<<std::endl;
+        }
+        mapping[vid] = 1; // the point is special
+        removed.push_back(vid);
+        CGMesh::VertexHandle vh = ref.vertex_handle(i);
+        if(ref.is_boundary(vh)){ // this is a boundary vertex.
+            mapping[vid] = 2;
+            neighbours[vid] = 1;
+            nbr_bnd++;
+        }
+    }
+    // std::cout<<"nbr bnd, "<<nbr_bnd<<std::endl;
+    info = Eigen::VectorXi::Ones(ninner) * -1;
+    for (int i = 0; i < nbr_rings; i++)
+    {
+        Eigen::VectorXi ring;
+        // std::cout<<"check1"<<std::endl;
+        get_one_ring_vertices_simple(neighbours, base, ring);
+        // std::cout<<"check2"<<std::endl;
+        // remove innver vers
+        for (int j = 0; j < removed.size(); j++)
+        {
+            ring[removed[j]] = -1;
+        }
+        // std::cout<<"nbr elements 0, "<<the_nbr_of_ones(neighbours)<<std::endl;
+        // std::cout<<"nbr elements 1, "<<the_nbr_of_ones(ring)<<std::endl;
+        neighbours = ring;
+    }
+    for (int i = 0; i < neighbours.size(); i++)
+    {
+        int location = -1;
+        if (neighbours[i] < 0 && mapping[i] < 0)
+        {
+            continue;
+        }
+        location = InnerV[i];
+        if (location < 0)
+        {
+            continue;
+        }
+        if(neighbours[i]>0){// this is a transition point
+            info[location] = 2;
+            points2.push_back(bastool.V.row(i));
+        }
+        if(mapping[i]>0){// this is a special condition point
+            info[location] = 1;
+            points1.push_back(bastool.V.row(i));
+        }
+        if(info[location]<0){ // this is a ordinary point
+            info[location] = 0;
+        }
+        
+    }
+    P1 = vec_list_to_matrix(points1);
+    P2 = vec_list_to_matrix(points2);
+}
