@@ -387,6 +387,8 @@ public:
     bool enable_max_energy_check = false;
     bool enable_shading_init = false;
     bool enable_let_ray_through = false; // optimize that whole surface let ray through for shading
+    bool enable_reflection = false;
+
 
     double Reference_theta;  // the ray feed to the optimization as a constant direction
     double Reference_phi;
@@ -394,6 +396,7 @@ public:
     // double Reference_phi2;
     double Theta_tol; // the tolerances for theta and phi
     double Phi_tol;
+    double ShadingLatitude;
     // double Theta_tol2;
     // double Phi_tol2;
     double max_energy_percentage=0;

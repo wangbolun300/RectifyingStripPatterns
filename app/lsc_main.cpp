@@ -121,6 +121,7 @@ namespace lscif
 	bool enable_max_energy_check = false;
 	bool shading_init = false;
 	bool let_ray_through = false;
+	bool let_ray_reflect = false;
 	double max_e_percentage = 10;
 	double weight_binormal = 1;
 	double weight_smt_binormal = 0;
@@ -814,6 +815,9 @@ int main(int argc, char *argv[])
 				lscif::tools.weight_binormal = lscif::weight_binormal;
 				lscif::tools.weight_smt_binormal = lscif::weight_smt_binormal;
 				lscif::tools.enable_let_ray_through = lscif::let_ray_through;
+				lscif::tools.ShadingLatitude = lscif::Shading_Latitude;
+				lscif::tools.enable_reflection = lscif::let_ray_reflect;
+				
 
 				for (int i = 0; i < lscif::OpIter; i++)
 				{
@@ -1962,6 +1966,8 @@ int main(int argc, char *argv[])
 			ImGui::Checkbox("Const Direc", &lscif::Given_Const_Direction);
 			ImGui::SameLine();
 			ImGui::Checkbox("Light Through", &lscif::let_ray_through);
+			ImGui::SameLine();
+			ImGui::Checkbox("Light Reflect", &lscif::let_ray_reflect);
 			
 			if (lscif::Given_Const_Direction)
 			{
