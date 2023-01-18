@@ -1029,13 +1029,38 @@ void lsTools::print_info(const int vid)
         int xloc = vm + vnbr + ninner * 8;
         int yloc = vm + vnbr + ninner * 9;
         int zloc = vm + vnbr + ninner * 10;
+        int lnpx = vm + vnbr + ninner * 11;
+		int lnpy = vm + vnbr + ninner * 12;
+		int lnpz = vm + vnbr + ninner * 13;
+        int lbnx = vm + vnbr + ninner * 0;
+        int lbny = vm + vnbr + ninner * 1;
+        int lbnz = vm + vnbr + ninner * 2;
         if (enable_shading_init)
         {
             xloc = vm + vnbr + ninner * 3;
             yloc = vm + vnbr + ninner * 4;
             zloc = vm + vnbr + ninner * 5;
         }
+        Eigen::Vector3d bn = Eigen::Vector3d(Glob_lsvars[lbnx], Glob_lsvars[lbny], Glob_lsvars[lbnz]);
         std::cout << "the light, " << Glob_lsvars[xloc] << ", " << Glob_lsvars[yloc] << ", " << Glob_lsvars[zloc] << "\n";
+        std::cout << "the pn, " << bn[0] << ", " << bn[1] << ", " << bn[2] << "\n";
+        std::cout << "the binormal, " << Glob_lsvars[xloc] << ", " << Glob_lsvars[yloc] << ", " << Glob_lsvars[zloc] << "\n";
+        double latitude_radian = ShadingLatitude * LSC_PI / 180.;
+        double rho = (LSC_PI / 2 - latitude_radian);
+        Eigen::Matrix3d rotation;
+        rotation << 1, 0, 0,
+            0, cos(rho), -sin(rho),
+            0, sin(rho), cos(rho);
+        Eigen::Vector3d direction_ground = Eigen::Vector3d(0, 0, -1); // the ground direction
+        direction_ground = rotation * direction_ground;
+        Eigen::Vector3d light = Eigen::Vector3d(Glob_lsvars[xloc], Glob_lsvars[yloc], Glob_lsvars[zloc]);
+        Eigen::Vector3d pn = Eigen::Vector3d(Glob_lsvars[lnpx], Glob_lsvars[lnpy], Glob_lsvars[lnpz]);
+        
+        std::cout << "the ground, " << direction_ground[0] << ", " << direction_ground[1] << ", " << direction_ground[2] << "\n";
+
+        std::cout << "light * pn = " << Eigen::Vector3d(Glob_lsvars[xloc], Glob_lsvars[yloc], Glob_lsvars[zloc]).dot(Eigen::Vector3d(Glob_lsvars[lnpx], Glob_lsvars[lnpy], Glob_lsvars[lnpz]))
+        <<", ground * pn = "<<direction_ground.dot(Eigen::Vector3d(Glob_lsvars[lnpx], Glob_lsvars[lnpy], Glob_lsvars[lnpz]))<<std::endl;
+        std::cout<<"(light, pn, ground) = "<<light.cross(pn).dot(direction_ground)<<std::endl;
     }
 
     // LSAnalizer anl;

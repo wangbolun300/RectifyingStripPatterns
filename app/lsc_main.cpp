@@ -25,6 +25,7 @@ namespace lscif
 
 	const Eigen::RowVector3d sea_green(70. / 255., 252. / 255., 167. / 255.);
 	const Eigen::RowVector3d hot_red(255. / 255., 12. / 255., 17. / 255.);
+	const Eigen::RowVector3d pure_blk(0,0,0);
 	MeshProcessing MP;
 
 	// This V and F are only for visulization of the default mesh
@@ -122,10 +123,12 @@ namespace lscif
 	bool shading_init = false;
 	bool let_ray_through = false;
 	bool let_ray_reflect = false;
+	bool recompute_auxiliaries = false;
 	double max_e_percentage = 10;
 	double weight_binormal = 1;
 	double weight_smt_binormal = 0;
 	double weight_endpoint_ratio = 1;
+
 	std::vector<std::vector<Eigen::Vector3d>> Poly_readed;
 	std::vector<std::vector<Eigen::Vector3d>> Bino_readed;
 	std::vector<std::vector<Eigen::Vector3d>> Poly_opt;
@@ -312,6 +315,19 @@ namespace lscif
 				std::cout<<"light surface parallel "<<diff[vid]<<std::endl;
 				std::cout << "point position: (" << viewer.data().V(vid, 0) << ", " << viewer.data().V(vid, 1) << ", " << viewer.data().V(vid, 2) << ")\n\n";
 				lscif::tools.print_info(vid);
+				double latitude_radian = lscif::Shading_Latitude * LSC_PI / 180.;
+				double rho = (LSC_PI / 2 - latitude_radian);
+				Eigen::Matrix3d rotation;
+				rotation << 1, 0, 0,
+					0, cos(rho), -sin(rho),
+					0, sin(rho), cos(rho);
+				Eigen::Vector3d direction_ground = Eigen::Vector3d(0, 0, -1); // the ground direction
+				direction_ground = rotation * direction_ground;
+				Eigen::MatrixXd ground = Eigen::MatrixXd::Ones(lscif::tools.V.rows(),lscif::tools.V.cols());
+				ground.col(0) *= direction_ground[0];
+				ground.col(1) *= direction_ground[1];
+				ground.col(2) *= direction_ground[2];
+				viewer.data().add_edges(lscif::tools.V - lscif::vector_scaling * ground, lscif::tools.V + lscif::vector_scaling * ground, lscif::pure_blk);
 				// viewer.data().add_points(igl::slice(viewer.data().V, vids, 1), hot_red);
 				viewer.data().set_points(igl::slice(viewer.data().V, vids, 1), lscif::hot_red);
 				viewer.data().add_points(igl::slice(viewer.data().V, vids2, 1), lscif::sea_green);
@@ -817,6 +833,7 @@ int main(int argc, char *argv[])
 				lscif::tools.enable_let_ray_through = lscif::let_ray_through;
 				lscif::tools.ShadingLatitude = lscif::Shading_Latitude;
 				lscif::tools.enable_reflection = lscif::let_ray_reflect;
+				lscif::tools.recompute_auxiliaries = lscif::recompute_auxiliaries;
 				
 
 				for (int i = 0; i < lscif::OpIter; i++)
@@ -1999,6 +2016,7 @@ int main(int argc, char *argv[])
 				ImGui::SameLine();
 				ImGui::InputDouble("weight binormal", &lscif::weight_binormal, 0, 0, "%.4f");
 				ImGui::InputDouble("weight smtBinormal", &lscif::weight_smt_binormal, 0, 0, "%.4f");
+				ImGui::Checkbox("RecomptAuxiliaries", &lscif::recompute_auxiliaries);
 			}
 		}
 		ImGui::PushStyleColor(ImGuiCol_Button, (ImVec4)ImColor::HSV(0.0f, 0.6f, 0.6f));

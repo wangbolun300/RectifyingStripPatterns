@@ -3601,10 +3601,10 @@ void project_mesh_and_get_shading_info(CGMesh &ref, CGMesh &base, const int nbr_
     Eigen::VectorXi I;
     Eigen::VectorXd D;
     Eigen::VectorXi mapping = Eigen::VectorXi::Ones(bvnbr) * -1;  // the list (size is the same as the vertex list) shows the type of the conditions
-    Eigen::VectorXi neighbours = Eigen::VectorXi::Ones(bvnbr) * -1;
+    Eigen::VectorXi neighbours = Eigen::VectorXi::Ones(bvnbr) * -1; // the transition points
     std::vector<int> bnd;// boundary of the first type
     igl::point_mesh_squared_distance(reftool.V, bastool.V, bastool.F, D, I, C);
-    std::vector<int> removed;
+    std::vector<int> removed; // mark all the vertices of the reference
     std::vector<Eigen::Vector3d> points1, points2;
     int nbr_bnd = 0;
     for (int i = 0; i < rvnbr; i++)
@@ -3647,12 +3647,13 @@ void project_mesh_and_get_shading_info(CGMesh &ref, CGMesh &base, const int nbr_
     for (int i = 0; i < neighbours.size(); i++)
     {
         int location = -1;
-        if (neighbours[i] < 0 && mapping[i] < 0)
-        {
-            continue;
-        }
+        // if (neighbours[i] < 0 && mapping[i] < 0)
+        // {
+        //     continue;
+        // }
         location = InnerV[i];
-        if (location < 0)
+        info[location] = 0;// ordinary points
+        if (location < 0)// boundary point of base mesh, ignor
         {
             continue;
         }

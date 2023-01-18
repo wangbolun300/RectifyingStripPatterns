@@ -388,7 +388,7 @@ public:
     bool enable_shading_init = false;
     bool enable_let_ray_through = false; // optimize that whole surface let ray through for shading
     bool enable_reflection = false;
-
+    bool recompute_auxiliaries = false;// recompute auxiliaries to reduce the energy.
 
     double Reference_theta;  // the ray feed to the optimization as a constant direction
     double Reference_phi;
@@ -399,7 +399,7 @@ public:
     double ShadingLatitude;
     // double Theta_tol2;
     // double Phi_tol2;
-    double max_energy_percentage=0;
+    double max_energy_percentage = 0;
     std::vector<int> Second_Ray_vers; // the vertices for the second shading light direction
     int Second_Ray_nbr_rings = 1; // the nbr of rings associate to the vers corresponding to the second ray
     double weight_binormal;
