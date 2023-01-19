@@ -623,8 +623,54 @@ void lsTools::calculate_shading_condition_inequivalent(Eigen::VectorXd &vars,
 		double fm = vars(lvm);
 		double zmin, zmax, tanmin, tanmax;
 
+		
+		int condition_type = 1; // 0: through, 1: block, 2: transition, 3: reflection
+		if(enable_reflection){
+			condition_type = 3;
+		}
+		if(enable_let_ray_through){// if the surface totally let the ray through,
+			condition_type = 0;
+		}
+		
+		if (analizer.Special.size() > 0)
+		{ // if we set multiple conditions on one surface
+			// std::cout<<"special vers";
+			if (!enable_reflection)
+			{// consider about shading and through
+				if (analizer.Special[i] == 0)
+				{ // the unmarked vertices
+					condition_type = 1;
+				}
+				if (analizer.Special[i] == 1)
+				{ // the marked vertices
+					condition_type = 0;
+				}
+				if (analizer.Special[i] == 2)
+				{ // the transition part in between of marked/unmarked points
+					condition_type = 2;
+				}
+			}
+			else{// consider about reflection and transition
+				if (analizer.Special[i] == 0)
+				{ // the unmarked vertices
+					condition_type = 2;
+				}
+				if (analizer.Special[i] == 1)
+				{ // the marked vertices
+					condition_type = 3;
+				}
+				if (analizer.Special[i] == 2)
+				{ // the transition part in between of marked/unmarked points
+					condition_type = 2;
+				}
+				// std::cout<<"considering reflection, ";
+			}
+		}
 		angle_range_calculator(Reference_theta, Reference_phi, Theta_tol, Phi_tol, zmin, zmax, tanmin, tanmax);
-
+		if (analizer.Special.size() > 0 && condition_type == 0) // mix shading and through. set special condition for through
+		{
+			angle_range_calculator(Reference_theta1, Reference_phi1, Theta_tol1, Phi_tol1, zmin, zmax, tanmin, tanmax);
+		}
 		if (Compute_Auxiliaries || recompute_auxiliaries)
 		{
 			// std::cout<<"init auxiliaries"<<std::endl;
@@ -640,6 +686,10 @@ void lsTools::calculate_shading_condition_inequivalent(Eigen::VectorXd &vars,
 
 			// the ray and theta, phi
 			Eigen::Vector3d real_ray = angle_ray_converter(Reference_theta, Reference_phi);
+			if (analizer.Special.size() > 0 && condition_type == 0) // mix shading and through. set special condition for through
+			{
+				real_ray = angle_ray_converter(Reference_theta1, Reference_phi1);
+			}
 			double x = real_ray[0];
 			double y = real_ray[1];
 			double z = real_ray[2];
@@ -701,49 +751,8 @@ void lsTools::calculate_shading_condition_inequivalent(Eigen::VectorXd &vars,
 		double dis1 = ((V.row(v3) - V.row(v4)) * vars[lvm] + (V.row(v4) - V.row(vm)) * vars[lv3] + (V.row(vm) - V.row(v3)) * vars[lv4]).norm();
 		double scale = mass_uniform.coeff(vm, vm);
 
-		int condition_type = 1; // 0: through, 1: block, 2: transition, 3: reflection
-		if(enable_reflection){
-			condition_type = 3;
-		}
-		if(enable_let_ray_through){// if the surface totally let the ray through,
-			condition_type = 0;
-		}
 		
-		if (analizer.Special.size() > 0)
-		{ // if we set multiple conditions on one surface
-			// std::cout<<"special vers";
-			if (!enable_reflection)
-			{// consider about shading and through
-				if (analizer.Special[i] == 0)
-				{ // the unmarked vertices
-					condition_type = 1;
-				}
-				if (analizer.Special[i] == 1)
-				{ // the marked vertices
-					condition_type = 0;
-				}
-				if (analizer.Special[i] == 2)
-				{ // the transition part in between of marked/unmarked points
-					condition_type = 2;
-				}
-			}
-			else{// consider about reflection and transition
-				if (analizer.Special[i] == 0)
-				{ // the unmarked vertices
-					condition_type = 2;
-				}
-				if (analizer.Special[i] == 1)
-				{ // the marked vertices
-					condition_type = 3;
-				}
-				if (analizer.Special[i] == 2)
-				{ // the transition part in between of marked/unmarked points
-					condition_type = 2;
-				}
-				// std::cout<<"considering reflection, ";
-			}
-		}
-
+		double weight_test = 1;
 		if (condition_type == 1) // this part blocks light
 		{
 			// std::cout<<"blk,";
@@ -869,7 +878,7 @@ void lsTools::calculate_shading_condition_inequivalent(Eigen::VectorXd &vars,
 		{
 			continue;
 		}
-		double weight_test = 1;
+		
 		
 		// np * r = 0
 		tripletes.push_back(Trip(i + ninner * 3, lrx, np[0] * scale));
@@ -987,11 +996,7 @@ void lsTools::calculate_shading_init(Eigen::VectorXd& vars,
 	rotation << 1, 0, 0,
 		0, cos(rho), -sin(rho),
 		0, sin(rho), cos(rho);
-	Eigen::Vector3d earth_axis = Eigen::Vector3d(0, 0, 1);
-	Eigen::Vector3d main_light = angle_ray_converter(Reference_theta, Reference_phi);
-	Eigen::Vector3d direction_ground = Eigen::Vector3d(0, 0, -1); // the ground direction
-	direction_ground = rotation * direction_ground;
-	Eigen::Vector3d reflect_axis = (main_light-direction_ground).normalized();
+	
 	for (int i = 0; i < ninner; i++)
 	{
 		if (analizer.LocalActInner[i] == false) {
@@ -1040,7 +1045,57 @@ void lsTools::calculate_shading_init(Eigen::VectorXd& vars,
 		double f3 = vars(lv3);
 		double f4 = vars(lv4);
 		double fm = vars(lvm);
+		int condition_type = 1; // 0: through, 1: block, 2: transition, 3: reflection
+		if(enable_reflection){
+			condition_type = 3;
+		}
+		if(enable_let_ray_through){// if the surface totally let the ray through,
+			condition_type = 0;
+		}
 		
+		if (analizer.Special.size() > 0)
+		{ // if we set multiple conditions on one surface
+			if (!enable_reflection)
+			{// consider about shading and through
+				if (analizer.Special[i] == 0)
+				{ // the unmarked vertices
+					condition_type = 1;
+				}
+				if (analizer.Special[i] == 1)
+				{ // the marked vertices
+					condition_type = 0;
+				}
+				if (analizer.Special[i] == 2)
+				{ // the transition part in between of marked/unmarked points
+					condition_type = 2;
+				}
+			}
+			else{// consider about reflection and transition
+				if (analizer.Special[i] == 0)
+				{ // the unmarked vertices
+					condition_type = 2;
+				}
+				if (analizer.Special[i] == 1)
+				{ // the marked vertices
+					condition_type = 3;
+				}
+				if (analizer.Special[i] == 2)
+				{ // the transition part in between of marked/unmarked points
+					condition_type = 2;
+				}
+			}
+		}
+		Eigen::Vector3d earth_axis = Eigen::Vector3d(0, 0, 1);
+		Eigen::Vector3d direction_ground = Eigen::Vector3d(0, 0, -1); // the ground direction
+		direction_ground = rotation * direction_ground;
+		Eigen::Vector3d main_light = angle_ray_converter(Reference_theta, Reference_phi);
+		if (analizer.Special.size() > 0 && condition_type == 0) // mix shading and through. set special condition for through
+		{
+			// std::cout<<"special,";
+			main_light = angle_ray_converter(Reference_theta1, Reference_phi1);
+		}
+		Eigen::Vector3d reflect_axis = (main_light - direction_ground).normalized();
+
 		// Eigen::Vector3d real_u = norm.cross(ver2 - ver0);
 		// real_u = real_u.normalized();
 		if (Compute_Auxiliaries) {
@@ -1057,7 +1112,12 @@ void lsTools::calculate_shading_init(Eigen::VectorXd& vars,
 
 			// the ray and theta, phi
 			Eigen::Vector3d real_ray = angle_ray_converter(Reference_theta, Reference_phi);
-			
+
+			if (analizer.Special.size() > 0 && condition_type == 0) // mix shading and through. set special condition for through
+			{
+				real_ray = angle_ray_converter(Reference_theta1, Reference_phi1);
+			}
+
 			vars[lrayx] = real_ray[0];
 			vars[lrayy] = real_ray[1];
 			vars[lrayz] = real_ray[2];
@@ -1127,46 +1187,7 @@ void lsTools::calculate_shading_init(Eigen::VectorXd& vars,
 		Energy[i + ninner * 2] = (r.dot(r) - 1) * scale;
 		// std::cout<<"c3 got"<<std::endl;
 		double weight_test = 1;
-		int condition_type = 1; // 0: through, 1: block, 2: transition, 3: reflection
-		if(enable_reflection){
-			condition_type = 3;
-		}
-		if(enable_let_ray_through){// if the surface totally let the ray through,
-			condition_type = 0;
-		}
 		
-		if (analizer.Special.size() > 0)
-		{ // if we set multiple conditions on one surface
-			if (!enable_reflection)
-			{// consider about shading and through
-				if (analizer.Special[i] == 0)
-				{ // the unmarked vertices
-					condition_type = 1;
-				}
-				if (analizer.Special[i] == 1)
-				{ // the marked vertices
-					condition_type = 0;
-				}
-				if (analizer.Special[i] == 2)
-				{ // the transition part in between of marked/unmarked points
-					condition_type = 2;
-				}
-			}
-			else{// consider about reflection and transition
-				if (analizer.Special[i] == 0)
-				{ // the unmarked vertices
-					condition_type = 2;
-				}
-				if (analizer.Special[i] == 1)
-				{ // the marked vertices
-					condition_type = 3;
-				}
-				if (analizer.Special[i] == 2)
-				{ // the transition part in between of marked/unmarked points
-					condition_type = 2;
-				}
-			}
-		}
 		Eigen::Vector3d axis;
 		if(condition_type == 1){//shading
 			axis = earth_axis;
@@ -2319,6 +2340,7 @@ void lsTools::Run_AAG(Eigen::VectorXd& func0, Eigen::VectorXd& func1, Eigen::Vec
 	Last_Opt_Mesh = false;
 }
 
+// in the order of AGG
 void lsTools::Run_AGG(Eigen::VectorXd& func0, Eigen::VectorXd& func1, Eigen::VectorXd& func2){
 	Eigen::MatrixXd GradValueF[3], GradValueV[3];
 	Eigen::VectorXd PGEnergy[3];
@@ -2394,11 +2416,11 @@ void lsTools::Run_AGG(Eigen::VectorXd& func0, Eigen::VectorXd& func1, Eigen::Vec
 		spMat pg_JTJ[3];
 		Eigen::VectorXd pg_mJTF[3];
 		int vars_start_loc = 0;
-		assemble_solver_extreme_cases_part_vertex_based(Glob_lsvars, false, false, anas[0], vars_start_loc, pg_JTJ[0], pg_mJTF[0], PGEnergy[0]);
+		assemble_solver_extreme_cases_part_vertex_based(Glob_lsvars, true, false, anas[0], vars_start_loc, pg_JTJ[0], pg_mJTF[0], PGEnergy[0]);
 		vars_start_loc = vnbr;
 		assemble_solver_extreme_cases_part_vertex_based(Glob_lsvars, false, false, anas[1], vars_start_loc, pg_JTJ[1], pg_mJTF[1], PGEnergy[1]);
 		vars_start_loc = vnbr * 2;
-		assemble_solver_extreme_cases_part_vertex_based(Glob_lsvars, true, false, anas[2], vars_start_loc, pg_JTJ[2], pg_mJTF[2], PGEnergy[2]);
+		assemble_solver_extreme_cases_part_vertex_based(Glob_lsvars, false, false, anas[2], vars_start_loc, pg_JTJ[2], pg_mJTF[2], PGEnergy[2]);
 		Compute_Auxiliaries = false;
 		H += weight_pseudo_geodesic_energy * (pg_JTJ[0] + pg_JTJ[1] + weight_geodesic* pg_JTJ[2]);
 		B += weight_pseudo_geodesic_energy * (pg_mJTF[0] + pg_mJTF[1] + weight_geodesic* pg_mJTF[2]);
@@ -2438,7 +2460,7 @@ void lsTools::Run_AGG(Eigen::VectorXd& func0, Eigen::VectorXd& func1, Eigen::Vec
 		energy_pg[0]=PGEnergy[0].norm();
 		energy_pg[1]=PGEnergy[1].norm();
 		energy_pg[2]=PGEnergy[2].norm();
-		std::cout << "pg, " << energy_pg[0]<<", "<< energy_pg[1]<<", "<< energy_pg[2]<<", pgmax, "<<PGEnergy[0].lpNorm<Eigen::Infinity>()
+		std::cout << "AGGpg, " << energy_pg[0]<<", "<< energy_pg[1]<<", "<< energy_pg[2]<<", pgmax, "<<PGEnergy[0].lpNorm<Eigen::Infinity>()
 		<<", "<<PGEnergy[1].lpNorm<Eigen::Infinity>()<<", "<<PGEnergy[2].lpNorm<Eigen::Infinity>()<<", ";
 	}
 

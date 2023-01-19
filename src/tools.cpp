@@ -3566,7 +3566,7 @@ int closest_point_id_in_F(const Eigen::Vector3d& query, const Eigen::MatrixXd& V
             minid = ids[i];
         }
     }
-    if (minid == -1 || mindis > 1e-16)
+    if (minid == -1 || mindis > 1e-6)
     {
         std::cout<<"Error in closest_point_id_in_F, minid, "<<minid<<" mindis, "<<mindis<<std::endl;
     }

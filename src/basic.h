@@ -106,6 +106,7 @@ public:
     int VerNbr;
     Eigen::VectorXd PlyVars; // vars for the polylines
     Eigen::VectorXd OriVars; // original vars
+    Eigen::VectorXd VinPly; // mark which polyline this vertex belong to
     // Eigen::MatrixXd OriV; // original vertex list of the (sampled) polylines 
     Eigen::VectorXi Front;   // the vertex id of the front point
     Eigen::VectorXi Back;    // the vertex id of the back point
@@ -128,6 +129,8 @@ public:
     double ratio_endpts;
     double target_angle;
     bool first_compute = true;
+    bool pick_single_line=false;
+    int pick_line_id;
 
     void opt();
     // make the values not far from original data
@@ -392,13 +395,13 @@ public:
 
     double Reference_theta;  // the ray feed to the optimization as a constant direction
     double Reference_phi;
-    // double Reference_theta2;  // the ray feed to the optimization as a constant direction
-    // double Reference_phi2;
+    double Reference_theta1;  // the ray feed to the optimization as a constant direction
+    double Reference_phi1;
     double Theta_tol; // the tolerances for theta and phi
     double Phi_tol;
     double ShadingLatitude;
-    // double Theta_tol2;
-    // double Phi_tol2;
+    double Theta_tol1;
+    double Phi_tol1;
     double max_energy_percentage = 0;
     std::vector<int> Second_Ray_vers; // the vertices for the second shading light direction
     int Second_Ray_nbr_rings = 1; // the nbr of rings associate to the vers corresponding to the second ray

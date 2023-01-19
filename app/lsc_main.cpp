@@ -110,8 +110,8 @@ namespace lscif
 	double InputPx = 0; // theta
 	double InputPy = 180; // phi
 
-	double InputPx1 = 60;
-	double InputPy1 = -45;
+	double InputPx1 = 0;
+	double InputPy1 = 180;
 	
 	double InputThetaTol = 23.5; // give 10 degrees of tolerance
 	double InputThetaTol1 = 23.5; // give 10 degrees of tolerance
@@ -128,13 +128,16 @@ namespace lscif
 	double weight_binormal = 1;
 	double weight_smt_binormal = 0;
 	double weight_endpoint_ratio = 1;
-
+	bool pick_single_ply = false;
+	int pick_line_id = 0;
 	std::vector<std::vector<Eigen::Vector3d>> Poly_readed;
 	std::vector<std::vector<Eigen::Vector3d>> Bino_readed;
 	std::vector<std::vector<Eigen::Vector3d>> Poly_opt;
 	std::vector<std::vector<Eigen::Vector3d>> Bino_opt;
 
 	std::vector<int> VertexType;
+
+
 
 	// add a new mesh into the mesh lists, and show the new mesh along with previous showed meshes
 	void updateMeshViewer(igl::opengl::glfw::Viewer &viewer, CGMesh &mesh)
@@ -818,12 +821,12 @@ int main(int argc, char *argv[])
 				lscif::tools.Second_Ray_nbr_rings = lscif::ring_nbr;
 				lscif::tools.Reference_theta = lscif::InputPx;
 				lscif::tools.Reference_phi = lscif::InputPy;
-				// lscif::tools.Reference_theta2 = lscif::InputPx1;
-				// lscif::tools.Reference_phi2 = lscif::InputPy1;
+				lscif::tools.Reference_theta1 = lscif::InputPx1;
+				lscif::tools.Reference_phi1 = lscif::InputPy1;
 				lscif::tools.Theta_tol = lscif::InputThetaTol;
 				lscif::tools.Phi_tol = lscif::InputPhiTol;
-				// lscif::tools.Theta_tol2 = lscif::InputPhiTol;
-				// lscif::tools.Phi_tol2 = lscif::InputPhiTol1;
+				lscif::tools.Theta_tol1 = lscif::InputThetaTol1;
+				lscif::tools.Phi_tol1 = lscif::InputPhiTol1;
 				lscif::tools.weight_geodesic=lscif::weight_geodesic;
 				lscif::tools.enable_max_energy_check = lscif::enable_max_energy_check;
 				lscif::tools.max_energy_percentage = lscif::max_e_percentage;
@@ -1445,6 +1448,9 @@ int main(int argc, char *argv[])
 				lscif::poly_tool.weight_angle = lscif::weight_angle;
 				lscif::poly_tool.target_angle = lscif::target_angle;
 				lscif::poly_tool.ratio_endpts = lscif::weight_endpoint_ratio;
+				lscif::poly_tool.pick_single_line = lscif::pick_single_ply;
+				lscif::poly_tool.pick_line_id = lscif::pick_line_id;
+
 
 				for (int i = 0; i < lscif::OpIter; i++)
 				{
@@ -1667,9 +1673,7 @@ int main(int argc, char *argv[])
 				std::cout<<"Nbr first, "<<P1.rows()<<std::endl;
 				std::cout<<"Nbr second, "<<P2.rows()<<std::endl;
 				std::cout<<"Passing the info to the level-set system"<<std::endl;
-				lscif::tools.shading_condition_info=info;
-				
-
+				lscif::tools.shading_condition_info = info;
 			}
 
 			if (ImGui::CollapsingHeader(" Quad Mesh Size Paras", ImGuiTreeNodeFlags_DefaultOpen))
@@ -1980,7 +1984,7 @@ int main(int argc, char *argv[])
 				igl::writeOBJ(fname, Vnew, lscif::tools.F);
 				std::cout << "mesh saved" << std::endl;
 			}
-			ImGui::Checkbox("Const Direc", &lscif::Given_Const_Direction);
+			ImGui::Checkbox("Shading", &lscif::Given_Const_Direction);
 			ImGui::SameLine();
 			ImGui::Checkbox("Light Through", &lscif::let_ray_through);
 			ImGui::SameLine();
@@ -1997,13 +2001,13 @@ int main(int argc, char *argv[])
 				ImGui::SameLine();
 				ImGui::InputDouble("Ptol0", &lscif::InputPhiTol, 0, 0, "%.6f");
 
-				// ImGui::InputDouble("T1", &lscif::InputPx1, 0, 0, "%.6f");
-				// ImGui::SameLine();
-				// ImGui::InputDouble("P1", &lscif::InputPy1, 0, 0, "%.6f");
-				// ImGui::SameLine();
-				// ImGui::InputDouble("Ttol1", &lscif::InputThetaTol1, 0, 0, "%.6f");
-				// ImGui::SameLine();
-				// ImGui::InputDouble("Ptol1", &lscif::InputPhiTol1, 0, 0, "%.6f");
+				ImGui::InputDouble("T1", &lscif::InputPx1, 0, 0, "%.6f");
+				ImGui::SameLine();
+				ImGui::InputDouble("P1", &lscif::InputPy1, 0, 0, "%.6f");
+				ImGui::SameLine();
+				ImGui::InputDouble("Ttol1", &lscif::InputThetaTol1, 0, 0, "%.6f");
+				ImGui::SameLine();
+				ImGui::InputDouble("Ptol1", &lscif::InputPhiTol1, 0, 0, "%.6f");
 				ImGui::Checkbox("MarkMaxEnergy", &lscif::enable_max_energy_check);
 				ImGui::SameLine();
 				if (ImGui::Button("ClearMaxEnergy", ImVec2(ImGui::GetWindowSize().x * 0.23f, 0.0f)))
@@ -2018,6 +2022,9 @@ int main(int argc, char *argv[])
 				ImGui::InputDouble("weight smtBinormal", &lscif::weight_smt_binormal, 0, 0, "%.4f");
 				ImGui::Checkbox("RecomptAuxiliaries", &lscif::recompute_auxiliaries);
 			}
+			ImGui::Checkbox("pickPly", &lscif::pick_single_ply);
+			ImGui::SameLine();
+			ImGui::InputInt("pickID", &lscif::pick_line_id, 0, 0);
 		}
 		ImGui::PushStyleColor(ImGuiCol_Button, (ImVec4)ImColor::HSV(0.0f, 0.6f, 0.6f));
 		ImGui::PushStyleColor(ImGuiCol_ButtonHovered, (ImVec4)ImColor::HSV(0.0f, 0.7f, 0.7f));

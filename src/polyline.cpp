@@ -65,6 +65,7 @@ void PolyOpt::init(const std::vector<std::vector<Eigen::Vector3d>> &ply_in, cons
     // x0, x1, ..., xn, y0, ..., zn, bx0, ... bxn, ..., bzn
     PlyVars.resize(vnbr * 2 * 3);
     endpts = Eigen::VectorXd::Zero(vnbr * 6);
+    VinPly = Eigen::VectorXd::Ones(vnbr * 6) * -1;
     Front.resize(vnbr);
     Back.resize(vnbr);
     int counter = 0;
@@ -114,6 +115,13 @@ void PolyOpt::init(const std::vector<std::vector<Eigen::Vector3d>> &ply_in, cons
             {
                 Back[counter] = counter + 1;
             }
+            VinPly[lpx] = i;
+            VinPly[lpy] = i;
+            VinPly[lpz] = i;
+
+            VinPly[lnx] = i;
+            VinPly[lny] = i;
+            VinPly[lnz] = i;
 
             counter++;
         }
@@ -124,6 +132,7 @@ void PolyOpt::init(const std::vector<std::vector<Eigen::Vector3d>> &ply_in, cons
     bin_extracted = bi;
     endpts_signs = endpts.asDiagonal();
 }
+// use this when avoiding flipping of the strips.
 void PolyOpt::force_smoothing_binormals(){
     int counter = 0;
     for (int i = 0; i < ply_extracted.size(); i++)
@@ -131,15 +140,28 @@ void PolyOpt::force_smoothing_binormals(){
         int lnx = counter + VerNbr * 3;
         int lny = counter + VerNbr * 4;
         int lnz = counter + VerNbr * 5;
+        
         Eigen::Vector3d bin = Eigen::Vector3d(PlyVars[lnx], PlyVars[lny], PlyVars[lnz]);
         for (int j = 0; j < ply_extracted[i].size(); j++)
         {
             lnx = counter + VerNbr * 3;
             lny = counter + VerNbr * 4;
             lnz = counter + VerNbr * 5;
-            PlyVars[lnx] = bin[0];
-            PlyVars[lny] = bin[1];
-            PlyVars[lnz] = bin[2];
+            if (pick_single_line)
+            {
+                if (pick_line_id == i)
+                {
+                    PlyVars[lnx] = bin[0];
+                    PlyVars[lny] = bin[1];
+                    PlyVars[lnz] = bin[2];
+                }
+            }
+            else
+            {
+                PlyVars[lnx] = bin[0];
+                PlyVars[lny] = bin[1];
+                PlyVars[lnz] = bin[2];
+            }
 
             counter++;
         }
@@ -157,15 +179,20 @@ void PolyOpt::assemble_gravity(spMat &H, Eigen::VectorXd &B, Eigen::VectorXd &en
     int vnbr = Front.size();
     H = spMat(Eigen::VectorXd::Ones(vnbr * 6).asDiagonal()) + endpts_signs * (ratio_endpts - 1);
     energy = Eigen::VectorXd::Zero(vnbr * 6);
-    // tripletes.reserve(vnbr * 6);
-    // for (int i = 0; i < PlyVars.size(); i++)
-    // {
-    //     int rep = i / vnbr;
-    //     int vid = i - rep * vnbr;
-    //     energy[i] =
-    //     // tripletes.push_back
-    // }
     energy.segment(0, vnbr * 3) = (PlyVars - OriVars).segment(0, vnbr * 3);
+
+    // pick the selected one.
+    if (pick_single_line)
+    {
+        for (int i = 0; i < VinPly.size(); i++)
+        {
+            if (VinPly[i] != pick_line_id)
+            {
+                H.coeffRef(i, i) = 0;
+                energy[i] = 0;
+            }
+        }
+    }
 
     B = -H * energy;
 }
@@ -186,6 +213,13 @@ void PolyOpt::assemble_polyline_smooth(spMat &H, Eigen::VectorXd &B, Eigen::Vect
     {
 
         int vid = i;
+        if (pick_single_line)
+        {
+            if (pick_line_id != VinPly[vid])
+            {
+                continue;
+            }
+        }
         int fr = Front[vid];
         int bk = Back[vid];
         bool compute_line_smth = true;
@@ -322,6 +356,13 @@ void PolyOpt::assemble_binormal_condition(spMat &H, Eigen::VectorXd &B, Eigen::V
     for (int i = 0; i < vnbr; i++)
     {
         int vid = i;
+        if (pick_single_line)
+        {
+            if (pick_line_id != VinPly[vid])
+            {
+                continue;
+            }
+        }
         int fr = Front[vid];
         int bk = Back[vid];
         bool compute_front = true;
@@ -436,6 +477,13 @@ void PolyOpt::assemble_angle_condition(spMat& H, Eigen::VectorXd& B, Eigen::Vect
     for (int i = 0; i < vnbr; i++)
     {
         int vid = i;
+        if (pick_single_line)
+        {
+            if (pick_line_id != VinPly[vid])
+            {
+                continue;
+            }
+        }
         int fr = Front[vid];
         int bk = Back[vid];
         bool compute_front = true;
@@ -717,6 +765,7 @@ void PolyOpt::opt()
 
     spMat Hmass;
     Eigen::VectorXd Bmass, emass;
+
 
     assemble_gravity(Hmass, Bmass, emass);
 
