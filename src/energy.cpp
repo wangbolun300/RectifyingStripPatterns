@@ -1878,7 +1878,60 @@ void lsTools::assemble_solver_othogonal_to_given_face_directions(const Eigen::Ve
 	H = J.transpose() * J;
 	B = -J.transpose() * energy;
 }
+// the iso-line direction and the gradient direction construct the local frame
+// the directions and the grads are the iso-lines and the gradients of the reference level set
+void lsTools::assemble_solver_fix_angle_to_given_face_directions(const Eigen::VectorXd &func, const Eigen::MatrixXd &directions,
+																 const Eigen::MatrixXd &grads, const double angle_fix,
+																 const Eigen::VectorXi &fids, spMat &H, Eigen::VectorXd &B, Eigen::VectorXd &energy)
+{
 
+	std::vector<Trip> tripletes;
+	int nvars = V.rows();
+	int ncondi = fids.size();
+	tripletes.reserve(ncondi * 6);
+	energy = Eigen::VectorXd::Zero(ncondi * 2);
+	double angle_radian = angle_fix * LSC_PI / 180.;
+	for (int i = 0; i < ncondi; i++)
+	{
+		int fid = fids[i];
+		int v0 = F(fid, 0);
+		int v1 = F(fid, 1);
+		int v2 = F(fid, 2);
+		// dir0 * f0 + dir1 * f1 + dir2 * f2 is the iso-line direction
+
+		// direction * iso = cos(theta)
+		Eigen::Vector3d dir0 = V.row(v2) - V.row(v1);
+		Eigen::Vector3d dir1 = V.row(v0) - V.row(v2);
+		Eigen::Vector3d dir2 = V.row(v1) - V.row(v0);
+		Eigen::Vector3d iso = dir0 * func[v0] + dir1 * func[v1] + dir2 * func[v2];
+		double c0 = directions.row(i).dot(dir0);
+		double c1 = directions.row(i).dot(dir1);
+		double c2 = directions.row(i).dot(dir2);
+		double scale = directions.row(i).norm() * iso.norm();
+		tripletes.push_back(Trip(i, v0, c0 / scale));
+		tripletes.push_back(Trip(i, v1, c1 / scale));
+		tripletes.push_back(Trip(i, v2, c2 / scale));
+		energy[i] = (directions.row(i).dot(iso)) / scale - cos(angle_radian);
+
+		// gradient * iso = sin(theta)
+		
+		c0 = grads.row(i).dot(dir0);
+		c1 = grads.row(i).dot(dir1);
+		c2 = grads.row(i).dot(dir2);
+		scale = grads.row(i).norm() * iso.norm();
+
+		tripletes.push_back(Trip(i + ncondi, v0, c0 / scale));
+		tripletes.push_back(Trip(i + ncondi, v1, c1 / scale));
+		tripletes.push_back(Trip(i + ncondi, v2, c2 / scale));
+
+		energy[i + ncondi] = (grads.row(i).dot(iso)) / scale - sin(angle_radian);
+	}
+	spMat J;
+	J.resize(ncondi * 2, nvars);
+	J.setFromTriplets(tripletes.begin(), tripletes.end());
+	H = J.transpose() * J;
+	B = -J.transpose() * energy;
+}
 void lsTools::Run_Level_Set_Opt() {
 	
 	Eigen::MatrixXd GradValueF, GradValueV;
@@ -1993,7 +2046,8 @@ void lsTools::Run_Level_Set_Opt() {
 	Eigen::VectorXd bcfvalue = Eigen::VectorXd::Zero(vnbr);
 	Eigen::VectorXd fbdenergy = Eigen::VectorXd::Zero(vnbr);
 	// boundary condition (traced as boundary condition)
-	if(trace_hehs.size()>0){// if traced, we count the related energies in
+	if (trace_hehs.size() > 0)
+	{ // if traced, we use boundary condition
 		if (!enable_boundary_angles)
 		{
 			spMat bc_JTJ;
@@ -2012,7 +2066,6 @@ void lsTools::Run_Level_Set_Opt() {
 			B += weight_boundary * mJTF;
 		}
 	}
-	
 
 	// strip width condition
 	if (enable_strip_width_energy)
@@ -2496,10 +2549,11 @@ void lsTools::Run_AGG(Eigen::VectorXd& func0, Eigen::VectorXd& func1, Eigen::Vec
 	Last_Opt_Mesh = false;
 }
 
+// get a levelset othogonal to the reference one, or has a certain angle with the reference one.
 void lsTools::Run_Othogonal_Levelset(const Eigen::VectorXd &func_ref)
 {
-	Eigen::MatrixXd GradValueF, GradValueV;
-	Eigen::VectorXd PGEnergy, Eshading;
+	Eigen::MatrixXd GradValueF, GradValueV, ref_gf, ref_gv;
+	Eigen::VectorXd PGEnergy, Eshading, Eangle;
 	Eigen::VectorXd func = fvalues;
 
 	int vnbr = V.rows();
@@ -2524,6 +2578,7 @@ void lsTools::Run_Othogonal_Levelset(const Eigen::VectorXd &func_ref)
 	//  update quantities associated with level set values
 
 	get_gradient_hessian_values(func, GradValueV, GradValueF);
+	get_gradient_hessian_values(func_ref, ref_gv, ref_gf);
 	if (Glob_lsvars.size() == 0)
 	{
 		std::cout << "Initializing Global Variable For LevelSet Opt ... " << std::endl;
@@ -2584,8 +2639,8 @@ void lsTools::Run_Othogonal_Levelset(const Eigen::VectorXd &func_ref)
 	if (enable_pseudo_geodesic_energy)
 	{
 
-		spMat pg_JTJ;
-		Eigen::VectorXd pg_mJTF;
+		spMat pg_JTJ, faH;
+		Eigen::VectorXd pg_mJTF, faB;
 		int vars_start_loc = 0;
 		int aux_start_loc = vnbr;
 		Eigen::VectorXi fids(fnbr);
@@ -2593,7 +2648,18 @@ void lsTools::Run_Othogonal_Levelset(const Eigen::VectorXd &func_ref)
 		{
 			fids[i] = i;
 		}
-		assemble_solver_othogonal_to_given_face_directions(func, directions, fids, pg_JTJ, pg_mJTF, PGEnergy);
+		if(fix_angle_of_two_levelsets){
+			// fix angle between the target and the refrence level set
+			assemble_solver_fix_angle_to_given_face_directions(func, directions, ref_gf, angle_between_two_levelsets, fids, faH, faB, Eangle);
+			Hlarge = sum_uneven_spMats(Hlarge, weight_fix_two_ls_angle * faH);
+			Blarge = sum_uneven_vectors(Blarge, weight_fix_two_ls_angle * faB);
+			// optimize the current levelset to make it a geodesic level set.
+			assemble_solver_extreme_cases_part_vertex_based(Glob_lsvars, false, false, anas[0], vars_start_loc, pg_JTJ, pg_mJTF, PGEnergy);
+		}
+		else{
+			assemble_solver_othogonal_to_given_face_directions(func, directions, fids, pg_JTJ, pg_mJTF, PGEnergy);
+		}
+		
 
 		Hlarge = sum_uneven_spMats(Hlarge, weight_pseudo_geodesic_energy * pg_JTJ);
 		Blarge = sum_uneven_vectors(Blarge, weight_pseudo_geodesic_energy * pg_mJTF);
@@ -2634,8 +2700,12 @@ void lsTools::Run_Othogonal_Levelset(const Eigen::VectorXd &func_ref)
 	{
 		double energy_pg = PGEnergy.norm();
 		double max_energy_ls = PGEnergy.lpNorm<Eigen::Infinity>();
-		std::cout << "Othogonal, " << energy_pg << ", "
-				  << "lsmax," << max_energy_ls << ",";
+		std::cout << "pg_energy, " << energy_pg << ", "
+				  << "lsmax," << max_energy_ls << ", ";
+	}
+	if(fix_angle_of_two_levelsets){
+		double eangle = Eangle.norm();
+		std::cout << "fix_angle, " << eangle << ", ";
 	}
 
 	if (enable_strip_width_energy)

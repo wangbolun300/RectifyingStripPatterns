@@ -270,7 +270,10 @@ private:
     //                                        const LSAnalizer &analizer, const int vars_start_loc, 
     //                                        spMat &H, Eigen::VectorXd &B, Eigen::VectorXd &Energy);
     void assemble_solver_othogonal_to_given_face_directions(const Eigen::VectorXd &func, const Eigen::MatrixXd &directions,
-														const Eigen::VectorXi &fids, spMat &H, Eigen::VectorXd &B, Eigen::VectorXd &energy);
+                                                            const Eigen::VectorXi &fids, spMat &H, Eigen::VectorXd &B, Eigen::VectorXd &energy);
+    void assemble_solver_fix_angle_to_given_face_directions(const Eigen::VectorXd &func, const Eigen::MatrixXd &directions,
+                                                            const Eigen::MatrixXd &grads, const double angle_fix,
+                                                            const Eigen::VectorXi &fids, spMat &H, Eigen::VectorXd &B, Eigen::VectorXd &energy);
     // void assemble_solver_pseudo_geodesic_part(spMat &H, Efunc& B);
     bool find_geodesic_intersection_p1_is_NOT_ver(const Eigen::Vector3d &p0, const Eigen::Vector3d &p1,
                                                   const CGMesh::HalfedgeHandle &edge_middle, const Eigen::Vector3d &pnorm, CGMesh::HalfedgeHandle &edge_out, Eigen::Vector3d &p_end);
@@ -392,6 +395,7 @@ public:
     bool enable_let_ray_through = false; // optimize that whole surface let ray through for shading
     bool enable_reflection = false;
     bool recompute_auxiliaries = false;// recompute auxiliaries to reduce the energy.
+    bool fix_angle_of_two_levelsets = false;
 
     double Reference_theta;  // the ray feed to the optimization as a constant direction
     double Reference_phi;
@@ -407,6 +411,8 @@ public:
     int Second_Ray_nbr_rings = 1; // the nbr of rings associate to the vers corresponding to the second ray
     double weight_binormal;
     Eigen::VectorXi shading_condition_info;
+    double angle_between_two_levelsets;
+    double weight_fix_two_ls_angle;
 
 
     double pseudo_geodesic_target_angle_degree; // the target pseudo-geodesic angle

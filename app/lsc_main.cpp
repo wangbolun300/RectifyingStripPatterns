@@ -56,6 +56,9 @@ namespace lscif
 	bool enable_extreme_cases;
 	bool Given_Const_Direction = false;
 	int which_levelset = 0;
+	bool fix_angle_of_two_levelsets = false;
+	double angle_between_two_levelsets = 60;
+	double weight_fix_two_ls_angle = 0;
 
 	// Tracing Parameters
 	int which_seg_id = 0; // the face id of which we will assign value to
@@ -939,6 +942,9 @@ int main(int argc, char *argv[])
 				einit.target_max_angle = lscif::target_max_angle;
 				einit.start_angle = lscif::start_angle;
 				einit.enable_boundary_angles = lscif::enable_boundary_angles;
+				lscif::tools.fix_angle_of_two_levelsets = lscif::fix_angle_of_two_levelsets;
+				lscif::tools.angle_between_two_levelsets = lscif::angle_between_two_levelsets;
+				lscif::tools.weight_fix_two_ls_angle = lscif::weight_fix_two_ls_angle;
 				// lscif::tools.weight_shading = lscif::weight_shading;
 				lscif::tools.prepare_level_set_solving(einit);
 				if(lscif::readed_LS1.size()==0){
@@ -2022,10 +2028,19 @@ int main(int argc, char *argv[])
 				ImGui::InputDouble("weight smtBinormal", &lscif::weight_smt_binormal, 0, 0, "%.4f");
 				ImGui::Checkbox("RecomptAuxiliaries", &lscif::recompute_auxiliaries);
 			}
-			ImGui::Checkbox("pickPly", &lscif::pick_single_ply);
-			ImGui::SameLine();
-			ImGui::InputInt("pickID", &lscif::pick_line_id, 0, 0);
+			
 		}
+		ImGui::PushItemWidth(50);
+		ImGui::Checkbox("pickPly", &lscif::pick_single_ply);
+		ImGui::SameLine();
+		ImGui::InputInt("pickID", &lscif::pick_line_id, 0, 0);
+		ImGui::Checkbox("2LvStAngle", &lscif::fix_angle_of_two_levelsets);
+		ImGui::SameLine();
+		ImGui::InputDouble("AngleOfLSs", &lscif::angle_between_two_levelsets, 0, 0, "%.4f");
+		ImGui::SameLine();
+		ImGui::InputDouble("WeightAngleOfLSs", &lscif::weight_fix_two_ls_angle, 0, 0, "%.4f");
+
+
 		ImGui::PushStyleColor(ImGuiCol_Button, (ImVec4)ImColor::HSV(0.0f, 0.6f, 0.6f));
 		ImGui::PushStyleColor(ImGuiCol_ButtonHovered, (ImVec4)ImColor::HSV(0.0f, 0.7f, 0.7f));
 		ImGui::PushStyleColor(ImGuiCol_ButtonActive, (ImVec4)ImColor::HSV(0.0f, 0.8f, 0.8f));
