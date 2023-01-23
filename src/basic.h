@@ -184,7 +184,7 @@ private:
     spMat QcH; // curved harmonic energy matrix
     spMat Dlps;       // the derivates of laplacian F for all the vertices.
     spMat mass;       // mass(i,i) is the area of the voronoi cell of vertex vi
-    spMat mass_uniform; // the uniformed mass matrix to make sure the average area is 1.
+    
     
     std::vector<CGMesh::HalfedgeHandle> tracing_start_edges;
     std::vector<double> pseudo_geodesic_angles_per_ver;
@@ -271,9 +271,15 @@ private:
     //                                        spMat &H, Eigen::VectorXd &B, Eigen::VectorXd &Energy);
     void assemble_solver_othogonal_to_given_face_directions(const Eigen::VectorXd &func, const Eigen::MatrixXd &directions,
                                                             const Eigen::VectorXi &fids, spMat &H, Eigen::VectorXd &B, Eigen::VectorXd &energy);
+    // this function takes the reference level set as constant
     void assemble_solver_fix_angle_to_given_face_directions(const Eigen::VectorXd &func, const Eigen::MatrixXd &directions,
                                                             const Eigen::MatrixXd &grads, const double angle_fix,
                                                             const Eigen::VectorXi &fids, spMat &H, Eigen::VectorXd &B, Eigen::VectorXd &energy);
+    // this function takes the reference level set also as variables
+    // fix the angle between the first and the second levelset
+    void assemble_solver_fix_two_ls_angle(const Eigen::VectorXd &vars, const double angle_fix,
+                                          spMat &H, Eigen::VectorXd &B, Eigen::VectorXd &energy);
+
     // void assemble_solver_pseudo_geodesic_part(spMat &H, Efunc& B);
     bool find_geodesic_intersection_p1_is_NOT_ver(const Eigen::Vector3d &p0, const Eigen::Vector3d &p1,
                                                   const CGMesh::HalfedgeHandle &edge_middle, const Eigen::Vector3d &pnorm, CGMesh::HalfedgeHandle &edge_out, Eigen::Vector3d &p_end);
@@ -367,6 +373,7 @@ public:
     Eigen::VectorXd fvalues; // function values
     Eigen::VectorXi InnerV; // the vector show if it is a inner ver (1) or not (0).
     std::vector<int> IVids; // the ids of the inner vers, size is ninner
+    spMat mass_uniform; // the uniformed mass matrix to make sure the average area is 1.
 
 
     double weight_assign_face_value; // weight of the assigned value shown in the solver

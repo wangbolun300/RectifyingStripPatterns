@@ -302,38 +302,44 @@ namespace lscif
 				Eigen::VectorXi vids2 = Eigen::Map<Eigen::VectorXi, Eigen::Unaligned>(controlVid.data(), controlVid.size());
 
 				std::cout << "Selected point:\nposition related to the viewer: " << viewer.current_mouse_x << "___" << viewer.current_mouse_y << std::endl;
-				std::cout << "vid, " << vid << ", fid, " << fid << std::endl;
+				std::cout << "vid, " << vid << ", fid, " << fid << ", mass_unfiform, " << lscif::tools.mass_uniform.coeffRef(vid, vid) << std::endl;
 				if (lscif::tools.fvalues.rows() > 0)
 				{
 					std::cout << "level set value " << lscif::tools.fvalues[vid] << std::endl;
-					Eigen::VectorXd energy;
-					lscif::tools.show_max_pg_energy(energy);
-					if(energy.size()>0){
-						std::cout<<"local energy, "<<energy[vid]<<std::endl;
-					}
-					Eigen::MatrixXd energy_all;
-					lscif::tools.show_max_pg_energy_all(energy_all);
-					std::cout<<energy_all.row(vid)<<std::endl;
+					
 				}
-				Eigen::VectorXd diff;
-				lscif::tools.shading_detect_parallel_patch(lscif::InputPx, lscif::InputPy, diff);
-				
-				std::cout<<"light surface parallel "<<diff[vid]<<std::endl;
+				Eigen::VectorXd energy;
+				lscif::tools.show_max_pg_energy(energy);
+				if (energy.size() > 0)
+				{
+					std::cout << "local energy, " << energy[vid] << std::endl;
+				}
+				Eigen::MatrixXd energy_all;
+				lscif::tools.show_max_pg_energy_all(energy_all);
+				std::cout << energy_all.row(vid) << std::endl;
 				std::cout << "point position: (" << viewer.data().V(vid, 0) << ", " << viewer.data().V(vid, 1) << ", " << viewer.data().V(vid, 2) << ")\n\n";
 				lscif::tools.print_info(vid);
-				double latitude_radian = lscif::Shading_Latitude * LSC_PI / 180.;
-				double rho = (LSC_PI / 2 - latitude_radian);
-				Eigen::Matrix3d rotation;
-				rotation << 1, 0, 0,
-					0, cos(rho), -sin(rho),
-					0, sin(rho), cos(rho);
-				Eigen::Vector3d direction_ground = Eigen::Vector3d(0, 0, -1); // the ground direction
-				direction_ground = rotation * direction_ground;
-				Eigen::MatrixXd ground = Eigen::MatrixXd::Ones(lscif::tools.V.rows(),lscif::tools.V.cols());
-				ground.col(0) *= direction_ground[0];
-				ground.col(1) *= direction_ground[1];
-				ground.col(2) *= direction_ground[2];
-				viewer.data().add_edges(lscif::tools.V - lscif::vector_scaling * ground, lscif::tools.V + lscif::vector_scaling * ground, lscif::pure_blk);
+				if (lscif::Given_Const_Direction)
+				{
+					Eigen::VectorXd diff;
+					lscif::tools.shading_detect_parallel_patch(lscif::InputPx, lscif::InputPy, diff);
+
+					std::cout << "light surface parallel " << diff[vid] << std::endl;
+					double latitude_radian = lscif::Shading_Latitude * LSC_PI / 180.;
+					double rho = (LSC_PI / 2 - latitude_radian);
+					Eigen::Matrix3d rotation;
+					rotation << 1, 0, 0,
+						0, cos(rho), -sin(rho),
+						0, sin(rho), cos(rho);
+					Eigen::Vector3d direction_ground = Eigen::Vector3d(0, 0, -1); // the ground direction
+					direction_ground = rotation * direction_ground;
+					Eigen::MatrixXd ground = Eigen::MatrixXd::Ones(lscif::tools.V.rows(), lscif::tools.V.cols());
+					ground.col(0) *= direction_ground[0];
+					ground.col(1) *= direction_ground[1];
+					ground.col(2) *= direction_ground[2];
+					viewer.data().add_edges(lscif::tools.V - lscif::vector_scaling * ground, lscif::tools.V + lscif::vector_scaling * ground, lscif::pure_blk);
+				}
+
 				// viewer.data().add_points(igl::slice(viewer.data().V, vids, 1), hot_red);
 				viewer.data().set_points(igl::slice(viewer.data().V, vids, 1), lscif::hot_red);
 				viewer.data().add_points(igl::slice(viewer.data().V, vids2, 1), lscif::sea_green);
@@ -1098,6 +1104,9 @@ int main(int argc, char *argv[])
 				einit.target_max_angle = lscif::target_max_angle;
 				einit.start_angle = lscif::start_angle;
 				einit.enable_boundary_angles = lscif::enable_boundary_angles;
+				lscif::tools.fix_angle_of_two_levelsets = lscif::fix_angle_of_two_levelsets;
+				lscif::tools.angle_between_two_levelsets = lscif::angle_between_two_levelsets;
+				lscif::tools.weight_fix_two_ls_angle = lscif::weight_fix_two_ls_angle;
 				
 				lscif::tools.prepare_level_set_solving(einit);
 				lscif::tools.weight_geodesic=lscif::weight_geodesic;
@@ -1331,7 +1340,7 @@ int main(int argc, char *argv[])
 					return;
 				}
 				
-				viewer.data().set_colors(error);
+				viewer.data().set_data(error);
 			}
 			ImGui::SameLine();
 			if (ImGui::Button("draw RefPts", ImVec2(ImGui::GetWindowSize().x * 0.23f, 0.0f)))

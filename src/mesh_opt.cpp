@@ -560,6 +560,10 @@ void lsTools::calculate_mesh_opt_extreme_values(Eigen::VectorXd &vars, const int
             ///////////////////
         }
     }
+    PGE = MTenergy;
+    // if(asymptotic){
+    //     PGE = MTenergy;
+    // }
 }
 
 void lsTools::calculate_mesh_opt_shading_condition_values(const Eigen::VectorXd &func, const Eigen::Vector3d &ray,
@@ -1150,7 +1154,7 @@ void lsTools::Run_AAG_Mesh_Opt(Eigen::VectorXd& func0, Eigen::VectorXd& func1, E
     Last_Opt_Mesh=true;
 }
 
-// in the order of gga
+// in the order of agg
 void lsTools::Run_AGG_Mesh_Opt(Eigen::VectorXd& func0, Eigen::VectorXd& func1, Eigen::VectorXd& func2){
 
     // levelset unit scale
@@ -1212,12 +1216,12 @@ void lsTools::Run_AGG_Mesh_Opt(Eigen::VectorXd& func0, Eigen::VectorXd& func1, E
     Eigen::Vector3d any_ray;
     // A
     int aux_start_loc = vnbr * 3;// For mesh opt the auxiliary vars start from vnbr*3
-    assemble_solver_mesh_extreme(Glob_Vars, aux_start_loc, func0, false, false, any_ray, anas[0], Hpg[0], Bpg[0], MTEnergy[0]);
-    // A
-    aux_start_loc = vnbr * 3 + ninner * 3;
+    assemble_solver_mesh_extreme(Glob_Vars, aux_start_loc, func0, true, false, any_ray, anas[0], Hpg[0], Bpg[0], MTEnergy[0]);
+    // G
     assemble_solver_mesh_extreme(Glob_Vars, aux_start_loc, func1, false, false, any_ray, anas[1], Hpg[1], Bpg[1], MTEnergy[1]);
     // G
-    assemble_solver_mesh_extreme(Glob_Vars, aux_start_loc, func2, true, false, any_ray, anas[2], Hpg[2], Bpg[2], MTEnergy[2]);
+    aux_start_loc = vnbr * 3 + ninner * 3;
+    assemble_solver_mesh_extreme(Glob_Vars, aux_start_loc, func2, false, false, any_ray, anas[2], Hpg[2], Bpg[2], MTEnergy[2]);
 
     Compute_Auxiliaries_Mesh = false;
     spMat Htotal(final_size, final_size);

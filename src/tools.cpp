@@ -3673,3 +3673,21 @@ void project_mesh_and_get_shading_info(CGMesh &ref, CGMesh &base, const int nbr_
     P1 = vec_list_to_matrix(points1);
     P2 = vec_list_to_matrix(points2);
 }
+
+// put the matrix in the middle of a matrix which is 3 times larger.
+// mat should be a symmetric matrix
+spMat put_mat_in_middle(const spMat &mat, const int sizemat)
+{
+    spMat tmp1(sizemat, sizemat * 3);
+    tmp1.middleCols(sizemat, sizemat) = mat;
+    spMat tmp2(sizemat * 3, sizemat * 3);
+    tmp2.middleCols(sizemat, sizemat) = tmp1.transpose();
+    return tmp2;
+}
+Eigen::VectorXd put_vec_in_middle(const Eigen::VectorXd &vec)
+{
+    int sizevec = vec.size();
+    Eigen::VectorXd result = Eigen::VectorXd::Zero(sizevec * 3);
+    result.segment(sizevec, sizevec) = vec;
+    return result;
+}

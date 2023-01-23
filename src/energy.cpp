@@ -1819,6 +1819,10 @@ void lsTools::assemble_solver_extreme_cases_part_vertex_based(Eigen::VectorXd &v
 	H = J.transpose() * J;
 	B = -J.transpose() * energy;
 	PGE = energy;
+	// if(asymptotic){
+	// 	PGE = energy;
+	// }
+	
 }
 
 // the condition that f0+f1+f2=0;
@@ -1880,6 +1884,8 @@ void lsTools::assemble_solver_othogonal_to_given_face_directions(const Eigen::Ve
 }
 // the iso-line direction and the gradient direction construct the local frame
 // the directions and the grads are the iso-lines and the gradients of the reference level set
+// remind that this function does not consider about the location of the variables. If you use this function please
+// remember to put H and B into bigger matrices / vectors
 void lsTools::assemble_solver_fix_angle_to_given_face_directions(const Eigen::VectorXd &func, const Eigen::MatrixXd &directions,
 																 const Eigen::MatrixXd &grads, const double angle_fix,
 																 const Eigen::VectorXi &fids, spMat &H, Eigen::VectorXd &B, Eigen::VectorXd &energy)
@@ -1931,6 +1937,88 @@ void lsTools::assemble_solver_fix_angle_to_given_face_directions(const Eigen::Ve
 	J.setFromTriplets(tripletes.begin(), tripletes.end());
 	H = J.transpose() * J;
 	B = -J.transpose() * energy;
+}
+void lsTools::assemble_solver_fix_two_ls_angle(const Eigen::VectorXd &vars, const double angle_fix,
+											   spMat &H, Eigen::VectorXd &B, Eigen::VectorXd &energy)
+{
+	std::vector<Trip> tripletes;
+	int vnbr = V.rows();
+	int fnbr = F.rows();
+	tripletes.reserve(fnbr * 12);
+	energy = Eigen::VectorXd::Zero(fnbr * 2);
+	double angle_radian = angle_fix * LSC_PI / 180.;
+	// the directions of the first levelset
+	Eigen::MatrixXd directions0 = get_each_face_direction(V, F, vars.segment(0, vnbr));
+	// the directions of the second levelset
+	Eigen::MatrixXd directions1 = get_each_face_direction(V, F, vars.segment(vnbr, vnbr));
+
+	for (int i = 0; i < fnbr; i++)
+	{
+		int fid = i;
+		int v0 = F(fid, 0);
+		int v1 = F(fid, 1);
+		int v2 = F(fid, 2);
+
+		int lref0 = v0;
+		int lref1 = v1;
+		int lref2 = v2;
+		int lf0 = v0 + vnbr;
+		int lf1 = v1 + vnbr;
+		int lf2 = v2 + vnbr;
+
+		double f00 = vars[lref0];
+		double f01 = vars[lref1];
+		double f02 = vars[lref2];
+		double f10 = vars[lf0];
+		double f11 = vars[lf1];
+		double f12 = vars[lf2];
+
+		// gradient = g0 * fi0 + g1 * fi1 + g2 * fi2
+		Eigen::Vector3d g0 =  get_coff_vec_for_gradient(gradVF, fid, v0);
+		Eigen::Vector3d g1 =  get_coff_vec_for_gradient(gradVF, fid, v1);
+		Eigen::Vector3d g2 =  get_coff_vec_for_gradient(gradVF, fid, v2);
+		
+		// iso = dir0 * f0 + dir1 * f1 + dir2 * f2 
+		Eigen::Vector3d dir0 = V.row(v2) - V.row(v1);
+		Eigen::Vector3d dir1 = V.row(v0) - V.row(v2);
+		Eigen::Vector3d dir2 = V.row(v1) - V.row(v0);
+
+		Eigen::Vector3d dir = directions1.row(fid);
+		Eigen::Vector3d diref = directions0.row(fid);
+		Eigen::Vector3d gradref = g0 * f00 + g1 * f01 + g2 * f02;
+
+		// dir * diref = cos(theta)
+		double scale = dir.norm() * diref.norm();
+
+		tripletes.push_back(Trip(i, lref0, dir0.dot(dir) / scale));
+		tripletes.push_back(Trip(i, lref1, dir1.dot(dir) / scale));
+		tripletes.push_back(Trip(i, lref2, dir2.dot(dir) / scale));
+
+		tripletes.push_back(Trip(i, lf0, dir0.dot(diref) / scale));
+		tripletes.push_back(Trip(i, lf1, dir1.dot(diref) / scale));
+		tripletes.push_back(Trip(i, lf2, dir2.dot(diref) / scale));
+
+		energy[i] = (dir.dot(diref)) / scale - cos(angle_radian);
+
+		// dir * gradref = sin(theta)
+		scale = dir.norm() * gradref.norm();
+
+		tripletes.push_back(Trip(i + fnbr, lref0, g0.dot(dir) / scale));
+		tripletes.push_back(Trip(i + fnbr, lref1, g1.dot(dir) / scale));
+		tripletes.push_back(Trip(i + fnbr, lref2, g2.dot(dir) / scale));
+
+		tripletes.push_back(Trip(i + fnbr, lf0, dir0.dot(gradref) / scale));
+		tripletes.push_back(Trip(i + fnbr, lf1, dir1.dot(gradref) / scale));
+		tripletes.push_back(Trip(i + fnbr, lf2, dir2.dot(gradref) / scale));
+
+		energy[i + fnbr] = (dir.dot(gradref)) / scale - sin(angle_radian);
+	}
+	spMat J;
+	J.resize(energy.size(), vars.size());
+	J.setFromTriplets(tripletes.begin(), tripletes.end());
+	H = J.transpose() * J;
+	B = -J.transpose() * energy;
+
 }
 void lsTools::Run_Level_Set_Opt() {
 	
@@ -2251,7 +2339,7 @@ void lsTools::Run_AAG(Eigen::VectorXd& func0, Eigen::VectorXd& func1, Eigen::Vec
 	analysis_pseudo_geodesic_on_vertices(func1, anas[1]);
 	analysis_pseudo_geodesic_on_vertices(func2, anas[2]);
 	int ninner = anas[0].LocalActInner.size();
-	int final_size = vnbr * 3; // Change this when using more auxilary vars. Only G use auxiliaries
+	int final_size = vnbr * 3; // Change this when using more auxilary vars.
 
 	
 	
@@ -2396,7 +2484,7 @@ void lsTools::Run_AAG(Eigen::VectorXd& func0, Eigen::VectorXd& func1, Eigen::Vec
 // in the order of AGG
 void lsTools::Run_AGG(Eigen::VectorXd& func0, Eigen::VectorXd& func1, Eigen::VectorXd& func2){
 	Eigen::MatrixXd GradValueF[3], GradValueV[3];
-	Eigen::VectorXd PGEnergy[3];
+	Eigen::VectorXd PGEnergy[3], Eangle;
 
 	int vnbr = V.rows();
 	int fnbr = F.rows();
@@ -2417,7 +2505,7 @@ void lsTools::Run_AGG(Eigen::VectorXd& func0, Eigen::VectorXd& func1, Eigen::Vec
 	analysis_pseudo_geodesic_on_vertices(func1, anas[1]);
 	analysis_pseudo_geodesic_on_vertices(func2, anas[2]);
 	int ninner = anas[0].LocalActInner.size();
-	int final_size = vnbr * 3; // Change this when using more auxilary vars. Only G use auxiliaries
+	int final_size = vnbr * 3; // Change this when using more auxilary vars. 
 	
 	if (Glob_lsvars.size() == 0) {
 		
@@ -2463,20 +2551,29 @@ void lsTools::Run_AGG(Eigen::VectorXd& func0, Eigen::VectorXd& func1, Eigen::Vec
 	assemble_AAG_extra_condition(final_size, vnbr, func0, func1, func2, extraH, extraB, extra_energy);
 	H += weight_boundary * extraH;
 	B += weight_boundary * extraB;
-	if (enable_pseudo_geodesic_energy )
+	if (enable_pseudo_geodesic_energy)
 	{
-
-		spMat pg_JTJ[3];
-		Eigen::VectorXd pg_mJTF[3];
+		spMat pg_JTJ[3], faH;
+		Eigen::VectorXd pg_mJTF[3], faB;
 		int vars_start_loc = 0;
+		// A
 		assemble_solver_extreme_cases_part_vertex_based(Glob_lsvars, true, false, anas[0], vars_start_loc, pg_JTJ[0], pg_mJTF[0], PGEnergy[0]);
 		vars_start_loc = vnbr;
+		// G
 		assemble_solver_extreme_cases_part_vertex_based(Glob_lsvars, false, false, anas[1], vars_start_loc, pg_JTJ[1], pg_mJTF[1], PGEnergy[1]);
 		vars_start_loc = vnbr * 2;
+		// G
 		assemble_solver_extreme_cases_part_vertex_based(Glob_lsvars, false, false, anas[2], vars_start_loc, pg_JTJ[2], pg_mJTF[2], PGEnergy[2]);
 		Compute_Auxiliaries = false;
 		H += weight_pseudo_geodesic_energy * (pg_JTJ[0] + pg_JTJ[1] + weight_geodesic* pg_JTJ[2]);
-		B += weight_pseudo_geodesic_energy * (pg_mJTF[0] + pg_mJTF[1] + weight_geodesic* pg_mJTF[2]);
+		B += weight_pseudo_geodesic_energy * (pg_mJTF[0] + pg_mJTF[1] + weight_geodesic * pg_mJTF[2]);
+		if (fix_angle_of_two_levelsets)
+		{
+			// fix angle between the first (A) and the second (G) level set
+			assemble_solver_fix_two_ls_angle(Glob_lsvars, angle_between_two_levelsets, faH, faB, Eangle);
+			H = sum_uneven_spMats(H, weight_fix_two_ls_angle * faH);
+			B = sum_uneven_vectors(B, weight_fix_two_ls_angle * faB);
+		}
 	}
 	
 	H += 1e-6 * weight_mass * spMat(Eigen::VectorXd::Ones(final_size).asDiagonal());
@@ -2539,6 +2636,7 @@ void lsTools::Run_AGG(Eigen::VectorXd& func0, Eigen::VectorXd& func1, Eigen::Vec
 		std::cout << "strip, " << stp_energy[0] << ", "<< stp_energy[1] << ", "<< stp_energy[2] << ", ";
 	}
 	std::cout<<"extra, "<<extra_energy.norm()<<", ";
+	std::cout<<"fixangle, "<<Eangle.norm()<<", ";
 	step_length = dx.norm();
 	std::cout << "step " << step_length << std::endl;
 
