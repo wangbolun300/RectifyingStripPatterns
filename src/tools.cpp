@@ -1665,14 +1665,19 @@ bool seg_seg_intersection_2d(double u0, double u1, double u2, double u3, double 
     mat.computeInverseWithCheck(inv, invertable);
     if (!invertable)
     { // very likely to be parallel
+    // std::cout<<"!!!!invertable"<<std::endl;
         return false;
     }
     Eigen::Vector2d B, result;
     B[0] = u2 - u0;
     B[1] = v2 - v0;
     result = inv * B;
-    u = result[0];
-    v = result[1];
+    double alpha = result[0];
+    double beta = result[1];
+    u = u0 + (u1 - u0) * alpha;
+    v = v0 + (v1 - v0) * alpha;
+    double t = 1 - u - v;
+    // std::cout<<"computed u v t "<<u<<", "<<v<<", "<<t<<std::endl;
     if (u - 1 > SCALAR_ZERO || u < -SCALAR_ZERO)
     {
         return false;
@@ -1681,7 +1686,7 @@ bool seg_seg_intersection_2d(double u0, double u1, double u2, double u3, double 
     {
         return false;
     }
-    double t = 1 - u - v;
+    
     if (t - 1 > SCALAR_ZERO || t < -SCALAR_ZERO)
     {
         return false;
@@ -1735,10 +1740,19 @@ bool seg_seg_intersection_barycenter_coordinate(const CGMesh &lsmesh, const Eige
     get_barycenter_coordinate_of_pts_on_edge(lsmesh, refhd, heh1, tc1, u1, v1);
     get_barycenter_coordinate_of_pts_on_edge(lsmesh, refhd, heh2, tc2, u2, v2);
     get_barycenter_coordinate_of_pts_on_edge(lsmesh, refhd, heh3, tc3, u3, v3);
-    // if(fid0==585){
-    //     std::cout<<"WWWWWe found this "
+    // if (fid0 == 585)
+    // {
+    //     std::cout << "WWWWWe found this triangle" << std::endl;
+    //     std::cout << "vids, " << F.row(fid0) << std::endl;
+    //     std::cout << "the ref hd, " << lsmesh.from_vertex_handle(refhd).idx() << ", " << lsmesh.to_vertex_handle(refhd).idx() << std::endl;
+    //     std::cout<<"u: "<<u0<<", "<<u1<<", "<<u2<<", "<<u3<<std::endl;
+    //     std::cout<<"v: "<<v0<<", "<<v1<<", "<<v2<<", "<<v3<<std::endl;
+    //     bool intersect = seg_seg_intersection_2d(u0, u1, u2, u3, v0, v1, v2, v3, u, v);
     // }
+    // return false;
+
     bool intersect = seg_seg_intersection_2d(u0, u1, u2, u3, v0, v1, v2, v3, u, v);
+    
     if(!intersect){
         return false;
     }
