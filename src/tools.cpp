@@ -1244,6 +1244,24 @@ bool halfedge_has_value(const CGMesh &lsmesh, const Eigen::MatrixXd &V,
     // std::cout<<"has value "<<value<<", vf "<<value_f<<" vt "<<value_t<<", idf "<<id_f<<", idt "<<id_t<<std::endl;
     return true;
 }
+bool halfedge_has_value(const CGMesh &lsmesh, const Eigen::MatrixXd &V,
+                         const Eigen::VectorXd &ls, const CGMesh::HalfedgeHandle &hd, const double value, double &t, Eigen::Vector3d &pt)
+{
+    int id_f=lsmesh.from_vertex_handle(hd).idx();
+    int id_t=lsmesh.to_vertex_handle(hd).idx();
+    double value_f=ls[id_f];
+    double value_t=ls[id_t];
+    t=get_t_of_value(value, value_f, value_t);
+    if(t<0||t>1){
+        return false;
+    }
+    Eigen::Vector3d ver_f=V.row(id_f);
+    Eigen::Vector3d ver_t= V.row(id_t);
+    pt=get_3d_ver_from_t(t, ver_f, ver_t);
+    // std::cout<<"has value "<<value<<", vf "<<value_f<<" vt "<<value_t<<", idf "<<id_f<<", idt "<<id_t<<std::endl;
+    return true;
+}
+
 
 // 
 void get_iso_lines(const Eigen::MatrixXd &V,
@@ -1364,6 +1382,128 @@ void get_iso_lines(const CGMesh &lsmesh, const std::vector<CGMesh::HalfedgeHandl
     }
 
 }
+// the mesh provides the connectivity, loop is the boundary loop
+// left_large indicates if the from ver of each boundary edge is larger value
+void get_iso_lines_baricenter_coord(const CGMesh &lsmesh, const std::vector<CGMesh::HalfedgeHandle>& loop, const Eigen::MatrixXd &V,
+                   const Eigen::MatrixXi &F, const Eigen::VectorXd &ls, double value, std::vector<std::vector<double>> &paras,
+                   std::vector<std::vector<CGMesh::HalfedgeHandle>> &handles,
+                   std::vector<bool>& left_large)
+{
+    paras.clear();
+    handles.clear();
+    left_large.clear();
+    std::vector<CGMesh::HalfedgeHandle> has_value; // these boundary edges has value
+    std::vector<Eigen::Vector3d> start_pts; // these are the computed start/end points
+    std::vector<double> start_ts;
+    for (int i = 0; i < loop.size(); i++)
+    { // find the points on boundary
+
+        CGMesh::HalfedgeHandle bhd;
+        if (lsmesh.face_handle(loop[i]).idx()<0)
+        {
+            bhd=loop[i];
+        }
+        else{
+            bhd=lsmesh.opposite_halfedge_handle(loop[i]);
+        }
+        
+        assert(lsmesh.face_handle(bhd).idx()<0);
+        Eigen::Vector3d intersection;
+        double t;
+        bool found = halfedge_has_value(lsmesh, V, ls, bhd, value, t, intersection);
+        if(!found){
+            continue;
+        }
+        // find the point on bnd, record the halfedge, the intersection pt and the para.
+        has_value.push_back(bhd);
+        start_pts.push_back(intersection);
+        start_ts.push_back(t);
+        int id0=lsmesh.from_vertex_handle(bhd).idx();
+        int id1=lsmesh.to_vertex_handle(bhd).idx();
+        if(ls[id0]>ls[id1]){
+            left_large.push_back(true);
+        }
+        else{
+            left_large.push_back(false);
+        }
+    }
+    int bsize=has_value.size();
+    // std::vector<bool> checked(bsize); // show if this boundary edge is checked
+    // for(int i=0;i<bsize;i++){
+    //     checked[i]=false;
+    // }
+
+    for(int i=0;i<bsize;i++){
+        // if(checked[i]){
+        //     continue;
+        // }
+        // checked[i]=true;
+        if(left_large[i]==false){ // only count for the shoouting in boundaries
+            continue;
+        }
+
+        std::vector<Eigen::Vector3d> tmpts; // the vers for each polyline
+        std::vector<double> tmp_ts;
+        std::vector<CGMesh::HalfedgeHandle> tmp_hds;
+        CGMesh::HalfedgeHandle thd=has_value[i]; // the start handle
+        tmpts.push_back(start_pts[i]);
+        tmp_ts.push_back(start_ts[i]);
+        tmp_hds.push_back(thd);
+        while(1){
+            CGMesh::HalfedgeHandle ophd=lsmesh.opposite_halfedge_handle(thd);
+            int fid = lsmesh.face_handle(ophd).idx();
+            if(fid<0){ // if already reached a boundary
+                for(int j=0;j<bsize;j++){
+                    if(ophd==has_value[j]){
+                        // if(checked[j]){
+                        //     std::cout<<"TOPOLOGY WRONG"<<std::endl;
+                        // }
+                        // checked[j]=true;
+                        break;
+                    }
+                }
+                paras.push_back(tmp_ts);
+                handles.push_back(tmp_hds);
+                break;
+            }
+            // find the next pt
+            int id_f=lsmesh.from_vertex_handle(ophd).idx();
+            int id_t=lsmesh.to_vertex_handle(ophd).idx();
+            CGMesh::HalfedgeHandle prev=lsmesh.prev_halfedge_handle(ophd);
+            CGMesh::HalfedgeHandle next=lsmesh.next_halfedge_handle(ophd);
+            int bid=lsmesh.from_vertex_handle(prev).idx();
+            if (bid == id_f || bid == id_t)
+            {
+                std::cout << "wrong topology" << std::endl;
+            }
+            if (ls[bid] == value)
+            { // a degenerate case where the value is on a vertex of the mesh
+                value += 1e-16;
+            }
+            Eigen::Vector3d intersect;
+            double t;
+            bool found = halfedge_has_value(lsmesh, V, ls, prev, value, t, intersect);
+            if(found){
+                tmpts.push_back(intersect);
+                tmp_ts.push_back(t);
+                tmp_hds.push_back(prev);
+                thd=prev;
+                continue;
+            }
+            found = halfedge_has_value(lsmesh, V, ls, next, value, t, intersect);
+            if(found){
+                tmpts.push_back(intersect);
+                tmp_ts.push_back(t);
+                tmp_hds.push_back(next);
+                thd=next;
+                continue;
+            }
+            std::cout<<"Both two halfedges did not find the correct value, error"<<std::endl;
+        }
+    }
+
+}
+
 bool two_triangles_connected(const Eigen::MatrixXi& F, const int fid0, const int fid1){
     if(fid0==fid1){
         return true;
@@ -1380,7 +1520,21 @@ bool two_triangles_connected(const Eigen::MatrixXi& F, const int fid0, const int
     return false;
 }
 
+double point_seg_distance(const Eigen::Vector3d &pt, const Eigen::Vector3d &E0, const Eigen::Vector3d &E1)
+{
+    double d0 = (E0 - pt).dot(E1 - E0);
+    double d1 = (E1 - E0).dot(E1 - E0);
+    double t = -d0 / d1;
+    if (t >= 0 && t <= 1)
+    {
+        Eigen::Vector3d proj = E0 + t * (E1 - E0);
+        return (pt - proj).norm();
+    }
+    return std::min((pt - E0).norm(), (pt - E1).norm());
+}
+
 #include<igl/segment_segment_intersect.h>
+#include<igl/project_to_line.h>
 // TODO this is quadratic computation, need use tree structure
 bool get_polyline_intersection(const Eigen::MatrixXd &V, const Eigen::MatrixXi &F,
                                const std::vector<Eigen::Vector3d> &poly0_e0, const std::vector<Eigen::Vector3d> &poly0_e1,
@@ -1389,6 +1543,8 @@ bool get_polyline_intersection(const Eigen::MatrixXd &V, const Eigen::MatrixXi &
 {
     assert(poly0_e0.size() == poly0_e1.size());
     assert(poly1_e0.size() == poly1_e1.size());
+    double dist_tol = 1e-5;
+    double distance = 1e10;
     for (int i = 0; i < poly0_e0.size(); i++)
     {
         int f0 = fid0[i];
@@ -1406,17 +1562,233 @@ bool get_polyline_intersection(const Eigen::MatrixXd &V, const Eigen::MatrixXi &
             }
             double u, v;
             bool intersect = igl::segment_segment_intersect(e0, dir0, e1, dir1, u, v);
-            if (intersect)
+            // double utol = dist_tol / dir0.norm();
+            // double vtol = dist_tol / dir1.norm();
+            // if ((u - 1.) > utol || u < -utol)// convert distance tolerance to parameter tolerance
+            //     continue;
+
+            // if ((v - 1.) > vtol || v < -vtol)
+            //     continue;
+            Eigen::Vector3d point = e0 + u * dir0;
+            result = point;
+            double dis0 = point_seg_distance(point, poly0_e0[i], poly0_e1[i]);
+            double dis1 = point_seg_distance(point, poly1_e0[j], poly1_e1[j]);
+            if (dis0 > dist_tol || dis1 > dist_tol)
             {
-                result = e0 + u * dir0;
-                return true;
+                continue;
             }
+
             if(print){
-                std::cout<<"e0, "<<e0.transpose()<<" e0e, "<<poly0_e1[i].transpose()<<", e1, "<<e1.transpose()<<" e1e, "<<poly1_e1[j].transpose()
-                <<", u and v, "<<u<<", "<<v<<std::endl;
+                std::cout<<"intersect! the intersection point is ("<<point.transpose()<<"\n";
+            }
+
+            return true;
+
+            // if(print){
+            //     std::cout<<"e0, "<<e0.transpose()<<" e0e, "<<poly0_e1[i].transpose()<<", e1, "<<e1.transpose()<<" e1e, "<<poly1_e1[j].transpose()
+            //     <<", u and v, "<<u<<", "<<v<<std::endl;
+            // }
+        }
+    }
+    return false;
+}
+
+int get_the_fid_of_segment(const CGMesh &lsmesh, const CGMesh::HalfedgeHandle &h0, const CGMesh::HalfedgeHandle &h1, bool &oppo0, bool &oppo1){
+    CGMesh::HalfedgeHandle h0op= lsmesh.opposite_halfedge_handle(h0);
+    CGMesh::HalfedgeHandle h1op= lsmesh.opposite_halfedge_handle(h1);
+    int f0 = lsmesh.face_handle(h0).idx();
+    int f0op = lsmesh.face_handle(h0op).idx();
+    int f1 = lsmesh.face_handle(h1).idx();
+    int f1op = lsmesh.face_handle(h1op).idx();
+    int fid = -1;
+    if (f0 == f1)
+    {
+        fid = f0;
+        oppo0 = false;
+        oppo1 = false;
+    }
+    if (f0 == f1op)
+    {
+        fid = f0;
+        oppo0 = false;
+        oppo1 = true;
+    }
+    if (f0op == f1)
+    {
+        fid = f0op;
+        oppo0 = true;
+        oppo1 = false;
+    }
+    if (f0op == f1op)
+    {
+        fid = f0op;
+        oppo0 = true;
+        oppo1 = true;
+    }
+    return fid;
+}
+
+// the barycenter coordinates should be (u,v,t). since we assume the point is on heh which corresponds to the same face as href, t = 1-u-v.
+// we can just say u and v is enough to represent the coordinates
+void get_barycenter_coordinate_of_pts_on_edge(const CGMesh &lsmesh, const CGMesh::HalfedgeHandle &href, const CGMesh::HalfedgeHandle &heh,
+                                              const double para, double &u, double &v)
+{
+    if (heh == href)
+    {
+        u = 0;
+        v = 1 - para;
+        return;
+    }
+    if (heh == lsmesh.next_halfedge_handle(href))
+    {
+        u = para;
+        v = 0;
+        return;
+    }
+    if (heh == lsmesh.prev_halfedge_handle(href))
+    {
+        u = 1 - para;
+        v = para;
+        return;
+    }
+    std::cout << "The href and heh do not belong to the same triangle, ERROR!!!" << std::endl;
+}
+bool seg_seg_intersection_2d(double u0, double u1, double u2, double u3, double v0, double v1, double v2, double v3, double &u, double &v)
+{
+    Eigen::Matrix2d mat, inv;
+    mat(0, 0) = u1 - u0;
+    mat(0, 1) = -(u3 - u2);
+    mat(1, 0) = v1 - v0;
+    mat(1, 1) = -(v3 - v2);
+    bool invertable;
+
+    mat.computeInverseWithCheck(inv, invertable);
+    if (!invertable)
+    { // very likely to be parallel
+        return false;
+    }
+    Eigen::Vector2d B, result;
+    B[0] = u2 - u0;
+    B[1] = v2 - v0;
+    result = inv * B;
+    u = result[0];
+    v = result[1];
+    if (u - 1 > SCALAR_ZERO || u < -SCALAR_ZERO)
+    {
+        return false;
+    }
+    if (v - 1 > SCALAR_ZERO || v < -SCALAR_ZERO)
+    {
+        return false;
+    }
+    double t = 1 - u - v;
+    if (t - 1 > SCALAR_ZERO || t < -SCALAR_ZERO)
+    {
+        return false;
+    }
+    return true;
+}
+
+bool seg_seg_intersection_barycenter_coordinate(const CGMesh &lsmesh, const Eigen::MatrixXd &V, const Eigen::MatrixXi &F,
+                                                const CGMesh::HalfedgeHandle &h0, const CGMesh::HalfedgeHandle &h1,
+                                                const CGMesh::HalfedgeHandle &h2, const CGMesh::HalfedgeHandle &h3,
+                                                const double t0, const double t1, const double t2, const double t3, Eigen::Vector3d &pt)
+{
+    bool oppo0, oppo1, oppo2, oppo3;
+    int fid0 = get_the_fid_of_segment(lsmesh, h0, h1, oppo0, oppo1);
+    int fid1 = get_the_fid_of_segment(lsmesh, h2, h3, oppo2, oppo3);
+    if (fid0 == -1 || fid1 == -1)
+    {
+        std::cout << "Topology wrong in seg_seg_intersection_barycenter_coordinate() !!!" << std::endl;
+        return false;
+    }
+    if (fid0 != fid1)// the two segments are not in the same triangle.
+    {
+        return false;
+    }
+    CGMesh::HalfedgeHandle heh0 = h0, heh1= h1, heh2 = h2, heh3 = h3;// the oriented half edges
+    double tc0 = t0, tc1 = t1, tc2 = t2, tc3 = t3;// the paras on the oriented half edges
+    if (oppo0)
+    {
+        heh0 = lsmesh.opposite_halfedge_handle(heh0);
+        tc0 = 1 - tc0;
+    }
+    if (oppo1)
+    {
+        heh1 = lsmesh.opposite_halfedge_handle(heh1);
+        tc1 = 1 - tc1;
+    }
+    if (oppo2)
+    {
+        heh2 = lsmesh.opposite_halfedge_handle(heh2);
+        tc2 = 1 - tc2;
+    }
+    if (oppo3)
+    {
+        heh3 = lsmesh.opposite_halfedge_handle(heh3);
+        tc3 = 1 - tc3;
+    }
+    // now the half edges are correctly oriented
+    double u0, v0, u1, v1, u2, v2, u3, v3, u, v;
+    CGMesh::HalfedgeHandle refhd = heh0;
+    get_barycenter_coordinate_of_pts_on_edge(lsmesh, refhd, heh0, tc0, u0, v0);
+    get_barycenter_coordinate_of_pts_on_edge(lsmesh, refhd, heh1, tc1, u1, v1);
+    get_barycenter_coordinate_of_pts_on_edge(lsmesh, refhd, heh2, tc2, u2, v2);
+    get_barycenter_coordinate_of_pts_on_edge(lsmesh, refhd, heh3, tc3, u3, v3);
+    // if(fid0==585){
+    //     std::cout<<"WWWWWe found this "
+    // }
+    bool intersect = seg_seg_intersection_2d(u0, u1, u2, u3, v0, v1, v2, v3, u, v);
+    if(!intersect){
+        return false;
+    }
+    double t = 1 - u - v;
+    int vid0 = lsmesh.from_vertex_handle(heh0).idx();
+    int vid1 = lsmesh.to_vertex_handle(heh0).idx();
+    CGMesh::HalfedgeHandle next = lsmesh.next_halfedge_handle(heh0);
+    int vid2 = lsmesh.to_vertex_handle(next).idx();
+
+    pt = V.row(vid0) * v + V.row(vid1) * t + V.row(vid2) * u;
+    return true;
+}
+
+bool get_polyline_intersection_barycenter_coordinate(const CGMesh &lsmesh, const Eigen::MatrixXd &V, const Eigen::MatrixXi &F,
+                                                     const std::vector<std::vector<CGMesh::HalfedgeHandle>> &hlist0,
+                                                     const std::vector<std::vector<CGMesh::HalfedgeHandle>> &hlist1,
+                                                     const std::vector<std::vector<double>> &plist0,
+                                                     const std::vector<std::vector<double>> &plist1,
+                                                     Eigen::Vector3d &result, bool print = false)
+{
+    double dist_tol = 1e-5;
+    double distance = 1e10;
+    for (int i = 0; i < plist0.size(); i++)
+    {
+        for (int j = 0; j < plist0[i].size() - 1; j++)
+        {
+            double t0 = plist0[i][j];
+            double t1 = plist0[i][j + 1];
+            CGMesh::HalfedgeHandle h0 = hlist0[i][j];
+            CGMesh::HalfedgeHandle h1 = hlist0[i][j + 1];
+            for (int k = 0; k < plist1.size(); k++)
+            {
+                for (int l = 0; l < plist1[k].size() - 1; l++)
+                {
+                    double t2 = plist1[k][l];
+                    double t3 = plist1[k][l + 1];
+                    CGMesh::HalfedgeHandle h2 = hlist1[k][l];
+                    CGMesh::HalfedgeHandle h3 = hlist1[k][l + 1];
+                    Eigen::Vector3d pt;
+                    bool intersect = seg_seg_intersection_barycenter_coordinate(lsmesh, V, F, h0, h1, h2, h3, t0, t1, t2, t3, pt);
+                    if (intersect)
+                    {
+                        result = pt;
+                        return true;
+                    }
+                }
             }
         }
     }
+    
     return false;
 }
 // diff means the input is different from output
@@ -1969,10 +2341,10 @@ std::vector<int> element_ids_for_not_computed_vers(const Eigen::VectorXi &vec)
 
 // threadshold_nbr is the nbr of quads we want to discard when too few quads in a row
 void visual_extract_levelset_web(const CGMesh &lsmesh, const Eigen::MatrixXd &V,
-                          const Eigen::MatrixXi &F, const Eigen::VectorXd &ls0, const Eigen::VectorXd &ls1,
-                          const int expect_nbr_ls0, const int expect_nbr_ls1, Eigen::MatrixXd &E0, Eigen::MatrixXd& E1,
-                          Eigen::MatrixXd &E2, Eigen::MatrixXd& E3,
-                          bool even_pace=false)
+                                 const Eigen::MatrixXi &F, const Eigen::VectorXd &ls0, const Eigen::VectorXd &ls1,
+                                 const int expect_nbr_ls0, const int expect_nbr_ls1, Eigen::MatrixXd &E0, Eigen::MatrixXd &E1,
+                                 Eigen::MatrixXd &E2, Eigen::MatrixXd &E3,
+                                 bool even_pace, bool debug, int dbg0, int dbg1)
 {
     std::vector<std::vector<Eigen::Vector3d>> ivs;                                    // the intersection vertices
     Eigen::MatrixXi gridmat;                                                          // the matrix for vertex
@@ -2024,12 +2396,22 @@ void visual_extract_levelset_web(const CGMesh &lsmesh, const Eigen::MatrixXd &V,
     }
     for (int i = 0; i < nbr_ls0; i++)
     {
+        if(debug){
+            if(i != dbg0){
+                continue;
+            }
+        }
         double vl = lsv0[i];
         get_iso_lines(V, F, ls0, vl, poly0_e0[i], poly0_e1[i], fid0[i]);
         // std::cout<<i<<" size "<<poly0_e0[i].size()<<"\n";
     }
     for (int i = 0; i < nbr_ls1; i++)
     {
+        if(debug){
+            if(i != dbg1){
+                continue;
+            }
+        }
         double vl = lsv1[i];
         get_iso_lines(V, F, ls1, vl, poly1_e0[i], poly1_e1[i], fid1[i]);
         // std::cout<<i<<" size "<<poly1_e0[i].size()<<"\n";
@@ -2070,6 +2452,155 @@ void visual_extract_levelset_web(const CGMesh &lsmesh, const Eigen::MatrixXd &V,
             enbr++;
         }
     }
+    if(debug){
+        Eigen::Vector3d ipoint;
+        bool intersect = get_polyline_intersection(V, F, poly0_e0[dbg0], poly0_e1[dbg0], poly1_e0[dbg1], poly1_e1[dbg1], fid0[dbg0], fid1[dbg1], ipoint, true);
+        std::cout<<"intersect? "<<intersect<<"\nintersection point\n"<<ipoint.transpose()<<std::endl;
+    }
+    
+}
+// threadshold_nbr is the nbr of quads we want to discard when too few quads in a row
+void visual_extract_levelset_web_stable(const CGMesh &lsmesh, const std::vector<CGMesh::HalfedgeHandle>& loop, const Eigen::MatrixXd &V,
+                                 const Eigen::MatrixXi &F, const Eigen::VectorXd &ls0, const Eigen::VectorXd &ls1,
+                                 const int expect_nbr_ls0, const int expect_nbr_ls1, Eigen::MatrixXd &E0, Eigen::MatrixXd &E1,
+                                 Eigen::MatrixXd &E2, Eigen::MatrixXd &E3,
+                                 bool even_pace, bool debug, int dbg0, int dbg1)
+{
+    std::vector<std::vector<Eigen::Vector3d>> ivs;                                    // the intersection vertices
+    Eigen::MatrixXi gridmat;                                                          // the matrix for vertex
+    Eigen::VectorXd lsv0, lsv1;                                                       // the extracted level set values;
+    std::vector<std::vector<Eigen::Vector3d>> poly0_e0, poly0_e1, poly1_e0, poly1_e1; // polylines
+    std::vector<std::vector<std::vector<double>>> paras0, paras1;
+    std::vector<std::vector<std::vector<CGMesh::HalfedgeHandle>>> hds0, hds1; // face ids of each polyline segment
+    std::vector<std::vector<int>> fid0, fid1;                                         // face ids of each polyline segment
+    std::vector<Eigen::Vector3d> verlist;
+    if(ls0.size()!=ls1.size()){
+        std::cout<<"ERROR, Please use the correct level sets"<<std::endl;
+    }
+    int nbr_ls0, nbr_ls1;
+    if(!even_pace){
+        nbr_ls0=expect_nbr_ls0;
+        nbr_ls1=expect_nbr_ls1;
+        get_level_set_sample_values(ls0, nbr_ls0, lsv0);
+        get_level_set_sample_values(ls1, nbr_ls1, lsv1);
+    }
+    else{
+        double pace = std::min((ls0.maxCoeff() - ls0.minCoeff()) / (expect_nbr_ls0 + 1), (ls1.maxCoeff() - ls1.minCoeff()) / (expect_nbr_ls1 + 1));
+        nbr_ls0 = (ls0.maxCoeff() - ls0.minCoeff()) / pace + 1;
+        nbr_ls1 = (ls1.maxCoeff() - ls1.minCoeff()) / pace + 1;
+        get_level_set_sample_values_even_pace(ls0, nbr_ls0, pace, lsv0);
+        get_level_set_sample_values_even_pace(ls1, nbr_ls1, pace, lsv1);
+    }
+
+    ivs.resize(nbr_ls0);
+    verlist.reserve(nbr_ls0 * nbr_ls1);
+    gridmat = Eigen::MatrixXi::Ones(nbr_ls0, nbr_ls1) * -1; // initially there is no quad patterns
+    lsv0.resize(nbr_ls0);
+    lsv1.resize(nbr_ls1);
+    poly0_e0.resize(nbr_ls0);
+    poly0_e1.resize(nbr_ls0);
+    poly1_e0.resize(nbr_ls1);
+    poly1_e1.resize(nbr_ls1);
+    fid0.resize(nbr_ls0);
+    fid1.resize(nbr_ls1);
+    paras0.resize(nbr_ls0);
+    paras1.resize(nbr_ls1);
+    hds0.resize(nbr_ls0);
+    hds1.resize(nbr_ls1);
+    
+    // std::cout<<"sp_0 \n"<<lsv0.transpose()<<"\nsp_1\n"<<lsv1.transpose()<<std::endl;
+    for (int i = 0; i < nbr_ls0; i++)
+    {
+        double vl = lsv0[i];
+        std::vector<bool> left_large;
+        get_iso_lines_baricenter_coord(lsmesh, loop, V, F, ls0, vl, paras0[i], hds0[i], left_large);
+        // std::cout<<i<<" size "<<poly0_e0[i].size()<<"\n";
+    }
+    for (int i = 0; i < nbr_ls1; i++)
+    {
+        double vl = lsv1[i];
+        std::vector<bool> left_large;
+        get_iso_lines_baricenter_coord(lsmesh, loop, V, F, ls1, vl, paras1[i], hds1[i], left_large);
+        // std::cout<<i<<" size "<<poly1_e0[i].size()<<"\n";
+    }
+    for (int i = 0; i < nbr_ls0; i++)
+    {
+        ivs[i].resize(nbr_ls1);
+        poly0_e0[i].reserve(nbr_ls1);
+        poly0_e1[i].reserve(nbr_ls1);
+        fid0[i].reserve(nbr_ls1);
+    }
+    for (int i = 0; i < nbr_ls1; i++)
+    {
+        poly1_e0[i].reserve(nbr_ls0);
+        poly1_e1[i].reserve(nbr_ls0);
+        fid1[i].reserve(nbr_ls0);
+    }
+    for (int i = 0; i < nbr_ls0; i++)
+    {
+        if(debug){
+            if(i != dbg0){
+                continue;
+            }
+        }
+        double vl = lsv0[i];
+        get_iso_lines(V, F, ls0, vl, poly0_e0[i], poly0_e1[i], fid0[i]);
+        // std::cout<<i<<" size "<<poly0_e0[i].size()<<"\n";
+    }
+    for (int i = 0; i < nbr_ls1; i++)
+    {
+        if(debug){
+            if(i != dbg1){
+                continue;
+            }
+        }
+        double vl = lsv1[i];
+        get_iso_lines(V, F, ls1, vl, poly1_e0[i], poly1_e1[i], fid1[i]);
+        // std::cout<<i<<" size "<<poly1_e0[i].size()<<"\n";
+    }
+    int enbr = 0;
+    for (auto pl : poly0_e0)
+    {
+        enbr += pl.size();
+    }
+    E0.resize(enbr, 3);
+    E1.resize(enbr, 3);
+    
+    enbr = 0;
+    for (auto pl : poly1_e0)
+    {
+        enbr += pl.size();
+    }
+    E2.resize(enbr, 3);
+    E3.resize(enbr, 3);
+
+    enbr = 0;
+    for (int i = 0; i < poly0_e0.size(); i++)
+    {
+        for (int j = 0; j < poly0_e0[i].size(); j++)
+        {
+            E0.row(enbr) = poly0_e0[i][j];
+            E1.row(enbr) = poly0_e1[i][j];
+            enbr++;
+        }
+    }
+    enbr = 0;
+    for (int i = 0; i < poly1_e0.size(); i++)
+    {
+        for (int j = 0; j < poly1_e0[i].size(); j++)
+        {
+            E2.row(enbr) = poly1_e0[i][j];
+            E3.row(enbr) = poly1_e1[i][j];
+            enbr++;
+        }
+    }
+    if(debug){
+        Eigen::Vector3d ipoint;
+        bool intersect = get_polyline_intersection_barycenter_coordinate(lsmesh, V, F, hds0[dbg0], hds1[dbg1], paras0[dbg0], paras1[dbg1], ipoint, true);
+        std::cout << "intersect? " << intersect << "\nintersection point\n"
+                  << ipoint.transpose() << std::endl;
+    }
+    
 }
 
 // void filter_out_isolate_vers(void)
@@ -2149,6 +2680,137 @@ void extract_levelset_web(const CGMesh &lsmesh, const Eigen::MatrixXd &V,
         {
             Eigen::Vector3d ipoint;
             bool intersect = get_polyline_intersection(V, F, poly0_e0[i], poly0_e1[i], poly1_e0[j], poly1_e1[j], fid0[i], fid1[j], ipoint);
+            if (intersect)
+            {
+                // double dis = 
+                verlist.push_back(ipoint);
+                gridmat(i, j) = vnbr;
+                vnbr++;
+            }
+        }
+        // The following pars are for debugging
+        // Eigen::VectorXi cv=gridmat.row(i);
+        // std::vector<int> problems = element_ids_for_not_computed_vers(cv);
+        // if(problems.size()>0){
+        //     std::cout<<i<<" this row has missing points \n"<<cv.transpose()<<" size, "<<problems.size()<<std::endl;
+            
+        //     for(int j: problems){
+        //         Eigen::Vector3d ipoint;
+        //         get_polyline_intersection(V, F, poly0_e0[i], poly0_e1[i], poly1_e0[j], poly1_e1[j], fid0[i], fid1[j], ipoint, true);
+        //     }
+        // }
+    }
+
+    std::cout << "extracted ver nbr " << verlist.size() << std::endl;
+    vers = vec_list_to_matrix(verlist);
+    
+    if (even_pace)
+    {
+        std::cout << "The even pace quad, pace, " << std::min((ls0.maxCoeff() - ls0.minCoeff()) / (expect_nbr_ls0 + 1), (ls1.maxCoeff() - ls1.minCoeff()) / (expect_nbr_ls1 + 1))
+                  << std::endl;
+    }
+    std::vector<Eigen::VectorXi> vrl;
+    std::vector<Eigen::VectorXi> vrr;
+    std::vector<Eigen::VectorXi> vcl;
+    std::vector<Eigen::VectorXi> vcr;
+    std::vector<Eigen::VectorXi> vr;
+    std::vector<Eigen::VectorXi> vc;
+    Eigen::MatrixXi qds;
+    extract_web_from_index_mat(gridmat, Faces, threadshold_nbr, vrl, vrr, vcl, vcr, vr, vc, qds);
+
+    // remove duplicated vertices
+    Eigen::VectorXi mapping;
+    int real_nbr;
+    construct_duplication_mapping(vers.rows(), Faces, mapping, real_nbr);
+    // check if mapping is correct.
+    // for(int i=0;i<mapping.size();i++){
+
+    // }
+
+
+    std::cout<<"mapping constructed"<<std::endl;
+    // std::cout<<mapping<<std::endl;
+    vers = remove_ver_duplicated(vers, mapping, real_nbr);
+    Faces = remove_fac_duplicated(Faces, mapping);
+    vrl = remove_quad_info_duplicated(vrl, mapping);
+    vrr = remove_quad_info_duplicated(vrr, mapping);
+    vcl = remove_quad_info_duplicated(vcl, mapping);
+    vcr = remove_quad_info_duplicated(vcr, mapping);
+    vr = remove_quad_info_duplicated(vr, mapping);
+    vc = remove_quad_info_duplicated(vc, mapping);
+    
+    std::cout<<"Saving the info for each row or col of quads"<<std::endl;
+    std::string fname = igl::file_dialog_save();
+    save_quad_left_right_info(fname, vrl, vrr, vcl, vcr, vr, vc);
+    std::cout<<"Each row and col of quads got saved"<<std::endl;
+}
+
+
+// threadshold_nbr is the nbr of quads we want to discard when too few quads in a row
+// this function uses the baricenter coordinates to solve intersection points
+void extract_levelset_web_stable(const CGMesh &lsmesh, const std::vector<CGMesh::HalfedgeHandle>& loop, const Eigen::MatrixXd &V,
+                          const Eigen::MatrixXi &F, const Eigen::VectorXd &ls0, const Eigen::VectorXd &ls1,
+                          const int expect_nbr_ls0, const int expect_nbr_ls1, const int threadshold_nbr,
+                          Eigen::MatrixXd &vers, Eigen::MatrixXi &Faces, bool even_pace=false)
+{
+    Eigen::MatrixXi gridmat;    // the matrix for vertex
+    Eigen::VectorXd lsv0, lsv1; // the extracted level set values;
+    std::vector<std::vector<std::vector<double>>> paras0, paras1;
+    std::vector<std::vector<std::vector<CGMesh::HalfedgeHandle>>> hds0, hds1; // face ids of each polyline segment
+    std::vector<Eigen::Vector3d> verlist;
+    if (ls0.size() != ls1.size())
+    {
+        std::cout << "ERROR, Please use the correct level sets" << std::endl;
+    }
+    int nbr_ls0, nbr_ls1;
+    if (!even_pace)
+    {
+        nbr_ls0 = expect_nbr_ls0;
+        nbr_ls1 = expect_nbr_ls1;
+        get_level_set_sample_values(ls0, nbr_ls0, lsv0);
+        get_level_set_sample_values(ls1, nbr_ls1, lsv1);
+    }
+    else
+    {
+        double pace = std::min((ls0.maxCoeff() - ls0.minCoeff()) / (expect_nbr_ls0 + 1), (ls1.maxCoeff() - ls1.minCoeff()) / (expect_nbr_ls1 + 1));
+        nbr_ls0 = (ls0.maxCoeff() - ls0.minCoeff()) / pace + 1;
+        nbr_ls1 = (ls1.maxCoeff() - ls1.minCoeff()) / pace + 1;
+        get_level_set_sample_values_even_pace(ls0, nbr_ls0, pace, lsv0);
+        get_level_set_sample_values_even_pace(ls1, nbr_ls1, pace, lsv1);
+    }
+
+    verlist.reserve(nbr_ls0 * nbr_ls1);
+    gridmat = Eigen::MatrixXi::Ones(nbr_ls0, nbr_ls1) * -1; // initially there is no quad patterns
+    lsv0.resize(nbr_ls0);
+    lsv1.resize(nbr_ls1);
+
+    paras0.resize(nbr_ls0);
+    paras1.resize(nbr_ls1);
+    hds0.resize(nbr_ls0);
+    hds1.resize(nbr_ls1);
+    
+    // std::cout<<"sp_0 \n"<<lsv0.transpose()<<"\nsp_1\n"<<lsv1.transpose()<<std::endl;
+    for (int i = 0; i < nbr_ls0; i++)
+    {
+        double vl = lsv0[i];
+        std::vector<bool> left_large;
+        get_iso_lines_baricenter_coord(lsmesh, loop, V, F, ls0, vl, paras0[i], hds0[i], left_large);
+        // std::cout<<i<<" size "<<poly0_e0[i].size()<<"\n";
+    }
+    for (int i = 0; i < nbr_ls1; i++)
+    {
+        double vl = lsv1[i];
+        std::vector<bool> left_large;
+        get_iso_lines_baricenter_coord(lsmesh, loop, V, F, ls1, vl, paras1[i], hds1[i], left_large);
+        // std::cout<<i<<" size "<<poly1_e0[i].size()<<"\n";
+    }
+    int vnbr = 0;
+    for (int i = 0; i < nbr_ls0; i++)
+    {
+        for (int j = 0; j < nbr_ls1; j++)
+        {
+            Eigen::Vector3d ipoint;
+            bool intersect = get_polyline_intersection_barycenter_coordinate(lsmesh, V, F, hds0[i], hds1[j], paras0[i], paras1[j], ipoint);
             if (intersect)
             {
                 // double dis = 
@@ -3138,6 +3800,9 @@ void lsTools::show_traced_binormals(Eigen::MatrixXd &bE0, Eigen::MatrixXd &bE1, 
 void lsTools::show_max_pg_energy(Eigen::VectorXd &e)
 {
     int ninner = anas[0].LocalActInner.size();
+    if(ninner==0){
+        return;
+    }
     int vnbr = V.rows();
     int rep = PGE.size() / ninner;
     // Eigen::VectorXd result = Eigen::VectorXd::Zero(vnbr);
@@ -3155,6 +3820,9 @@ void lsTools::show_max_pg_energy(Eigen::VectorXd &e)
 void lsTools::show_max_pg_energy_all(Eigen::MatrixXd &energy)
 {
     int ninner = anas[0].LocalActInner.size();
+    if(ninner==0){
+        return;
+    }
     int vnbr = V.rows();
     int rep = PGE.size() / ninner;
     Eigen::MatrixXd result = Eigen::MatrixXd::Zero(vnbr, rep);

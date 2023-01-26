@@ -53,6 +53,10 @@ void extract_levelset_web(const CGMesh &lsmesh, const Eigen::MatrixXd &V,
                           const Eigen::MatrixXi &F, const Eigen::VectorXd &ls0, const Eigen::VectorXd &ls1,
                           const int nbr_ls0, const int nbr_ls1, const int threadshold_nbr,
                           Eigen::MatrixXd &vers, Eigen::MatrixXi &Faces, bool even_pace);
+void extract_levelset_web_stable(const CGMesh &lsmesh, const std::vector<CGMesh::HalfedgeHandle>& loop, const Eigen::MatrixXd &V,
+                          const Eigen::MatrixXi &F, const Eigen::VectorXd &ls0, const Eigen::VectorXd &ls1,
+                          const int expect_nbr_ls0, const int expect_nbr_ls1, const int threadshold_nbr,
+                          Eigen::MatrixXd &vers, Eigen::MatrixXi &Faces, bool even_pace);
 void extract_shading_lines(const CGMesh &lsmesh, const Eigen::MatrixXd &V, const std::vector<CGMesh::HalfedgeHandle> &loop,
                            const Eigen::MatrixXi &F, const Eigen::VectorXd &ls,
                            const int expect_nbr_ls);
@@ -75,7 +79,12 @@ void visual_extract_levelset_web(const CGMesh &lsmesh, const Eigen::MatrixXd &V,
                           const Eigen::MatrixXi &F, const Eigen::VectorXd &ls0, const Eigen::VectorXd &ls1,
                           const int expect_nbr_ls0, const int expect_nbr_ls1, Eigen::MatrixXd &E0, Eigen::MatrixXd& E1,
                           Eigen::MatrixXd &E2, Eigen::MatrixXd& E3,
-                          bool even_pace);
+                          bool even_pace = false, bool debug = false, int dbg0 = -1, int dbg1 = -1);
+void visual_extract_levelset_web_stable(const CGMesh &lsmesh, const std::vector<CGMesh::HalfedgeHandle>& loop, const Eigen::MatrixXd &V,
+                                 const Eigen::MatrixXi &F, const Eigen::VectorXd &ls0, const Eigen::VectorXd &ls1,
+                                 const int expect_nbr_ls0, const int expect_nbr_ls1, Eigen::MatrixXd &E0, Eigen::MatrixXd &E1,
+                                 Eigen::MatrixXd &E2, Eigen::MatrixXd &E3,
+                                 bool even_pace, bool debug, int dbg0, int dbg1);
 CGMesh::HalfedgeHandle boundary_halfedge(const CGMesh& lsmesh, const CGMesh::HalfedgeHandle& boundary_edge);
 void select_mesh_boundary_curve_on_boundary_loop(CGMesh &lsmesh, const Eigen::MatrixXd &V, const int loopid,
                                                  const int start_edge, const int nbr_edges,

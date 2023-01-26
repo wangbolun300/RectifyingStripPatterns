@@ -77,7 +77,12 @@ namespace lscif
 	double dbg_dbl2 = 60;
 	double vector_scaling = 1;
 	int extracted_nbr = 5;
+	bool debug_flag = false;
 	std::vector<int> fixedVertices;
+	double ptInx = 0;
+	double ptIny = 0;
+	double ptInz = 0;
+
 
 	int OpIter = 10;
 	CGMesh mesh;
@@ -632,13 +637,26 @@ int main(int argc, char *argv[])
 
 		if (ImGui::CollapsingHeader("Debug input", ImGuiTreeNodeFlags_CollapsingHeader))
 		{
-			// Expose variable directly ...
+			ImGui::Checkbox("debugFlag", &lscif::debug_flag);
 			ImGui::InputInt("int", &lscif::dbg_int, 0, 0);
 			ImGui::InputInt("int2", &lscif::dbg_int2, 0, 0);
 			ImGui::InputDouble("double", &lscif::dbg_dbl, 0, 0, "%.4f");
 			ImGui::InputDouble("double2", &lscif::dbg_dbl2, 0, 0, "%.4f");
 			ImGui::InputDouble("vector_scaling", &lscif::vector_scaling, 0, 0, "%.4f");
 			ImGui::InputInt("extracted_nbr", &lscif::extracted_nbr, 0, 0);
+			ImGui::PushItemWidth(50);
+			ImGui::InputDouble("x", &lscif::ptInx, 0, 0, "%.4f");
+			ImGui::SameLine();
+			ImGui::InputDouble("y", &lscif::ptIny, 0, 0, "%.4f");
+			ImGui::SameLine();
+			ImGui::InputDouble("z", &lscif::ptInz, 0, 0, "%.4f");
+			ImGui::SameLine();
+			if (ImGui::Button("drawPt", ImVec2(ImGui::GetWindowSize().x * 0.23f, 0.0f)))
+			{
+				Eigen::MatrixXd pts(1,3);
+				pts.row(0)<<lscif::ptInx,lscif::ptIny,lscif::ptInz;
+				viewer.data().add_points(pts, lscif::hot_red);
+			}
 		}
 		if (ImGui::CollapsingHeader("LS Processing", ImGuiTreeNodeFlags_DefaultOpen))
 		{
@@ -1750,31 +1768,49 @@ int main(int argc, char *argv[])
 			{
 				std::cout<<"This code is to extract AAG quads"<<std::endl;
 				int id = viewer.selected_data_index;
-				CGMesh updatedMesh;
 				CGMesh inputMesh = lscif::Meshes[id];
 				Eigen::MatrixXd VER;
 				Eigen::MatrixXi FAC;
-				if (lscif::readed_LS1.size() > 0 && lscif::readed_LS2.size() > 0)
+				if (!lscif::debug_flag)
 				{
-					int filter_nbr = -1;
-					extract_levelset_web(inputMesh, lscif::tools.V, lscif::tools.F, lscif::readed_LS1, lscif::readed_LS2, lscif::nbr_lines_first_ls,
-										 lscif::nbr_lines_second_ls, filter_nbr, VER, FAC, true);
+					if (lscif::readed_LS1.size() > 0 && lscif::readed_LS2.size() > 0)
+					{
+						int filter_nbr = -1;
+						extract_levelset_web_stable(lscif::tools.lsmesh, lscif::tools.Boundary_Edges, lscif::tools.V, lscif::tools.F, lscif::readed_LS1, lscif::readed_LS2, lscif::nbr_lines_first_ls,
+											 lscif::nbr_lines_second_ls, filter_nbr, VER, FAC, true);
+					}
+					else
+					{
+						std::cout << "ERROR, Please load level sets" << std::endl;
+					}
+					std::string fname = igl::file_dialog_save();
+					if (fname.length() == 0)
+					{
+						std::cout << "Quad mesh saving failed" << std::endl;
+					}
+					else
+					{
+						igl::writeOBJ(fname, VER, FAC);
+						std::cout << "Quad mesh saved" << std::endl;
+					}
 				}
+
+				Eigen::MatrixXd E0, E1, E2, E3;
+				visual_extract_levelset_web_stable(lscif::tools.lsmesh,lscif::tools.Boundary_Edges, lscif::tools.V, lscif::tools.F, lscif::readed_LS1, lscif::readed_LS2, lscif::nbr_lines_first_ls,
+											lscif::nbr_lines_second_ls, E0, E1, E2, E3, true, lscif::debug_flag, lscif::dbg_int, lscif::dbg_int2);
+				const Eigen::RowVector3d red(0.8, 0.2, 0.2);
+				const Eigen::RowVector3d blue(0.2, 0.2, 0.8);
+				const Eigen::RowVector3d black(0, 0, 0);
+				const Eigen::RowVector3d green(0.2, 0.8, 0.2);
+
+				// lscif::MP.MeshUnitScale(inputMesh, updatedMesh);
+				lscif::updateMeshViewer(viewer, inputMesh);
+				lscif::meshFileName.push_back("paceqd_" + lscif::meshFileName[id]);
+				lscif::Meshes.push_back(inputMesh);
+				viewer.data().add_edges(E0, E1, red);
+				viewer.data().add_edges(E2, E3, green);
+				viewer.selected_data_index = id;
 				
-				else
-				{
-					std::cout << "ERROR, Please load level sets" << std::endl;
-				}
-				std::string fname = igl::file_dialog_save();
-				if (fname.length() == 0)
-				{
-					ImGui::End();
-				}
-				else
-				{
-					igl::writeOBJ(fname, VER, FAC);
-					std::cout << "Quad mesh saved" << std::endl;
-				}
 			}
 			ImGui::SameLine();
 			if (ImGui::Button("Extr Shading Lines", ImVec2(ImGui::GetWindowSize().x * 0.25f, 0.0f)))
