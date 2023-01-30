@@ -1775,7 +1775,7 @@ int main(int argc, char *argv[])
 				{
 					if (lscif::readed_LS1.size() > 0 && lscif::readed_LS2.size() > 0)
 					{
-						int filter_nbr = -1;
+						int filter_nbr = 3;
 						extract_levelset_web_stable(lscif::tools.lsmesh, lscif::tools.Boundary_Edges, lscif::tools.V, lscif::tools.F, lscif::readed_LS1, lscif::readed_LS2, lscif::nbr_lines_first_ls,
 											 lscif::nbr_lines_second_ls, filter_nbr, VER, FAC, true);
 					}

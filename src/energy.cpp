@@ -2498,6 +2498,7 @@ void lsTools::Run_AGG(Eigen::VectorXd& func0, Eigen::VectorXd& func1, Eigen::Vec
 		levelset_unit_scale(func0, GradValueF[0], 1);
 		levelset_unit_scale(func1, GradValueF[1], 1);
 		func2 = -func0 - func1; // func0 + func1 + func2 = 0
+		return;
 	}
 	get_gradient_hessian_values(func2, GradValueV[2], GradValueF[2]);
 
