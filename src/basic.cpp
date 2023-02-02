@@ -1099,3 +1099,31 @@ void lsTools::print_info(const int vid)
     // std::cout<<"the angle between ray and tangents, "<<dot.norm()<<", max, "<<dot.maxCoeff()<<std::endl;
     // std::cout<<"the tangent values\n "<<tangents<<std::endl;
 }
+
+#include <igl/gaussian_curvature.h>
+void lsTools::show_posi_negt_curvature(Eigen::MatrixXd &color)
+{
+    Eigen::VectorXd K;
+    // Compute integral of Gaussian curvature
+    igl::gaussian_curvature(V, F, K);
+    color.resize(V.rows(), V.cols());
+    for (int i = 0; i < K.size(); i++)
+    {
+        if (K[i] > 1e-3)
+        {
+            color.row(i) << 1, 0, 0; // positive, red
+        }
+        else
+        {
+            if (K[i] < -1e-3)
+            {
+                color.row(i) << 0, 1, 0; // negative, green
+            }
+            else{
+                color.row(i) << 0, 0, 1; // zero, blue
+            }
+        }
+
+    }
+    std::cout<<"max Gaussian curvature, "<<K.maxCoeff()<<", min, "<<K.minCoeff()<<std::endl;
+}

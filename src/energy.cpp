@@ -2498,7 +2498,7 @@ void lsTools::Run_AGG(Eigen::VectorXd& func0, Eigen::VectorXd& func1, Eigen::Vec
 		levelset_unit_scale(func0, GradValueF[0], 1);
 		levelset_unit_scale(func1, GradValueF[1], 1);
 		func2 = -func0 - func1; // func0 + func1 + func2 = 0
-		return;
+		// return;
 	}
 	get_gradient_hessian_values(func2, GradValueV[2], GradValueF[2]);
 
@@ -2647,6 +2647,174 @@ void lsTools::Run_AGG(Eigen::VectorXd& func0, Eigen::VectorXd& func1, Eigen::Vec
 	Glob_lsvars += dx;
 	Last_Opt_Mesh = false;
 }
+
+// in the order of ppg: pseudo-geodesic, pseudo-geodesic and geodesic
+void lsTools::Run_PPG(Eigen::VectorXd& func0, Eigen::VectorXd& func1, Eigen::VectorXd& func2){
+	Eigen::MatrixXd GradValueF[3], GradValueV[3];
+	Eigen::VectorXd PGEnergy[3], Eangle;
+
+	int vnbr = V.rows();
+	int fnbr = F.rows();
+	bool first_compute = true; // if we need initialize auxiliary vars
+	get_gradient_hessian_values(func0, GradValueV[0], GradValueF[0]);
+	get_gradient_hessian_values(func1, GradValueV[1], GradValueF[1]);
+	
+	// initialize the level set with some number
+	if (Glob_lsvars.size() == 0)
+	{ // initialize the 3rd levelset only here
+		levelset_unit_scale(func0, GradValueF[0], 1);
+		levelset_unit_scale(func1, GradValueF[1], 1);
+		func2 = -func0 - func1; // func0 + func1 + func2 = 0
+		// return;
+	}
+	get_gradient_hessian_values(func2, GradValueV[2], GradValueF[2]);
+
+	analysis_pseudo_geodesic_on_vertices(func0, anas[0]);
+	analysis_pseudo_geodesic_on_vertices(func1, anas[1]);
+	analysis_pseudo_geodesic_on_vertices(func2, anas[2]);
+	int ninner = anas[0].LocalActInner.size();
+	int final_size = vnbr * 3; // Change this when using more auxilary vars. 
+	
+	if (Glob_lsvars.size() == 0) {
+		
+		first_compute = true;
+		std::cout << "Initializing Global Variable For LevelSet Opt ... " << std::endl;
+		Glob_lsvars = Eigen::VectorXd::Zero(final_size);// We change the size if opt more than 1 level set
+		Glob_lsvars.segment(0, vnbr) = func0;
+		Glob_lsvars.segment(vnbr, vnbr) = func1;
+		Glob_lsvars.segment(vnbr * 2, vnbr) = func2;
+	}
+	if(Last_Opt_Mesh){
+		Compute_Auxiliaries = true;
+		std::cout<<"Recomputing Auxiliaries"<<std::endl;
+	}
+	
+	spMat H;
+	H.resize(final_size, final_size);
+	Eigen::VectorXd B=Eigen::VectorXd::Zero(final_size);
+
+	spMat LTL0, LTL1, LTL2;				 // left of laplacian
+	Eigen::VectorXd mLTF0, mLTF1, mLTF2; // right of laplacian
+	assemble_solver_biharmonic_smoothing(func0, LTL0, mLTF0);
+	assemble_solver_biharmonic_smoothing(func1, LTL1, mLTF1);
+	assemble_solver_biharmonic_smoothing(func2, LTL2, mLTF2);
+	H += weight_laplacian * three_spmat_in_diag(LTL0, LTL1, weight_geodesic* LTL2, final_size);
+	B += weight_laplacian * three_vec_in_row(mLTF0, mLTF1, weight_geodesic* mLTF2, final_size);
+
+	// strip width condition
+	
+	if (enable_strip_width_energy)
+	{
+		spMat sw_JTJ[3];
+		Eigen::VectorXd sw_mJTF[3];
+		assemble_solver_strip_width_part(GradValueF[0], sw_JTJ[0], sw_mJTF[0]);// by default the strip width is 1. Unless tracing info updated the info
+		assemble_solver_strip_width_part(GradValueF[1], sw_JTJ[1], sw_mJTF[1]);// by default the strip width is 1. Unless tracing info updated the info
+		assemble_solver_strip_width_part(GradValueF[2], sw_JTJ[2], sw_mJTF[2]);// by default the strip width is 1. Unless tracing info updated the info
+		H += weight_strip_width * three_spmat_in_diag(sw_JTJ[0], sw_JTJ[1], weight_geodesic* sw_JTJ[2], final_size);
+		B += weight_strip_width * three_vec_in_row(sw_mJTF[0], sw_mJTF[1], weight_geodesic* sw_mJTF[2], final_size);
+	}
+	spMat extraH;
+	Eigen::VectorXd extraB;
+	Eigen::VectorXd extra_energy;
+	assemble_AAG_extra_condition(final_size, vnbr, func0, func1, func2, extraH, extraB, extra_energy);
+	H += weight_boundary * extraH;
+	B += weight_boundary * extraB;
+	if (enable_pseudo_geodesic_energy)
+	{
+		spMat pg_JTJ[3], faH;
+		Eigen::VectorXd pg_mJTF[3], faB;
+		int vars_start_loc = 0;
+		// A
+		assemble_solver_extreme_cases_part_vertex_based(Glob_lsvars, true, false, anas[0], vars_start_loc, pg_JTJ[0], pg_mJTF[0], PGEnergy[0]);
+		vars_start_loc = vnbr;
+		// G
+		assemble_solver_extreme_cases_part_vertex_based(Glob_lsvars, false, false, anas[1], vars_start_loc, pg_JTJ[1], pg_mJTF[1], PGEnergy[1]);
+		vars_start_loc = vnbr * 2;
+		// G
+		assemble_solver_extreme_cases_part_vertex_based(Glob_lsvars, false, false, anas[2], vars_start_loc, pg_JTJ[2], pg_mJTF[2], PGEnergy[2]);
+		Compute_Auxiliaries = false;
+		H += weight_pseudo_geodesic_energy * (pg_JTJ[0] + pg_JTJ[1] + weight_geodesic* pg_JTJ[2]);
+		B += weight_pseudo_geodesic_energy * (pg_mJTF[0] + pg_mJTF[1] + weight_geodesic * pg_mJTF[2]);
+		if (fix_angle_of_two_levelsets)
+		{
+			// fix angle between the first (A) and the second (G) level set
+			assemble_solver_fix_two_ls_angle(Glob_lsvars, angle_between_two_levelsets, faH, faB, Eangle);
+			H = sum_uneven_spMats(H, weight_fix_two_ls_angle * faH);
+			B = sum_uneven_vectors(B, weight_fix_two_ls_angle * faB);
+		}
+	}
+	
+	H += 1e-6 * weight_mass * spMat(Eigen::VectorXd::Ones(final_size).asDiagonal());
+
+	Eigen::SimplicialLLT<Eigen::SparseMatrix<double>> solver(H);
+
+	// assert(solver.info() == Eigen::Success);
+	if (solver.info() != Eigen::Success)
+	{
+		// solving failed
+		std::cout << "solver fail" << std::endl;
+		return;
+	}
+	// std::cout<<"solved successfully"<<std::endl;
+	Eigen::VectorXd dx = solver.solve(B).eval();
+	dx *= 0.75;
+	// std::cout << "step length " << dx.norm() << std::endl;
+	double level_set_step_length = dx.norm();
+	if (level_set_step_length > max_step_length)
+	{
+		dx *= max_step_length / level_set_step_length;
+	}
+	
+
+	// energy evaluation
+	double energy_biharmonic[3];
+	energy_biharmonic[0] = func0.transpose() * QcH * func0;
+	energy_biharmonic[1] = func1.transpose() * QcH * func1;
+	energy_biharmonic[2] = func2.transpose() * QcH * func2;
+	std::cout << "energy: harm " << energy_biharmonic[0] << ", "<<energy_biharmonic[1] << ", "<<energy_biharmonic[2] << ", ";
+	if (enable_pseudo_geodesic_energy)
+	{
+		double energy_pg[3];
+		energy_pg[0]=PGEnergy[0].norm();
+		energy_pg[1]=PGEnergy[1].norm();
+		energy_pg[2]=PGEnergy[2].norm();
+		std::cout << "AGGpg, " << energy_pg[0]<<", "<< energy_pg[1]<<", "<< energy_pg[2]<<", pgmax, "<<PGEnergy[0].lpNorm<Eigen::Infinity>()
+		<<", "<<PGEnergy[1].lpNorm<Eigen::Infinity>()<<", "<<PGEnergy[2].lpNorm<Eigen::Infinity>()<<", ";
+	}
+
+	if (enable_strip_width_energy)
+	{
+
+		Eigen::VectorXd ener0, ener1, ener2; 
+		ener0= GradValueF[0].rowwise().norm();
+		ener1= GradValueF[1].rowwise().norm();
+		ener2= GradValueF[2].rowwise().norm();
+		ener0 = ener0.asDiagonal() * ener0;
+		ener1 = ener1.asDiagonal() * ener1;
+		ener2 = ener2.asDiagonal() * ener2;
+		Eigen::VectorXd wds = Eigen::VectorXd::Ones(fnbr) * strip_width * strip_width;
+
+		ener0 -= wds;
+		ener1 -= wds;
+		ener2 -= wds;
+		double stp_energy[3];
+		stp_energy[0] = Eigen::VectorXd(ener0).dot(ener0);
+		stp_energy[1] = Eigen::VectorXd(ener1).dot(ener1);
+		stp_energy[2] = Eigen::VectorXd(ener2).dot(ener2);
+		std::cout << "strip, " << stp_energy[0] << ", "<< stp_energy[1] << ", "<< stp_energy[2] << ", ";
+	}
+	std::cout<<"extra, "<<extra_energy.norm()<<", ";
+	std::cout<<"fixangle, "<<Eangle.norm()<<", ";
+	step_length = dx.norm();
+	std::cout << "step " << step_length << std::endl;
+
+	func0 += dx.topRows(vnbr);
+	func1 += dx.middleRows(vnbr,vnbr);
+	func2 += dx.middleRows(vnbr * 2, vnbr);
+	Glob_lsvars += dx;
+	Last_Opt_Mesh = false;
+}
+
 
 // get a levelset othogonal to the reference one, or has a certain angle with the reference one.
 void lsTools::Run_Othogonal_Levelset(const Eigen::VectorXd &func_ref)

@@ -1370,6 +1370,16 @@ int main(int argc, char *argv[])
 				viewer.data().add_points(pts, yellow);
 				
 			}
+			ImGui::SameLine();
+			if (ImGui::Button("draw Gauss", ImVec2(ImGui::GetWindowSize().x * 0.23f, 0.0f)))
+			{
+				std::cout<<"drawing the sign of Gaussian curvature"<<std::endl;
+				
+				Eigen::MatrixXd pts, color;
+				lscif::tools.show_posi_negt_curvature(color);
+				viewer.data().add_points(lscif::tools.V, color);
+				
+			}
 			/*ImGui::SameLine();
 			if (ImGui::Button("draw binormals", ImVec2(ImGui::GetWindowSize().x * 0.23f, 0.0f)))
 			{
