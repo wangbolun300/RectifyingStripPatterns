@@ -236,7 +236,7 @@ private:
         std::vector<double>& t1s, std::vector<double>& t2s);
     void analysis_pseudo_geodesic_on_vertices(const Eigen::VectorXd& func_values, LSAnalizer& analizer);
     void calculate_pseudo_geodesic_opt_expanded_function_values(Eigen::VectorXd &vars, const std::vector<double> &angle_degree,
-                                                                const LSAnalizer &analizer, const bool first_compute, const int vars_start_loc, const int aux_start_loc, std::vector<Trip> &tripletes, Eigen::VectorXd &Energy);
+                                                                const LSAnalizer &analizer, const int vars_start_loc, const int aux_start_loc, std::vector<Trip> &tripletes, Eigen::VectorXd &Energy);
     void calculate_extreme_pseudo_geodesic_values(Eigen::VectorXd &vars, const bool asymptotic,
                                                   const LSAnalizer &analizer, const int vars_start_loc, std::vector<Trip> &tripletes, Eigen::VectorXd &Energy);
     void calculate_boundary_direction_energy_function_values(const Eigen::MatrixXd &GradFValue,
@@ -255,7 +255,7 @@ private:
     void assemble_solver_fixed_values_part(const std::vector<CGMesh::HalfedgeHandle> &hds, const double assigned_value,
                                            const Eigen::VectorXd &func, spMat &H, Eigen::VectorXd &B, Eigen::VectorXd &bcfvalue);
     void assemble_solver_pesudo_geodesic_energy_part_vertex_based(Eigen::VectorXd &vars, const std::vector<double> &angle_degree,
-                                                                  const LSAnalizer &analizer, const bool first_compute, const int vars_start_loc, const int aux_start_loc, spMat &H, Eigen::VectorXd &B, Eigen::VectorXd &energy);
+                                                                  const LSAnalizer &analizer, const int vars_start_loc, const int aux_start_loc, spMat &H, Eigen::VectorXd &B, Eigen::VectorXd &energy);
     void assemble_solver_strip_width_part(const Eigen::MatrixXd& GradValue,  spMat& H, Eigen::VectorXd& B);
     void assemble_solver_extreme_cases_part_vertex_based(Eigen::VectorXd &vars, const bool asymptotic, const bool use_given_direction, 
                                                          const LSAnalizer &analizer, const int vars_start_loc, spMat &H, Eigen::VectorXd &B, Eigen::VectorXd &energy);
@@ -336,12 +336,12 @@ private:
     void calculate_mesh_opt_expanded_function_values( Eigen::VectorXd& vars,
         const LSAnalizer &analizer,
         const std::vector<double>& angle_degree,
-        const bool first_compute, const int aux_start_loc, std::vector<Trip>& tripletes, Eigen::VectorXd& MTenergy);
+        const int aux_start_loc, std::vector<Trip>& tripletes, Eigen::VectorXd& MTenergy);
     void calculate_mesh_opt_extreme_values(Eigen::VectorXd &vars, const int aux_start_loc, const Eigen::VectorXd &func, const bool asymptotic, const bool use_given_direction, const Eigen::Vector3d &ray,
                                            const LSAnalizer &analizer, std::vector<Trip> &tripletes, Eigen::VectorXd &MTenergy);
     void assemble_solver_mesh_opt_part( Eigen::VectorXd& vars,
         const LSAnalizer &analizer,
-        const std::vector<double>& angle_degrees, const bool first_compute, const int aux_start_loc, spMat& JTJ, Eigen::VectorXd& B, Eigen::VectorXd& MTEnergy);
+        const std::vector<double>& angle_degrees, const int aux_start_loc, spMat& JTJ, Eigen::VectorXd& B, Eigen::VectorXd& MTEnergy);
     
     void assemble_solver_mesh_smoothing(const Eigen::VectorXd &vars, spMat &H, Eigen::VectorXd &B);
     void calculate_mesh_opt_shading_condition_values(const Eigen::VectorXd &func, const Eigen::Vector3d &ray,
@@ -423,6 +423,7 @@ public:
 
 
     double pseudo_geodesic_target_angle_degree; // the target pseudo-geodesic angle
+    double pseudo_geodesic_target_angle_degree_2; // the target pseudo-geodesic angle
     double pseudo_geodesic_start_angle_degree; // the start angle
     double pseudo_geodesic_target_min_angle_degree; // the target angle for max function value of LS
     double pseudo_geodesic_target_max_angle_degree; // the target angle for min function value of LS

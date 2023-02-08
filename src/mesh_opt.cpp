@@ -93,7 +93,7 @@ void get_alpha_associate_with_cross_pairs(const double t1, const double t2, std:
 void lsTools::calculate_mesh_opt_expanded_function_values(Eigen::VectorXd &vars,
                                                           const LSAnalizer &analizer,
                                                           const std::vector<double> &angle_degree,
-                                                          const bool first_compute, const int aux_start_loc, std::vector<Trip> &tripletes, Eigen::VectorXd &MTenergy)
+                                                          const int aux_start_loc, std::vector<Trip> &tripletes, Eigen::VectorXd &MTenergy)
 {
 
     double cos_angle;
@@ -666,11 +666,11 @@ spMat Jacobian_transpose_mesh_opt_on_ver(const std::array<spMat, 3>& JC,
 }
 void lsTools::assemble_solver_mesh_opt_part( Eigen::VectorXd& vars,
     const LSAnalizer &analizer,
-    const std::vector<double>& angle_degrees, const bool first_compute, const int aux_start_loc, spMat& JTJ, Eigen::VectorXd& B, Eigen::VectorXd& MTEnergy){
+    const std::vector<double>& angle_degrees, const int aux_start_loc, spMat& JTJ, Eigen::VectorXd& B, Eigen::VectorXd& MTEnergy){
 	std::vector<Trip> tripletes;
     int vsize = V.rows();
     int ninner = analizer.LocalActInner.size();
-	calculate_mesh_opt_expanded_function_values(vars, analizer, angle_degrees, first_compute, aux_start_loc, tripletes, MTEnergy);
+	calculate_mesh_opt_expanded_function_values(vars, analizer, angle_degrees, aux_start_loc, tripletes, MTEnergy);
         
     int nvars = vars.size();
     int ncondi = MTEnergy.size();
@@ -936,7 +936,7 @@ void lsTools::Run_Mesh_Opt(){
     Eigen::VectorXd MTEnergy;
     if (!enable_extreme_cases) {
         assemble_solver_mesh_opt_part(Glob_Vars,
-            anas[0], angle_degrees, first_compute, aux_start_loc, Hpg, Bpg, MTEnergy);
+            anas[0], angle_degrees, aux_start_loc, Hpg, Bpg, MTEnergy);
     }
     else {
         bool asymptotic = true;

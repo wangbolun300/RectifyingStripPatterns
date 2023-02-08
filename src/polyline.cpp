@@ -818,11 +818,12 @@ void PolyOpt::opt()
     double energy_binormal = ebin.norm();
     double stplength = dx.norm();
     
-    std::cout << "Ply mass, " << energy_gravity << ", smth, " << energy_smoothness << ", binormal, " << energy_binormal << ", step, " << stplength<<std::endl;;
+    std::cout << "Ply mass, " << energy_gravity << ", smth, " << energy_smoothness << ", binormal, " << energy_binormal << ", step, " << stplength;
     if(weight_angle > 0){
         double energy_angle = Eangle.norm();
-        std::cout<<"Energy angle, "<<energy_angle<<"\n";
+        std::cout<<", Energy angle, "<<energy_angle<<", Eangle max, "<< Eangle.lpNorm<Eigen::Infinity>();
     }
+    std::cout<<"\n";
     extract_rectifying_plane_mesh();
     extract_polylines_and_binormals();
     //

@@ -262,7 +262,7 @@ void lsTools::analysis_pseudo_geodesic_on_vertices(const Eigen::VectorXd& func_v
 // the nbr of vars: vnbr + ninner * 10
 
 void lsTools::calculate_pseudo_geodesic_opt_expanded_function_values(Eigen::VectorXd& vars, const std::vector<double>& angle_degree,
-	const LSAnalizer &analizer, const bool first_compute, const int vars_start_loc, const int aux_start_loc, std::vector<Trip>& tripletes, Eigen::VectorXd& Energy) {
+	const LSAnalizer &analizer, const int vars_start_loc, const int aux_start_loc, std::vector<Trip>& tripletes, Eigen::VectorXd& Energy) {
 	double cos_angle, sin_angle;
 	int vnbr = V.rows();
 	if(Binormals.rows()!=vnbr){
@@ -371,7 +371,14 @@ void lsTools::calculate_pseudo_geodesic_opt_expanded_function_values(Eigen::Vect
 		// the weights
 		double dis0 = ((V.row(v1) - V.row(v2)) * vars[lvm] + (V.row(v2) - V.row(vm)) * vars[lv1] + (V.row(vm) - V.row(v1)) * vars[lv2]).norm();
 		double dis1 = ((V.row(v3) - V.row(v4)) * vars[lvm] + (V.row(v4) - V.row(vm)) * vars[lv3] + (V.row(vm) - V.row(v3)) * vars[lv4]).norm();
+		if (dis0 == 0 || dis1 == 0)
+		{
+			std::cout << "error, vars, " << vars[lvm] << ", " << vars[lv1] << ", " << vars[lv2] << ", " << vars[lv3] << ", " << vars[lv4] << std::endl;
+		}
+		assert(dis0 != 0 || dis1 != 0);
+		
 		double scale = mass_uniform.coeff(vm, vm);
+		assert(scale != 0);
 		// r dot (vm+(t1-1)*vf-t1*vt)
 		// vf = v1, vt = v2
 		tripletes.push_back(Trip(i, lrx, ((V(v1, 0) - V(v2, 0)) * vars[lvm] + (V(v2, 0) - V(vm, 0)) * vars[lv1] + (V(vm, 0) - V(v1, 0)) * vars[lv2]) / dis0 * scale));
@@ -444,7 +451,7 @@ void lsTools::calculate_pseudo_geodesic_opt_expanded_function_values(Eigen::Vect
 		tripletes.push_back(Trip(i + ninner * 6, lsz, u(2) / ns * scale));
 
 		Energy[i + ninner * 6] = s.dot(u) / ns * scale;
-
+		assert(ns != 0);
 		// xxx-s = 0
 		
 		// x axis
@@ -1745,11 +1752,11 @@ double get_mat_max_diag(spMat& M) {
 	return value;
 }
 void lsTools::assemble_solver_pesudo_geodesic_energy_part_vertex_based(Eigen::VectorXd& vars, const std::vector<double>& angle_degree, 
-const LSAnalizer &analizer, const bool first_compute, const int vars_start_loc, const int aux_start_loc, spMat& H, Eigen::VectorXd& B, Eigen::VectorXd& energy)
+const LSAnalizer &analizer, const int vars_start_loc, const int aux_start_loc, spMat& H, Eigen::VectorXd& B, Eigen::VectorXd& energy)
 {
 	std::vector<Trip> tripletes;
 	calculate_pseudo_geodesic_opt_expanded_function_values(vars, angle_degree,
-		analizer, first_compute, vars_start_loc, aux_start_loc, tripletes, energy);
+		analizer, vars_start_loc, aux_start_loc, tripletes, energy);
 	int nvars = vars.size();
 	int ncondi = energy.size();
 	// int ninner = analizer.LocalActInner.size();
@@ -2191,7 +2198,7 @@ void lsTools::Run_Level_Set_Opt() {
 		if (!enable_extreme_cases) {
 
 			assemble_solver_pesudo_geodesic_energy_part_vertex_based(Glob_lsvars, angle_degree, anas[0],
-																	 first_compute, vars_start_loc, aux_start_loc, pg_JTJ, pg_mJTF, PGEnergy);
+																	vars_start_loc, aux_start_loc, pg_JTJ, pg_mJTF, PGEnergy);
 			
 		}
 		else {
@@ -2673,8 +2680,8 @@ void lsTools::Run_PPG(Eigen::VectorXd& func0, Eigen::VectorXd& func1, Eigen::Vec
 	analysis_pseudo_geodesic_on_vertices(func1, anas[1]);
 	analysis_pseudo_geodesic_on_vertices(func2, anas[2]);
 	int ninner = anas[0].LocalActInner.size();
-	int final_size = vnbr * 3; // Change this when using more auxilary vars. 
-	
+	int final_size = (ninner * 10 + vnbr) * 2 + vnbr; // Change this when using more auxilary vars.
+
 	if (Glob_lsvars.size() == 0) {
 		
 		first_compute = true;
@@ -2691,7 +2698,7 @@ void lsTools::Run_PPG(Eigen::VectorXd& func0, Eigen::VectorXd& func1, Eigen::Vec
 	
 	spMat H;
 	H.resize(final_size, final_size);
-	Eigen::VectorXd B=Eigen::VectorXd::Zero(final_size);
+	Eigen::VectorXd B = Eigen::VectorXd::Zero(final_size);
 
 	spMat LTL0, LTL1, LTL2;				 // left of laplacian
 	Eigen::VectorXd mLTF0, mLTF1, mLTF2; // right of laplacian
@@ -2723,12 +2730,24 @@ void lsTools::Run_PPG(Eigen::VectorXd& func0, Eigen::VectorXd& func1, Eigen::Vec
 	{
 		spMat pg_JTJ[3], faH;
 		Eigen::VectorXd pg_mJTF[3], faB;
+		// the variables:
+		// func0 (vnbr), func1 (vnbr), func2 (vnbr), aux0（ninner * 10), aux1（ninner * 10)
+		std::vector<double> target_angles_0(1), target_angles_1(1);
+		target_angles_0[0] = pseudo_geodesic_target_angle_degree;
+		target_angles_1[0] = pseudo_geodesic_target_angle_degree_2;
+
+		// P1
 		int vars_start_loc = 0;
-		// A
-		assemble_solver_extreme_cases_part_vertex_based(Glob_lsvars, true, false, anas[0], vars_start_loc, pg_JTJ[0], pg_mJTF[0], PGEnergy[0]);
+		int aux_start_loc = vnbr * 3;
+		assemble_solver_pesudo_geodesic_energy_part_vertex_based(Glob_lsvars, target_angles_0, anas[0], vars_start_loc, aux_start_loc,
+																 pg_JTJ[0], pg_mJTF[0], PGEnergy[0]);
+		
+		// P2
 		vars_start_loc = vnbr;
-		// G
-		assemble_solver_extreme_cases_part_vertex_based(Glob_lsvars, false, false, anas[1], vars_start_loc, pg_JTJ[1], pg_mJTF[1], PGEnergy[1]);
+		aux_start_loc = ninner * 10 + vnbr * 3;
+		assemble_solver_pesudo_geodesic_energy_part_vertex_based(Glob_lsvars, target_angles_1, anas[1], vars_start_loc, aux_start_loc,
+																 pg_JTJ[1], pg_mJTF[1], PGEnergy[1]);
+	
 		vars_start_loc = vnbr * 2;
 		// G
 		assemble_solver_extreme_cases_part_vertex_based(Glob_lsvars, false, false, anas[2], vars_start_loc, pg_JTJ[2], pg_mJTF[2], PGEnergy[2]);
@@ -2778,7 +2797,7 @@ void lsTools::Run_PPG(Eigen::VectorXd& func0, Eigen::VectorXd& func1, Eigen::Vec
 		energy_pg[0]=PGEnergy[0].norm();
 		energy_pg[1]=PGEnergy[1].norm();
 		energy_pg[2]=PGEnergy[2].norm();
-		std::cout << "AGGpg, " << energy_pg[0]<<", "<< energy_pg[1]<<", "<< energy_pg[2]<<", pgmax, "<<PGEnergy[0].lpNorm<Eigen::Infinity>()
+		std::cout << "PPGpg, " << energy_pg[0]<<", "<< energy_pg[1]<<", "<< energy_pg[2]<<", pgmax, "<<PGEnergy[0].lpNorm<Eigen::Infinity>()
 		<<", "<<PGEnergy[1].lpNorm<Eigen::Infinity>()<<", "<<PGEnergy[2].lpNorm<Eigen::Infinity>()<<", ";
 	}
 

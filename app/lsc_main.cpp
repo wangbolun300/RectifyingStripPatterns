@@ -67,6 +67,7 @@ namespace lscif
     int nbr_edges = 20;
 	int id_debug_global = 5;
 	double target_angle = 60;
+	double target_angle_2 = 60;
 	double target_min_angle = 90; // target angle for min function value;
 	double target_max_angle = 90; // target angle for max function value;
 	double start_angle = 60;
@@ -576,7 +577,10 @@ int main(int argc, char *argv[])
 		// Add new group
 		if (ImGui::CollapsingHeader("Pseudo-Geodesic Angle", ImGuiTreeNodeFlags_DefaultOpen))
 		{
+			ImGui::PushItemWidth(50);
 			ImGui::InputDouble("target angle", &lscif::target_angle, 0, 0, "%.4f");
+			ImGui::SameLine();
+			ImGui::InputDouble("second angle", &lscif::target_angle_2, 0, 0, "%.4f");
 			ImGui::InputInt("Which Levelset", &lscif::which_levelset, 0, 0);
 			ImGui::InputDouble("weight_geodesic", &lscif::weight_geodesic, 0, 0, "%.4f");
 			
@@ -1179,6 +1183,61 @@ int main(int argc, char *argv[])
 				viewer.selected_data_index = id;
 				std::cout << "waiting for instructions" << std::endl;
 			}
+			
+			if (ImGui::Button("PPG LvSet", ImVec2(ImGui::GetWindowSize().x * 0.23f, 0.0f)))
+			{
+				if(lscif::readed_LS1.size()==0|| lscif::readed_LS2.size()==0){
+					std::cout<<"Please Read the correct levelset 1 and levelset 2"<<std::endl;
+					ImGui::End();
+					return;
+				}
+				int id = viewer.selected_data_index;
+				CGMesh inputMesh = lscif::Meshes[id];
+				EnergyPrepare einit;
+				einit.weight_gravity = lscif::weight_mass;
+				einit.weight_lap = lscif::weight_laplacian;
+				einit.weight_bnd = lscif::weight_boundary;
+				einit.weight_pg = lscif::weight_pseudo_geodesic;
+				einit.weight_strip_width = lscif::weight_strip_width;
+				einit.solve_pseudo_geodesic = lscif::enable_pg_energy_checkbox;
+				einit.target_angle = lscif::target_angle;
+				einit.max_step_length = lscif::maximal_step_length;
+				einit.solve_strip_width_on_traced = lscif::enable_strip_width_checkbox;
+				einit.enable_inner_vers_fixed = lscif::enable_inner_vers_fixed;
+				einit.enable_functional_angles = lscif::enable_functional_degrees;
+				einit.enable_extreme_cases = lscif::enable_extreme_cases;
+				einit.target_min_angle = lscif::target_min_angle;
+				einit.target_max_angle = lscif::target_max_angle;
+				einit.start_angle = lscif::start_angle;
+				einit.enable_boundary_angles = lscif::enable_boundary_angles;
+				lscif::tools.fix_angle_of_two_levelsets = lscif::fix_angle_of_two_levelsets;
+				lscif::tools.angle_between_two_levelsets = lscif::angle_between_two_levelsets;
+				lscif::tools.weight_fix_two_ls_angle = lscif::weight_fix_two_ls_angle;
+				lscif::tools.weight_geodesic=lscif::weight_geodesic;
+				lscif::tools.pseudo_geodesic_target_angle_degree = lscif::target_angle;
+				lscif::tools.pseudo_geodesic_target_angle_degree_2 = lscif::target_angle_2;
+
+				lscif::tools.prepare_level_set_solving(einit);
+				
+				
+				for (int i = 0; i < lscif::OpIter; i++)
+				{
+					lscif::tools.Run_PPG(lscif::readed_LS1, lscif::readed_LS2, lscif::readed_LS3);
+					if (lscif::tools.step_length < 1e-16 && i != 0)
+					{ // step length actually is the value for the last step
+						std::cout << "optimization converges " << std::endl;
+						break;
+					}
+				}
+				std::cout << "waiting for instruction..." << std::endl;
+				// lscif::MP.MeshUnitScale(inputMesh, updatedMesh);
+				lscif::updateMeshViewer(viewer, inputMesh);
+				lscif::meshFileName.push_back("agg_" + lscif::meshFileName[id]);
+				lscif::Meshes.push_back(inputMesh);
+
+				viewer.selected_data_index = id;
+			}
+			ImGui::SameLine();
 			if (ImGui::Button("draw AAG", ImVec2(ImGui::GetWindowSize().x * 0.23f, 0.0f)))
 			{
 				if(lscif::readed_LS1.size()==0){
@@ -1770,7 +1829,7 @@ int main(int argc, char *argv[])
 				const Eigen::RowVector3d black(0, 0, 0);
 				const Eigen::RowVector3d green(0.2, 0.8, 0.2);
 				viewer.data().add_edges(E0, E1, red);
-				viewer.data().add_edges(E2, E3, blue);
+				viewer.data().add_edges(E2, E3, green);
 
 			}
 			ImGui::SameLine();
