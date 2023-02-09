@@ -12,11 +12,13 @@
 #include <lsc/MeshProcessing.h>
 #include <lsc/basic.h>
 #include <lsc/tools.h>
+#include <lsc/interaction.h>
 // -------------------- OpenMesh
 #include <OpenMesh/Core/IO/MeshIO.hh>
 #include <OpenMesh/Core/Mesh/PolyMesh_ArrayKernelT.hh>
 #include <igl/parula.h>
 #include <igl/isolines_map.h>
+
 typedef OpenMesh::PolyMesh_ArrayKernelT<> CGMesh;
 
 // the interface operators
@@ -146,6 +148,15 @@ namespace lscif
 
 	std::vector<int> VertexType;
 
+	bool draw_strokes = false;
+	bool left_button_down = false;
+	std::vector<std::vector<double>> project_2dx;
+	std::vector<std::vector<double>> project_2dy;
+	std::vector<double> project_x_tmp;
+	std::vector<double> project_y_tmp;
+	std::vector<std::vector<Eigen::Vector3d>> project_pts;
+
+
 
 
 	// add a new mesh into the mesh lists, and show the new mesh along with previous showed meshes
@@ -196,6 +207,11 @@ namespace lscif
 			keyPress_2 = false;
 			return true;
 		}
+		case '3':
+		{
+			draw_strokes = false;
+			return true;
+		}
 		case GLFW_KEY_X:
 		{
 			keyPress_d = false;
@@ -221,6 +237,12 @@ namespace lscif
 			keyPress_2 = true;
 			return true;
 		}
+		case '3':
+		{
+			draw_strokes = true;
+			return true;
+		}
+
 		case GLFW_KEY_X:
 		{
 			keyPress_d = true;
@@ -322,7 +344,11 @@ namespace lscif
 				}
 				Eigen::MatrixXd energy_all;
 				lscif::tools.show_max_pg_energy_all(energy_all);
-				std::cout << energy_all.row(vid) << std::endl;
+				if (energy_all.size() == viewer.data().V.rows())
+				{
+					std::cout << energy_all.row(vid) << std::endl;
+				}
+
 				std::cout << "point position: (" << viewer.data().V(vid, 0) << ", " << viewer.data().V(vid, 1) << ", " << viewer.data().V(vid, 2) << ")\n\n";
 				lscif::tools.print_info(vid);
 				if (lscif::Given_Const_Direction)
@@ -406,7 +432,55 @@ namespace lscif
 				return true;
 			}
 		}
+		
+		left_button_down = true;
+		return false;
+	}
+	bool mouse_up(igl::opengl::glfw::Viewer &viewer, int button, int modifier)
+	{
+		left_button_down = false;
+		if (!project_x_tmp.empty()) // if just draw a curve
+		{
+			project_2dx.push_back(project_x_tmp);
+			project_2dy.push_back(project_y_tmp);
+			Eigen::MatrixXd Vers;
+			draw_stroke_on_mesh(lscif::tools.lsmesh, viewer,
+								lscif::tools.V, lscif::tools.F, project_x_tmp,
+								project_y_tmp, Vers);
+			project_x_tmp.clear();
+			project_y_tmp.clear();
+			std::cout << "There are " << project_2dx.size() << " curves" << std::endl;
+			viewer.data().add_points(Vers, lscif::hot_red);
+		}
 
+		return true;
+		return false;
+	}
+	bool mouse_move(igl::opengl::glfw::Viewer & viewer, int mouse_x, int mouse_y){
+		if (draw_strokes && left_button_down)
+		{
+			// Eigen::Vector3d posEnd = igl::unproject(
+            //      Eigen::Vector3f(viewer.current_mouse_x,
+            //                      viewer.core().viewport[3] -
+            //                        static_cast<float>(viewer.current_mouse_y),
+            //                      viewer.down_mouse_z),
+            //      viewer.core().view,
+            //      viewer.core().proj,
+            //      viewer.core().viewport)
+            //      .template cast<double>();
+			// 	 std::cout<<"posend, "<<posEnd.transpose()<<std::endl;
+				
+
+				double x = viewer.current_mouse_x;
+				double y = viewer.core().viewport(3) - viewer.current_mouse_y;
+				lscif::project_x_tmp.push_back(x);
+				lscif::project_y_tmp.push_back(y);
+				
+				// sleep(0.05);
+				
+
+				 return true;
+		}
 		return false;
 	}
 
@@ -2153,7 +2227,19 @@ int main(int argc, char *argv[])
 		ImGui::InputDouble("AngleOfLSs", &lscif::angle_between_two_levelsets, 0, 0, "%.4f");
 		ImGui::SameLine();
 		ImGui::InputDouble("WeightAngleOfLSs", &lscif::weight_fix_two_ls_angle, 0, 0, "%.4f");
+		
+		ImGui::Checkbox("drawStrokes", &lscif::draw_strokes);
+		ImGui::SameLine();
+		if (ImGui::Button("ClearStrokes", ImVec2(ImGui::GetWindowSize().x * 0.25f, 0.0f)))
 
+		{
+			lscif::project_2dx.clear();
+			lscif::project_2dy.clear();
+			lscif::project_x_tmp.clear();
+			lscif::project_y_tmp.clear();
+			lscif::project_pts.clear();
+			std::cout<<"This just clear the lines in the interface, \nPlease add code to clear the lines in LsTools"<<std::endl;
+		}
 
 		ImGui::PushStyleColor(ImGuiCol_Button, (ImVec4)ImColor::HSV(0.0f, 0.6f, 0.6f));
 		ImGui::PushStyleColor(ImGuiCol_ButtonHovered, (ImVec4)ImColor::HSV(0.0f, 0.7f, 0.7f));
@@ -2195,6 +2281,8 @@ int main(int argc, char *argv[])
 	viewer.callback_key_down = &lscif::key_down;
 	viewer.callback_mouse_down = &lscif::mouse_down;
 	viewer.callback_key_up = &lscif::key_up;
+	viewer.callback_mouse_move = &lscif::mouse_move;
+	viewer.callback_mouse_up = &lscif::mouse_up;
 	viewer.core().is_animating = false;
 	viewer.core().animation_max_fps = 30.;
 	viewer.core().background_color = Eigen::Vector4f(1, 1, 1, 100);

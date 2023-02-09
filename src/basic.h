@@ -204,6 +204,12 @@ private:
     Efunc ActE;// active edges, which means they are not co-planar edges, and not boundary edges.
     std::vector<int> Actid; // active edge ids. the length equals to the number of non-zero elements in ActE
     Eigen::VectorXd BDEvalue; // boundary direction energy value
+
+    // variables for interactive level-set design
+    std::vector<int> interactive_flist;
+    std::vector<Eigen::Vector3f> interactive_bclist;
+
+
     void get_mesh_angles();
     void get_mesh_normals_per_face();
     void get_mesh_normals_per_ver();
@@ -507,6 +513,7 @@ public:
     void Trace_One_Guide_Pseudo_Geodesic();
     // after tracing, use this function to get smooth level set
     void Run_Level_Set_Opt();
+    void Run_Level_Set_Opt_interactive();
     void Run_Mesh_Opt();
     void Run_AAG(Eigen::VectorXd& func0, Eigen::VectorXd& func1, Eigen::VectorXd& func2);
     void Run_AAG_Mesh_Opt(Eigen::VectorXd& func0, Eigen::VectorXd& func1, Eigen::VectorXd& func2);
@@ -519,7 +526,7 @@ public:
     void initialize_level_set_by_boundary_assignment(const TracingPrepare& Tracing_initializer);
     void initialize_level_set_by_select_boundary_segment(const TracingPrepare& Tracing_initializer);
     void extract_levelset_curves(const int nbr, std::vector<Eigen::MatrixXd> &E0, std::vector<Eigen::MatrixXd> &E1);
-    void make_sphere_ls_example(int rowid);
+    bool receive_interactive_strokes(const std::vector<int> &flist, const std::vector<Eigen::Vector3f>& bclist);
     void clear_high_energy_markers_in_analizer();
 };
 

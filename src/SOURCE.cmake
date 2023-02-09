@@ -14,6 +14,8 @@ src/functional.cpp
 src/mesh_opt.cpp
 src/mesh_opt.h
 src/polyline.cpp
+src/interaction.cpp
+src/interaction.h
 )
 ################################################################################
 # Subfolders
