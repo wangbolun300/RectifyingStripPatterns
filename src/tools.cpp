@@ -4373,3 +4373,19 @@ Eigen::VectorXd put_vec_in_middle(const Eigen::VectorXd &vec)
     result.segment(sizevec, sizevec) = vec;
     return result;
 }
+Eigen::VectorXd duplicate_valus(const double value, const int n){
+    Eigen::VectorXd result;
+    result.resize(n);
+    for(int i=0;i<n;i++){
+        result[i]=value;
+    }
+    return result;
+}
+Eigen::MatrixXd duplicate_vector(const Eigen::Vector2d& vec, const int n){
+    Eigen::MatrixXd result;
+    result.resize(n,2);
+    for(int i=0;i<n;i++){
+        result.row(i)=vec;
+    }
+    return result;
+}

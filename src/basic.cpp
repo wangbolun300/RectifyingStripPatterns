@@ -614,22 +614,7 @@ Eigen::Vector2d get_2d_ver_from_t(const double t, const Eigen::Vector2d& start, 
 Eigen::Vector3d get_3d_ver_from_t(const double t, const Eigen::Vector3d& start, const Eigen::Vector3d& end){
     return start+t*(end-start);
 }
-Eigen::VectorXd duplicate_valus(const double value, const int n){
-    Eigen::VectorXd result;
-    result.resize(n);
-    for(int i=0;i<n;i++){
-        result[i]=value;
-    }
-    return result;
-}
-Eigen::MatrixXd duplicate_vector(const Eigen::Vector2d& vec, const int n){
-    Eigen::MatrixXd result;
-    result.resize(n,2);
-    for(int i=0;i<n;i++){
-        result.row(i)=vec;
-    }
-    return result;
-}
+
 void lsTools::initialize_level_set_accroding_to_parametrization(){
     int lssize=assigned_trace_ls.size();
     double value0=assigned_trace_ls[0];

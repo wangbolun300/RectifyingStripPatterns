@@ -154,7 +154,12 @@ namespace lscif
 	std::vector<std::vector<double>> project_2dy;
 	std::vector<double> project_x_tmp;
 	std::vector<double> project_y_tmp;
+	std::vector<std::vector<int>> flist;
+	std::vector<std::vector<Eigen::Vector3f>> bclist;
+	std::vector<int> flist_tmp;
+	std::vector<Eigen::Vector3f> bclist_tmp;
 	std::vector<std::vector<Eigen::Vector3d>> project_pts;
+	
 
 
 
@@ -446,7 +451,9 @@ namespace lscif
 			Eigen::MatrixXd Vers;
 			draw_stroke_on_mesh(lscif::tools.lsmesh, viewer,
 								lscif::tools.V, lscif::tools.F, project_x_tmp,
-								project_y_tmp, Vers);
+								project_y_tmp, Vers, flist_tmp, bclist_tmp);
+			flist.push_back(flist_tmp);
+			bclist.push_back(bclist_tmp);
 			project_x_tmp.clear();
 			project_y_tmp.clear();
 			std::cout << "There are " << project_2dx.size() << " curves" << std::endl;
@@ -645,6 +652,23 @@ int main(int argc, char *argv[])
 			// std::cout<<"ploting the angle between the light and the surface"<<std::endl;
 			// lscif::tools.shading_detect_parallel_patch(lscif::InputPx, lscif::InputPy, diff);
 			// viewer.data().set_colors(diff);
+
+		}
+		ImGui::SameLine();
+		if (ImGui::Button("UseUnitScaleMesh", ImVec2(ImGui::GetWindowSize().x * 0.25f, 0.0f)))
+		{
+			std::cout<<"Mesh Unit Scale According to Edge Length"<<std::endl;
+			int id = viewer.selected_data_index;
+			CGMesh updatedMesh;
+			CGMesh inputMesh = lscif::Meshes[id];
+			lscif::MP.MeshUnitScale(inputMesh, updatedMesh);
+			lscif::updateMeshViewer(viewer, updatedMesh);
+			lscif::meshFileName.push_back("Uni_" + lscif::meshFileName[id]);
+			lscif::Meshes.push_back(updatedMesh);
+			viewer.selected_data_index = id;
+			lscif::mesh = updatedMesh;
+			lscif::tools.init(updatedMesh);
+
 
 		}
 
@@ -2238,7 +2262,16 @@ int main(int argc, char *argv[])
 			lscif::project_x_tmp.clear();
 			lscif::project_y_tmp.clear();
 			lscif::project_pts.clear();
+			lscif::flist.clear();
+			lscif::bclist.clear();
 			std::cout<<"This just clear the lines in the interface, \nPlease add code to clear the lines in LsTools"<<std::endl;
+		}
+		ImGui::SameLine();
+		if (ImGui::Button("TestStrokes", ImVec2(ImGui::GetWindowSize().x * 0.25f, 0.0f)))
+
+		{
+			std::cout<<"Strokes testing"<<std::endl;
+			lscif::tools.receive_interactive_strokes_and_init_ls(lscif::flist, lscif::bclist);
 		}
 
 		ImGui::PushStyleColor(ImGuiCol_Button, (ImVec4)ImColor::HSV(0.0f, 0.6f, 0.6f));

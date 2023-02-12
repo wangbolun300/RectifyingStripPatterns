@@ -206,8 +206,8 @@ private:
     Eigen::VectorXd BDEvalue; // boundary direction energy value
 
     // variables for interactive level-set design
-    std::vector<int> interactive_flist;
-    std::vector<Eigen::Vector3f> interactive_bclist;
+    std::vector<std::vector<int>> interactive_flist;
+    std::vector<std::vector<Eigen::Vector3f>> interactive_bclist;
 
 
     void get_mesh_angles();
@@ -258,6 +258,7 @@ private:
     void assemble_solver_laplacian_part(spMat &H, Efunc &B);
     void assemble_solver_biharmonic_smoothing(const Eigen::VectorXd &func, spMat &H, Eigen::VectorXd &B); // Biharmonic smoothing (natural curved Hessian boundary)
     void assemble_solver_boundary_condition_part(const Eigen::VectorXd &func, spMat &H, Eigen::VectorXd &B, Eigen::VectorXd &bcfvalue);
+    void assemble_solver_interactive_boundary_condition_part(const Eigen::VectorXd &func, spMat &H, Eigen::VectorXd &B, Eigen::VectorXd &bcfvalue);
     void assemble_solver_fixed_values_part(const std::vector<CGMesh::HalfedgeHandle> &hds, const double assigned_value,
                                            const Eigen::VectorXd &func, spMat &H, Eigen::VectorXd &B, Eigen::VectorXd &bcfvalue);
     void assemble_solver_pesudo_geodesic_energy_part_vertex_based(Eigen::VectorXd &vars, const std::vector<double> &angle_degree,
@@ -526,7 +527,8 @@ public:
     void initialize_level_set_by_boundary_assignment(const TracingPrepare& Tracing_initializer);
     void initialize_level_set_by_select_boundary_segment(const TracingPrepare& Tracing_initializer);
     void extract_levelset_curves(const int nbr, std::vector<Eigen::MatrixXd> &E0, std::vector<Eigen::MatrixXd> &E1);
-    bool receive_interactive_strokes(const std::vector<int> &flist, const std::vector<Eigen::Vector3f>& bclist);
+    bool receive_interactive_strokes_and_init_ls(const std::vector<std::vector<int>> &flist,
+                                          const std::vector<std::vector<Eigen::Vector3f>> &bclist);
     void clear_high_energy_markers_in_analizer();
 };
 

@@ -11,4 +11,5 @@
 
 void draw_stroke_on_mesh(const CGMesh &mesh, igl::opengl::glfw::Viewer &viewer,
                          const Eigen::MatrixXd &V, const Eigen::MatrixXi &F, const std::vector<double> &xs,
-                         const std::vector<double> &ys, Eigen::MatrixXd& Vers);
+                         const std::vector<double> &ys, Eigen::MatrixXd& Vers, std::vector<int> &fout, 
+                         std::vector<Eigen::Vector3f> &bcout);
