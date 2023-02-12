@@ -391,82 +391,116 @@ void lsTools::assemble_solver_interactive_boundary_condition_part(const Eigen::V
 		double value = vec_elements[i];
 		bcfvalue(i) = value;
 	}
-	
-	// get JTJ
-	H = bcJacobian.transpose() * bcJacobian;
-	// get the -(J^T)*f(x)
-	B = -bcJacobian.transpose() * bcfvalue;
+
+    // get JTJ
+    H = bcJacobian.transpose() * bcJacobian;
+    // get the -(J^T)*f(x)
+    B = -bcJacobian.transpose() * bcfvalue;
 }
 
+double get_interactive_angle(const Eigen::VectorXd &func, const LSAnalizer &analizer, 
+                             const CGMesh &lsmesh, const Eigen::MatrixXd &norm_v,
+                             const Eigen::MatrixXd &V,
+                             const Eigen::MatrixXi &F, const std::vector<std::vector<int>> interactive_flist,
+                             const std::vector<std::vector<Eigen::Vector3f>> &interactive_bclist, const Eigen::VectorXi &InnerV)
+{
+    
+    int vnbr = V.rows();
+    int ninner = analizer.LocalActInner.size();
+    int ncurves = interactive_flist.size();
+    double angle_avg = 0;
+    int counter = 0;
+    for (int i = 0; i < ncurves; i++)
+    {
+        for (int j = 0; j < interactive_bclist[i].size(); j++)
+        {
+            int fid = interactive_flist[i][j];
+            int vid[3];
+            vid[0] = F(fid, 0);
+            vid[1] = F(fid, 1);
+            vid[2] = F(fid, 2);
+            for (int k = 0; k < 3; k++)
+            {
+                int ver = vid[k];
+                int vm = InnerV[ver];
+                if (analizer.LocalActInner[i] == false)
+                {
+                    std::cout << "singularity, " << vm << std::endl;
+                    continue;
+                }
+                CGMesh::HalfedgeHandle inhd = analizer.heh0[i], outhd = analizer.heh1[i];
+                int v1 = lsmesh.from_vertex_handle(inhd).idx();
+                int v2 = lsmesh.to_vertex_handle(inhd).idx();
+                int v3 = lsmesh.from_vertex_handle(outhd).idx();
+                int v4 = lsmesh.to_vertex_handle(outhd).idx();
 
-void lsTools::Run_Level_Set_Opt_interactive() {
-	
-	Eigen::MatrixXd GradValueF, GradValueV;
-	Eigen::VectorXd PGEnergy;
-	Eigen::VectorXd func = fvalues;
-	
-	std::vector<double> angle_degree;
-	angle_degree.resize(1);
-	angle_degree[0] = pseudo_geodesic_target_angle_degree;
-	
-	int vnbr = V.rows();
-	int fnbr = F.rows();
-	bool first_compute = true; // if we need initialize auxiliary vars
-	
-	// initialize the level set with some number
-	if (func.size() != vnbr)
-	{
-		if(trace_hehs.size()==0){
-			std::cout<<"Please First Set Up The Boundary Condition (Tracing)"<<std::endl;
-			return;
-		}
-		initialize_level_set_accroding_to_parametrization();
-		std::cout << "level set get initialized" << std::endl;
-		return;
-	}
-	get_gradient_hessian_values(func, GradValueV, GradValueF);
-	if (Glob_lsvars.size() == 0 && trace_hehs.size() == 0)// unit scale when no tracing and before the first iteration
-	{
-		levelset_unit_scale(func, GradValueF, strip_width);
-		std::cout<<"Unit Scale Levelset"<<std::endl;
-	}
-	// std::cout<<"check "<<func.norm()<<std::endl;
-	analysis_pseudo_geodesic_on_vertices(func, anas[0]);
-	int ninner = anas[0].LocalActInner.size();
-	int final_size;
-	if (enable_extreme_cases)
-	{
-		if (Given_Const_Direction)
-		{
-			final_size = vnbr + ninner * 15; // shading
-		}
-		else
-		{
-			final_size = vnbr + ninner * 3; // A or G
-		}
-	}
-	else{
-		final_size = ninner * 10 + vnbr;// pseudo - geodesic
-	}
-	 
+                double t1 = analizer.t1s[i];
+                double t2 = analizer.t2s[i];
 
-	bool need_update_trace_info = (DBdirections.rows() == 0 && trace_hehs.size() > 0) || (Last_Opt_Mesh && trace_hehs.size() > 0); // traced but haven't compute the info
-	if (need_update_trace_info)
-	{
+                Eigen::Vector3d ver0 = V.row(v1) + (V.row(v2) - V.row(v1)) * t1;
+                Eigen::Vector3d ver1 = V.row(vm);
+                Eigen::Vector3d ver2 = V.row(v3) + (V.row(v4) - V.row(v3)) * t2;
+                Eigen::Vector3d norm = norm_v.row(vm);
+                Eigen::Vector3d real_u = norm.cross(ver2 - ver0);
+                real_u = real_u.normalized();
+                Eigen::Vector3d real_r = (ver1 - ver0).normalized().cross((ver2 - ver1).normalized());
+                if(real_r.norm()<1e-6){// almost a straight line
+                    continue;
+                }
+                real_r = real_r.normalized();
+                double cos_angle = real_r.dot(norm);
+                double sin_angle = real_r.dot(real_u);
+                double angle = acos(cos_angle);
+                // converting the angle to [0~PI] is resonable
+                // if sin_angle>0, just take the theta;
+                // if sin_angle<0, take PI - theta
+                if(sin_angle<0){
+                    angle = LSC_PI - angle;
+                }
+                angle_avg += angle;
+                counter++;
+            }
+        }
+    }
+    return angle_avg / counter;
+}
 
-		get_traced_boundary_triangle_direction_derivatives();
-	}
-	//  update quantities associated with level set values
-	
-	
-	
+void lsTools::Run_Level_Set_Opt_interactive(const bool compute_pg)
+{
+
+    Eigen::MatrixXd GradValueF, GradValueV;
+    Eigen::VectorXd PGEnergy;
+    // initial fvalues already computed using the strokes
+    Eigen::VectorXd func = fvalues;
+
+    int vnbr = V.rows();
+    int fnbr = F.rows();
+
+    get_gradient_hessian_values(func, GradValueV, GradValueF);
+    // std::cout<<"check "<<func.norm()<<std::endl;
+    analysis_pseudo_geodesic_on_vertices(func, anas[0]);
+    int ninner = anas[0].LocalActInner.size();
+    int final_size;
+    if (!compute_pg) // only the boundary condition
+    {
+        final_size = vnbr;
+    }
+    else
+    {
+        final_size = ninner * 10 + vnbr; // pseudo - geodesic
+    }
+    if(func.size()==0){
+        std::cout<<"Please init the level set using the interactive curves before solving optimizations"<<std::endl;
+        return;
+    }
+
 	if (Glob_lsvars.size() != final_size) {
 		
 		if (Glob_lsvars.size() == 0)
 		{
 			std::cout << "Initializing Global Variable For LevelSet Opt ... " << std::endl;
 			Glob_lsvars = Eigen::VectorXd::Zero(final_size); // We change the size if opt more than 1 level set
-			Glob_lsvars.segment(0, vnbr) = func;			 
+			Glob_lsvars.segment(0, vnbr) = func;
 		}
 		else{
 			if (Glob_lsvars.size() > final_size)
@@ -488,16 +522,12 @@ void lsTools::Run_Level_Set_Opt_interactive() {
 			}
 		}
 	}
-	if(Last_Opt_Mesh){
-		Compute_Auxiliaries = true;
-		std::cout<<"Recomputing Auxiliaries"<<std::endl;
-	}
 	
 	spMat H;
 	H.resize(vnbr, vnbr);
-	Eigen::VectorXd B=Eigen::VectorXd::Zero(vnbr);
-	
-	spMat LTL;  // left of laplacian
+    Eigen::VectorXd B = Eigen::VectorXd::Zero(vnbr);
+
+    spMat LTL;  // left of laplacian
 	Eigen::VectorXd mLTF; // right of laplacian
 	assemble_solver_biharmonic_smoothing(func, LTL, mLTF);
 	H += weight_laplacian * LTL;
@@ -512,40 +542,26 @@ void lsTools::Run_Level_Set_Opt_interactive() {
 	}
 	Eigen::VectorXd bcfvalue = Eigen::VectorXd::Zero(vnbr);
 	Eigen::VectorXd fbdenergy = Eigen::VectorXd::Zero(vnbr);
-	// boundary condition (traced as boundary condition)
-	if (trace_hehs.size() > 0)
-	{ // if traced, we use boundary condition
-		if (!enable_boundary_angles)
-		{
-			spMat bc_JTJ;
-			Eigen::VectorXd bc_mJTF;
-			assemble_solver_boundary_condition_part(func, bc_JTJ, bc_mJTF, bcfvalue);
-			H += weight_boundary * bc_JTJ;
-			B += weight_boundary * bc_mJTF;
-		}
-		// boundary edge angles
-		if (enable_boundary_angles)
-		{
-			spMat JTJ;
-			Eigen::VectorXd mJTF;
-			assemble_solver_fixed_boundary_direction_part(GradValueF, tracing_start_edges, func, JTJ, mJTF, fbdenergy);
-			H += weight_boundary * JTJ;
-			B += weight_boundary * mJTF;
-		}
-	}
+	// boundary condition
+    if (interactive_flist.size() > 0)
+    { // if traced, we use boundary condition
 
-	// strip width condition
-	if (enable_strip_width_energy)
-	{
-		spMat sw_JTJ;
-		Eigen::VectorXd sw_mJTF;
-		assemble_solver_strip_width_part(GradValueF, sw_JTJ, sw_mJTF);// by default the strip width is 1. Unless tracing info updated the info
-		H += weight_strip_width * sw_JTJ;
-		B += weight_strip_width * sw_mJTF;
-	}
+        spMat bc_JTJ;
+        Eigen::VectorXd bc_mJTF;
+        assemble_solver_interactive_boundary_condition_part(func, bc_JTJ, bc_mJTF, bcfvalue);
+        H += weight_boundary * bc_JTJ;
+        B += weight_boundary * bc_mJTF;
+    }
 
-	
-	assert(H.rows() == vnbr);
+    // strip width condition
+
+    spMat sw_JTJ;
+    Eigen::VectorXd sw_mJTF;
+    assemble_solver_strip_width_part(GradValueF, sw_JTJ, sw_mJTF); // by default the strip width is 1. Unless tracing info updated the info
+    H += weight_strip_width * sw_JTJ;
+    B += weight_strip_width * sw_mJTF;
+
+    assert(H.rows() == vnbr);
 	assert(H.cols() == vnbr);
 	// pseudo geodesic
 	spMat Hlarge;
@@ -558,64 +574,21 @@ void lsTools::Run_Level_Set_Opt_interactive() {
 	Hlarge = sum_uneven_spMats(H, Hlarge);
 	Blarge = sum_uneven_vectors(B, Blarge);
 
-	if (enable_pseudo_geodesic_energy)
+	if (compute_pg)
 	{
 
 		spMat pg_JTJ;
 		Eigen::VectorXd pg_mJTF;
-		spMat smbi_H;
-		Eigen::VectorXd smbi_B;
 		int vars_start_loc = 0;
 		int aux_start_loc = vnbr;
-		if (!enable_extreme_cases) {
-
-			assemble_solver_pesudo_geodesic_energy_part_vertex_based(Glob_lsvars, angle_degree, anas[0],
-																	vars_start_loc, aux_start_loc, pg_JTJ, pg_mJTF, PGEnergy);
-			
-		}
-		else {
-			bool asymptotic = true;
-			if (angle_degree[0] != 0)
-			{
-				asymptotic = false;
-			}
-			if(Given_Const_Direction){
-				std::cout << "Direc, "<<angle_ray_converter(Reference_theta, Reference_phi).transpose();
-
-			}
-			// get the vertices associated to the second angle
-			anas[0].Special = shading_condition_info;
-
-			// mark the angles
-			Eigen::VectorXd diff;
-			anas[0].ShadSpecial = shading_detect_parallel_patch(Reference_theta, Reference_phi, diff);
-
-			if (enable_max_energy_check && anas[0].HighEnergy.size() == 0) // mark the max energy points
-			{
-				mark_high_energy_vers(PGE, ninner, max_energy_percentage, IVids, anas[0].HighEnergy, refids);
-			}
-
-			// std::cout<<"extreme before"<<std::endl;
-			assemble_solver_extreme_cases_part_vertex_based(Glob_lsvars, asymptotic, Given_Const_Direction,
-															anas[0], vars_start_loc, pg_JTJ, pg_mJTF, PGEnergy);
-			// std::cout<<"extreme computed"<<std::endl;
-			assemble_solver_binormal_regulizer(Glob_lsvars, anas[0], vars_start_loc, aux_start_loc, smbi_H, smbi_B, e_smbi);
-			Hlarge = sum_uneven_spMats(Hlarge, weight_smt_binormal * smbi_H);
-			Blarge = sum_uneven_vectors(Blarge, weight_smt_binormal * smbi_B);
-
-			
-		}
+        std::vector<double> angle_degree(0);
+        angle_degree[0] = pseudo_geodesic_target_angle_degree;
+        assemble_solver_pesudo_geodesic_energy_part_vertex_based(Glob_lsvars, angle_degree, anas[0],
+                                                                 vars_start_loc, aux_start_loc, pg_JTJ, pg_mJTF, PGEnergy);
 
 		Hlarge = sum_uneven_spMats(Hlarge, weight_pseudo_geodesic_energy * pg_JTJ);
 		Blarge = sum_uneven_vectors(Blarge, weight_pseudo_geodesic_energy * pg_mJTF);
-		
-		
-		// std::cout<<"extreme computed 1"<<std::endl;
-		// if (enable_extreme_cases && Given_Const_Direction)
-		// {
-		// 	Hlarge += sum_uneven_spMats(Hlarge, weight_shading * sd_H);
-		// 	Blarge += sum_uneven_vectors(Blarge, weight_shading * sd_B);
-		// }
+	
 		Compute_Auxiliaries = false;
 	}
 	if(vector_contains_NAN(Blarge)){
@@ -639,13 +612,13 @@ void lsTools::Run_Level_Set_Opt_interactive() {
 	// std::cout << "step length " << dx.norm() << std::endl;
 	double level_set_step_length = dx.norm();
 	// double inf_norm=dx.cwiseAbs().maxCoeff();
-	if (enable_boundary_angles || enable_pseudo_geodesic_energy)// only pg energy and boundary angles requires step length
-	{
-		if (level_set_step_length > max_step_length)
-		{
-			dx *= max_step_length / level_set_step_length;
-		}
-	}
+	// if (enable_boundary_angles || enable_pseudo_geodesic_energy)// only pg energy and boundary angles requires step length
+	// {
+	// 	if (level_set_step_length > max_step_length)
+	// 	{
+	// 		dx *= max_step_length / level_set_step_length;
+	// 	}
+	// }
 
 	func += dx.topRows(vnbr);
 	fvalues = func;
@@ -653,44 +626,34 @@ void lsTools::Run_Level_Set_Opt_interactive() {
 	double energy_biharmonic = func.transpose() * QcH * func;
 	double energy_boundary = (bcfvalue).norm();
 	std::cout << "energy: harm " << energy_biharmonic << ", bnd " << energy_boundary << ", ";
-	if (enable_pseudo_geodesic_energy)
-	{
-		if (!enable_extreme_cases) {
-			double energy_pg = PGEnergy.norm();
-			double max_energy_ls = PGEnergy.lpNorm<Eigen::Infinity>();
-			std::cout << "pg, " << energy_pg << ", " << "lsmax," << max_energy_ls << ",";
-			double max_ls_angle_energy = PGEnergy.bottomRows(ninner).norm();
-			std::cout << "total angle energy, " << max_ls_angle_energy << ", ";
-		}
-		else {
-			double planar_energy = PGEnergy.norm();
-			double max_energy_ls = PGEnergy.lpNorm<Eigen::Infinity>();
-			std::cout << "extreme_pg, " << planar_energy << " lsmax," << max_energy_ls<<", ";
-			if(e_smbi.size()>0){
-				std::cout<< "smbi, "<<e_smbi.norm()<<", ";
-			}
-			 
-		}
-	}
+    if (compute_pg)
+    {
+        double energy_pg = PGEnergy.norm();
+        double max_energy_ls = PGEnergy.lpNorm<Eigen::Infinity>();
+        std::cout << "pg, " << energy_pg << ", "
+                  << "lsmax," << max_energy_ls << ",";
+        double max_ls_angle_energy = PGEnergy.bottomRows(ninner).norm();
+        std::cout << "total angle energy, " << max_ls_angle_energy << ", ";
+    }
 
-	if (enable_strip_width_energy)
-	{
+    Eigen::VectorXd ener = GradValueF.rowwise().norm();
+    ener = ener.asDiagonal() * ener;
+    Eigen::VectorXd wds = Eigen::VectorXd::Ones(fnbr) * strip_width * strip_width;
 
-		Eigen::VectorXd ener = GradValueF.rowwise().norm();
-		ener = ener.asDiagonal() * ener;
-		Eigen::VectorXd wds = Eigen::VectorXd::Ones(fnbr) * strip_width * strip_width;
+    ener -= wds;
+    double stp_energy = Eigen::VectorXd(ener).dot(ener);
+    std::cout << "strip, " << stp_energy << ", ";
 
-		ener -= wds;
-		double stp_energy = Eigen::VectorXd(ener).dot(ener);
-		std::cout << "strip, " << stp_energy << ", ";
-	}
-	if (enable_boundary_angles) {
-		double energy = fbdenergy.norm();
-		std::cout << "bound_dirc, " << energy << ", ";
+    step_length = dx.norm();
+	std::cout << "step " << step_length;
 
-	}
-	step_length = dx.norm();
-	std::cout << "step " << step_length << std::endl;
-	
-	Last_Opt_Mesh = false;
+    // get the average angle around the strokes
+    if (!compute_pg)
+    {
+        pseudo_geodesic_target_angle_degree = 180. / LSC_PI * get_interactive_angle(func, anas[0], lsmesh, norm_v,
+         V, F, interactive_flist, interactive_bclist, InnerV);
+    }
+    std::cout<<", target_angle, "<<pseudo_geodesic_target_angle_degree;
+    std::cout<<"\n";
+    Last_Opt_Mesh = false;
 }

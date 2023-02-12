@@ -378,7 +378,7 @@ public:
     Eigen::VectorXi bnd;     // boundary loop
     Eigen::MatrixXd paras;   // parameters of the mesh vertices, nx2
     Eigen::VectorXd fvalues; // function values
-    Eigen::VectorXi InnerV; // the vector show if it is a inner ver (1) or not (0).
+    Eigen::VectorXi InnerV; // the vector show if it is a inner ver.
     std::vector<int> IVids; // the ids of the inner vers, size is ninner
     spMat mass_uniform; // the uniformed mass matrix to make sure the average area is 1.
 
@@ -514,7 +514,7 @@ public:
     void Trace_One_Guide_Pseudo_Geodesic();
     // after tracing, use this function to get smooth level set
     void Run_Level_Set_Opt();
-    void Run_Level_Set_Opt_interactive();
+    void Run_Level_Set_Opt_interactive(const bool compute_pg);
     void Run_Mesh_Opt();
     void Run_AAG(Eigen::VectorXd& func0, Eigen::VectorXd& func1, Eigen::VectorXd& func2);
     void Run_AAG_Mesh_Opt(Eigen::VectorXd& func0, Eigen::VectorXd& func1, Eigen::VectorXd& func2);
