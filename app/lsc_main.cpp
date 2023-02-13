@@ -2334,49 +2334,13 @@ int main(int argc, char *argv[])
 		if (ImGui::Button("AutoRunPd-Gdsic", ImVec2(ImGui::GetWindowSize().x * 0.25f, 0.0f)))
 
 		{
-
 			int id = viewer.selected_data_index;
 			CGMesh inputMesh = lscif::tools.lsmesh;
-			EnergyPrepare einit;
-			einit.weight_gravity = lscif::weight_mass;
-			einit.weight_lap = lscif::weight_laplacian;
-			einit.weight_bnd = lscif::weight_boundary;
-			einit.weight_pg = lscif::weight_pseudo_geodesic;
-			einit.weight_strip_width = lscif::weight_strip_width;
-			// einit.solve_pseudo_geodesic = lscif::enable_pg_energy_checkbox;
-			// einit.target_angle = lscif::target_angle;
-			// einit.max_step_length = lscif::maximal_step_length;
-			// einit.solve_strip_width_on_traced = lscif::enable_strip_width_checkbox;
-			// einit.enable_inner_vers_fixed = lscif::enable_inner_vers_fixed;
-			// einit.enable_functional_angles = lscif::enable_functional_degrees;
-			// einit.enable_extreme_cases = lscif::enable_extreme_cases;
-			// einit.target_min_angle = lscif::target_min_angle;
-			// einit.target_max_angle = lscif::target_max_angle;
-			// einit.start_angle = lscif::start_angle;
-			// einit.enable_boundary_angles = lscif::enable_boundary_angles;
-			// einit.Given_Const_Direction = lscif::Given_Const_Direction;
-			// lscif::tools.weight_shading = lscif::weight_shading;
-			lscif::tools.prepare_level_set_solving(einit);
-			// lscif::tools.Second_Ray_vers = lscif::update_verlist;
-			// lscif::tools.Second_Ray_nbr_rings = lscif::ring_nbr;
-			// lscif::tools.Reference_theta = lscif::InputPx;
-			// lscif::tools.Reference_phi = lscif::InputPy;
-			// lscif::tools.Reference_theta1 = lscif::InputPx1;
-			// lscif::tools.Reference_phi1 = lscif::InputPy1;
-			// lscif::tools.Theta_tol = lscif::InputThetaTol;
-			// lscif::tools.Phi_tol = lscif::InputPhiTol;
-			// lscif::tools.Theta_tol1 = lscif::InputThetaTol1;
-			// lscif::tools.Phi_tol1 = lscif::InputPhiTol1;
-			// lscif::tools.weight_geodesic = lscif::weight_geodesic;
-			// lscif::tools.enable_max_energy_check = lscif::enable_max_energy_check;
-			// lscif::tools.max_energy_percentage = lscif::max_e_percentage;
-			// lscif::tools.enable_shading_init = lscif::shading_init;
-			// lscif::tools.weight_binormal = lscif::weight_binormal;
-			// lscif::tools.weight_smt_binormal = lscif::weight_smt_binormal;
-			// lscif::tools.enable_let_ray_through = lscif::let_ray_through;
-			// lscif::tools.ShadingLatitude = lscif::Shading_Latitude;
-			// lscif::tools.enable_reflection = lscif::let_ray_reflect;
-			// lscif::tools.recompute_auxiliaries = lscif::recompute_auxiliaries;
+			lscif::tools.weight_pseudo_geodesic_energy = lscif::weight_pseudo_geodesic;
+			lscif::tools.weight_mass = lscif::weight_mass;
+			lscif::tools.weight_laplacian = lscif::weight_laplacian;
+			lscif::tools.weight_boundary = lscif::weight_boundary;
+			lscif::tools.weight_strip_width = lscif::weight_strip_width;
 
 			for (int i = 0; i < lscif::OpIter; i++)
 			{

@@ -29,7 +29,7 @@ void AssignAutoRunDefaultArgs(AutoRunArgs &args, const bool compute_pg)
         args.iterations[1] = 100;
         args.weight_gravity[1] = 1;
         args.weight_lap[1] = 10;
-        args.weight_bnd[1] = 10;
+        args.weight_bnd[1] = 30;
         args.weight_pg[1] = 0;
         args.weight_strip_width[1] = 10;
     }
@@ -471,6 +471,8 @@ double get_interactive_angle(const Eigen::VectorXd &func, const LSAnalizer &anal
     {
         for (int j = 0; j < interactive_bclist[i].size(); j++)
         {
+            int closest_id = -1;
+            if()
             int fid = interactive_flist[i][j];
             int vid[3];
             vid[0] = F(fid, 0);
@@ -657,7 +659,7 @@ void lsTools::Run_Level_Set_Opt_interactive(const bool compute_pg)
 
 		Hlarge = sum_uneven_spMats(Hlarge, weight_pseudo_geodesic_energy * pg_JTJ);
 		Blarge = sum_uneven_vectors(Blarge, weight_pseudo_geodesic_energy * pg_mJTF);
-        std::cout<<"weight_pseudo_geodesic_energy, "<<weight_pseudo_geodesic_energy<<std::endl;
+        // std::cout<<"weight_pseudo_geodesic_energy, "<<weight_pseudo_geodesic_energy<<std::endl;
 		Compute_Auxiliaries = false;
 	}
 	if(vector_contains_NAN(Blarge)){
