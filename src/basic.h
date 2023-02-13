@@ -378,7 +378,7 @@ public:
     Eigen::VectorXi bnd;     // boundary loop
     Eigen::MatrixXd paras;   // parameters of the mesh vertices, nx2
     Eigen::VectorXd fvalues; // function values
-    Eigen::VectorXi InnerV; // the vector show if it is a inner ver.
+    Eigen::VectorXi InnerV; // the vector show if it is a inner ver. size is vnbr
     std::vector<int> IVids; // the ids of the inner vers, size is ninner
     spMat mass_uniform; // the uniformed mass matrix to make sure the average area is 1.
 

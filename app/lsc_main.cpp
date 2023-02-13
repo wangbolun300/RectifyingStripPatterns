@@ -378,8 +378,8 @@ namespace lscif
 				}
 
 				// viewer.data().add_points(igl::slice(viewer.data().V, vids, 1), hot_red);
-				viewer.data().set_points(igl::slice(viewer.data().V, vids, 1), lscif::hot_red);
-				viewer.data().add_points(igl::slice(viewer.data().V, vids2, 1), lscif::sea_green);
+				// viewer.data().set_points(igl::slice(viewer.data().V, vids, 1), lscif::hot_red);
+				viewer.data().add_points(igl::slice(viewer.data().V, vids, 1), lscif::hot_red);
 				Eigen::MatrixXd pts;
 				lscif::tools.show_current_reference_points(pts);
 				viewer.data().add_points(pts, lscif::sea_green);
@@ -2267,11 +2267,183 @@ int main(int argc, char *argv[])
 			std::cout<<"This just clear the lines in the interface, \nPlease add code to clear the lines in LsTools"<<std::endl;
 		}
 		ImGui::SameLine();
-		if (ImGui::Button("TestStrokes", ImVec2(ImGui::GetWindowSize().x * 0.25f, 0.0f)))
+		if (ImGui::Button("Strokes2LS", ImVec2(ImGui::GetWindowSize().x * 0.25f, 0.0f)))
 
 		{
-			std::cout<<"Strokes testing"<<std::endl;
+			std::cout<<"Using Strokes to Initialize the Level Set"<<std::endl;
 			lscif::tools.receive_interactive_strokes_and_init_ls(lscif::flist, lscif::bclist);
+		}
+		
+		if (ImGui::Button("AutoRunSmoothLS", ImVec2(ImGui::GetWindowSize().x * 0.25f, 0.0f)))
+
+		{
+			int id = viewer.selected_data_index;
+			CGMesh inputMesh = lscif::tools.lsmesh;
+			EnergyPrepare einit;
+			einit.weight_gravity = lscif::weight_mass;
+			einit.weight_lap = lscif::weight_laplacian;
+			einit.weight_bnd = lscif::weight_boundary;
+			einit.weight_pg = lscif::weight_pseudo_geodesic;
+			einit.weight_strip_width = lscif::weight_strip_width;
+			// einit.solve_pseudo_geodesic = lscif::enable_pg_energy_checkbox;
+			// einit.target_angle = lscif::target_angle;
+			// einit.max_step_length = lscif::maximal_step_length;
+			// einit.solve_strip_width_on_traced = lscif::enable_strip_width_checkbox;
+			// einit.enable_inner_vers_fixed = lscif::enable_inner_vers_fixed;
+			// einit.enable_functional_angles = lscif::enable_functional_degrees;
+			// einit.enable_extreme_cases = lscif::enable_extreme_cases;
+			// einit.target_min_angle = lscif::target_min_angle;
+			// einit.target_max_angle = lscif::target_max_angle;
+			// einit.start_angle = lscif::start_angle;
+			// einit.enable_boundary_angles = lscif::enable_boundary_angles;
+			// einit.Given_Const_Direction = lscif::Given_Const_Direction;
+			// lscif::tools.weight_shading = lscif::weight_shading;
+			lscif::tools.prepare_level_set_solving(einit);
+			// lscif::tools.Second_Ray_vers = lscif::update_verlist;
+			// lscif::tools.Second_Ray_nbr_rings = lscif::ring_nbr;
+			// lscif::tools.Reference_theta = lscif::InputPx;
+			// lscif::tools.Reference_phi = lscif::InputPy;
+			// lscif::tools.Reference_theta1 = lscif::InputPx1;
+			// lscif::tools.Reference_phi1 = lscif::InputPy1;
+			// lscif::tools.Theta_tol = lscif::InputThetaTol;
+			// lscif::tools.Phi_tol = lscif::InputPhiTol;
+			// lscif::tools.Theta_tol1 = lscif::InputThetaTol1;
+			// lscif::tools.Phi_tol1 = lscif::InputPhiTol1;
+			// lscif::tools.weight_geodesic = lscif::weight_geodesic;
+			// lscif::tools.enable_max_energy_check = lscif::enable_max_energy_check;
+			// lscif::tools.max_energy_percentage = lscif::max_e_percentage;
+			// lscif::tools.enable_shading_init = lscif::shading_init;
+			// lscif::tools.weight_binormal = lscif::weight_binormal;
+			// lscif::tools.weight_smt_binormal = lscif::weight_smt_binormal;
+			// lscif::tools.enable_let_ray_through = lscif::let_ray_through;
+			// lscif::tools.ShadingLatitude = lscif::Shading_Latitude;
+			// lscif::tools.enable_reflection = lscif::let_ray_reflect;
+			// lscif::tools.recompute_auxiliaries = lscif::recompute_auxiliaries;
+
+			for (int i = 0; i < lscif::OpIter; i++)
+			{
+				bool compute_pg = false;
+				lscif::tools.Run_Level_Set_Opt_interactive(compute_pg);
+				if (lscif::tools.step_length < 1e-16 && i != 0)
+				{ // step length actually is the value for the last step
+					std::cout << "optimization converges " << std::endl;
+					break;
+				}
+			}
+			std::cout << "waiting for instruction..." << std::endl;
+			// lscif::MP.MeshUnitScale(inputMesh, updatedMesh);
+			lscif::updateMeshViewer(viewer, inputMesh);
+			lscif::meshFileName.push_back("lso_" + lscif::meshFileName[id]);
+			lscif::Meshes.push_back(inputMesh);
+
+			Eigen::VectorXd level_set_values;
+			lscif::tools.show_level_set(level_set_values);
+			if (level_set_values.size() == 0)
+			{
+				std::cout<<"Level Set is not initialized"<<std::endl;
+				ImGui::End();
+				return;
+			}
+			Eigen::MatrixXd CM;
+			// std::cout<<"before compute colormap"<<std::endl;
+			igl::parula(Eigen::VectorXd::LinSpaced(21, 0, 1).eval(), false, CM);
+			igl::isolines_map(Eigen::MatrixXd(CM), CM);
+			// std::cout<<"before set colormap"<<std::endl;
+			viewer.data().set_colormap(CM);
+			// std::cout<<"before set color"<<std::endl;
+			viewer.data().set_data(level_set_values);
+			// Eigen::MatrixXd E0, E1;
+			// // lscif::tools.show_gradients(E0,E1, lscif::vector_scaling);
+			const Eigen::RowVector3d red(0.8, 0.2, 0.2);
+			const Eigen::RowVector3d blue(0.2, 0.2, 0.8);
+
+			viewer.selected_data_index = id;
+		}
+		ImGui::SameLine();
+		if (ImGui::Button("AutoRunPd-Gdsic", ImVec2(ImGui::GetWindowSize().x * 0.25f, 0.0f)))
+
+		{
+			int id = viewer.selected_data_index;
+			CGMesh inputMesh = lscif::tools.lsmesh;
+			EnergyPrepare einit;
+			einit.weight_gravity = lscif::weight_mass;
+			einit.weight_lap = lscif::weight_laplacian;
+			einit.weight_bnd = lscif::weight_boundary;
+			einit.weight_pg = lscif::weight_pseudo_geodesic;
+			einit.weight_strip_width = lscif::weight_strip_width;
+			// einit.solve_pseudo_geodesic = lscif::enable_pg_energy_checkbox;
+			// einit.target_angle = lscif::target_angle;
+			// einit.max_step_length = lscif::maximal_step_length;
+			// einit.solve_strip_width_on_traced = lscif::enable_strip_width_checkbox;
+			// einit.enable_inner_vers_fixed = lscif::enable_inner_vers_fixed;
+			// einit.enable_functional_angles = lscif::enable_functional_degrees;
+			// einit.enable_extreme_cases = lscif::enable_extreme_cases;
+			// einit.target_min_angle = lscif::target_min_angle;
+			// einit.target_max_angle = lscif::target_max_angle;
+			// einit.start_angle = lscif::start_angle;
+			// einit.enable_boundary_angles = lscif::enable_boundary_angles;
+			// einit.Given_Const_Direction = lscif::Given_Const_Direction;
+			// lscif::tools.weight_shading = lscif::weight_shading;
+			lscif::tools.prepare_level_set_solving(einit);
+			// lscif::tools.Second_Ray_vers = lscif::update_verlist;
+			// lscif::tools.Second_Ray_nbr_rings = lscif::ring_nbr;
+			// lscif::tools.Reference_theta = lscif::InputPx;
+			// lscif::tools.Reference_phi = lscif::InputPy;
+			// lscif::tools.Reference_theta1 = lscif::InputPx1;
+			// lscif::tools.Reference_phi1 = lscif::InputPy1;
+			// lscif::tools.Theta_tol = lscif::InputThetaTol;
+			// lscif::tools.Phi_tol = lscif::InputPhiTol;
+			// lscif::tools.Theta_tol1 = lscif::InputThetaTol1;
+			// lscif::tools.Phi_tol1 = lscif::InputPhiTol1;
+			// lscif::tools.weight_geodesic = lscif::weight_geodesic;
+			// lscif::tools.enable_max_energy_check = lscif::enable_max_energy_check;
+			// lscif::tools.max_energy_percentage = lscif::max_e_percentage;
+			// lscif::tools.enable_shading_init = lscif::shading_init;
+			// lscif::tools.weight_binormal = lscif::weight_binormal;
+			// lscif::tools.weight_smt_binormal = lscif::weight_smt_binormal;
+			// lscif::tools.enable_let_ray_through = lscif::let_ray_through;
+			// lscif::tools.ShadingLatitude = lscif::Shading_Latitude;
+			// lscif::tools.enable_reflection = lscif::let_ray_reflect;
+			// lscif::tools.recompute_auxiliaries = lscif::recompute_auxiliaries;
+
+			for (int i = 0; i < lscif::OpIter; i++)
+			{
+				bool compute_pg = true;
+				lscif::tools.Run_Level_Set_Opt_interactive(compute_pg);
+				if (lscif::tools.step_length < 1e-16 && i != 0)
+				{ // step length actually is the value for the last step
+					std::cout << "optimization converges " << std::endl;
+					break;
+				}
+			}
+			std::cout << "waiting for instruction..." << std::endl;
+			// lscif::MP.MeshUnitScale(inputMesh, updatedMesh);
+			lscif::updateMeshViewer(viewer, inputMesh);
+			lscif::meshFileName.push_back("lso_" + lscif::meshFileName[id]);
+			lscif::Meshes.push_back(inputMesh);
+
+			Eigen::VectorXd level_set_values;
+			lscif::tools.show_level_set(level_set_values);
+			if (level_set_values.size() == 0)
+			{
+				std::cout<<"Level Set is not initialized"<<std::endl;
+				ImGui::End();
+				return;
+			}
+			Eigen::MatrixXd CM;
+			// std::cout<<"before compute colormap"<<std::endl;
+			igl::parula(Eigen::VectorXd::LinSpaced(21, 0, 1).eval(), false, CM);
+			igl::isolines_map(Eigen::MatrixXd(CM), CM);
+			// std::cout<<"before set colormap"<<std::endl;
+			viewer.data().set_colormap(CM);
+			// std::cout<<"before set color"<<std::endl;
+			viewer.data().set_data(level_set_values);
+			// Eigen::MatrixXd E0, E1;
+			// // lscif::tools.show_gradients(E0,E1, lscif::vector_scaling);
+			const Eigen::RowVector3d red(0.8, 0.2, 0.2);
+			const Eigen::RowVector3d blue(0.2, 0.2, 0.8);
+
+			viewer.selected_data_index = id;
 		}
 
 		ImGui::PushStyleColor(ImGuiCol_Button, (ImVec4)ImColor::HSV(0.0f, 0.6f, 0.6f));

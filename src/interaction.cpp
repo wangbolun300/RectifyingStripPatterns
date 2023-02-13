@@ -295,36 +295,31 @@ bool lsTools::receive_interactive_strokes_and_init_ls(const std::vector<std::vec
         std::cout << "Curves self-intersected! Please re-draw the curves" << std::endl;
         return false;
     }
-    std::cout<<"check 1"<<std::endl;
     int id0, id1;
     double geodis;
     topology = get_furthest_end_pts_and_get_distance(paras, V, F,
-                                                     fep, bep, id0, id1, geodis);
-    std::cout<<"check 2, nbr curves, "<<fep.size()<<std::endl;                                                 
+                                                     fep, bep, id0, id1, geodis);                                            
     if (!topology)
     {
         return false;
     }
     assert(id0 < fep.size() && id1 < fep.size());
-    std::cout<<"check 3, id0, id1, "<<id0<<", "<<id1<<std::endl;
     int fid0 = flist[id0][0];
     int fid1 = flist[id1][0];
     Eigen::Vector3f bc0 = bclist[id0][0];
     Eigen::Vector3f bc1 = bclist[id1][0];
-    std::cout<<"check 4"<<std::endl;
     Eigen::Vector2d para_value0 = paras.row(F(fid0, 0)) * bc0(0) + paras.row(F(fid0, 1)) * bc0(1) + paras.row(F(fid0, 2)) * bc0(2);
     Eigen::Vector2d para_value1 = paras.row(F(fid1, 0)) * bc1(0) + paras.row(F(fid1, 1)) * bc1(1) + paras.row(F(fid1, 2)) * bc1(2);
     Eigen::Vector2d trans = (geodis) * (para_value1 - para_value0) / (para_value1 - para_value0).dot(para_value1 - para_value0);
-     std::cout<<"check 5"<<std::endl;
     Eigen::VectorXd dupvalue = duplicate_valus(0, V.rows());
     Eigen::MatrixXd dupmatrix = duplicate_vector(para_value0, V.rows());
     Eigen::MatrixXd tmp = paras - dupmatrix; // matrix of Vi-V0
     Eigen::VectorXd result = tmp * trans;
     result = result - dupvalue;
     fvalues = result;
-    std::cout<<"check 6"<<std::endl;
     interactive_flist = flist;
     interactive_bclist = bclist;
+    Compute_Auxiliaries = true;// every time init the ls, we compute auxiliary variables
     return true;
 }
 
@@ -410,6 +405,8 @@ double get_interactive_angle(const Eigen::VectorXd &func, const LSAnalizer &anal
     int ncurves = interactive_flist.size();
     double angle_avg = 0;
     int counter = 0;
+    // std::vector<double> dbg_angles;
+    // std::vector<bool> dbg_lesszero;
     for (int i = 0; i < ncurves; i++)
     {
         for (int j = 0; j < interactive_bclist[i].size(); j++)
@@ -421,21 +418,22 @@ double get_interactive_angle(const Eigen::VectorXd &func, const LSAnalizer &anal
             vid[2] = F(fid, 2);
             for (int k = 0; k < 3; k++)
             {
-                int ver = vid[k];
-                int vm = InnerV[ver];
-                if (analizer.LocalActInner[i] == false)
+                int vm = vid[k];
+                int ith = InnerV[vm];
+
+                if (analizer.LocalActInner[ith] == false)
                 {
                     std::cout << "singularity, " << vm << std::endl;
                     continue;
                 }
-                CGMesh::HalfedgeHandle inhd = analizer.heh0[i], outhd = analizer.heh1[i];
+                CGMesh::HalfedgeHandle inhd = analizer.heh0[ith], outhd = analizer.heh1[ith];
                 int v1 = lsmesh.from_vertex_handle(inhd).idx();
                 int v2 = lsmesh.to_vertex_handle(inhd).idx();
                 int v3 = lsmesh.from_vertex_handle(outhd).idx();
                 int v4 = lsmesh.to_vertex_handle(outhd).idx();
 
-                double t1 = analizer.t1s[i];
-                double t2 = analizer.t2s[i];
+                double t1 = analizer.t1s[ith];
+                double t2 = analizer.t2s[ith];
 
                 Eigen::Vector3d ver0 = V.row(v1) + (V.row(v2) - V.row(v1)) * t1;
                 Eigen::Vector3d ver1 = V.row(vm);
@@ -450,18 +448,31 @@ double get_interactive_angle(const Eigen::VectorXd &func, const LSAnalizer &anal
                 real_r = real_r.normalized();
                 double cos_angle = real_r.dot(norm);
                 double sin_angle = real_r.dot(real_u);
+                if(sin_angle<0){
+                    cos_angle *= -1;
+                }
                 double angle = acos(cos_angle);
+                // dbg_angles.push_back(180 / LSC_PI * angle);
+
                 // converting the angle to [0~PI] is resonable
                 // if sin_angle>0, just take the theta;
                 // if sin_angle<0, take PI - theta
                 if(sin_angle<0){
-                    angle = LSC_PI - angle;
+                    // angle = LSC_PI - angle;
+                    // dbg_lesszero.push_back(1);
+                }
+                else{
+                    // dbg_lesszero.push_back(0);
                 }
                 angle_avg += angle;
                 counter++;
             }
         }
     }
+    // for(int i=0;i<dbg_angles.size();i++){
+    //     std::cout<<dbg_angles[i]<<"-"<<dbg_lesszero[i]<<", ";
+    // }
+    // std::cout<<"avg radian, "<<angle_avg / counter<<"\n";
     return angle_avg / counter;
 }
 
@@ -475,7 +486,10 @@ void lsTools::Run_Level_Set_Opt_interactive(const bool compute_pg)
 
     int vnbr = V.rows();
     int fnbr = F.rows();
-
+    if(func.size()==0){
+        std::cout<<"Please init the level set using the interactive curves before solving optimizations"<<std::endl;
+        return;
+    }
     get_gradient_hessian_values(func, GradValueV, GradValueF);
     // std::cout<<"check "<<func.norm()<<std::endl;
     analysis_pseudo_geodesic_on_vertices(func, anas[0]);
@@ -489,10 +503,7 @@ void lsTools::Run_Level_Set_Opt_interactive(const bool compute_pg)
     {
         final_size = ninner * 10 + vnbr; // pseudo - geodesic
     }
-    if(func.size()==0){
-        std::cout<<"Please init the level set using the interactive curves before solving optimizations"<<std::endl;
-        return;
-    }
+    
 
 	if (Glob_lsvars.size() != final_size) {
 		

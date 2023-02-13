@@ -1006,47 +1006,80 @@ void lsTools::estimate_strip_width_according_to_tracing(){
 }
 void lsTools::print_info(const int vid)
 {
-    if (Given_Const_Direction)
+    if (anas[0].LocalActInner.size() > 0)
     {
         int ninner = anas[0].LocalActInner.size();
         int vnbr = V.rows();
-        int vm = IVids[vid];
-        int xloc = vm + vnbr + ninner * 8;
-        int yloc = vm + vnbr + ninner * 9;
-        int zloc = vm + vnbr + ninner * 10;
-        int lnpx = vm + vnbr + ninner * 11;
-		int lnpy = vm + vnbr + ninner * 12;
-		int lnpz = vm + vnbr + ninner * 13;
-        int lbnx = vm + vnbr + ninner * 0;
-        int lbny = vm + vnbr + ninner * 1;
-        int lbnz = vm + vnbr + ninner * 2;
-        if (enable_shading_init)
-        {
-            xloc = vm + vnbr + ninner * 3;
-            yloc = vm + vnbr + ninner * 4;
-            zloc = vm + vnbr + ninner * 5;
-        }
-        Eigen::Vector3d bn = Eigen::Vector3d(Glob_lsvars[lbnx], Glob_lsvars[lbny], Glob_lsvars[lbnz]);
-        std::cout << "the light, " << Glob_lsvars[xloc] << ", " << Glob_lsvars[yloc] << ", " << Glob_lsvars[zloc] << "\n";
-        std::cout << "the pn, " << bn[0] << ", " << bn[1] << ", " << bn[2] << "\n";
-        std::cout << "the binormal, " << Glob_lsvars[xloc] << ", " << Glob_lsvars[yloc] << ", " << Glob_lsvars[zloc] << "\n";
-        double latitude_radian = ShadingLatitude * LSC_PI / 180.;
-        double rho = (LSC_PI / 2 - latitude_radian);
-        Eigen::Matrix3d rotation;
-        rotation << 1, 0, 0,
-            0, cos(rho), -sin(rho),
-            0, sin(rho), cos(rho);
-        Eigen::Vector3d direction_ground = Eigen::Vector3d(0, 0, -1); // the ground direction
-        direction_ground = rotation * direction_ground;
-        Eigen::Vector3d light = Eigen::Vector3d(Glob_lsvars[xloc], Glob_lsvars[yloc], Glob_lsvars[zloc]);
-        Eigen::Vector3d pn = Eigen::Vector3d(Glob_lsvars[lnpx], Glob_lsvars[lnpy], Glob_lsvars[lnpz]);
+        int vm = vid;
+        int i = InnerV[vm]; // the ith element in inner list is vm
         
-        std::cout << "the ground, " << direction_ground[0] << ", " << direction_ground[1] << ", " << direction_ground[2] << "\n";
+        CGMesh::HalfedgeHandle inhd = anas[0].heh0[i], outhd = anas[0].heh1[i];
+        int v1 = lsmesh.from_vertex_handle(inhd).idx();
+        int v2 = lsmesh.to_vertex_handle(inhd).idx();
+        int v3 = lsmesh.from_vertex_handle(outhd).idx();
+        int v4 = lsmesh.to_vertex_handle(outhd).idx();
 
-        std::cout << "light * pn = " << Eigen::Vector3d(Glob_lsvars[xloc], Glob_lsvars[yloc], Glob_lsvars[zloc]).dot(Eigen::Vector3d(Glob_lsvars[lnpx], Glob_lsvars[lnpy], Glob_lsvars[lnpz]))
-        <<", ground * pn = "<<direction_ground.dot(Eigen::Vector3d(Glob_lsvars[lnpx], Glob_lsvars[lnpy], Glob_lsvars[lnpz]))<<std::endl;
-        std::cout<<"(light, pn, ground) = "<<light.cross(pn).dot(direction_ground)<<std::endl;
+        double t1 = anas[0].t1s[i];
+        double t2 = anas[0].t2s[i];
+
+        Eigen::Vector3d ver0 = V.row(v1) + (V.row(v2) - V.row(v1)) * t1;
+        Eigen::Vector3d ver1 = V.row(vm);
+        Eigen::Vector3d ver2 = V.row(v3) + (V.row(v4) - V.row(v3)) * t2;
+        Eigen::Vector3d norm = norm_v.row(vm);
+        Eigen::Vector3d real_u = norm.cross(ver2 - ver0);
+        real_u = real_u.normalized();
+        Eigen::Vector3d real_r = (ver1 - ver0).normalized().cross((ver2 - ver1).normalized());
+        if (real_r.norm() < 1e-6)
+        { // almost a straight line
+            std::cout<<"This is almost a straight line"<<std::endl;
+        }
+        real_r = real_r.normalized();
+        double cos_angle = real_r.dot(norm);
+        double sin_angle = real_r.dot(real_u);
+        std::cout<<"cos, sin "<<cos_angle<<", "<<sin_angle<<std::endl;
+        if (sin_angle < 0)
+        {
+            cos_angle *= -1;
+        }
+         double angle = acos(cos_angle);
+         std::cout << "angle " << 180. / LSC_PI * angle << std::endl;
     }
+    // int xloc = vm + vnbr + ninner * 8;
+    // int yloc = vm + vnbr + ninner * 9;
+    // int zloc = vm + vnbr + ninner * 10;
+    // int lnpx = vm + vnbr + ninner * 11;
+    // int lnpy = vm + vnbr + ninner * 12;
+    // int lnpz = vm + vnbr + ninner * 13;
+    // int lbnx = vm + vnbr + ninner * 0;
+    // int lbny = vm + vnbr + ninner * 1;
+    // int lbnz = vm + vnbr + ninner * 2;
+    // if (enable_shading_init)
+    // {
+    //     xloc = vm + vnbr + ninner * 3;
+    //     yloc = vm + vnbr + ninner * 4;
+    //     zloc = vm + vnbr + ninner * 5;
+    // }
+    // Eigen::Vector3d bn = Eigen::Vector3d(Glob_lsvars[lbnx], Glob_lsvars[lbny], Glob_lsvars[lbnz]);
+    // std::cout << "the light, " << Glob_lsvars[xloc] << ", " << Glob_lsvars[yloc] << ", " << Glob_lsvars[zloc] << "\n";
+    // std::cout << "the pn, " << bn[0] << ", " << bn[1] << ", " << bn[2] << "\n";
+    // std::cout << "the binormal, " << Glob_lsvars[xloc] << ", " << Glob_lsvars[yloc] << ", " << Glob_lsvars[zloc] << "\n";
+    // double latitude_radian = ShadingLatitude * LSC_PI / 180.;
+    // double rho = (LSC_PI / 2 - latitude_radian);
+    // Eigen::Matrix3d rotation;
+    // rotation << 1, 0, 0,
+    //     0, cos(rho), -sin(rho),
+    //     0, sin(rho), cos(rho);
+    // Eigen::Vector3d direction_ground = Eigen::Vector3d(0, 0, -1); // the ground direction
+    // direction_ground = rotation * direction_ground;
+    // Eigen::Vector3d light = Eigen::Vector3d(Glob_lsvars[xloc], Glob_lsvars[yloc], Glob_lsvars[zloc]);
+    // Eigen::Vector3d pn = Eigen::Vector3d(Glob_lsvars[lnpx], Glob_lsvars[lnpy], Glob_lsvars[lnpz]);
+
+    // std::cout << "the ground, " << direction_ground[0] << ", " << direction_ground[1] << ", " << direction_ground[2] << "\n";
+
+    // std::cout << "light * pn = " << Eigen::Vector3d(Glob_lsvars[xloc], Glob_lsvars[yloc], Glob_lsvars[zloc]).dot(Eigen::Vector3d(Glob_lsvars[lnpx], Glob_lsvars[lnpy], Glob_lsvars[lnpz]))
+    // <<", ground * pn = "<<direction_ground.dot(Eigen::Vector3d(Glob_lsvars[lnpx], Glob_lsvars[lnpy], Glob_lsvars[lnpz]))<<std::endl;
+    // std::cout<<"(light, pn, ground) = "<<light.cross(pn).dot(direction_ground)<<std::endl;
+// }
 
     // LSAnalizer anl;
     // analysis_pseudo_geodesic_on_vertices(fvalues,anl);
