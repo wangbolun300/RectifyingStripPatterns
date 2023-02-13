@@ -337,7 +337,7 @@ private:
     double Mesh_opt_max_step_length;
     bool Last_Opt_Mesh=false; // the last step was mesh optimization. need to update all the mesh properties
     Eigen::VectorXd Glob_Vars;
-    std::array<LSAnalizer, 3> anas;
+    std::array<LSAnalizer, 3> analizers;
 
     void solve_edge_length_matrix(const Eigen::MatrixXd& V, const Eigen::MatrixXi& E, spMat& mat);
     void calculate_mesh_opt_expanded_function_values( Eigen::VectorXd& vars,

@@ -891,8 +891,8 @@ void lsTools::Run_Mesh_Opt(){
         Compute_Auxiliaries_Mesh=true;
         first_compute = true;// if last time opt levelset, we re-compute the auxiliary vars
     }
-    analysis_pseudo_geodesic_on_vertices(func, anas[0]);
-    int ninner = anas[0].LocalActInner.size();
+    analysis_pseudo_geodesic_on_vertices(func, analizers[0]);
+    int ninner = analizers[0].LocalActInner.size();
     int vnbr=V.rows();
 	int final_size = ninner * 7 + vnbr * 3;// Change this when using more auxilary vars
    
@@ -936,7 +936,7 @@ void lsTools::Run_Mesh_Opt(){
     Eigen::VectorXd MTEnergy;
     if (!enable_extreme_cases) {
         assemble_solver_mesh_opt_part(Glob_Vars,
-            anas[0], angle_degrees, aux_start_loc, Hpg, Bpg, MTEnergy);
+            analizers[0], angle_degrees, aux_start_loc, Hpg, Bpg, MTEnergy);
     }
     else {
         bool asymptotic = true;
@@ -946,7 +946,7 @@ void lsTools::Run_Mesh_Opt(){
         }
         Eigen::Vector3d any_ray;
         // in mesh opt we do not optimize for shading
-        assemble_solver_mesh_extreme(Glob_Vars, aux_start_loc, func, asymptotic, false, any_ray, anas[0], Hpg, Bpg, MTEnergy);
+        assemble_solver_mesh_extreme(Glob_Vars, aux_start_loc, func, asymptotic, false, any_ray, analizers[0], Hpg, Bpg, MTEnergy);
 
     }
     Compute_Auxiliaries_Mesh = false;
@@ -1040,12 +1040,12 @@ void lsTools::Run_AAG_Mesh_Opt(Eigen::VectorXd& func0, Eigen::VectorXd& func1, E
         func2 = -func0 - func1;
         std::cout << "** Mesh Opt initialization done" << std::endl;
         Compute_Auxiliaries_Mesh=true;
-        analysis_pseudo_geodesic_on_vertices(func0, anas[0]);
-        analysis_pseudo_geodesic_on_vertices(func1, anas[1]);
-        analysis_pseudo_geodesic_on_vertices(func2, anas[2]);
+        analysis_pseudo_geodesic_on_vertices(func0, analizers[0]);
+        analysis_pseudo_geodesic_on_vertices(func1, analizers[1]);
+        analysis_pseudo_geodesic_on_vertices(func2, analizers[2]);
         first_compute = true;// if last time opt levelset, we re-compute the auxiliary vars
     }
-    int ninner = anas[0].LocalActInner.size();
+    int ninner = analizers[0].LocalActInner.size();
     int vnbr=V.rows();
     int final_size = vnbr * 3 + ninner * 3; // Change this when using more auxilary vars. Only G use auxiliaries
 
@@ -1086,11 +1086,11 @@ void lsTools::Run_AAG_Mesh_Opt(Eigen::VectorXd& func0, Eigen::VectorXd& func1, E
     Eigen::VectorXd MTEnergy[3];
     Eigen::Vector3d any_ray;
     // A
-    assemble_solver_mesh_extreme(Glob_Vars, aux_start_loc, func0, true, false, any_ray, anas[0], Hpg[0], Bpg[0], MTEnergy[0]);
+    assemble_solver_mesh_extreme(Glob_Vars, aux_start_loc, func0, true, false, any_ray, analizers[0], Hpg[0], Bpg[0], MTEnergy[0]);
     // A
-    assemble_solver_mesh_extreme(Glob_Vars, aux_start_loc, func1, true, false, any_ray, anas[1], Hpg[1], Bpg[1], MTEnergy[1]);
+    assemble_solver_mesh_extreme(Glob_Vars, aux_start_loc, func1, true, false, any_ray, analizers[1], Hpg[1], Bpg[1], MTEnergy[1]);
     // G
-    assemble_solver_mesh_extreme(Glob_Vars, aux_start_loc, func2, false, false, any_ray, anas[2], Hpg[2], Bpg[2], MTEnergy[2]);
+    assemble_solver_mesh_extreme(Glob_Vars, aux_start_loc, func2, false, false, any_ray, analizers[2], Hpg[2], Bpg[2], MTEnergy[2]);
 
     Compute_Auxiliaries_Mesh = false;
     spMat Htotal(final_size, final_size);
@@ -1169,12 +1169,12 @@ void lsTools::Run_AGG_Mesh_Opt(Eigen::VectorXd& func0, Eigen::VectorXd& func1, E
         func2 = -func0 - func1;
         std::cout << "** Mesh Opt initialization done" << std::endl;
         Compute_Auxiliaries_Mesh=true;
-        analysis_pseudo_geodesic_on_vertices(func0, anas[0]);
-        analysis_pseudo_geodesic_on_vertices(func1, anas[1]);
-        analysis_pseudo_geodesic_on_vertices(func2, anas[2]);
+        analysis_pseudo_geodesic_on_vertices(func0, analizers[0]);
+        analysis_pseudo_geodesic_on_vertices(func1, analizers[1]);
+        analysis_pseudo_geodesic_on_vertices(func2, analizers[2]);
         first_compute = true;// if last time opt levelset, we re-compute the auxiliary vars
     }
-    int ninner = anas[0].LocalActInner.size();
+    int ninner = analizers[0].LocalActInner.size();
     int vnbr = V.rows();
     int final_size = vnbr * 3 + ninner * 6; // Change this when using more auxilary vars. Only G use auxiliaries
 
@@ -1216,12 +1216,12 @@ void lsTools::Run_AGG_Mesh_Opt(Eigen::VectorXd& func0, Eigen::VectorXd& func1, E
     Eigen::Vector3d any_ray;
     // A
     int aux_start_loc = vnbr * 3;// For mesh opt the auxiliary vars start from vnbr*3
-    assemble_solver_mesh_extreme(Glob_Vars, aux_start_loc, func0, true, false, any_ray, anas[0], Hpg[0], Bpg[0], MTEnergy[0]);
+    assemble_solver_mesh_extreme(Glob_Vars, aux_start_loc, func0, true, false, any_ray, analizers[0], Hpg[0], Bpg[0], MTEnergy[0]);
     // G
-    assemble_solver_mesh_extreme(Glob_Vars, aux_start_loc, func1, false, false, any_ray, anas[1], Hpg[1], Bpg[1], MTEnergy[1]);
+    assemble_solver_mesh_extreme(Glob_Vars, aux_start_loc, func1, false, false, any_ray, analizers[1], Hpg[1], Bpg[1], MTEnergy[1]);
     // G
     aux_start_loc = vnbr * 3 + ninner * 3;
-    assemble_solver_mesh_extreme(Glob_Vars, aux_start_loc, func2, false, false, any_ray, anas[2], Hpg[2], Bpg[2], MTEnergy[2]);
+    assemble_solver_mesh_extreme(Glob_Vars, aux_start_loc, func2, false, false, any_ray, analizers[2], Hpg[2], Bpg[2], MTEnergy[2]);
 
     Compute_Auxiliaries_Mesh = false;
     spMat Htotal(final_size, final_size);

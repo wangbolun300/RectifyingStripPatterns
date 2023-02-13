@@ -3813,7 +3813,7 @@ void lsTools::show_traced_binormals(Eigen::MatrixXd &bE0, Eigen::MatrixXd &bE1, 
 }
 void lsTools::show_max_pg_energy(Eigen::VectorXd &e)
 {
-    int ninner = anas[0].LocalActInner.size();
+    int ninner = analizers[0].LocalActInner.size();
     if(ninner==0){
         return;
     }
@@ -3833,8 +3833,9 @@ void lsTools::show_max_pg_energy(Eigen::VectorXd &e)
 }
 void lsTools::show_max_pg_energy_all(Eigen::MatrixXd &energy)
 {
-    int ninner = anas[0].LocalActInner.size();
+    int ninner = analizers[0].LocalActInner.size();
     if(ninner==0){
+        std::cout<<"analizer is empty"<<std::endl;
         return;
     }
     int vnbr = V.rows();
@@ -3881,7 +3882,7 @@ void get_one_ring_vertices_simple(const Eigen::VectorXi &ref, CGMesh &lsmesh, Ei
 // Eigen::VectorXi lsTools::Second_Angle_Inner_Vers()
 // {
     
-//     int ninner = anas[0].LocalActInner.size();
+//     int ninner = analizers[0].LocalActInner.size();
 //     int vnbr = V.rows();
 //     Eigen::VectorXi result = Eigen::VectorXi::Zero(ninner);
 //     int candi_size = Second_Ray_vers.size();
@@ -3978,7 +3979,7 @@ void mesh_unit_scale(const Eigen::MatrixXd &V, Eigen::MatrixXd &Vout)
 // theta and phi are the main light direction, diff records how close to othogonal
 Eigen::VectorXi lsTools::shading_detect_parallel_patch(const double theta, const double phi, Eigen::VectorXd& diff)
 {
-    int ninner = anas[0].LocalActInner.size();
+    int ninner = analizers[0].LocalActInner.size();
     int vnbr = V.rows();
     diff = Eigen::VectorXd::Zero(vnbr);
     Eigen::VectorXi otho = Eigen::VectorXi::Ones(ninner) * 1; // mark the vertices whose normal is othogonal to the light as 0.
@@ -4043,7 +4044,7 @@ void mark_high_energy_vers(const Eigen::VectorXd &energy, const int ninner, cons
 
 }
 void lsTools::clear_high_energy_markers_in_analizer(){
-    anas[0].HighEnergy.resize(0);
+    analizers[0].HighEnergy.resize(0);
 }
 
 

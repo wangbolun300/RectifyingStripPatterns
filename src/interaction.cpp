@@ -2,7 +2,42 @@
 #include <lsc/tools.h>
 #include <igl/opengl/glfw/Viewer.h>
 #include <igl/heat_geodesics.h>
+// assign default arguments for interactive design.
+void AssignAutoRunDefaultArgs(AutoRunArgs &args, const bool compute_pg)
+{
+    if (!compute_pg)
+    { // just for a smooth field following the strokes
+        args.compute_pg = false;
+        args.stop_step_length = 1e-3; // when the step length lower than this, stop
 
+        args.iterations.resize(2);
+        args.weight_gravity.resize(2);
+        args.weight_lap.resize(2);
+        args.weight_bnd.resize(2);
+        args.weight_pg.resize(2);
+        args.weight_strip_width.resize(2);
+
+        // first small boundary condition
+        args.iterations[0] = 100;
+        args.weight_gravity[0] = 1;
+        args.weight_lap[0] = 10;
+        args.weight_bnd[0] = 1;
+        args.weight_pg[0] = 0;
+        args.weight_strip_width[0] = 10;
+
+        // second use large boundary condition
+        args.iterations[1] = 100;
+        args.weight_gravity[1] = 1;
+        args.weight_lap[1] = 10;
+        args.weight_bnd[1] = 10;
+        args.weight_pg[1] = 0;
+        args.weight_strip_width[1] = 10;
+    }
+    else{//paras for pseodu-geodesic
+        std::cout<<"todo"<<std::endl;
+        // exit(0);
+    }
+}
 
 void collect_2d_positions(igl::opengl::glfw::Viewer &viewer, const double time_limit,
                           std::vector<double> &xs, std::vector<double> &ys)
@@ -69,7 +104,7 @@ void collect_2d_positions(igl::opengl::glfw::Viewer &viewer, const double time_l
 // }
 
 // filter to leave at most 1 point in each triangle.
-void get_stroke_intersection_on_edges(const CGMesh &mesh, const Eigen::MatrixXd &V, const Eigen::MatrixXi &F,
+void get_stroke_intersection_on_triangles(const CGMesh &mesh, const Eigen::MatrixXd &V, const Eigen::MatrixXi &F,
                                       const std::vector<int> &flist,
                                       const std::vector<Eigen::Vector3f> &bclist, std::vector<int> &fout, 
                                       std::vector<Eigen::Vector3f>& bcout)
@@ -107,6 +142,7 @@ void get_stroke_intersection_on_edges(const CGMesh &mesh, const Eigen::MatrixXd 
     bcsort.push_back(bctmp);
     fsize = fsort.size();
     // std::cout << "the selected fids:" << std::endl;
+    Eigen::VectorXi flags = Eigen::VectorXi::Zero(F.rows());
     for (int i = 0; i < fsize; i++)
     {
         int middle;
@@ -120,6 +156,11 @@ void get_stroke_intersection_on_edges(const CGMesh &mesh, const Eigen::MatrixXd 
         assert(middle >= 0 && middle < tsize);
         int select_id = fsort[i][middle];
         Eigen::Vector3f select_bc = bcsort[i][middle];
+        if (flags[select_id] == 1)//this face is already appeared before
+        {
+            continue;
+        }
+        flags[select_id] = 1;
         fout.push_back(select_id);
         bcout.push_back(select_bc);
     }
@@ -163,7 +204,7 @@ void draw_stroke_on_mesh(const CGMesh &mesh, igl::opengl::glfw::Viewer &viewer,
         }
     }
     
-    get_stroke_intersection_on_edges(mesh, V, F,
+    get_stroke_intersection_on_triangles(mesh, V, F,
                                      flist,
                                      bclist, fout, bcout);
     // get 3d points according to the barycenter coordinates
@@ -254,6 +295,18 @@ bool get_furthest_end_pts_and_get_distance(const Eigen::MatrixXd &paras, const E
     geodis = D(vid0) * bc(0) + D(vid1) * bc(1) + D(vid2) * bc(2);
     return true;
 }
+void print_facelist(const std::vector<std::vector<int>> &flist)
+{
+    std::cout << "printing curve face list" << std::endl;
+    for (int i = 0; i < flist.size(); i++)
+    {
+        for (int j = 0; j < flist[i].size(); j++)
+        {
+            std::cout << flist[i][j] << ", ";
+        }
+        std::cout << std::endl;
+    }
+}
 
 // ep means end point
 bool check_stroke_topology(const int fnbr, const std::vector<std::vector<int>> &flist,
@@ -264,6 +317,8 @@ bool check_stroke_topology(const int fnbr, const std::vector<std::vector<int>> &
     fep.resize(nc);
     bep.resize(nc);
     Eigen::VectorXi flags = Eigen::VectorXi::Zero(fnbr);
+    Eigen::VectorXi ilist = Eigen::VectorXi::Ones(fnbr) * -1;
+    Eigen::VectorXi jlist = Eigen::VectorXi::Ones(fnbr) * -1;
     for (int i = 0; i < flist.size(); i++)
     {
         fep[i] = flist[i][0];
@@ -273,9 +328,14 @@ bool check_stroke_topology(const int fnbr, const std::vector<std::vector<int>> &
             int fid = flist[i][j];
             if (flags[fid] == 1)
             {
+                std::cout<<"Self intersected curve id: "<<i<<" pt id, "<<j<<
+                "\nIt has intersection with "<<ilist[fid]<<", "<<jlist[fid]<<std::endl;
+                print_facelist(flist);
                 return false;
             }
             flags[fid] = 1;
+            ilist[fid] = i;
+            jlist[fid] = j;
         }
     }
     return true;
@@ -492,8 +552,8 @@ void lsTools::Run_Level_Set_Opt_interactive(const bool compute_pg)
     }
     get_gradient_hessian_values(func, GradValueV, GradValueF);
     // std::cout<<"check "<<func.norm()<<std::endl;
-    analysis_pseudo_geodesic_on_vertices(func, anas[0]);
-    int ninner = anas[0].LocalActInner.size();
+    analysis_pseudo_geodesic_on_vertices(func, analizers[0]);
+    int ninner = analizers[0].LocalActInner.size();
     int final_size;
     if (!compute_pg) // only the boundary condition
     {
@@ -506,7 +566,7 @@ void lsTools::Run_Level_Set_Opt_interactive(const bool compute_pg)
     
 
 	if (Glob_lsvars.size() != final_size) {
-		
+        Compute_Auxiliaries = true;
 		if (Glob_lsvars.size() == 0)
 		{
 			std::cout << "Initializing Global Variable For LevelSet Opt ... " << std::endl;
@@ -529,11 +589,11 @@ void lsTools::Run_Level_Set_Opt_interactive(const bool compute_pg)
 				Eigen::VectorXd tmp = Glob_lsvars;
 				Glob_lsvars = Eigen::VectorXd::Zero(final_size); // We change the size if opt more than 1 level set
 				Glob_lsvars.segment(0, tmp.size()) = tmp;
-				Compute_Auxiliaries = true;
+				
 			}
 		}
 	}
-	
+	// std::cout<<"check 1"<<std::endl;
 	spMat H;
 	H.resize(vnbr, vnbr);
     Eigen::VectorXd B = Eigen::VectorXd::Zero(vnbr);
@@ -544,13 +604,8 @@ void lsTools::Run_Level_Set_Opt_interactive(const bool compute_pg)
 	H += weight_laplacian * LTL;
 	B += weight_laplacian * mLTF;
 	assert(mass.rows() == vnbr);
-
+    // std::cout<<"check 2"<<std::endl;
 	// fix inner vers and smooth boundary
-	if (enable_inner_vers_fixed)
-	{
-		// H += weight_mass * InnerV.asDiagonal();
-		std::cout << "Please don't use fixing_inner_vertex energy" << std::endl;
-	}
 	Eigen::VectorXd bcfvalue = Eigen::VectorXd::Zero(vnbr);
 	Eigen::VectorXd fbdenergy = Eigen::VectorXd::Zero(vnbr);
 	// boundary condition
@@ -563,7 +618,7 @@ void lsTools::Run_Level_Set_Opt_interactive(const bool compute_pg)
         H += weight_boundary * bc_JTJ;
         B += weight_boundary * bc_mJTF;
     }
-
+    // std::cout<<"check 3"<<std::endl;
     // strip width condition
 
     spMat sw_JTJ;
@@ -584,7 +639,7 @@ void lsTools::Run_Level_Set_Opt_interactive(const bool compute_pg)
 	
 	Hlarge = sum_uneven_spMats(H, Hlarge);
 	Blarge = sum_uneven_vectors(B, Blarge);
-
+    // std::cout<<"check 4"<<std::endl;
 	if (compute_pg)
 	{
 
@@ -592,20 +647,24 @@ void lsTools::Run_Level_Set_Opt_interactive(const bool compute_pg)
 		Eigen::VectorXd pg_mJTF;
 		int vars_start_loc = 0;
 		int aux_start_loc = vnbr;
-        std::vector<double> angle_degree(0);
+        std::vector<double> angle_degree(1);
         angle_degree[0] = pseudo_geodesic_target_angle_degree;
-        assemble_solver_pesudo_geodesic_energy_part_vertex_based(Glob_lsvars, angle_degree, anas[0],
+        if(Compute_Auxiliaries){
+            std::cout<<"Computing Auxiliaries"<<std::endl;
+        }
+        assemble_solver_pesudo_geodesic_energy_part_vertex_based(Glob_lsvars, angle_degree, analizers[0],
                                                                  vars_start_loc, aux_start_loc, pg_JTJ, pg_mJTF, PGEnergy);
 
 		Hlarge = sum_uneven_spMats(Hlarge, weight_pseudo_geodesic_energy * pg_JTJ);
 		Blarge = sum_uneven_vectors(Blarge, weight_pseudo_geodesic_energy * pg_mJTF);
-	
+        std::cout<<"weight_pseudo_geodesic_energy, "<<weight_pseudo_geodesic_energy<<std::endl;
 		Compute_Auxiliaries = false;
 	}
 	if(vector_contains_NAN(Blarge)){
         std::cout<<"energy contains NAN"<<std::endl;
 		return;
     }
+    // std::cout<<"check 5"<<std::endl;
 	Hlarge += 1e-6 * weight_mass * spMat(Eigen::VectorXd::Ones(final_size).asDiagonal());
 
 	Eigen::SimplicialLLT<Eigen::SparseMatrix<double>> solver(Hlarge);
@@ -637,6 +696,7 @@ void lsTools::Run_Level_Set_Opt_interactive(const bool compute_pg)
 	double energy_biharmonic = func.transpose() * QcH * func;
 	double energy_boundary = (bcfvalue).norm();
 	std::cout << "energy: harm " << energy_biharmonic << ", bnd " << energy_boundary << ", ";
+    // std::cout<<"check 5.5"<<std::endl;
     if (compute_pg)
     {
         double energy_pg = PGEnergy.norm();
@@ -646,7 +706,7 @@ void lsTools::Run_Level_Set_Opt_interactive(const bool compute_pg)
         double max_ls_angle_energy = PGEnergy.bottomRows(ninner).norm();
         std::cout << "total angle energy, " << max_ls_angle_energy << ", ";
     }
-
+    // std::cout<<"check 6"<<std::endl;
     Eigen::VectorXd ener = GradValueF.rowwise().norm();
     ener = ener.asDiagonal() * ener;
     Eigen::VectorXd wds = Eigen::VectorXd::Ones(fnbr) * strip_width * strip_width;
@@ -661,7 +721,7 @@ void lsTools::Run_Level_Set_Opt_interactive(const bool compute_pg)
     // get the average angle around the strokes
     if (!compute_pg)
     {
-        pseudo_geodesic_target_angle_degree = 180. / LSC_PI * get_interactive_angle(func, anas[0], lsmesh, norm_v,
+        pseudo_geodesic_target_angle_degree = 180. / LSC_PI * get_interactive_angle(func, analizers[0], lsmesh, norm_v,
          V, F, interactive_flist, interactive_bclist, InnerV);
     }
     std::cout<<", target_angle, "<<pseudo_geodesic_target_angle_degree;

@@ -1006,21 +1006,21 @@ void lsTools::estimate_strip_width_according_to_tracing(){
 }
 void lsTools::print_info(const int vid)
 {
-    if (anas[0].LocalActInner.size() > 0)
+    if (analizers[0].LocalActInner.size() > 0)
     {
-        int ninner = anas[0].LocalActInner.size();
+        int ninner = analizers[0].LocalActInner.size();
         int vnbr = V.rows();
         int vm = vid;
         int i = InnerV[vm]; // the ith element in inner list is vm
         
-        CGMesh::HalfedgeHandle inhd = anas[0].heh0[i], outhd = anas[0].heh1[i];
+        CGMesh::HalfedgeHandle inhd = analizers[0].heh0[i], outhd = analizers[0].heh1[i];
         int v1 = lsmesh.from_vertex_handle(inhd).idx();
         int v2 = lsmesh.to_vertex_handle(inhd).idx();
         int v3 = lsmesh.from_vertex_handle(outhd).idx();
         int v4 = lsmesh.to_vertex_handle(outhd).idx();
 
-        double t1 = anas[0].t1s[i];
-        double t2 = anas[0].t2s[i];
+        double t1 = analizers[0].t1s[i];
+        double t2 = analizers[0].t2s[i];
 
         Eigen::Vector3d ver0 = V.row(v1) + (V.row(v2) - V.row(v1)) * t1;
         Eigen::Vector3d ver1 = V.row(vm);

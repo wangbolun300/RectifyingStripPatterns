@@ -2059,8 +2059,8 @@ void lsTools::Run_Level_Set_Opt() {
 		std::cout<<"Unit Scale Levelset"<<std::endl;
 	}
 	// std::cout<<"check "<<func.norm()<<std::endl;
-	analysis_pseudo_geodesic_on_vertices(func, anas[0]);
-	int ninner = anas[0].LocalActInner.size();
+	analysis_pseudo_geodesic_on_vertices(func, analizers[0]);
+	int ninner = analizers[0].LocalActInner.size();
 	int final_size;
 	if (enable_extreme_cases)
 	{
@@ -2197,7 +2197,7 @@ void lsTools::Run_Level_Set_Opt() {
 		int aux_start_loc = vnbr;
 		if (!enable_extreme_cases) {
 
-			assemble_solver_pesudo_geodesic_energy_part_vertex_based(Glob_lsvars, angle_degree, anas[0],
+			assemble_solver_pesudo_geodesic_energy_part_vertex_based(Glob_lsvars, angle_degree, analizers[0],
 																	vars_start_loc, aux_start_loc, pg_JTJ, pg_mJTF, PGEnergy);
 			
 		}
@@ -2212,22 +2212,22 @@ void lsTools::Run_Level_Set_Opt() {
 
 			}
 			// get the vertices associated to the second angle
-			anas[0].Special = shading_condition_info;
+			analizers[0].Special = shading_condition_info;
 
 			// mark the angles
 			Eigen::VectorXd diff;
-			anas[0].ShadSpecial = shading_detect_parallel_patch(Reference_theta, Reference_phi, diff);
+			analizers[0].ShadSpecial = shading_detect_parallel_patch(Reference_theta, Reference_phi, diff);
 
-			if (enable_max_energy_check && anas[0].HighEnergy.size() == 0) // mark the max energy points
+			if (enable_max_energy_check && analizers[0].HighEnergy.size() == 0) // mark the max energy points
 			{
-				mark_high_energy_vers(PGE, ninner, max_energy_percentage, IVids, anas[0].HighEnergy, refids);
+				mark_high_energy_vers(PGE, ninner, max_energy_percentage, IVids, analizers[0].HighEnergy, refids);
 			}
 
 			// std::cout<<"extreme before"<<std::endl;
 			assemble_solver_extreme_cases_part_vertex_based(Glob_lsvars, asymptotic, Given_Const_Direction,
-															anas[0], vars_start_loc, pg_JTJ, pg_mJTF, PGEnergy);
+															analizers[0], vars_start_loc, pg_JTJ, pg_mJTF, PGEnergy);
 			// std::cout<<"extreme computed"<<std::endl;
-			assemble_solver_binormal_regulizer(Glob_lsvars, anas[0], vars_start_loc, aux_start_loc, smbi_H, smbi_B, e_smbi);
+			assemble_solver_binormal_regulizer(Glob_lsvars, analizers[0], vars_start_loc, aux_start_loc, smbi_H, smbi_B, e_smbi);
 			Hlarge = sum_uneven_spMats(Hlarge, weight_smt_binormal * smbi_H);
 			Blarge = sum_uneven_vectors(Blarge, weight_smt_binormal * smbi_B);
 
@@ -2341,10 +2341,10 @@ void lsTools::Run_AAG(Eigen::VectorXd& func0, Eigen::VectorXd& func1, Eigen::Vec
 	}
 	get_gradient_hessian_values(func2, GradValueV[2], GradValueF[2]);
 
-	analysis_pseudo_geodesic_on_vertices(func0, anas[0]);
-	analysis_pseudo_geodesic_on_vertices(func1, anas[1]);
-	analysis_pseudo_geodesic_on_vertices(func2, anas[2]);
-	int ninner = anas[0].LocalActInner.size();
+	analysis_pseudo_geodesic_on_vertices(func0, analizers[0]);
+	analysis_pseudo_geodesic_on_vertices(func1, analizers[1]);
+	analysis_pseudo_geodesic_on_vertices(func2, analizers[2]);
+	int ninner = analizers[0].LocalActInner.size();
 	int final_size = vnbr * 3; // Change this when using more auxilary vars.
 
 	
@@ -2401,15 +2401,15 @@ void lsTools::Run_AAG(Eigen::VectorXd& func0, Eigen::VectorXd& func1, Eigen::Vec
 		Eigen::VectorXd pg_mJTF[3];
 		int vars_start_loc = 0;
 		
-		assemble_solver_extreme_cases_part_vertex_based(Glob_lsvars, true, false, anas[0], vars_start_loc, pg_JTJ[0], pg_mJTF[0], PGEnergy[0]);
+		assemble_solver_extreme_cases_part_vertex_based(Glob_lsvars, true, false, analizers[0], vars_start_loc, pg_JTJ[0], pg_mJTF[0], PGEnergy[0]);
 		vars_start_loc = vnbr;
-		assemble_solver_extreme_cases_part_vertex_based(Glob_lsvars, true, false, anas[1], vars_start_loc, pg_JTJ[1], pg_mJTF[1], PGEnergy[1]);
+		assemble_solver_extreme_cases_part_vertex_based(Glob_lsvars, true, false, analizers[1], vars_start_loc, pg_JTJ[1], pg_mJTF[1], PGEnergy[1]);
 		vars_start_loc = vnbr * 2;
 		int aux_start_loc = vnbr * 3;
 		std::vector<double> angle_degree(1);
 		angle_degree[0]=90;
 
-		assemble_solver_extreme_cases_part_vertex_based(Glob_lsvars, false, false, anas[2],
+		assemble_solver_extreme_cases_part_vertex_based(Glob_lsvars, false, false, analizers[2],
 														vars_start_loc,
 														pg_JTJ[2], pg_mJTF[2], PGEnergy[2]);
 		Compute_Auxiliaries = false;
@@ -2508,10 +2508,10 @@ void lsTools::Run_AGG(Eigen::VectorXd& func0, Eigen::VectorXd& func1, Eigen::Vec
 	}
 	get_gradient_hessian_values(func2, GradValueV[2], GradValueF[2]);
 
-	analysis_pseudo_geodesic_on_vertices(func0, anas[0]);
-	analysis_pseudo_geodesic_on_vertices(func1, anas[1]);
-	analysis_pseudo_geodesic_on_vertices(func2, anas[2]);
-	int ninner = anas[0].LocalActInner.size();
+	analysis_pseudo_geodesic_on_vertices(func0, analizers[0]);
+	analysis_pseudo_geodesic_on_vertices(func1, analizers[1]);
+	analysis_pseudo_geodesic_on_vertices(func2, analizers[2]);
+	int ninner = analizers[0].LocalActInner.size();
 	int final_size = vnbr * 3; // Change this when using more auxilary vars. 
 	
 	if (Glob_lsvars.size() == 0) {
@@ -2564,13 +2564,13 @@ void lsTools::Run_AGG(Eigen::VectorXd& func0, Eigen::VectorXd& func1, Eigen::Vec
 		Eigen::VectorXd pg_mJTF[3], faB;
 		int vars_start_loc = 0;
 		// A
-		assemble_solver_extreme_cases_part_vertex_based(Glob_lsvars, true, false, anas[0], vars_start_loc, pg_JTJ[0], pg_mJTF[0], PGEnergy[0]);
+		assemble_solver_extreme_cases_part_vertex_based(Glob_lsvars, true, false, analizers[0], vars_start_loc, pg_JTJ[0], pg_mJTF[0], PGEnergy[0]);
 		vars_start_loc = vnbr;
 		// G
-		assemble_solver_extreme_cases_part_vertex_based(Glob_lsvars, false, false, anas[1], vars_start_loc, pg_JTJ[1], pg_mJTF[1], PGEnergy[1]);
+		assemble_solver_extreme_cases_part_vertex_based(Glob_lsvars, false, false, analizers[1], vars_start_loc, pg_JTJ[1], pg_mJTF[1], PGEnergy[1]);
 		vars_start_loc = vnbr * 2;
 		// G
-		assemble_solver_extreme_cases_part_vertex_based(Glob_lsvars, false, false, anas[2], vars_start_loc, pg_JTJ[2], pg_mJTF[2], PGEnergy[2]);
+		assemble_solver_extreme_cases_part_vertex_based(Glob_lsvars, false, false, analizers[2], vars_start_loc, pg_JTJ[2], pg_mJTF[2], PGEnergy[2]);
 		Compute_Auxiliaries = false;
 		H += weight_pseudo_geodesic_energy * (pg_JTJ[0] + pg_JTJ[1] + weight_geodesic* pg_JTJ[2]);
 		B += weight_pseudo_geodesic_energy * (pg_mJTF[0] + pg_mJTF[1] + weight_geodesic * pg_mJTF[2]);
@@ -2675,10 +2675,10 @@ void lsTools::Run_PPG(Eigen::VectorXd& func0, Eigen::VectorXd& func1, Eigen::Vec
 	}
 	get_gradient_hessian_values(func2, GradValueV[2], GradValueF[2]);
 
-	analysis_pseudo_geodesic_on_vertices(func0, anas[0]);
-	analysis_pseudo_geodesic_on_vertices(func1, anas[1]);
-	analysis_pseudo_geodesic_on_vertices(func2, anas[2]);
-	int ninner = anas[0].LocalActInner.size();
+	analysis_pseudo_geodesic_on_vertices(func0, analizers[0]);
+	analysis_pseudo_geodesic_on_vertices(func1, analizers[1]);
+	analysis_pseudo_geodesic_on_vertices(func2, analizers[2]);
+	int ninner = analizers[0].LocalActInner.size();
 	int final_size = (ninner * 10 + vnbr) * 2 + vnbr; // Change this when using more auxilary vars.
 
 	if (Glob_lsvars.size() == 0) {
@@ -2738,18 +2738,18 @@ void lsTools::Run_PPG(Eigen::VectorXd& func0, Eigen::VectorXd& func1, Eigen::Vec
 		// P1
 		int vars_start_loc = 0;
 		int aux_start_loc = vnbr * 3;
-		assemble_solver_pesudo_geodesic_energy_part_vertex_based(Glob_lsvars, target_angles_0, anas[0], vars_start_loc, aux_start_loc,
+		assemble_solver_pesudo_geodesic_energy_part_vertex_based(Glob_lsvars, target_angles_0, analizers[0], vars_start_loc, aux_start_loc,
 																 pg_JTJ[0], pg_mJTF[0], PGEnergy[0]);
 		
 		// P2
 		vars_start_loc = vnbr;
 		aux_start_loc = ninner * 10 + vnbr * 3;
-		assemble_solver_pesudo_geodesic_energy_part_vertex_based(Glob_lsvars, target_angles_1, anas[1], vars_start_loc, aux_start_loc,
+		assemble_solver_pesudo_geodesic_energy_part_vertex_based(Glob_lsvars, target_angles_1, analizers[1], vars_start_loc, aux_start_loc,
 																 pg_JTJ[1], pg_mJTF[1], PGEnergy[1]);
 	
 		vars_start_loc = vnbr * 2;
 		// G
-		assemble_solver_extreme_cases_part_vertex_based(Glob_lsvars, false, false, anas[2], vars_start_loc, pg_JTJ[2], pg_mJTF[2], PGEnergy[2]);
+		assemble_solver_extreme_cases_part_vertex_based(Glob_lsvars, false, false, analizers[2], vars_start_loc, pg_JTJ[2], pg_mJTF[2], PGEnergy[2]);
 		Compute_Auxiliaries = false;
 		H += weight_pseudo_geodesic_energy * (pg_JTJ[0] + pg_JTJ[1] + weight_geodesic* pg_JTJ[2]);
 		B += weight_pseudo_geodesic_energy * (pg_mJTF[0] + pg_mJTF[1] + weight_geodesic * pg_mJTF[2]);
@@ -2856,7 +2856,7 @@ void lsTools::Run_Othogonal_Levelset(const Eigen::VectorXd &func_ref)
 		std::cout << "level set get initialized" << std::endl;
 		return;
 	}
-	analysis_pseudo_geodesic_on_vertices(func, anas[0]);
+	analysis_pseudo_geodesic_on_vertices(func, analizers[0]);
 	Eigen::MatrixXd directions = get_each_face_direction(V, F, func_ref);
 	int final_size = vnbr; // Change this when using more auxilary vars
 
@@ -2939,7 +2939,7 @@ void lsTools::Run_Othogonal_Levelset(const Eigen::VectorXd &func_ref)
 			Hlarge = sum_uneven_spMats(Hlarge, weight_fix_two_ls_angle * faH);
 			Blarge = sum_uneven_vectors(Blarge, weight_fix_two_ls_angle * faB);
 			// optimize the current levelset to make it a geodesic level set.
-			assemble_solver_extreme_cases_part_vertex_based(Glob_lsvars, false, false, anas[0], vars_start_loc, pg_JTJ, pg_mJTF, PGEnergy);
+			assemble_solver_extreme_cases_part_vertex_based(Glob_lsvars, false, false, analizers[0], vars_start_loc, pg_JTJ, pg_mJTF, PGEnergy);
 		}
 		else{
 			assemble_solver_othogonal_to_given_face_directions(func, directions, fids, pg_JTJ, pg_mJTF, PGEnergy);
