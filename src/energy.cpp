@@ -2161,6 +2161,15 @@ void lsTools::Run_Level_Set_Opt() {
 			B += weight_boundary * mJTF;
 		}
 	}
+	if (interactive_flist.size() > 0)
+    { // if traced, we use boundary condition
+
+        spMat bc_JTJ;
+        Eigen::VectorXd bc_mJTF;
+        assemble_solver_interactive_boundary_condition_part(func, bc_JTJ, bc_mJTF, bcfvalue);
+        H += weight_boundary * bc_JTJ;
+        B += weight_boundary * bc_mJTF;
+    }
 
 	// strip width condition
 	if (enable_strip_width_energy)
@@ -2318,8 +2327,14 @@ void lsTools::Run_Level_Set_Opt() {
 
 	}
 	step_length = dx.norm();
-	std::cout << "step " << step_length << std::endl;
-	
+	std::cout << "step " << step_length;
+	if (!enable_pseudo_geodesic_energy)//if start to solve pseudo-geodeic, we refer to the strokes
+    {
+        pseudo_geodesic_target_angle_degree = 180. / LSC_PI * get_interactive_angle(func, analizers[0], lsmesh, norm_v,
+         V, F, interactive_flist, interactive_bclist, InnerV);
+    }
+    std::cout<<", target_angle, "<<pseudo_geodesic_target_angle_degree;
+	std::cout << std::endl;
 	Last_Opt_Mesh = false;
 }
 void lsTools::Run_AAG(Eigen::VectorXd& func0, Eigen::VectorXd& func1, Eigen::VectorXd& func2){

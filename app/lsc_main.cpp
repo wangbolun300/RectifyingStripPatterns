@@ -2287,14 +2287,14 @@ int main(int argc, char *argv[])
 
 		{
 			AutoRunArgs runner = lscif::autorunner[0];
-			for (int i = 0; i < runner.iterations.size(); i++)
+			for (int i = 0; i < runner.parts.size(); i++)
 			{
-				lscif::tools.weight_mass = runner.weight_gravity[i];
-				lscif::tools.weight_laplacian = runner.weight_lap[i];
-				lscif::tools.weight_boundary = runner.weight_bnd[i];
-				lscif::tools.weight_pseudo_geodesic_energy = runner.weight_pg[i];
-				lscif::tools.weight_strip_width = runner.weight_strip_width[i];
-				for (int j = 0; j < runner.iterations[i]; j++)
+				lscif::tools.weight_mass = runner.parts[i].weight_gravity;
+				lscif::tools.weight_laplacian = runner.parts[i].weight_lap;
+				lscif::tools.weight_boundary = runner.parts[i].weight_bnd;
+				lscif::tools.weight_pseudo_geodesic_energy = runner.parts[i].weight_pg;
+				lscif::tools.weight_strip_width = runner.parts[i].weight_strip_width;
+				for (int j = 0; j < runner.parts[i].iterations; j++)
 				{
 					lscif::tools.Run_Level_Set_Opt_interactive(runner.compute_pg);
 					if (lscif::tools.step_length < runner.stop_step_length && j != 0)
@@ -2334,26 +2334,29 @@ int main(int argc, char *argv[])
 		if (ImGui::Button("AutoRunPd-Gdsic", ImVec2(ImGui::GetWindowSize().x * 0.25f, 0.0f)))
 
 		{
+			AutoRunArgs runner = lscif::autorunner[1];
+			for (int i = 0; i < runner.parts.size(); i++)
+			{
+				lscif::tools.weight_mass = runner.parts[i].weight_gravity;
+				lscif::tools.weight_laplacian = runner.parts[i].weight_lap;
+				lscif::tools.weight_boundary = runner.parts[i].weight_bnd;
+				lscif::tools.weight_pseudo_geodesic_energy = runner.parts[i].weight_pg;
+				lscif::tools.weight_strip_width = runner.parts[i].weight_strip_width;
+				for (int j = 0; j < runner.parts[i].iterations; j++)
+				{
+					lscif::tools.Run_Level_Set_Opt_interactive(runner.compute_pg);
+					if (lscif::tools.step_length < runner.stop_step_length && j != 0)
+					{ 
+						std::cout << "optimization converges " << std::endl;
+						break;
+					}
+				}
+				std::cout<<"\n";
+			}
+
+			std::cout << "Pseudo-Geodesic Curves in level sets are Generated ..." << std::endl;
 			int id = viewer.selected_data_index;
 			CGMesh inputMesh = lscif::tools.lsmesh;
-			lscif::tools.weight_pseudo_geodesic_energy = lscif::weight_pseudo_geodesic;
-			lscif::tools.weight_mass = lscif::weight_mass;
-			lscif::tools.weight_laplacian = lscif::weight_laplacian;
-			lscif::tools.weight_boundary = lscif::weight_boundary;
-			lscif::tools.weight_strip_width = lscif::weight_strip_width;
-
-			for (int i = 0; i < lscif::OpIter; i++)
-			{
-				bool compute_pg = true;
-				lscif::tools.Run_Level_Set_Opt_interactive(compute_pg);
-				if (lscif::tools.step_length < 1e-16 && i != 0)
-				{ // step length actually is the value for the last step
-					std::cout << "optimization converges " << std::endl;
-					break;
-				}
-			}
-			std::cout << "waiting for instruction..." << std::endl;
-			// lscif::MP.MeshUnitScale(inputMesh, updatedMesh);
 			lscif::updateMeshViewer(viewer, inputMesh);
 			lscif::meshFileName.push_back("lso_" + lscif::meshFileName[id]);
 			lscif::Meshes.push_back(inputMesh);
@@ -2367,15 +2370,10 @@ int main(int argc, char *argv[])
 				return;
 			}
 			Eigen::MatrixXd CM;
-			// std::cout<<"before compute colormap"<<std::endl;
 			igl::parula(Eigen::VectorXd::LinSpaced(21, 0, 1).eval(), false, CM);
 			igl::isolines_map(Eigen::MatrixXd(CM), CM);
-			// std::cout<<"before set colormap"<<std::endl;
 			viewer.data().set_colormap(CM);
-			// std::cout<<"before set color"<<std::endl;
 			viewer.data().set_data(level_set_values);
-			// Eigen::MatrixXd E0, E1;
-			// // lscif::tools.show_gradients(E0,E1, lscif::vector_scaling);
 			const Eigen::RowVector3d red(0.8, 0.2, 0.2);
 			const Eigen::RowVector3d blue(0.2, 0.2, 0.8);
 

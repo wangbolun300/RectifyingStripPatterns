@@ -118,3 +118,8 @@ void project_mesh_and_get_shading_info(CGMesh &ref, CGMesh &base, const int nbr_
                                        Eigen::MatrixXd &P1, Eigen::MatrixXd &P2);
 spMat put_mat_in_middle(const spMat &mat, const int sizemat);
 Eigen::VectorXd put_vec_in_middle(const Eigen::VectorXd &vec);
+double get_interactive_angle(const Eigen::VectorXd &func, const LSAnalizer &analizer, 
+                             const CGMesh &lsmesh, const Eigen::MatrixXd &norm_v,
+                             const Eigen::MatrixXd &V,
+                             const Eigen::MatrixXi &F, const std::vector<std::vector<int>> interactive_flist,
+                             const std::vector<std::vector<Eigen::Vector3f>> &interactive_bclist, const Eigen::VectorXi &InnerV);

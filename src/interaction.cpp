@@ -9,33 +9,53 @@ void AssignAutoRunDefaultArgs(AutoRunArgs &args, const bool compute_pg)
     { // just for a smooth field following the strokes
         args.compute_pg = false;
         args.stop_step_length = 1e-3; // when the step length lower than this, stop
-
-        args.iterations.resize(2);
-        args.weight_gravity.resize(2);
-        args.weight_lap.resize(2);
-        args.weight_bnd.resize(2);
-        args.weight_pg.resize(2);
-        args.weight_strip_width.resize(2);
+        
+        args.parts.resize(2);
 
         // first small boundary condition
-        args.iterations[0] = 100;
-        args.weight_gravity[0] = 1;
-        args.weight_lap[0] = 10;
-        args.weight_bnd[0] = 1;
-        args.weight_pg[0] = 0;
-        args.weight_strip_width[0] = 10;
+        args.parts[0].iterations = 100;
+        args.parts[0].weight_gravity = 1;
+        args.parts[0].weight_lap = 10;
+        args.parts[0].weight_bnd = 1;
+        args.parts[0].weight_pg = 0;
+        args.parts[0].weight_strip_width = 10;
 
         // second use large boundary condition
-        args.iterations[1] = 100;
-        args.weight_gravity[1] = 1;
-        args.weight_lap[1] = 10;
-        args.weight_bnd[1] = 30;
-        args.weight_pg[1] = 0;
-        args.weight_strip_width[1] = 10;
+        args.parts[1].iterations = 100;
+        args.parts[1].weight_gravity = 1;
+        args.parts[1].weight_lap = 10;
+        args.parts[1].weight_bnd = 30;
+        args.parts[1].weight_pg = 0;
+        args.parts[1].weight_strip_width = 10;
     }
     else{//paras for pseodu-geodesic
-        std::cout<<"todo"<<std::endl;
-        // exit(0);
+        args.compute_pg = true;
+        args.stop_step_length = 5e-2; // when the step length lower than this, stop
+
+        args.parts.resize(5);
+        // 
+        args.parts[0].iterations = 50;
+        args.parts[0].weight_gravity = 100;
+        args.parts[0].weight_lap = 0.001;
+        args.parts[0].weight_bnd = 0.0001;
+        args.parts[0].weight_pg = 0.001;
+        args.parts[0].weight_strip_width = 0.0001;
+
+        args.parts[1] = args.parts[0];
+        args.parts[1].iterations = 20;
+        args.parts[1].weight_pg = 0.01;
+
+        args.parts[2] = args.parts[1];
+        args.parts[2].iterations = 20;
+        args.parts[2].weight_pg = 0.1;
+
+        args.parts[3] = args.parts[2];
+        args.parts[3].iterations = 20;
+        args.parts[3].weight_pg = 1;
+
+        args.parts[4] = args.parts[3];
+        args.parts[4].iterations = 100;
+        args.parts[4].weight_pg = 10;
     }
 }
 
@@ -452,7 +472,19 @@ void lsTools::assemble_solver_interactive_boundary_condition_part(const Eigen::V
     // get the -(J^T)*f(x)
     B = -bcJacobian.transpose() * bcfvalue;
 }
+template<typename Q>
+void print_queue(Q q)
+{
+    // NB: q is passed by value because there is no way to traverse
+    // priority_queue's content without erasing the queue.
+    std::cout << '\n';
+    for (; !q.empty(); q.pop())
+        std::cout << q.top() << ", ";
+    std::cout << '\n';
+}
 
+
+bool debug_flag = false;
 double get_interactive_angle(const Eigen::VectorXd &func, const LSAnalizer &analizer, 
                              const CGMesh &lsmesh, const Eigen::MatrixXd &norm_v,
                              const Eigen::MatrixXd &V,
@@ -465,76 +497,90 @@ double get_interactive_angle(const Eigen::VectorXd &func, const LSAnalizer &anal
     int ncurves = interactive_flist.size();
     double angle_avg = 0;
     int counter = 0;
-    // std::vector<double> dbg_angles;
+    std::priority_queue<double> dbg_angles;
     // std::vector<bool> dbg_lesszero;
     for (int i = 0; i < ncurves; i++)
     {
-        for (int j = 0; j < interactive_bclist[i].size(); j++)
+        int nbrpts = interactive_bclist[i].size();
+        int start = 0.25 * nbrpts;
+        int end = 0.75 * nbrpts;
+        for (int j = start; j < end; j++)
         {
-            int closest_id = -1;
-            if()
+            double u = interactive_bclist[i][j][0];
+            double v = interactive_bclist[i][j][1];
+            double t = interactive_bclist[i][j][2];
+            int k = -1;
+            double closest_value = 1;
+            int iterator;
+            for (iterator = 0; iterator < 3; iterator++)
+            {
+                if (interactive_bclist[i][j][iterator] < closest_value)
+                {
+                    closest_value = interactive_bclist[i][j][iterator];
+                    k = iterator;
+                }
+            }
             int fid = interactive_flist[i][j];
             int vid[3];
             vid[0] = F(fid, 0);
             vid[1] = F(fid, 1);
             vid[2] = F(fid, 2);
-            for (int k = 0; k < 3; k++)
+
+            int vm = vid[k];
+            int ith = InnerV[vm];
+
+            if (analizer.LocalActInner[ith] == false)
             {
-                int vm = vid[k];
-                int ith = InnerV[vm];
-
-                if (analizer.LocalActInner[ith] == false)
-                {
-                    std::cout << "singularity, " << vm << std::endl;
-                    continue;
-                }
-                CGMesh::HalfedgeHandle inhd = analizer.heh0[ith], outhd = analizer.heh1[ith];
-                int v1 = lsmesh.from_vertex_handle(inhd).idx();
-                int v2 = lsmesh.to_vertex_handle(inhd).idx();
-                int v3 = lsmesh.from_vertex_handle(outhd).idx();
-                int v4 = lsmesh.to_vertex_handle(outhd).idx();
-
-                double t1 = analizer.t1s[ith];
-                double t2 = analizer.t2s[ith];
-
-                Eigen::Vector3d ver0 = V.row(v1) + (V.row(v2) - V.row(v1)) * t1;
-                Eigen::Vector3d ver1 = V.row(vm);
-                Eigen::Vector3d ver2 = V.row(v3) + (V.row(v4) - V.row(v3)) * t2;
-                Eigen::Vector3d norm = norm_v.row(vm);
-                Eigen::Vector3d real_u = norm.cross(ver2 - ver0);
-                real_u = real_u.normalized();
-                Eigen::Vector3d real_r = (ver1 - ver0).normalized().cross((ver2 - ver1).normalized());
-                if(real_r.norm()<1e-6){// almost a straight line
-                    continue;
-                }
-                real_r = real_r.normalized();
-                double cos_angle = real_r.dot(norm);
-                double sin_angle = real_r.dot(real_u);
-                if(sin_angle<0){
-                    cos_angle *= -1;
-                }
-                double angle = acos(cos_angle);
-                // dbg_angles.push_back(180 / LSC_PI * angle);
-
-                // converting the angle to [0~PI] is resonable
-                // if sin_angle>0, just take the theta;
-                // if sin_angle<0, take PI - theta
-                if(sin_angle<0){
-                    // angle = LSC_PI - angle;
-                    // dbg_lesszero.push_back(1);
-                }
-                else{
-                    // dbg_lesszero.push_back(0);
-                }
-                angle_avg += angle;
-                counter++;
+                std::cout << "singularity, " << vm << std::endl;
+                continue;
             }
+            CGMesh::HalfedgeHandle inhd = analizer.heh0[ith], outhd = analizer.heh1[ith];
+            int v1 = lsmesh.from_vertex_handle(inhd).idx();
+            int v2 = lsmesh.to_vertex_handle(inhd).idx();
+            int v3 = lsmesh.from_vertex_handle(outhd).idx();
+            int v4 = lsmesh.to_vertex_handle(outhd).idx();
+
+            double t1 = analizer.t1s[ith];
+            double t2 = analizer.t2s[ith];
+
+            Eigen::Vector3d ver0 = V.row(v1) + (V.row(v2) - V.row(v1)) * t1;
+            Eigen::Vector3d ver1 = V.row(vm);
+            Eigen::Vector3d ver2 = V.row(v3) + (V.row(v4) - V.row(v3)) * t2;
+            Eigen::Vector3d norm = norm_v.row(vm);
+            Eigen::Vector3d real_u = norm.cross(ver2 - ver0);
+            real_u = real_u.normalized();
+            Eigen::Vector3d real_r = (ver1 - ver0).normalized().cross((ver2 - ver1).normalized());
+            if (real_r.norm() < 1e-6)
+            { // almost a straight line
+                continue;
+            }
+            real_r = real_r.normalized();
+            double cos_angle = real_r.dot(norm);
+            double sin_angle = real_r.dot(real_u);
+            if (sin_angle < 0)
+            {
+                cos_angle *= -1;
+            }
+            double angle = acos(cos_angle);
+            dbg_angles.push(180 / LSC_PI * angle);
+
+            // converting the angle to [0~PI] is resonable
+            // if sin_angle>0, just take the theta;
+            // if sin_angle<0, take PI - theta
+            if (sin_angle < 0)
+            {
+                // angle = LSC_PI - angle;
+                // dbg_lesszero.push_back(1);
+            }
+            else
+            {
+                // dbg_lesszero.push_back(0);
+            }
+            angle_avg += angle;
+            counter++;
         }
     }
-    // for(int i=0;i<dbg_angles.size();i++){
-    //     std::cout<<dbg_angles[i]<<"-"<<dbg_lesszero[i]<<", ";
-    // }
-    // std::cout<<"avg radian, "<<angle_avg / counter<<"\n";
+    // print_queue(dbg_angles);
     return angle_avg / counter;
 }
 
@@ -553,6 +599,9 @@ void lsTools::Run_Level_Set_Opt_interactive(const bool compute_pg)
         return;
     }
     get_gradient_hessian_values(func, GradValueV, GradValueF);
+    if(debug_flag){
+        std::cout<<"check 1, ";
+    }
     // std::cout<<"check "<<func.norm()<<std::endl;
     analysis_pseudo_geodesic_on_vertices(func, analizers[0]);
     int ninner = analizers[0].LocalActInner.size();
@@ -574,6 +623,7 @@ void lsTools::Run_Level_Set_Opt_interactive(const bool compute_pg)
 			std::cout << "Initializing Global Variable For LevelSet Opt ... " << std::endl;
 			Glob_lsvars = Eigen::VectorXd::Zero(final_size); // We change the size if opt more than 1 level set
 			Glob_lsvars.segment(0, vnbr) = func;
+            std::cout << "Global Variable For LevelSet is initialized " << std::endl;
 		}
 		else{
 			if (Glob_lsvars.size() > final_size)
@@ -595,6 +645,9 @@ void lsTools::Run_Level_Set_Opt_interactive(const bool compute_pg)
 			}
 		}
 	}
+    if(debug_flag){
+        std::cout<<"check 2, ";
+    }
 	// std::cout<<"check 1"<<std::endl;
 	spMat H;
 	H.resize(vnbr, vnbr);
@@ -622,7 +675,9 @@ void lsTools::Run_Level_Set_Opt_interactive(const bool compute_pg)
     }
     // std::cout<<"check 3"<<std::endl;
     // strip width condition
-
+    if(debug_flag){
+        std::cout<<"check 3, ";
+    }
     spMat sw_JTJ;
     Eigen::VectorXd sw_mJTF;
     assemble_solver_strip_width_part(GradValueF, sw_JTJ, sw_mJTF); // by default the strip width is 1. Unless tracing info updated the info

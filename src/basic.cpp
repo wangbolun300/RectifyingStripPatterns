@@ -48,7 +48,10 @@ void lsTools::prepare_level_set_solving(const EnergyPrepare &Energy_initializer)
     if (Energy_initializer.solve_pseudo_geodesic)
     {
         weight_pseudo_geodesic_energy = Energy_initializer.weight_pg;
-        pseudo_geodesic_target_angle_degree = Energy_initializer.target_angle;
+        if (interactive_flist.empty())// if there is no stroke, we assign angles; ortherwise, we refer to the strokes
+        {
+            pseudo_geodesic_target_angle_degree = Energy_initializer.target_angle;
+        }
     }
     max_step_length=Energy_initializer.max_step_length;
     enable_strip_width_energy=Energy_initializer.solve_strip_width_on_traced;
