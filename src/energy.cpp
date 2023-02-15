@@ -2328,12 +2328,12 @@ void lsTools::Run_Level_Set_Opt() {
 	}
 	step_length = dx.norm();
 	std::cout << "step " << step_length;
-	if (!enable_pseudo_geodesic_energy)//if start to solve pseudo-geodeic, we refer to the strokes
-    {
-        pseudo_geodesic_target_angle_degree = 180. / LSC_PI * get_interactive_angle(func, analizers[0], lsmesh, norm_v,
-         V, F, interactive_flist, interactive_bclist, InnerV);
-    }
-    std::cout<<", target_angle, "<<pseudo_geodesic_target_angle_degree;
+	if (interactive_flist.size() > 0) // if start to solve pseudo-geodeic, we refer to the strokes
+	{
+		pseudo_geodesic_target_angle_degree = 180. / LSC_PI * get_interactive_angle(func, analizers[0], lsmesh, norm_v, V, F, interactive_flist, interactive_bclist, InnerV);
+		std::cout << ", target_angle, " << pseudo_geodesic_target_angle_degree;
+	}
+
 	std::cout << std::endl;
 	Last_Opt_Mesh = false;
 }

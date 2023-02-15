@@ -10,23 +10,24 @@ void AssignAutoRunDefaultArgs(AutoRunArgs &args, const bool compute_pg)
         args.compute_pg = false;
         args.stop_step_length = 1e-3; // when the step length lower than this, stop
         
-        args.parts.resize(2);
+        args.parts.resize(3);
 
         // first small boundary condition
-        args.parts[0].iterations = 100;
+        args.parts[0].iterations = 30;
         args.parts[0].weight_gravity = 1;
         args.parts[0].weight_lap = 10;
-        args.parts[0].weight_bnd = 1;
+        args.parts[0].weight_bnd = 0.1;
         args.parts[0].weight_pg = 0;
         args.parts[0].weight_strip_width = 10;
 
         // second use large boundary condition
-        args.parts[1].iterations = 100;
-        args.parts[1].weight_gravity = 1;
-        args.parts[1].weight_lap = 10;
-        args.parts[1].weight_bnd = 30;
-        args.parts[1].weight_pg = 0;
-        args.parts[1].weight_strip_width = 10;
+        args.parts[1] = args.parts[0];
+        args.parts[1].weight_bnd = 1;
+
+        // second use large boundary condition
+        args.parts[2] = args.parts[1];
+        args.parts[2].iterations = 100;
+        args.parts[2].weight_bnd = 30;
     }
     else{//paras for pseodu-geodesic
         args.compute_pg = true;

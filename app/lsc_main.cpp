@@ -85,6 +85,7 @@ namespace lscif
 	double ptInx = 0;
 	double ptIny = 0;
 	double ptInz = 0;
+	int TracingType = 0;
 
 
 	int OpIter = 10;
@@ -728,6 +729,8 @@ int main(int argc, char *argv[])
 
 	if (ImGui::CollapsingHeader("Tracing", ImGuiTreeNodeFlags_DefaultOpen))
 	{
+		ImGui::Combo("TracingType", &lscif::TracingType,
+                 "SegTrace\0OneEdgeTrace\0SegDrctn\0\0"), 
 
 		ImGui::InputInt("Select 1 boundary", &lscif::which_seg_id, 0, 0);
 		ImGui::InputInt("every i segments", &lscif::nbr_of_intervals, 0, 0);
@@ -768,7 +771,6 @@ int main(int argc, char *argv[])
 		{
 			if (ImGui::Button("Trace Curves", ImVec2(ImGui::GetWindowSize().x * 0.23f, 0.0f)))
 			{
-
 				int id = viewer.selected_data_index;
 				CGMesh updatedMesh;
 				CGMesh inputMesh = lscif::Meshes[id];
@@ -780,7 +782,18 @@ int main(int argc, char *argv[])
 				Tracing_initializer.which_boundary_segment = lscif::which_seg_id;
 				Tracing_initializer.start_bnd_he = lscif::start_bnd_he;
 				Tracing_initializer.nbr_edges = lscif::nbr_edges;
-				lscif::tools.initialize_level_set_by_tracing(Tracing_initializer);
+				if(lscif::TracingType==0){
+					lscif::tools.initialize_level_set_by_select_boundary_segment(Tracing_initializer, true);
+				}
+				if(lscif::TracingType==1){
+					lscif::tools.initialize_level_set_by_tracing(Tracing_initializer);
+				}	
+				if(lscif::TracingType==2){
+					lscif::tools.initialize_level_set_by_select_boundary_segment(Tracing_initializer, false);
+				}
+				
+				
+				
 				std::cout << "finish tracing" << std::endl;
 				lscif::updateMeshViewer(viewer, inputMesh);
 				lscif::meshFileName.push_back("dbg_" + lscif::meshFileName[id]);
@@ -814,102 +827,7 @@ int main(int argc, char *argv[])
 				viewer.selected_data_index = id;
 				// std::cout<<"acos(1) "<<acos(1.)<<std::endl;
 			}
-			ImGui::SameLine();
-			if (ImGui::Button("Bndry Assign", ImVec2(ImGui::GetWindowSize().x * 0.23f, 0.0f)))
-			{
-				
-				int id = viewer.selected_data_index;
-				CGMesh updatedMesh;
-				CGMesh inputMesh = lscif::Meshes[id];
-				TracingPrepare Tracing_initializer;
-				Tracing_initializer.every_n_edges = lscif::nbr_of_intervals;
-				Tracing_initializer.start_angle = lscif::start_angle;
-				Tracing_initializer.target_angle = lscif::target_angle;
-				Tracing_initializer.threadshold_angel_degree = lscif::threadshold_angel_degree;
-				Tracing_initializer.which_boundary_segment = lscif::which_seg_id;
-				Tracing_initializer.start_bnd_he = lscif::start_bnd_he;
-				Tracing_initializer.nbr_edges = lscif::nbr_edges;
-				lscif::tools.initialize_level_set_by_boundary_assignment(Tracing_initializer);
-				std::cout << "finish Boundary Values Assignment" << std::endl;
-				lscif::updateMeshViewer(viewer, inputMesh);
-				lscif::meshFileName.push_back("dbg_" + lscif::meshFileName[id]);
-				lscif::Meshes.push_back(inputMesh);
-				Eigen::MatrixXd E0, E1;
-				Eigen::MatrixXd E2, E3, Ea0, Ea1;
-				// lscif::tools.show_gradients(E0,E1, lscif::vector_scaling);
-				const Eigen::RowVector3d red(0.8, 0.2, 0.2);
-				const Eigen::RowVector3d blue(0.2, 0.2, 0.8);
-				const Eigen::RowVector3d black(0, 0, 0);
-				const Eigen::RowVector3d green(0.2, 0.8, 0.2);
-				Eigen::MatrixXd RGB = Eigen::MatrixXd::Identity(3, 3);
 
-				Eigen::MatrixXd pts;
-				std::vector<Eigen::MatrixXd> E0list, E1list;
-				std::cout << "before ploting the Assigned Values" << std::endl;
-				lscif::tools.show_pseudo_geodesic_curve(E0list, E1list, pts);
-				for (int i = 0; i < E0list.size(); i++) // plot the curves
-				{
-					E0 = E0list[i];
-					E1 = E1list[i];
-					std::cout << "edge sizes " << E0.rows() << ", " << E1.size() << std::endl;
-					viewer.data().add_edges(E0, E1, red);
-				}
-				std::cout << "the number of curves " << E0list.size() << std::endl;
-
-				if (1) // plot the vertices of the curves
-				{
-					viewer.data().add_points(pts, red);
-				}
-				viewer.selected_data_index = id;
-			}
-			ImGui::SameLine();
-			if (ImGui::Button("BndryLoopSelect", ImVec2(ImGui::GetWindowSize().x * 0.23f, 0.0f)))
-			{
-				
-				int id = viewer.selected_data_index;
-				CGMesh updatedMesh;
-				CGMesh inputMesh = lscif::Meshes[id];
-				TracingPrepare Tracing_initializer;
-				Tracing_initializer.every_n_edges = lscif::nbr_of_intervals;
-				Tracing_initializer.start_angle = lscif::start_angle;
-				Tracing_initializer.target_angle = lscif::target_angle;
-				Tracing_initializer.threadshold_angel_degree = lscif::threadshold_angel_degree;
-				Tracing_initializer.which_boundary_segment = lscif::which_seg_id;
-				Tracing_initializer.start_bnd_he = lscif::start_bnd_he;
-				Tracing_initializer.nbr_edges = lscif::nbr_edges;
-				lscif::tools.initialize_level_set_by_select_boundary_segment(Tracing_initializer);
-				std::cout << "finish Boundary Values Assignment" << std::endl;
-				lscif::updateMeshViewer(viewer, inputMesh);
-				lscif::meshFileName.push_back("dbg_" + lscif::meshFileName[id]);
-				lscif::Meshes.push_back(inputMesh);
-				Eigen::MatrixXd E0, E1;
-				Eigen::MatrixXd E2, E3, Ea0, Ea1;
-				// lscif::tools.show_gradients(E0,E1, lscif::vector_scaling);
-				const Eigen::RowVector3d red(0.8, 0.2, 0.2);
-				const Eigen::RowVector3d blue(0.2, 0.2, 0.8);
-				const Eigen::RowVector3d black(0, 0, 0);
-				const Eigen::RowVector3d green(0.2, 0.8, 0.2);
-				Eigen::MatrixXd RGB = Eigen::MatrixXd::Identity(3, 3);
-
-				Eigen::MatrixXd pts;
-				std::vector<Eigen::MatrixXd> E0list, E1list;
-				std::cout << "before ploting the Assigned Values" << std::endl;
-				lscif::tools.show_pseudo_geodesic_curve(E0list, E1list, pts);
-				for (int i = 0; i < E0list.size(); i++) // plot the curves
-				{
-					E0 = E0list[i];
-					E1 = E1list[i];
-					std::cout << "edge sizes " << E0.rows() << ", " << E1.size() << std::endl;
-					viewer.data().add_edges(E0, E1, red);
-				}
-				std::cout << "the number of curves " << E0list.size() << std::endl;
-
-				if (1) // plot the vertices of the curves
-				{
-					viewer.data().add_points(pts, red);
-				}
-				viewer.selected_data_index = id;
-			}
 			ImGui::SameLine();
 			if (ImGui::Button("TracedBinormals", ImVec2(ImGui::GetWindowSize().x * 0.23f, 0.0f)))
 			{
@@ -924,6 +842,85 @@ int main(int argc, char *argv[])
 				viewer.data().add_edges(bE0, bE1, green);
 				viewer.data().add_edges(nE0, nE1, blue);
 			}
+			ImGui::SameLine();
+			if (ImGui::Button("SaveTracedCurves", ImVec2(ImGui::GetWindowSize().x * 0.23f, 0.0f)))
+			{
+				int id = viewer.selected_data_index;
+				CGMesh updatedMesh;
+				CGMesh inputMesh = lscif::Meshes[id];
+				TracingPrepare Tracing_initializer;
+				Tracing_initializer.every_n_edges = lscif::nbr_of_intervals;
+				Tracing_initializer.start_angle = lscif::start_angle;
+				Tracing_initializer.target_angle = lscif::target_angle;
+				Tracing_initializer.threadshold_angel_degree = lscif::threadshold_angel_degree;
+				Tracing_initializer.which_boundary_segment = lscif::which_seg_id;
+				Tracing_initializer.start_bnd_he = lscif::start_bnd_he;
+				Tracing_initializer.nbr_edges = lscif::nbr_edges;
+				if(lscif::TracingType==0){
+					lscif::tools.initialize_level_set_by_select_boundary_segment(Tracing_initializer, true);
+				}
+				if(lscif::TracingType==1){
+					lscif::tools.initialize_level_set_by_tracing(Tracing_initializer);
+				}	
+				if(lscif::TracingType==2){
+					lscif::tools.initialize_level_set_by_select_boundary_segment(Tracing_initializer, false);
+				}
+				
+				
+				std::cout << "finish tracing" << std::endl;
+				lscif::updateMeshViewer(viewer, inputMesh);
+				lscif::meshFileName.push_back("dbg_" + lscif::meshFileName[id]);
+				lscif::Meshes.push_back(inputMesh);
+				Eigen::MatrixXd E0, E1;
+				Eigen::MatrixXd E2, E3, Ea0, Ea1;
+				// lscif::tools.show_gradients(E0,E1, lscif::vector_scaling);
+				const Eigen::RowVector3d red(0.8, 0.2, 0.2);
+				const Eigen::RowVector3d blue(0.2, 0.2, 0.8);
+				const Eigen::RowVector3d black(0, 0, 0);
+				const Eigen::RowVector3d green(0.2, 0.8, 0.2);
+				Eigen::MatrixXd RGB = Eigen::MatrixXd::Identity(3, 3);
+
+				Eigen::MatrixXd pts;
+				std::vector<Eigen::MatrixXd> E0list, E1list;
+				std::cout << "before ploting the curve" << std::endl;
+				lscif::tools.show_pseudo_geodesic_curve(E0list, E1list, pts);
+				for (int i = 0; i < E0list.size(); i++) // plot the curves
+				{
+					E0 = E0list[i];
+					E1 = E1list[i];
+					std::cout << "edge sizes " << E0.rows() << ", " << E1.size() << std::endl;
+					viewer.data().add_edges(E0, E1, red);
+				}
+				std::cout << "the number of curves " << E0list.size() << std::endl;
+
+				if (1) // plot the vertices of the curves
+				{
+					viewer.data().add_points(pts, red);
+				}
+				viewer.selected_data_index = id;
+				std::cout<<"SAVING The Traced Vertices, please provide the prefix..."<<std::endl;
+				std::string fname = igl::file_dialog_save();
+				// std::ofstream file;
+				// file.open(fname);
+				lscif::tools.save_traced_curves(fname);
+				
+				// file.close();
+
+				std::cout << "Traced Data SAVED" << std::endl;
+
+				// std::cout<<"acos(1) "<<acos(1.)<<std::endl;
+			}
+			
+			if (ImGui::Button("LoadTracedCurves", ImVec2(ImGui::GetWindowSize().x * 0.23f, 0.0f)))
+			{
+				lscif::tools.load_one_traced_curve();
+			}
+			ImGui::SameLine();
+			if (ImGui::Button("ClearTracedCurves", ImVec2(ImGui::GetWindowSize().x * 0.23f, 0.0f)))
+			{
+				lscif::tools.clear_traced_curves();
+			}
+
 
 			if (ImGui::Button("LvSet Opt", ImVec2(ImGui::GetWindowSize().x * 0.23f, 0.0f)))
 			{

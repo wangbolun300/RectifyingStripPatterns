@@ -508,6 +508,9 @@ public:
     void show_binormals(const Eigen::VectorXd &func, Eigen::MatrixXd &E0, Eigen::MatrixXd &E1, Eigen::MatrixXd &binormals, double ratio);
     void show_max_pg_energy(Eigen::VectorXd& e);
     void show_max_pg_energy_all(Eigen::MatrixXd &energy);
+    void save_traced_curves(const std::string filename);
+    void clear_traced_curves();
+    void load_one_traced_curve();
     Eigen::VectorXi shading_detect_parallel_patch(const double theta, const double phi, Eigen::VectorXd& diff);
     void print_info(const int vid);
 
@@ -525,7 +528,7 @@ public:
     void initialize_level_set_accroding_to_parametrization();
     void initialize_level_set_by_tracing(const TracingPrepare& Tracing_initializer);
     void initialize_level_set_by_boundary_assignment(const TracingPrepare& Tracing_initializer);
-    void initialize_level_set_by_select_boundary_segment(const TracingPrepare& Tracing_initializer);
+    void initialize_level_set_by_select_boundary_segment(const TracingPrepare& Tracing_initializer, bool trace);
     void extract_levelset_curves(const int nbr, std::vector<Eigen::MatrixXd> &E0, std::vector<Eigen::MatrixXd> &E1);
     bool receive_interactive_strokes_and_init_ls(const std::vector<std::vector<int>> &flist,
                                           const std::vector<std::vector<Eigen::Vector3f>> &bclist);

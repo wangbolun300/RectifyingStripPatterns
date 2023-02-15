@@ -4390,3 +4390,46 @@ Eigen::MatrixXd duplicate_vector(const Eigen::Vector2d& vec, const int n){
     }
     return result;
 }
+void lsTools::save_traced_curves(const std::string filename){
+    std::ofstream file;
+
+    for (int i = 0; i < trace_vers.size(); i++)
+    {
+        file.open(filename + "_" + std::to_string(i) + ".csv");
+        for(int j=0;j<trace_vers[i].size();j++){
+            // the vertex coordinates and the halfedge handle id
+            Eigen::Vector3d ver = trace_vers[i][j];
+            CGMesh::HalfedgeHandle hdl = trace_hehs[i][j];
+            int id = hdl.idx();
+            file<<ver[0]<<","<<ver[1]<<","<<ver[2]<<","<<id<<std::endl;
+        }
+        file.close();
+    }
+    
+}
+void lsTools::load_one_traced_curve(){
+    std::string fname = igl::file_dialog_open();
+    std::vector<Eigen::Vector3d> pts;
+    std::vector<CGMesh::HalfedgeHandle> hds;
+    std::vector<std::vector<double>> data;
+    std::ofstream file;
+    bool readed = read_csv_data_lbl(fname, data);
+    if(data.empty()){
+        std::cout<<"load traced curves failed."<<std::endl;
+        return;
+    }
+    for(int i=0;i<data.size();i++){
+        Eigen::Vector3d ver(data[i][0],data[i][1], data[i][2]);
+        CGMesh::HalfedgeHandle halfedge = lsmesh.halfedge_handle(data[i][3]);
+        pts.push_back(ver);
+        hds.push_back(halfedge);
+    }
+
+    trace_hehs.push_back(hds);
+    trace_vers.push_back(pts);
+    std::cout << "loaded one curve succeed. currently there are " << trace_hehs.size() << " curves" << std::endl;
+}
+void lsTools::clear_traced_curves(){
+    trace_hehs.clear();
+    trace_vers.clear();
+}

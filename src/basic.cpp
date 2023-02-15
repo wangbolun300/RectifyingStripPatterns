@@ -802,7 +802,7 @@ void lsTools::initialize_level_set_by_boundary_assignment(const TracingPrepare& 
 
 
 // assign values and angles on a boundary curve truncated by two selected boundary edges
-void lsTools::initialize_level_set_by_select_boundary_segment(const TracingPrepare& Tracing_initializer){
+void lsTools::initialize_level_set_by_select_boundary_segment(const TracingPrepare& Tracing_initializer, bool trace){
     // cylinder_open_example(5, 10, 50, 30);
     // exit(0);
     trace_vers.clear();
@@ -842,25 +842,36 @@ void lsTools::initialize_level_set_by_select_boundary_segment(const TracingPrepa
 
         curve.clear();
         handles.clear();
-        CGMesh::HalfedgeHandle intersected_handle_tmp;
-        Eigen::Vector3d intersected_point_tmp;
-        double start_point_para=0.5;
-        bool found = init_pseudo_geodesic_first_segment(checking_edge, start_point_para, start_angel,
-                                                        intersected_handle_tmp, intersected_point_tmp);
-       
-        if (!found)
+
+        if (!trace)// 
         {
-            std::cout << "error in initialization the boundary direction" << std::endl;
-            return;
+            CGMesh::HalfedgeHandle intersected_handle_tmp;
+            Eigen::Vector3d intersected_point_tmp;
+            double start_point_para = 0.5;
+            bool found = init_pseudo_geodesic_first_segment(checking_edge, start_point_para, start_angel,
+                                                            intersected_handle_tmp, intersected_point_tmp);
+
+            if (!found)
+            {
+                std::cout << "error in initialization the boundary direction" << std::endl;
+                return;
+            }
+
+            Eigen::Vector3d first_point = get_3d_ver_from_t(start_point_para, V.row(lsmesh.from_vertex_handle(checking_edge).idx()),
+                                                            V.row(lsmesh.to_vertex_handle(checking_edge).idx()));
+
+            curve.push_back(first_point);
+            handles.push_back(checking_edge);
+            curve.push_back(intersected_point_tmp);
+            handles.push_back(intersected_handle_tmp);
+        }
+        else
+        {
+
+            trace_single_pseudo_geodesic_curve(target_angle, checking_edge, 0.5, start_angel,
+                                               curve, handles);
         }
 
-        Eigen::Vector3d first_point = get_3d_ver_from_t(start_point_para, V.row(lsmesh.from_vertex_handle(checking_edge).idx()),
-                                                        V.row(lsmesh.to_vertex_handle(checking_edge).idx()));
-
-        curve.push_back(first_point);
-        handles.push_back(checking_edge);
-        curve.push_back(intersected_point_tmp);
-        handles.push_back(intersected_handle_tmp);
         curvecount++;
         assert(curve.size()>0);
         trace_vers.push_back(curve);
