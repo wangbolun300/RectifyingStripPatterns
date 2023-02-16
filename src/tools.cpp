@@ -4400,6 +4400,7 @@ void lsTools::save_traced_curves(const std::string filename){
             // the vertex coordinates and the halfedge handle id
             Eigen::Vector3d ver = trace_vers[i][j];
             CGMesh::HalfedgeHandle hdl = trace_hehs[i][j];
+            CGMesh::EdgeHandle edge = lsmesh.edge_handle(hdl);
             int id = hdl.idx();
             file<<ver[0]<<","<<ver[1]<<","<<ver[2]<<","<<id<<std::endl;
         }
@@ -4427,9 +4428,22 @@ void lsTools::load_one_traced_curve(){
 
     trace_hehs.push_back(hds);
     trace_vers.push_back(pts);
+    if(assigned_trace_ls.empty()){
+        assigned_trace_ls.push_back(0);
+    }
+    else{
+        assigned_trace_ls.push_back(assigned_trace_ls.back() + 1);
+    }
+    if (trace_vers.size() >= 2)
+    {
+        estimate_strip_width_according_to_tracing();
+        std::cout<<"The estimated strip width: "<<strip_width<<std::endl;
+    }
+
     std::cout << "loaded one curve succeed. currently there are " << trace_hehs.size() << " curves" << std::endl;
 }
 void lsTools::clear_traced_curves(){
     trace_hehs.clear();
     trace_vers.clear();
+    assigned_trace_ls.clear();
 }

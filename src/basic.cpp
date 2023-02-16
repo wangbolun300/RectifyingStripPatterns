@@ -1005,7 +1005,11 @@ void lsTools::extract_levelset_curves(const int nbr, std::vector<Eigen::MatrixXd
     }
 }
 void lsTools::estimate_strip_width_according_to_tracing(){
-    assert(trace_vers.size()!=0); // must have at least one curve
+    if(trace_vers.size()<2){
+        std::cout<<"Too few traced curves. Please trace more curves or load more curves"<<std::endl;
+        return;
+    }
+    
     double dis=0;// total lengths
     int tnbr=trace_vers.size();
 

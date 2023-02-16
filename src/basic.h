@@ -198,7 +198,7 @@ private:
     std::vector<Eigen::Vector3d> guideVers;
     std::vector<CGMesh::HalfedgeHandle> guideHehs;
     std::vector<double> assigned_trace_ls; // function values for each traced curve.
-    double trace_start_angle_degree; //the angle between the first segment and the given boundary
+    double trace_start_angle_degree = 90; //the angle between the first segment and the given boundary
     spMat  DBdirections; // the derivative of boundary directions from tracing 
     // edge-based pseudo-energy values
     Efunc ActE;// active edges, which means they are not co-planar edges, and not boundary edges.
