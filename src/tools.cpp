@@ -4413,22 +4413,36 @@ void lsTools::load_one_traced_curve(){
     std::vector<Eigen::Vector3d> pts;
     std::vector<CGMesh::HalfedgeHandle> hds;
     std::vector<std::vector<double>> data;
+    std::vector<Eigen::Vector2d> tparas;
     std::ofstream file;
     bool readed = read_csv_data_lbl(fname, data);
     if(data.empty()){
         std::cout<<"load traced curves failed."<<std::endl;
         return;
     }
-    for(int i=0;i<data.size();i++){
-        Eigen::Vector3d ver(data[i][0],data[i][1], data[i][2]);
+    for (int i = 0; i < data.size(); i++)
+    {
+        Eigen::Vector3d ver(data[i][0], data[i][1], data[i][2]);
         CGMesh::HalfedgeHandle halfedge = lsmesh.halfedge_handle(data[i][3]);
         pts.push_back(ver);
         hds.push_back(halfedge);
+        int id0 = lsmesh.from_vertex_handle(halfedge).idx();
+        int id1 = lsmesh.to_vertex_handle(halfedge).idx();
+        Eigen::Vector3d p0 = V.row(id0);
+        Eigen::Vector3d p1 = V.row(id1);
+        double t = get_t_of_segment(ver, p0, p1);
+        if(t<0||t>1){
+            std::cout<<"inaccurate t!!!!, "<<t<<std::endl;
+        }
+        Eigen::Vector2d vpara = paras.row(id0) * (1 - t) + paras.row(id1) * t;
+        tparas.push_back(vpara);
     }
 
     trace_hehs.push_back(hds);
     trace_vers.push_back(pts);
-    if(assigned_trace_ls.empty()){
+    traced_paras.push_back(tparas);
+    if (assigned_trace_ls.empty())
+    {
         assigned_trace_ls.push_back(0);
     }
     else{
@@ -4446,4 +4460,27 @@ void lsTools::clear_traced_curves(){
     trace_hehs.clear();
     trace_vers.clear();
     assigned_trace_ls.clear();
+    traced_paras.clear();
+}
+CGMesh lsTools::write_parameterization_mesh(){
+    CGMesh mesh = lsmesh;
+    int nv = mesh.n_vertices();
+	for (CGMesh::VertexIter v_it = mesh.vertices_begin(); v_it != mesh.vertices_end(); ++v_it)
+	{
+        int vid=v_it.handle().idx();
+        mesh.point(*v_it) = CGMesh::Point(paras(vid, 0), paras(vid, 1), 0);
+    }
+    return mesh;
+}
+void lsTools::show_traced_curve_params(Eigen::MatrixXd &curve){
+    int ncurves = traced_paras.size();
+    int count = 0;
+    std::vector<Eigen::Vector3d> pts;
+    for(int i=0;i<ncurves;i++){
+        for(int j=0;j<traced_paras[i].size();j++){
+            auto pr = traced_paras[i][j];
+            pts.push_back(Eigen::Vector3d(pr[0], pr[1], 0));
+        }
+    }
+    curve = vec_list_to_matrix(pts);
 }

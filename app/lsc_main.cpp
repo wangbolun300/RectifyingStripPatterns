@@ -738,38 +738,7 @@ int main(int argc, char *argv[])
 		ImGui::InputInt("nbr bnd edges ", &lscif::nbr_edges, 0, 0);
 		ImGui::InputDouble("start angle", &lscif::start_angle, 0, 0, "%.4f");
 		ImGui::InputDouble("corner angle", &lscif::threadshold_angel_degree, 0, 0, "%.4f");
-
-		// ImGui::SameLine();
-		// ImGui::Checkbox("Fix Boundary", &lscif::fixBoundary_checkbox);
-		}
-		ImGui::Separator();
-
-		if (ImGui::CollapsingHeader("Debug input", ImGuiTreeNodeFlags_CollapsingHeader))
-		{
-			ImGui::Checkbox("debugFlag", &lscif::debug_flag);
-			ImGui::InputInt("int", &lscif::dbg_int, 0, 0);
-			ImGui::InputInt("int2", &lscif::dbg_int2, 0, 0);
-			ImGui::InputDouble("double", &lscif::dbg_dbl, 0, 0, "%.4f");
-			ImGui::InputDouble("double2", &lscif::dbg_dbl2, 0, 0, "%.4f");
-			ImGui::InputDouble("vector_scaling", &lscif::vector_scaling, 0, 0, "%.4f");
-			ImGui::InputInt("extracted_nbr", &lscif::extracted_nbr, 0, 0);
-			ImGui::PushItemWidth(50);
-			ImGui::InputDouble("x", &lscif::ptInx, 0, 0, "%.4f");
-			ImGui::SameLine();
-			ImGui::InputDouble("y", &lscif::ptIny, 0, 0, "%.4f");
-			ImGui::SameLine();
-			ImGui::InputDouble("z", &lscif::ptInz, 0, 0, "%.4f");
-			ImGui::SameLine();
-			if (ImGui::Button("drawPt", ImVec2(ImGui::GetWindowSize().x * 0.23f, 0.0f)))
-			{
-				Eigen::MatrixXd pts(1,3);
-				pts.row(0)<<lscif::ptInx,lscif::ptIny,lscif::ptInz;
-				viewer.data().add_points(pts, lscif::hot_red);
-			}
-		}
-		if (ImGui::CollapsingHeader("LS Processing", ImGuiTreeNodeFlags_DefaultOpen))
-		{
-			if (ImGui::Button("Trace Curves", ImVec2(ImGui::GetWindowSize().x * 0.23f, 0.0f)))
+		if (ImGui::Button("Trace Curves", ImVec2(ImGui::GetWindowSize().x * 0.23f, 0.0f)))
 			{
 				int id = viewer.selected_data_index;
 				CGMesh updatedMesh;
@@ -920,13 +889,147 @@ int main(int argc, char *argv[])
 			{
 				lscif::tools.clear_traced_curves();
 			}
+			ImGui::SameLine();
+			if (ImGui::Button("SaveOBJCurve", ImVec2(ImGui::GetWindowSize().x * 0.23f, 0.0f)))
+			{
+				int id = viewer.selected_data_index;
+				CGMesh updatedMesh;
+				CGMesh inputMesh = lscif::Meshes[id];
+				TracingPrepare Tracing_initializer;
+				Tracing_initializer.every_n_edges = lscif::nbr_of_intervals;
+				Tracing_initializer.start_angle = lscif::start_angle;
+				Tracing_initializer.target_angle = lscif::target_angle;
+				Tracing_initializer.threadshold_angel_degree = lscif::threadshold_angel_degree;
+				Tracing_initializer.which_boundary_segment = lscif::which_seg_id;
+				Tracing_initializer.start_bnd_he = lscif::start_bnd_he;
+				Tracing_initializer.nbr_edges = lscif::nbr_edges;
+				if(lscif::TracingType==0){
+					lscif::tools.initialize_level_set_by_select_boundary_segment(Tracing_initializer, true);
+				}
+				if(lscif::TracingType==1){
+					lscif::tools.initialize_level_set_by_tracing(Tracing_initializer);
+				}	
+				if(lscif::TracingType==2){
+					lscif::tools.initialize_level_set_by_select_boundary_segment(Tracing_initializer, false);
+				}
+				
+				
+				std::cout << "finish tracing" << std::endl;
+				lscif::updateMeshViewer(viewer, inputMesh);
+				lscif::meshFileName.push_back("dbg_" + lscif::meshFileName[id]);
+				lscif::Meshes.push_back(inputMesh);
+				Eigen::MatrixXd E0, E1;
+				Eigen::MatrixXd E2, E3, Ea0, Ea1;
+				// lscif::tools.show_gradients(E0,E1, lscif::vector_scaling);
+				const Eigen::RowVector3d red(0.8, 0.2, 0.2);
+				const Eigen::RowVector3d blue(0.2, 0.2, 0.8);
+				const Eigen::RowVector3d black(0, 0, 0);
+				const Eigen::RowVector3d green(0.2, 0.8, 0.2);
+				Eigen::MatrixXd RGB = Eigen::MatrixXd::Identity(3, 3);
+
+				Eigen::MatrixXd pts;
+				std::vector<Eigen::MatrixXd> E0list, E1list;
+				std::cout << "before ploting the curve" << std::endl;
+				lscif::tools.show_pseudo_geodesic_curve(E0list, E1list, pts);
+				for (int i = 0; i < E0list.size(); i++) // plot the curves
+				{
+					E0 = E0list[i];
+					E1 = E1list[i];
+					std::cout << "edge sizes " << E0.rows() << ", " << E1.size() << std::endl;
+					viewer.data().add_edges(E0, E1, red);
+				}
+				std::cout << "the number of curves " << E0list.size() << std::endl;
+
+				if (1) // plot the vertices of the curves
+				{
+					viewer.data().add_points(pts, red);
+				}
+				viewer.selected_data_index = id;
+				std::cout<<"SAVING The Traced Vertices into obj format"<<std::endl;
+				std::string fname = igl::file_dialog_save();
+				std::ofstream file;
+				file.open(fname);
+				for (int i = 0; i < pts.rows(); i++)
+				{
+					file << "v " << pts(i, 0) << " " << pts(i, 1) << " " << pts(i, 2) << std::endl;
+				}
+
+				file.close();
+
+				std::cout << "Traced Data SAVED" << std::endl;
+
+				// std::cout<<"acos(1) "<<acos(1.)<<std::endl;
+			}
+			ImGui::SameLine();
+			if (ImGui::Button("SaveCurveParam", ImVec2(ImGui::GetWindowSize().x * 0.23f, 0.0f)))
+			{// this is to save the parametrized tracing results.
+
+				const Eigen::RowVector3d red(0.8, 0.2, 0.2);
+				const Eigen::RowVector3d blue(0.2, 0.2, 0.8);
+
+				const Eigen::RowVector3d black(0, 0, 0);
+				const Eigen::RowVector3d green(0.2, 0.8, 0.2);
+
+				Eigen::MatrixXd pts;
+				std::cout << "Load one curve, convert it into 2d, then save it as an obj file" << std::endl;
+
+				lscif::tools.show_traced_curve_params(pts);
+				if(pts.rows()==0){
+					std::cout<<"Please follow the instructions before using this button"<<std::endl;
+					ImGui::End();
+					return;
+				}
+				viewer.data().add_points(pts, red);
+				std::cout<<"Saving the curve points in parametrization domain..."<<std::endl;
+				std::string fname = igl::file_dialog_save();
+				std::ofstream file;
+				file.open(fname);
+				for (int i = 0; i < pts.rows(); i++)
+				{
+					file << "v " << pts(i, 0) << " " << pts(i, 1) << " " << pts(i, 2) << std::endl;
+				}
+
+				file.close();
+
+				
+			}
+		// ImGui::SameLine();
+		// ImGui::Checkbox("Fix Boundary", &lscif::fixBoundary_checkbox);
+		}
+		ImGui::Separator();
+
+		if (ImGui::CollapsingHeader("Debug input", ImGuiTreeNodeFlags_CollapsingHeader))
+		{
+			ImGui::Checkbox("debugFlag", &lscif::debug_flag);
+			ImGui::InputInt("int", &lscif::dbg_int, 0, 0);
+			ImGui::InputInt("int2", &lscif::dbg_int2, 0, 0);
+			ImGui::InputDouble("double", &lscif::dbg_dbl, 0, 0, "%.4f");
+			ImGui::InputDouble("double2", &lscif::dbg_dbl2, 0, 0, "%.4f");
+			ImGui::InputDouble("vector_scaling", &lscif::vector_scaling, 0, 0, "%.4f");
+			ImGui::InputInt("extracted_nbr", &lscif::extracted_nbr, 0, 0);
+			ImGui::PushItemWidth(50);
+			ImGui::InputDouble("x", &lscif::ptInx, 0, 0, "%.4f");
+			ImGui::SameLine();
+			ImGui::InputDouble("y", &lscif::ptIny, 0, 0, "%.4f");
+			ImGui::SameLine();
+			ImGui::InputDouble("z", &lscif::ptInz, 0, 0, "%.4f");
+			ImGui::SameLine();
+			if (ImGui::Button("drawPt", ImVec2(ImGui::GetWindowSize().x * 0.23f, 0.0f)))
+			{
+				Eigen::MatrixXd pts(1,3);
+				pts.row(0)<<lscif::ptInx,lscif::ptIny,lscif::ptInz;
+				viewer.data().add_points(pts, lscif::hot_red);
+			}
+		}
+		if (ImGui::CollapsingHeader("LS Processing", ImGuiTreeNodeFlags_DefaultOpen))
+		{
+			
 
 
 			if (ImGui::Button("LvSet Opt", ImVec2(ImGui::GetWindowSize().x * 0.23f, 0.0f)))
 			{
 
-				int id = viewer.selected_data_index;
-				CGMesh inputMesh = lscif::tools.lsmesh;
+				
 				EnergyPrepare einit;
 				einit.weight_gravity = lscif::weight_mass;
 				einit.weight_lap = lscif::weight_laplacian;
@@ -980,6 +1083,8 @@ int main(int argc, char *argv[])
 				}
 				std::cout << "waiting for instruction..." << std::endl;
 				// lscif::MP.MeshUnitScale(inputMesh, updatedMesh);
+				int id = viewer.selected_data_index;
+				CGMesh inputMesh = lscif::tools.lsmesh;
 				lscif::updateMeshViewer(viewer, inputMesh);
 				lscif::meshFileName.push_back("lso_" + lscif::meshFileName[id]);
 				lscif::Meshes.push_back(inputMesh);
@@ -1538,15 +1643,31 @@ int main(int argc, char *argv[])
 				viewer.data().add_points(lscif::tools.V, color);
 				
 			}
-			/*ImGui::SameLine();
-			if (ImGui::Button("draw binormals", ImVec2(ImGui::GetWindowSize().x * 0.23f, 0.0f)))
+			ImGui::SameLine();
+			if (ImGui::Button("draw Paramtrztn", ImVec2(ImGui::GetWindowSize().x * 0.23f, 0.0f)))
 			{
-				Eigen::MatrixXd E0, E1;
-				lscif::tools.show_binormals(E0, E1, lscif::vector_scaling);
-				const Eigen::RowVector3d green(0.2, 0.8, 0.2);
+				int id = viewer.selected_data_index;
+				CGMesh inputMesh = lscif::tools.write_parameterization_mesh();
 
-				viewer.data().add_edges(E0, E1, green);
-			}*/
+				lscif::updateMeshViewer(viewer, inputMesh);
+				lscif::meshFileName.push_back("lso_" + lscif::meshFileName[id]);
+				lscif::Meshes.push_back(inputMesh);
+				viewer.selected_data_index = id;
+
+				Eigen::VectorXd level_set_values;
+				lscif::tools.show_level_set(level_set_values);
+				if(level_set_values.size()==0){
+					std::cout<<"Please init the levelset or load a correct levelset"<<std::endl;
+					ImGui::End();
+					return;
+				}
+				Eigen::MatrixXd CM;
+				igl::parula(Eigen::VectorXd::LinSpaced(21, 0, 1).eval(), false, CM);
+				igl::isolines_map(Eigen::MatrixXd(CM), CM);
+				viewer.data().set_colormap(CM);
+				viewer.data().set_data(level_set_values);
+				
+			}
 			if (ImGui::Button("SaveUnitScaleMesh", ImVec2(ImGui::GetWindowSize().x * 0.23f, 0.0f)))
 			{
 				std::cout << "This button is to unit scale the target mesh and save the result mesh\n ";

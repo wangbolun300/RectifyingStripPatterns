@@ -391,6 +391,8 @@ bool angles_match(const double angle_degree1, const double angle_degree2)
     return false;
 }
 
+
+
 bool binormal_correct_angle(const Eigen::Vector3d &seg_in, const Eigen::Vector3d &seg_out, const Eigen::Vector3d &pnorm, const double angle_degree)
 {
     Eigen::Vector3d dirin = seg_in.normalized();
@@ -417,6 +419,10 @@ bool binormal_correct_angle(const Eigen::Vector3d &seg_in, const Eigen::Vector3d
     // if we are checking asymptotic, then don't need further check
     if (angles_match(angle_degree, 0) || angles_match(angle_degree, 180))
     {
+        return true;
+    }
+    if(produce_no_smooth_oscu){
+        std::cout<<"Wrong Results Just For Debug"<<std::endl;
         return true;
     }
     // tangent is othogonal to surface normal and the curve bi-normal
@@ -672,6 +678,19 @@ bool lsTools::get_checking_edges(const std::vector<int> &start_point_ids, const 
         {
             int id = lsmesh.edge_handle(ninfo.edges[i]).idx();
             edges_checked.coeffRef(id) = 1;
+        }
+        if(produce_small_search_range){
+            ninfo.edges.clear();
+            CGMesh::HalfedgeHandle h0 = lsmesh.prev_halfedge_handle(edge_middle);
+            CGMesh::HalfedgeHandle h1 = lsmesh.next_halfedge_handle(edge_middle);
+            CGMesh::HalfedgeHandle hop = lsmesh.opposite_halfedge_handle(edge_middle);
+            CGMesh::HalfedgeHandle h2 = lsmesh.prev_halfedge_handle(hop);
+            CGMesh::HalfedgeHandle h3 = lsmesh.next_halfedge_handle(hop);
+            ninfo.edges.push_back(h0);
+            ninfo.edges.push_back(h1);
+            ninfo.edges.push_back(h2);
+            ninfo.edges.push_back(h3);
+            return true;
         }
     }
     else
@@ -1090,6 +1109,10 @@ bool lsTools::trace_single_pseudo_geodesic_curve(const double target_angle_degre
             }
             else
             {
+                if (produce_small_search_range)
+                {
+                    return true;
+                }
                 start_point_ids = point_to_check;
             }
         }

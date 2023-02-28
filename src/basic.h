@@ -16,6 +16,9 @@ typedef Eigen::Triplet<double> Trip;
 #define ANGLE_TOLERANCE 2.
 #define QUADRANT_TOLERANCE 0.04 // over 2 degree tolerance
 
+static bool produce_no_smooth_oscu = false;// this is a flag to create wrong results when set as true.
+static bool produce_small_search_range = false; // this is to enable small searching range for tracing.
+
 enum BCtype{ // boundary condition type
     Traced, //0 // the traced values as the guide directions
     Opp_fixed// // fixing the vales of two opposite boundary edges
@@ -194,10 +197,12 @@ private:
     Eigen::MatrixXd norm_e; // normal directions on each edge
     std::vector<std::vector<Eigen::Vector3d>> trace_vers;        // traced vertices
     std::vector<std::vector<CGMesh::HalfedgeHandle>> trace_hehs; // traced half edge handles
+    std::vector<double> assigned_trace_ls; // function values for each traced curve.
+    std::vector<std::vector<Eigen::Vector2d>> traced_paras;//parameterizations for the traced curves. This is only useful for illustrations.
 
     std::vector<Eigen::Vector3d> guideVers;
     std::vector<CGMesh::HalfedgeHandle> guideHehs;
-    std::vector<double> assigned_trace_ls; // function values for each traced curve.
+    
     double trace_start_angle_degree = 90; //the angle between the first segment and the given boundary
     spMat  DBdirections; // the derivative of boundary directions from tracing 
     // edge-based pseudo-energy values
@@ -504,10 +509,10 @@ public:
     void show_pseudo_geodesic_curve(std::vector<Eigen::MatrixXd> &E0, std::vector<Eigen::MatrixXd> &E1, Eigen::MatrixXd &vers);
     void show_traced_binormals(Eigen::MatrixXd &bE0, Eigen::MatrixXd &bE1, Eigen::MatrixXd &nE0, Eigen::MatrixXd &nE1, const double scale);
     void show_posi_negt_curvature(Eigen::MatrixXd& color);
-    
     void show_binormals(const Eigen::VectorXd &func, Eigen::MatrixXd &E0, Eigen::MatrixXd &E1, Eigen::MatrixXd &binormals, double ratio);
     void show_max_pg_energy(Eigen::VectorXd& e);
     void show_max_pg_energy_all(Eigen::MatrixXd &energy);
+    void show_traced_curve_params(Eigen::MatrixXd &curve);
     void save_traced_curves(const std::string filename);
     void clear_traced_curves();
     void load_one_traced_curve();
@@ -533,6 +538,7 @@ public:
     bool receive_interactive_strokes_and_init_ls(const std::vector<std::vector<int>> &flist,
                                           const std::vector<std::vector<Eigen::Vector3f>> &bclist);
     void clear_high_energy_markers_in_analizer();
+    CGMesh write_parameterization_mesh();
 };
 
 // // partial derivate tools, regard level set function as variates.
