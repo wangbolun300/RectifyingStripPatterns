@@ -828,3 +828,274 @@ void PolyOpt::opt()
     extract_polylines_and_binormals();
     //
 }
+std::vector<std::vector<int>> load_row_col_info(const std::vector<std::vector<double>> &rowstmp)
+{
+    std::vector<std::vector<double>> tmp = rowstmp;
+    std::vector<std::vector<int>> result;
+    result.resize(rowstmp.size());
+    for (int i = 0; i < result.size(); i++)
+    {
+        std::vector<int> curve;
+        curve.resize(rowstmp[i].size());
+        for (int j = 0; j < curve.size(); j++)
+        {
+            curve[j] = rowstmp[i][j];
+        }
+        result[i]=curve;
+    }
+    return result;
+}
+void load_row_col_info(const std::vector<std::vector<double>> &rowstmp, Eigen::VectorXi &row_f, Eigen::VectorXi &row_b)
+{
+    for (int i = 0; i < rowstmp.size(); i++)
+    {
+        for (int j = 0; j < rowstmp[i].size(); j++)
+        {
+            int vid = rowstmp[i][j];
+            if (vid < 0)
+            {
+                continue;
+            }
+            int front = -1;
+            int back = -1;
+            if (j != 0)
+            {
+                front = rowstmp[i][j - 1];
+            }
+            if (j != rowstmp[i].size() - 1)
+            {
+                back = rowstmp[i][j + 1];
+            }
+            row_f[vid] = front;
+            row_b[vid] = back;
+        }
+    }
+    return;
+}
+
+void load_diagonal_info(const Eigen::VectorXi &row_front, const Eigen::VectorXi &row_back, const Eigen::VectorXi &col_front,
+                        const Eigen::VectorXi &col_back, Eigen::VectorXi &d0_front, Eigen::VectorXi &d1_front,
+                        Eigen::VectorXi &d0_back, Eigen::VectorXi &d1_back)
+{
+    int vnbr = row_front.size();
+    d0_front = Eigen::VectorXi::Ones(vnbr) * -1;
+    d0_back = d0_front;
+    d1_front = d0_front;
+    d1_back = d0_front;
+    for (int i = 0; i < vnbr; i++)
+    {
+        int id = i;
+        int rfid = row_front(id);
+        int rbid = row_back(id);
+        int cfid = col_front(id);
+        int cbid = col_back(id);
+        if (rfid < 0 || rbid < 0 || cfid < 0 || cbid < 0) // if it is a boundary vertex, skip
+        {
+            continue;
+        }
+        int lu = row_front(cfid); // upleft
+        int ld = row_back(cfid);
+        int ru = row_front(cbid);
+        int rd = row_back(cbid);
+        d0_front[id] = lu;
+        d0_back[id] = rd;
+        d1_front[id] = ld;
+        d1_back[id] = ru;
+    }
+}
+
+void QuadOpt::init(CGMesh& mesh_in, const std::string& prefix){
+    MP.mesh2Matrix(mesh_in, V, F);
+    std::vector<std::vector<double>> rowstmp;
+    std::vector<std::vector<double>> colstmp;
+    read_csv_data_lbl(prefix+"_rows", rowstmp);
+    read_csv_data_lbl(prefix+"_cols", colstmp);
+
+    int vnbr = V.rows();
+    varsize = vnbr * 6;// the nbr of vars. the coordinates and the normal vectors
+    row_front = Eigen::VectorXi::Ones(vnbr) * -1;
+    row_back = Eigen::VectorXi::Ones(vnbr) * -1;
+    col_front = Eigen::VectorXi::Ones(vnbr) * -1;
+    col_back = Eigen::VectorXi::Ones(vnbr) * -1;
+
+
+    load_row_col_info(rowstmp, row_front,row_back);
+    load_row_col_info(rowstmp, col_front, col_back);
+
+    load_diagonal_info(row_front, row_back, col_front, col_back, d0_front, d1_front, d0_back, d1_back);
+    OrigVars = Eigen::VectorXd::Zero(varsize);
+    OrigVars.segment(0, vnbr) = V.col(0);
+    OrigVars.segment(vnbr, vnbr) = V.col(1);
+    OrigVars.segment(vnbr * 2, vnbr) = V.col(2);
+}
+
+void QuadOpt::assemble_gravity(spMat& H, Eigen::VectorXd& B, Eigen::VectorXd &energy){
+
+    // std::vector<Trip> tripletes;
+    int vnbr = V.rows();
+    H = spMat(Eigen::VectorXd::Ones(vnbr * 6).asDiagonal());
+    energy = Eigen::VectorXd::Zero(vnbr * 6);
+    energy.segment(0, vnbr * 3) = (GlobVars - OrigVars).segment(0, vnbr * 3);
+
+    B = -H * energy;
+}
+// lv is ver location, lf is front location, lb is back location, cid is the id of the condition
+// ratiof is the ratio of lengths.
+// v - (1-ratio) f - ratio * b = 0
+void push_fairness_conditions(std::vector<Trip> &tripletes, Eigen::VectorXd &energy,
+                              const int lv, const int lf, const int lb,
+                              const double vval, const double fval, const double bval,
+                              const int cid, const double ratiof)
+{
+    tripletes.push_back(Trip(cid, lv, 1));
+    tripletes.push_back(Trip(cid, lf, ratiof - 1));
+    tripletes.push_back(Trip(cid, lb, -ratiof));
+    energy[cid] = vval - (1 - ratiof) * fval - ratiof * bval;
+}
+
+void QuadOpt::assemble_fairness(spMat& H, Eigen::VectorXd& B, Eigen::VectorXd &energy){
+    
+
+    std::vector<Trip> tripletes;
+    int vnbr = V.rows();
+    energy = Eigen::VectorXd::Zero(vnbr * 12);//todo
+    tripletes.reserve(vnbr * 12 * 3);
+    int counter = 0;
+    for (int i = 0; i < vnbr; i++)
+    {
+        // the ids
+        int vid = i;
+        int rf = row_front[vid];
+        int rb = row_back[vid];
+        int cf = col_front[vid];
+        int cb = col_back[vid];
+        int d0f = d0_front[vid];
+        int d0b = d0_back[vid];
+        int d1f = d1_front[vid];
+        int d1b = d1_back[vid];
+        // the locations 
+        int lvx = vid;
+        int lvy = vid + vnbr;
+        int lvz = vid + 2 * vnbr;
+
+        int lrfx = rf;
+        int lrfy = rf + vnbr;
+        int lrfz = rf + vnbr * 2;
+
+        int lrbx = rb;
+        int lrby = rb + vnbr;
+        int lrbz = rb + vnbr * 2;
+
+        int lcfx = cf;
+        int lcfy = cf + vnbr;
+        int lcfz = cf + vnbr * 2;
+
+        int lcbx = cb;
+        int lcby = cb + vnbr;
+        int lcbz = cb + vnbr * 2;
+
+        int ld0fx = d0f;
+        int ld0fy = d0f + vnbr;
+        int ld0fz = d0f + vnbr * 2;
+
+        int ld0bx = d0b;
+        int ld0by = d0b + vnbr;
+        int ld0bz = d0b + vnbr * 2;
+
+        int ld1fx = d1f;
+        int ld1fy = d1f + vnbr;
+        int ld1fz = d1f + vnbr * 2;
+
+        int ld1bx = d1b;
+        int ld1by = d1b + vnbr;
+        int ld1bz = d1b + vnbr * 2;
+        
+        bool row_smt = true;
+        bool col_smt = true;
+        bool d0_smt = true;
+        bool d1_smt = true;
+
+        if (rf < 0 || rb < 0)
+        {
+            row_smt = false;
+        }
+        if (cf < 0 || cb < 0)
+        {
+            col_smt = false;
+        }
+
+        if (d0_type == 0 || d0f < 0 || d0b < 0)
+        {
+            d0_smt = false;
+        }
+        if (d1_type == 0 || d1f < 0 || d1b < 0)
+        {
+            d1_smt = false;
+        }
+        if (row_smt)
+        {
+            Eigen::Vector3d Ver(GlobVars[lvx], GlobVars[lvy], GlobVars[lvz]);
+            Eigen::Vector3d Vfr(GlobVars[lrfx], GlobVars[lrfy], GlobVars[lrfz]);
+            Eigen::Vector3d Vbk(GlobVars[lrbx], GlobVars[lrby], GlobVars[lrbz]);
+            double ratiof = (Ver - Vfr).norm() / (Vbk - Vfr).norm();
+            counter = i;
+            push_fairness_conditions(tripletes, energy, lvx, lrfx, lrbx, Ver[0], Vfr[0], Vbk[0], counter, ratiof);
+            counter = i + vnbr;
+            push_fairness_conditions(tripletes, energy, lvy, lrfy, lrby, Ver[1], Vfr[1], Vbk[1], counter, ratiof);
+            counter = i + vnbr * 2;
+            push_fairness_conditions(tripletes, energy, lvz, lrfz, lrbz, Ver[2], Vfr[2], Vbk[2], counter, ratiof);
+            
+        }
+
+        if (col_smt)
+        {
+            Eigen::Vector3d Ver(GlobVars[lvx], GlobVars[lvy], GlobVars[lvz]);
+            Eigen::Vector3d Vfr(GlobVars[lcfx], GlobVars[lcfy], GlobVars[lcfz]);
+            Eigen::Vector3d Vbk(GlobVars[lcbx], GlobVars[lcby], GlobVars[lcbz]);
+            double ratiof = (Ver - Vfr).norm() / (Vbk - Vfr).norm();
+            counter = i + vnbr * 3;
+            push_fairness_conditions(tripletes, energy, lvx, lcfx, lcbx, Ver[0], Vfr[0], Vbk[0], counter, ratiof);
+            counter = i + vnbr * 4;
+            push_fairness_conditions(tripletes, energy, lvy, lcfy, lcby, Ver[1], Vfr[1], Vbk[1], counter, ratiof);
+            counter = i + vnbr * 5;
+            push_fairness_conditions(tripletes, energy, lvz, lcfz, lcbz, Ver[2], Vfr[2], Vbk[2], counter, ratiof);
+            
+        }
+
+        if (d0_smt)
+        {
+            Eigen::Vector3d Ver(GlobVars[lvx], GlobVars[lvy], GlobVars[lvz]);
+            Eigen::Vector3d Vfr(GlobVars[ld0fx], GlobVars[ld0fy], GlobVars[ld0fz]);
+            Eigen::Vector3d Vbk(GlobVars[ld0bx], GlobVars[ld0by], GlobVars[ld0bz]);
+            double ratiof = (Ver - Vfr).norm() / (Vbk - Vfr).norm();
+            counter = i + vnbr * 6;
+            push_fairness_conditions(tripletes, energy, lvx, ld0fx, ld0bx, Ver[0], Vfr[0], Vbk[0], counter, ratiof);
+            counter = i + vnbr * 7;
+            push_fairness_conditions(tripletes, energy, lvy, ld0fy, ld0by, Ver[1], Vfr[1], Vbk[1], counter, ratiof);
+            counter = i + vnbr * 8;
+            push_fairness_conditions(tripletes, energy, lvz, ld0fz, ld0bz, Ver[2], Vfr[2], Vbk[2], counter, ratiof);
+            
+        }
+        if (d1_smt)
+        {
+            Eigen::Vector3d Ver(GlobVars[lvx], GlobVars[lvy], GlobVars[lvz]);
+            Eigen::Vector3d Vfr(GlobVars[ld1fx], GlobVars[ld1fy], GlobVars[ld1fz]);
+            Eigen::Vector3d Vbk(GlobVars[ld1bx], GlobVars[ld1by], GlobVars[ld1bz]);
+            double ratiof = (Ver - Vfr).norm() / (Vbk - Vfr).norm();
+            counter = i + vnbr * 9;
+            push_fairness_conditions(tripletes, energy, lvx, ld1fx, ld1bx, Ver[0], Vfr[0], Vbk[0], counter, ratiof);
+            counter = i + vnbr * 10;
+            push_fairness_conditions(tripletes, energy, lvy, ld1fy, ld1by, Ver[1], Vfr[1], Vbk[1], counter, ratiof);
+            counter = i + vnbr * 11;
+            push_fairness_conditions(tripletes, energy, lvz, ld1fz, ld1bz, Ver[2], Vfr[2], Vbk[2], counter, ratiof);
+            
+        }
+    }
+
+    // std::cout<<"check 2"<<std::endl;
+    spMat J;
+    J.resize(energy.size(), vnbr * 6);
+    J.setFromTriplets(tripletes.begin(), tripletes.end());
+    H = J.transpose() * J;
+    B = -J.transpose() * energy;
+}

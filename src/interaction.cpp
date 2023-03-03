@@ -35,7 +35,7 @@ void AssignAutoRunDefaultArgs(AutoRunArgs &args, const bool compute_pg)
 
         args.parts.resize(5);
         // 
-        args.parts[0].iterations = 50;
+        args.parts[0].iterations = 20;
         args.parts[0].weight_gravity = 100;
         args.parts[0].weight_lap = 0.001;
         args.parts[0].weight_bnd = 0.0001;
@@ -492,7 +492,10 @@ double get_interactive_angle(const Eigen::VectorXd &func, const LSAnalizer &anal
                              const Eigen::MatrixXi &F, const std::vector<std::vector<int>> interactive_flist,
                              const std::vector<std::vector<Eigen::Vector3f>> &interactive_bclist, const Eigen::VectorXi &InnerV)
 {
-    
+    assert(func.size()>0);
+    if(debug_flag){
+        std::cout<<"check in 1, ";
+    }
     int vnbr = V.rows();
     int ninner = analizer.LocalActInner.size();
     int ncurves = interactive_flist.size();
@@ -500,6 +503,9 @@ double get_interactive_angle(const Eigen::VectorXd &func, const LSAnalizer &anal
     int counter = 0;
     std::priority_queue<double> dbg_angles;
     // std::vector<bool> dbg_lesszero;
+    if(debug_flag){
+        std::cout<<"check in 2, ";
+    }
     for (int i = 0; i < ncurves; i++)
     {
         int nbrpts = interactive_bclist[i].size();
@@ -507,6 +513,8 @@ double get_interactive_angle(const Eigen::VectorXd &func, const LSAnalizer &anal
         int end = 0.75 * nbrpts;
         for (int j = start; j < end; j++)
         {
+            assert(i < interactive_bclist.size() && j < interactive_bclist[i].size());
+            assert(start <= end);
             double u = interactive_bclist[i][j][0];
             double v = interactive_bclist[i][j][1];
             double t = interactive_bclist[i][j][2];
@@ -521,6 +529,7 @@ double get_interactive_angle(const Eigen::VectorXd &func, const LSAnalizer &anal
                     k = iterator;
                 }
             }
+            assert(k >= 0);
             int fid = interactive_flist[i][j];
             int vid[3];
             vid[0] = F(fid, 0);
@@ -529,7 +538,11 @@ double get_interactive_angle(const Eigen::VectorXd &func, const LSAnalizer &anal
 
             int vm = vid[k];
             int ith = InnerV[vm];
-
+            if (ith < 0)// meaning the point is too close to the boundary, which can not be used to analyse the angle
+            {
+                continue;
+            }
+            assert(ith < analizer.LocalActInner.size() && ith >= 0);
             if (analizer.LocalActInner[ith] == false)
             {
                 std::cout << "singularity, " << vm << std::endl;
@@ -580,6 +593,9 @@ double get_interactive_angle(const Eigen::VectorXd &func, const LSAnalizer &anal
             angle_avg += angle;
             counter++;
         }
+    }
+    if(debug_flag){
+        std::cout<<"check in 3, ";
     }
     // print_queue(dbg_angles);
     return angle_avg / counter;
@@ -684,7 +700,9 @@ void lsTools::Run_Level_Set_Opt_interactive(const bool compute_pg)
     assemble_solver_strip_width_part(GradValueF, sw_JTJ, sw_mJTF); // by default the strip width is 1. Unless tracing info updated the info
     H += weight_strip_width * sw_JTJ;
     B += weight_strip_width * sw_mJTF;
-
+    if(debug_flag){
+        std::cout<<"check 4, ";
+    }
     assert(H.rows() == vnbr);
 	assert(H.cols() == vnbr);
 	// pseudo geodesic
@@ -718,6 +736,9 @@ void lsTools::Run_Level_Set_Opt_interactive(const bool compute_pg)
         // std::cout<<"weight_pseudo_geodesic_energy, "<<weight_pseudo_geodesic_energy<<std::endl;
 		Compute_Auxiliaries = false;
 	}
+    if(debug_flag){
+        std::cout<<"check 5, ";
+    }
 	if(vector_contains_NAN(Blarge)){
         std::cout<<"energy contains NAN"<<std::endl;
 		return;
@@ -775,12 +796,17 @@ void lsTools::Run_Level_Set_Opt_interactive(const bool compute_pg)
 
     step_length = dx.norm();
 	std::cout << "step " << step_length;
-
+    if(debug_flag){
+        std::cout<<"check 6, ";
+    }
     // get the average angle around the strokes
     if (!compute_pg)
     {
         pseudo_geodesic_target_angle_degree = 180. / LSC_PI * get_interactive_angle(func, analizers[0], lsmesh, norm_v,
          V, F, interactive_flist, interactive_bclist, InnerV);
+    }
+    if(debug_flag){
+        std::cout<<"check 7, ";
     }
     std::cout<<", target_angle, "<<pseudo_geodesic_target_angle_degree;
     std::cout<<"\n";
