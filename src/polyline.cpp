@@ -3,6 +3,101 @@
 #include<igl/file_dialog_open.h>
 #include<igl/file_dialog_save.h>
 
+void solve_project_vector_on_plane(const Eigen::Vector3d &vec, const Eigen::Vector3d &a1, const Eigen::Vector3d &a2,
+                                   Eigen::Vector3d v2d)
+{
+    double a, b;
+    Eigen::Matrix2d mat, matinv;
+    mat << a1.dot(a1), a1.dot(a2),
+        a1.dot(a2), a2.dot(a2);
+    Eigen::Vector2d B(vec.dot(a1), vec.dot(a2));
+    bool invertable;
+
+    mat.computeInverseWithCheck(matinv, invertable);
+    if(!invertable){
+        std::cout<<"ERROR: the two input vectors are linearly dependent"<<std::endl;
+        assert(0);
+        return;
+    }
+
+    Eigen::Vector2d ab = matinv * B;
+    v2d = ab[0] * a1 + ab[1] * a2;
+}
+
+void convert_polyline_to_developable_strips(const std::vector<Eigen::Vector3d> &ply,
+                                            const std::vector<Eigen::Vector3d> &bnm, std::vector<Eigen::Vector3d> &creases)
+{
+    // creases[0] = bnm[0];
+    creases = bnm;
+    int vnbr = ply.size();
+    // double cosbeta1 = 1; // the angle between the left plane and the x-z plane. The first is the
+    // double cosbeta2 = 0; // between the left plane and the x-y plane.
+    Eigen::Vector3d last_crease = creases[0];
+    for (int i = 1; i < vnbr - 1; i++)
+    {
+        Eigen::Vector3d vf = ply[i - 1];
+        Eigen::Vector3d vb = ply[i + 1];
+        Eigen::Vector3d pt = ply[i];
+
+        Eigen::Vector3d d1 = (pt - vf).normalized();
+        Eigen::Vector3d d2 = (vb - pt).normalized();
+        Eigen::Vector3d bi = bnm[i];
+        bi.normalize();
+        Eigen::Vector3d yy = bi.cross(-d1).normalized();
+        // project -d1 to x axis, yy to y axis, bi to z axis.
+        Eigen::Matrix3d Rinv, R;
+        Rinv.col(0) = -d1;
+        Rinv.col(1) = yy;
+        Rinv.col(2) = bi;
+        bool invertable;
+        Rinv.computeInverseWithCheck(R, invertable);
+        if (!invertable)
+        {
+            std::cout << "Please check why it is not invertable here" << std::endl;
+            return;
+        }
+        // project the crease to y-z plane
+        Eigen::Vector3d proj_crease;
+        solve_project_vector_on_plane(last_crease, bi, yy, proj_crease);
+        proj_crease.normalize();
+        double cosbeta1 = proj_crease.dot(bi);
+        double cosbeta2 = proj_crease.dot(yy);
+        // R is the projection matrix, project the 3 vectors to the standard axis.
+        // the following calculation is in the new coordinate system
+
+        Eigen::Vector3d D = R * d2;
+        Eigen::Vector3d C(0, cosbeta2, cosbeta1);
+        double D0 = D(0), D1 = D(1), D2 = D(2);
+        double a, b; // the crease is defined as a*C+b*(1,0,0)
+        if (abs(1 + D0) < SCALAR_ZERO)// unlike to happen
+        {
+            a = 0;
+            b = 1;
+        }
+        else
+        {
+            a = 1;
+            b = -(D1 * cosbeta2 + D2 * cosbeta1) / (1 + D0);
+        }
+        Eigen::Vector3d A = Eigen::Vector3d(b, a * cosbeta2, a * cosbeta1);
+        if (A(2) < 0)// to make sure A is the same orient with the binormal vector
+        {
+            A *= -1;
+        }
+        double ratio = sqrt(1 / (A.dot(A) - A(0) * A(0)));
+        A *= ratio;
+        creases[i] = Rinv * A;
+        last_crease=creases[i];
+    }
+    // solve for the last vector
+    Eigen::Vector3d d1 = (ply[vnbr - 1] - ply[vnbr - 2]).normalized();
+    Eigen::Vector3d bi = bnm[vnbr - 1];
+    bi.normalize();
+    Eigen::Vector3d yy = bi.cross(-d1).normalized();
+    // the last crease
+    solve_project_vector_on_plane(last_crease, bi, yy, creases[vnbr - 1]);
+}
+
 void sample_polylines_and_binormals_evenly(const int nbr_segs, const std::vector<std::vector<Eigen::Vector3d>> &ply_in, const std::vector<std::vector<Eigen::Vector3d>> &bi_in,
                             std::vector<std::vector<Eigen::Vector3d>> &ply, std::vector<std::vector<Eigen::Vector3d>> &bi)
 {
