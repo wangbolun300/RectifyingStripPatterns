@@ -190,7 +190,7 @@ private:
     Eigen::VectorXi d1_back;
     void assemble_fairness(spMat& H, Eigen::VectorXd& B, Eigen::VectorXd &energy);
     void assemble_gravity(spMat& H, Eigen::VectorXd& B, Eigen::VectorXd &energy);
-    void assemble_pg(spMat& H, Eigen::VectorXd& B, Eigen::VectorXd &energy);
+    void assemble_pg(spMat& H, Eigen::VectorXd& B, Eigen::VectorXd &energy, bool type);
     
 
 };

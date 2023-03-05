@@ -4125,6 +4125,7 @@ void read_plylines_and_binormals(std::vector<std::vector<Eigen::Vector3d>>& ply,
     if (fname.length() == 0)
     {
         std::cout<<"Please type something "<<std::endl;
+        return;
     }
     std::vector<std::vector<double>> vx, vy, vz, nx, ny, nz;
     read_csv_data_lbl(fname+"_x.csv", vx);

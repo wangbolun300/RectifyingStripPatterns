@@ -2,11 +2,11 @@
 #include <lsc/tools.h>
 #include<igl/file_dialog_open.h>
 #include<igl/file_dialog_save.h>
-
+bool print_info = false;
 void solve_project_vector_on_plane(const Eigen::Vector3d &vec, const Eigen::Vector3d &a1, const Eigen::Vector3d &a2,
-                                   Eigen::Vector3d v2d)
+                                   Eigen::Vector3d &v2d)
 {
-    double a, b;
+
     Eigen::Matrix2d mat, matinv;
     mat << a1.dot(a1), a1.dot(a2),
         a1.dot(a2), a2.dot(a2);
@@ -19,9 +19,12 @@ void solve_project_vector_on_plane(const Eigen::Vector3d &vec, const Eigen::Vect
         assert(0);
         return;
     }
-
     Eigen::Vector2d ab = matinv * B;
     v2d = ab[0] * a1 + ab[1] * a2;
+    if(print_info){
+        std::cout<<"\nmat,\n"<<mat<<"\nB,"<<B.transpose()<<"\nmatinv\n"<<matinv<<"\na,b, "<<ab[0]<<", "<<ab[1]<<"\nv2d, "
+        <<v2d.transpose()<<"\n";
+    }
 }
 
 void convert_polyline_to_developable_strips(const std::vector<Eigen::Vector3d> &ply,
@@ -30,6 +33,8 @@ void convert_polyline_to_developable_strips(const std::vector<Eigen::Vector3d> &
     // creases[0] = bnm[0];
     creases = bnm;
     int vnbr = ply.size();
+    print_info = false;
+    //ply.size() > 3;
     // double cosbeta1 = 1; // the angle between the left plane and the x-z plane. The first is the
     // double cosbeta2 = 0; // between the left plane and the x-y plane.
     Eigen::Vector3d last_crease = creases[0];
@@ -88,6 +93,13 @@ void convert_polyline_to_developable_strips(const std::vector<Eigen::Vector3d> &
         A *= ratio;
         creases[i] = Rinv * A;
         last_crease=creases[i];
+        if(print_info){
+            std::cout << "R\n"
+                      << R << "\nbi, " << bi.transpose() << "\nyy, " << yy.transpose() << "\nproj_crease, " << proj_crease.transpose()
+                      << "\ncrease, " << last_crease.transpose() << "\n";
+                      exit(0);
+        }
+        
     }
     // solve for the last vector
     Eigen::Vector3d d1 = (ply[vnbr - 1] - ply[vnbr - 2]).normalized();

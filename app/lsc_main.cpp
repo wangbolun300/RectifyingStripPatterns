@@ -1746,6 +1746,11 @@ int main(int argc, char *argv[])
 			if (ImGui::Button("ReadPlylines", ImVec2(ImGui::GetWindowSize().x * 0.23f, 0.0f))){
 				int id = viewer.selected_data_index;
 				read_plylines_and_binormals(lscif::Poly_readed, lscif::Bino_readed);
+				if(lscif::Poly_readed.empty()){
+					std::cout << "ERROR, Please load the polylines first" << std::endl;
+					ImGui::End();
+					return;
+				}
 				CGMesh updatemesh = polyline_to_strip_mesh(lscif::Poly_readed, lscif::Bino_readed, lscif::vector_scaling);
 				lscif::updateMeshViewer(viewer, updatemesh);
 				lscif::meshFileName.push_back("ply_" + lscif::meshFileName[id]);
@@ -1849,6 +1854,32 @@ int main(int argc, char *argv[])
 			lscif::meshFileName.push_back("Smt_" + lscif::meshFileName[id]);
 			lscif::Meshes.push_back(updatemesh);
 			viewer.selected_data_index = id;
+			std::cout << "waiting for instructions" << std::endl;
+		}
+		ImGui::SameLine();
+		if (ImGui::Button("DevelopableStrips", ImVec2(ImGui::GetWindowSize().x * 0.23f, 0.0f)))
+		{
+			if (lscif::Poly_readed.empty())
+			{
+				std::cout << "ERROR, Please read the polyline first" << std::endl;
+				ImGui::End();
+				return;
+			}
+			// lscif::Poly_readed, lscif::Bino_readed
+			std::vector<std::vector<Eigen::Vector3d>> dev_crease;
+			for (int i = 0; i < lscif::Poly_readed.size(); i++)
+			{
+				std::vector<Eigen::Vector3d> creases;
+				convert_polyline_to_developable_strips(lscif::Poly_readed[i], lscif::Bino_readed[i], creases);
+				dev_crease.push_back(creases);
+			}
+			int id = viewer.selected_data_index;
+			CGMesh updatemesh = polyline_to_strip_mesh(lscif::Poly_readed, dev_crease, lscif::vector_scaling);
+			lscif::updateMeshViewer(viewer, updatemesh);
+			lscif::meshFileName.push_back("Dev_" + lscif::meshFileName[id]);
+			lscif::Meshes.push_back(updatemesh);
+			viewer.selected_data_index = id;
+			lscif::poly_tool.save_polyline_and_binormals_as_files(lscif::Poly_readed, dev_crease);
 			std::cout << "waiting for instructions" << std::endl;
 		}
 		ImGui::SetNextItemOpen(true);

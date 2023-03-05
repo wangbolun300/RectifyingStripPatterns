@@ -123,3 +123,10 @@ double get_interactive_angle(const Eigen::VectorXd &func, const LSAnalizer &anal
                              const Eigen::MatrixXd &V,
                              const Eigen::MatrixXi &F, const std::vector<std::vector<int>> interactive_flist,
                              const std::vector<std::vector<Eigen::Vector3f>> &interactive_bclist, const Eigen::VectorXi &InnerV);
+void convert_polyline_to_developable_strips(const std::vector<Eigen::Vector3d> &ply,
+                                            const std::vector<Eigen::Vector3d> &bnm, std::vector<Eigen::Vector3d> &creases);
+
+
+
+
+
