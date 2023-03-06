@@ -1019,7 +1019,22 @@ void QuadOpt::init(CGMesh& mesh_in, const std::string& prefix){
     read_csv_data_lbl(prefix+"_cols", colstmp);
 
     int vnbr = V.rows();
-    varsize = vnbr * 6;// the nbr of vars. the coordinates and the normal vectors
+    if (OptType == 0)// AAG
+    {
+        // vertices vnbr * 3, normals vnbr * 3, binormals for G vnbr * 3  
+        varsize = vnbr * 9;
+    }
+    if (OptType == 1)// AGG
+    {
+        // vertices vnbr * 3, normals vnbr * 3, binormals for G0 vnbr * 3, binormals for G1 vnbr * 3.    
+        varsize = vnbr * 12;
+    }
+    if (OptType == 2)// PP
+    {
+        std::cout<<"ERROR Not ready for PP or PPG optimizaitons yet"<<std::endl;
+        return;
+    }
+    
     row_front = Eigen::VectorXi::Ones(vnbr) * -1;
     row_back = Eigen::VectorXi::Ones(vnbr) * -1;
     col_front = Eigen::VectorXi::Ones(vnbr) * -1;
@@ -1040,8 +1055,8 @@ void QuadOpt::assemble_gravity(spMat& H, Eigen::VectorXd& B, Eigen::VectorXd &en
 
     // std::vector<Trip> tripletes;
     int vnbr = V.rows();
-    H = spMat(Eigen::VectorXd::Ones(vnbr * 6).asDiagonal());
-    energy = Eigen::VectorXd::Zero(vnbr * 6);
+    H = spMat(Eigen::VectorXd::Ones(GlobVars.size()).asDiagonal());
+    energy = Eigen::VectorXd::Zero(GlobVars.size());
     energy.segment(0, vnbr * 3) = (GlobVars - OrigVars).segment(0, vnbr * 3);
 
     B = -H * energy;
@@ -1181,7 +1196,6 @@ void QuadOpt::assemble_fairness(spMat& H, Eigen::VectorXd& B, Eigen::VectorXd &e
             push_fairness_conditions(tripletes, energy, lvy, ld0fy, ld0by, Ver[1], Vfr[1], Vbk[1], counter, ratiof);
             counter = i + vnbr * 8;
             push_fairness_conditions(tripletes, energy, lvz, ld0fz, ld0bz, Ver[2], Vfr[2], Vbk[2], counter, ratiof);
-            
         }
         if (d1_smt)
         {
@@ -1195,14 +1209,604 @@ void QuadOpt::assemble_fairness(spMat& H, Eigen::VectorXd& B, Eigen::VectorXd &e
             push_fairness_conditions(tripletes, energy, lvy, ld1fy, ld1by, Ver[1], Vfr[1], Vbk[1], counter, ratiof);
             counter = i + vnbr * 11;
             push_fairness_conditions(tripletes, energy, lvz, ld1fz, ld1bz, Ver[2], Vfr[2], Vbk[2], counter, ratiof);
-            
         }
     }
 
     // std::cout<<"check 2"<<std::endl;
     spMat J;
-    J.resize(energy.size(), vnbr * 6);
+    J.resize(energy.size(), GlobVars.size());
     J.setFromTriplets(tripletes.begin(), tripletes.end());
     H = J.transpose() * J;
     B = -J.transpose() * energy;
+}
+
+// bnm_start is the id where the binormal starts in the variable matrix
+// from bnm_start to bnm_start + vnbr * 3 are the binormal variables of this family of curves
+// family: 0: row. 1: col. 2: d0. 3: d1.
+void QuadOpt::assemble_binormal_conditions(spMat &H, Eigen::VectorXd &B, Eigen::VectorXd &energy, int family, int bnm_start)
+{
+    std::vector<Trip> tripletes;
+    int vnbr = V.rows();
+    energy = Eigen::VectorXd::Zero(vnbr * 3); 
+    tripletes.reserve(vnbr * 25); 
+    int counter = 0;
+    for (int i = 0; i < vnbr; i++)
+    {
+        // the ids
+        int vid = i;
+        int rf = row_front[vid];
+        int rb = row_back[vid];
+        int cf = col_front[vid];
+        int cb = col_back[vid];
+        int d0f = d0_front[vid];
+        int d0b = d0_back[vid];
+        int d1f = d1_front[vid];
+        int d1b = d1_back[vid];
+        // the locations
+        // the vertex
+        int lvx = vid;
+        int lvy = vid + vnbr;
+        int lvz = vid + 2 * vnbr;
+        // the front and back vertices
+        int lfx, lfy, lfz, lbx, lby, lbz;
+        // the binormal vector locations
+        int lrx = bnm_start + vid;
+        int lry = bnm_start + vid + vnbr;
+        int lrz = bnm_start + vid + vnbr * 2;
+        bool compute = true;
+        if (family == 0) // rows
+        {
+            lfx = rf;
+            lfy = rf + vnbr;
+            lfz = rf + vnbr * 2;
+
+            lbx = rb;
+            lby = rb + vnbr;
+            lbz = rb + vnbr * 2;
+        }
+        if (family == 1) // cols
+        {
+            lfx = cf;
+            lfy = cf + vnbr;
+            lfz = cf + vnbr * 2;
+
+            lbx = cb;
+            lby = cb + vnbr;
+            lbz = cb + vnbr * 2;
+        }
+        if (family == 2) // d0
+        {
+            lfx = d0f;
+            lfy = d0f + vnbr;
+            lfz = d0f + vnbr * 2;
+
+            lbx = d0b;
+            lby = d0b + vnbr;
+            lbz = d0b + vnbr * 2;
+        }
+
+        if (family == 3) // d1
+        {
+
+            lfx = d1f;
+            lfy = d1f + vnbr;
+            lfz = d1f + vnbr * 2;
+
+            lbx = d1b;
+            lby = d1b + vnbr;
+            lbz = d1b + vnbr * 2;
+        }
+        if (lfx < 0 || lbx < 0)
+        {
+            compute = false;
+        }
+        if(ComputeAuxiliaries){
+            // initialize the variables, and mark the inner and boundary of the polylines
+        }
+        if(compute = false){ // the vertex is on the boundary
+            if(!ComputeAuxiliaries){
+                // take the average of the neighbouring binormals which are inner vers.
+            }
+            continue;
+        }
+        Eigen::Vector3d Ver(GlobVars[lvx], GlobVars[lvy], GlobVars[lvz]);
+        Eigen::Vector3d Vf(GlobVars[lfx], GlobVars[lfy], GlobVars[lfz]);
+        Eigen::Vector3d Vb(GlobVars[lbx], GlobVars[lby], GlobVars[lbz]);
+        Eigen::Vector3d r(GlobVars[lrx], GlobVars[lry], GlobVars[lrz]);
+        double dis0 = (Vf - Ver).norm();
+        double dis1 = (Vb - Ver).norm();
+        double dis = dis0 * dis1;
+        Eigen::Vector3d fc = Vf - Ver;
+        Eigen::Vector3d bc = Vb - Ver;
+        // r * (Vf - Ver) = 0
+        tripletes.push_back(Trip(i, lrx, (Vf(0) - Ver(0)) / dis0));
+        tripletes.push_back(Trip(i, lry, (Vf(1) - Ver(1)) / dis0));
+        tripletes.push_back(Trip(i, lrz, (Vf(2) - Ver(2)) / dis0));
+
+        tripletes.push_back(Trip(i, lfx, (r(0)) / dis0));
+        tripletes.push_back(Trip(i, lfy, (r(1)) / dis0));
+        tripletes.push_back(Trip(i, lfz, (r(2)) / dis0));
+
+        tripletes.push_back(Trip(i, lvx, -(r(0)) / dis0));
+        tripletes.push_back(Trip(i, lvy, -(r(1)) / dis0));
+        tripletes.push_back(Trip(i, lvz, -(r(2)) / dis0));
+
+        energy[i] = r.dot(Vf - Ver) / dis0;
+        // r * (Vb - Ver) = 0
+        tripletes.push_back(Trip(i + vnbr, lrx, (Vb(0) - Ver(0)) / dis1));
+        tripletes.push_back(Trip(i + vnbr, lry, (Vb(1) - Ver(1)) / dis1));
+        tripletes.push_back(Trip(i + vnbr, lrz, (Vb(2) - Ver(2)) / dis1));
+
+        tripletes.push_back(Trip(i + vnbr, lbx, (r(0)) / dis1));
+        tripletes.push_back(Trip(i + vnbr, lby, (r(1)) / dis1));
+        tripletes.push_back(Trip(i + vnbr, lbz, (r(2)) / dis1));
+
+        tripletes.push_back(Trip(i + vnbr, lvx, -(r(0)) / dis1));
+        tripletes.push_back(Trip(i + vnbr, lvy, -(r(1)) / dis1));
+        tripletes.push_back(Trip(i + vnbr, lvz, -(r(2)) / dis1));
+
+        energy[i + vnbr] = r.dot(Vb - Ver) / dis1;
+        // r * r = 1
+        tripletes.push_back(Trip(i + vnbr * 2, lrx, 2 * r(0)));
+        tripletes.push_back(Trip(i + vnbr * 2, lry, 2 * r(1)));
+        tripletes.push_back(Trip(i + vnbr * 2, lrz, 2 * r(2)));
+        energy[i + vnbr * 2] = r.dot(r) - 1;
+    }
+    spMat J;
+    J.resize(energy.size(), GlobVars.size());
+    J.setFromTriplets(tripletes.begin(), tripletes.end());
+    H = J.transpose() * J;
+    B = -J.transpose() * energy;
+}
+// lv is ver location, lf is front location, lb is back location, cid is the id of the condition
+void push_asymptotic_condition(std::vector<Trip> &tripletes, Eigen::VectorXd &energy, const int cid,
+                        const int lvx, const int lvy, const int lvz,
+                        const int lfx, const int lfy, const int lfz,
+                        const int lbx, const int lby, const int lbz,
+                        const int lnx, const int lny, const int lnz,
+                        const Eigen::Vector3d &Vf, const Eigen::Vector3d &Ver, const Eigen::Vector3d &Vb, 
+                        const Eigen::Vector3d &norm)
+{
+
+    double dis0 = (Vf - Ver).norm();
+    double dis1 = (Vb - Ver).norm();
+    // norm * (Vf-Ver) = 0
+    tripletes.push_back(Trip(cid, lnx, (Vf(0) - Ver(0)) / dis0));
+    tripletes.push_back(Trip(cid, lny, (Vf(1) - Ver(1)) / dis0));
+    tripletes.push_back(Trip(cid, lnz, (Vf(2) - Ver(2)) / dis0));
+
+    tripletes.push_back(Trip(cid, lfx, (norm(0)) / dis0));
+    tripletes.push_back(Trip(cid, lfy, (norm(1)) / dis0));
+    tripletes.push_back(Trip(cid, lfz, (norm(2)) / dis0));
+
+    tripletes.push_back(Trip(cid, lvx, -(norm(0)) / dis0));
+    tripletes.push_back(Trip(cid, lvy, -(norm(1)) / dis0));
+    tripletes.push_back(Trip(cid, lvz, -(norm(2)) / dis0));
+
+    energy[cid] = norm.dot(Vf - Ver) / dis0;
+
+    // norm * (Vb-Ver) = 0
+    tripletes.push_back(Trip(cid + 1, lnx, (Vb(0) - Ver(0)) / dis1));
+    tripletes.push_back(Trip(cid + 1, lny, (Vb(1) - Ver(1)) / dis1));
+    tripletes.push_back(Trip(cid + 1, lnz, (Vb(2) - Ver(2)) / dis1));
+
+    tripletes.push_back(Trip(cid + 1, lbx, (norm(0)) / dis1));
+    tripletes.push_back(Trip(cid + 1, lby, (norm(1)) / dis1));
+    tripletes.push_back(Trip(cid + 1, lbz, (norm(2)) / dis1));
+
+    tripletes.push_back(Trip(cid + 1, lvx, -(norm(0)) / dis1));
+    tripletes.push_back(Trip(cid + 1, lvy, -(norm(1)) / dis1));
+    tripletes.push_back(Trip(cid + 1, lvz, -(norm(2)) / dis1));
+
+    energy[cid + 1] = norm.dot(Vb - Ver) / dis1;
+    
+}
+
+void push_geodesic_condition(std::vector<Trip> &tripletes, Eigen::VectorXd &energy, const int cid,
+                             const int lnx, const int lny, const int lnz,
+                             const int lrx, const int lry, const int lrz,
+                             const Eigen::Vector3d &norm, const Eigen::Vector3d &r)
+{
+    // norm * r = 0
+    tripletes.push_back(Trip(cid, lnx, r(0)));
+    tripletes.push_back(Trip(cid, lny, r(1)));
+    tripletes.push_back(Trip(cid, lnz, r(2)));
+
+    tripletes.push_back(Trip(cid, lrx, norm(0)));
+    tripletes.push_back(Trip(cid, lry, norm(1)));
+    tripletes.push_back(Trip(cid, lrz, norm(2)));
+
+    energy[cid] = norm.dot(r);
+}
+
+// type: 0 disabled. 1 means asymptotic, 2 means geodesic, 3 pseudo-geodesic
+// aux_start_location is the start location of the auxiliaries of this family
+void QuadOpt::assemble_pg_extreme_cases(spMat &H, Eigen::VectorXd &B, Eigen::VectorXd &energy,
+                          const int type, const int family, const int bnm_start_location)
+{
+
+    std::vector<Trip> tripletes;
+    int vnbr = V.rows();
+    int energy_size = 0;
+    if(type == 1){ // asymptotic
+        energy_size = vnbr * 2;
+    }
+    if(type == 2){
+        energy_size = vnbr;
+    }
+    if(type == 3){
+        std::cout<<"ERROR: Please do not use this function for general pseudo-geodesic solving"<<std::endl;
+        return;
+    }
+    energy = Eigen::VectorXd::Zero(energy_size);
+    tripletes.reserve(vnbr * 18);
+    int counter = 0;
+    for (int i = 0; i < vnbr; i++)
+    {
+        // the ids
+        int vid = i;
+        int rf = row_front[vid];
+        int rb = row_back[vid];
+        int cf = col_front[vid];
+        int cb = col_back[vid];
+        int d0f = d0_front[vid];
+        int d0b = d0_back[vid];
+        int d1f = d1_front[vid];
+        int d1b = d1_back[vid];
+
+         // the locations
+        // the vertex
+        int lvx = vid;
+        int lvy = vid + vnbr;
+        int lvz = vid + 2 * vnbr;
+        // the front and back vertices
+        int lfx, lfy, lfz, lbx, lby, lbz;
+        int lnx = vnbr * 3 + i;
+        int lny = vnbr * 4 + i;
+        int lnz = vnbr * 5 + i;
+        bool compute = true;
+        if (family == 0) // rows
+        {
+            lfx = rf;
+            lfy = rf + vnbr;
+            lfz = rf + vnbr * 2;
+
+            lbx = rb;
+            lby = rb + vnbr;
+            lbz = rb + vnbr * 2;
+        }
+        if (family == 1) // cols
+        {
+            lfx = cf;
+            lfy = cf + vnbr;
+            lfz = cf + vnbr * 2;
+
+            lbx = cb;
+            lby = cb + vnbr;
+            lbz = cb + vnbr * 2;
+        }
+        if (family == 2) // d0
+        {
+            lfx = d0f;
+            lfy = d0f + vnbr;
+            lfz = d0f + vnbr * 2;
+
+            lbx = d0b;
+            lby = d0b + vnbr;
+            lbz = d0b + vnbr * 2;
+        }
+
+        if (family == 3) // d1
+        {
+
+            lfx = d1f;
+            lfy = d1f + vnbr;
+            lfz = d1f + vnbr * 2;
+
+            lbx = d1b;
+            lby = d1b + vnbr;
+            lbz = d1b + vnbr * 2;
+        }
+        if (lfx < 0 || lbx < 0)
+        {
+            compute = false;
+        }
+        if (!compute)
+        {
+            continue;
+        }
+        Eigen::Vector3d Ver(GlobVars[lvx], GlobVars[lvy], GlobVars[lvz]);
+        Eigen::Vector3d Vfr(GlobVars[lfx], GlobVars[lfy], GlobVars[lfz]);
+        Eigen::Vector3d Vbk(GlobVars[lbx], GlobVars[lby], GlobVars[lbz]);
+        Eigen::Vector3d norm(GlobVars[lnx], GlobVars[lny], GlobVars[lnz]);
+        if (type == 1)
+        { // asymptotic
+            counter = i * 2;
+            push_asymptotic_condition(tripletes, energy, counter, lvx, lvy, lvz, lfx, lfy, lfz, lbx, lby, lbz, lnx, lny, lnz,
+                                      Vfr, Ver, Vbk, norm);
+        }
+        if(type == 2){// geodesic
+            counter = i;
+            int lrx = bnm_start_location + i;
+            int lry = bnm_start_location + i + vnbr;
+            int lrz = bnm_start_location + i + vnbr * 2;
+            Eigen::Vector3d r(GlobVars[lrx], GlobVars[lry], GlobVars[lrz]);
+            push_geodesic_condition(tripletes, energy, counter, lnx, lny, lnz, lrx, lry, lrz, norm, r);
+        }
+    }
+
+    // std::cout<<"check 2"<<std::endl;
+    spMat J;
+    J.resize(energy.size(), GlobVars.size());
+    J.setFromTriplets(tripletes.begin(), tripletes.end());
+    H = J.transpose() * J;
+    B = -J.transpose() * energy;
+}
+
+void QuadOpt::assemble_normal_conditions(spMat& H, Eigen::VectorXd& B, Eigen::VectorXd &energy){
+    std::vector<Trip> tripletes;
+    int vnbr = V.rows();
+    energy = Eigen::VectorXd::Zero(vnbr * 4); // todo
+    tripletes.reserve(vnbr * 12 * 3); // todo
+    int counter = 0;
+    for (int i = 0; i < vnbr; i++)
+    {
+        // the ids
+        int vid = i;
+        int rf = row_front[vid];
+        int rb = row_back[vid];
+        int cf = col_front[vid];
+        int cb = col_back[vid];
+        int d0f = d0_front[vid];
+        int d0b = d0_back[vid];
+        int d1f = d1_front[vid];
+        int d1b = d1_back[vid];
+        // the locations
+        // the vertex
+        int lvx = vid;
+        int lvy = vid + vnbr;
+        int lvz = vid + 2 * vnbr;
+        
+        int lrfx = rf;
+        int lrfy = rf + vnbr;
+        int lrfz = rf + vnbr * 2;
+
+        int lrbx = rb;
+        int lrby = rb + vnbr;
+        int lrbz = rb + vnbr * 2;
+
+        int lcfx = cf;
+        int lcfy = cf + vnbr;
+        int lcfz = cf + vnbr * 2;
+
+        int lcbx = cb;
+        int lcby = cb + vnbr;
+        int lcbz = cb + vnbr * 2;
+
+        int lnx = i + vnbr * 3;
+        int lny = i + vnbr * 4;
+        int lnz = i + vnbr * 5;
+
+        bool row_smt = true;
+        bool col_smt = true;
+        
+        if (rf < 0 || rb < 0)
+        {
+            row_smt = false;
+        }
+        if (cf < 0 || cb < 0)
+        {
+            col_smt = false;
+        }
+        if(ComputeAuxiliaries){
+            // initialize the variables, and mark the inner and boundary of the polylines
+        }
+        if (row_smt == false || col_smt == false)
+        { // the vertex is on the boundary
+            if(!ComputeAuxiliaries){
+                // take the average of the neighbouring normals which are inner vers.
+            }
+            continue;
+        }
+        
+        
+        Eigen::Vector3d Ver(GlobVars[lvx], GlobVars[lvy], GlobVars[lvz]);
+        Eigen::Vector3d Vrf(GlobVars[lrfx], GlobVars[lrfy], GlobVars[lrfz]);
+        Eigen::Vector3d Vrb(GlobVars[lrbx], GlobVars[lrby], GlobVars[lrbz]);
+        Eigen::Vector3d Vcf(GlobVars[lcfx], GlobVars[lcfy], GlobVars[lcfz]);
+        Eigen::Vector3d Vcb(GlobVars[lcbx], GlobVars[lcby], GlobVars[lcbz]);
+        Eigen::Vector3d norm(GlobVars[lnx], GlobVars[lny], GlobVars[lnz]);
+        double dis0 = (Vrf - Ver).norm();
+        double dis1 = (Vrb - Ver).norm();
+        double dis2 = (Vcf - Ver).norm();
+        double dis3 = (Vcb - Ver).norm();
+
+        // n * (Vrf - Ver) = 0
+        tripletes.push_back(Trip(i, lnx, (Vrf(0) - Ver(0)) / dis0));
+        tripletes.push_back(Trip(i, lny, (Vrf(1) - Ver(1)) / dis0));
+        tripletes.push_back(Trip(i, lnz, (Vrf(2) - Ver(2)) / dis0));
+
+        tripletes.push_back(Trip(i, lrfx, (norm(0)) / dis0));
+        tripletes.push_back(Trip(i, lrfy, (norm(1)) / dis0));
+        tripletes.push_back(Trip(i, lrfz, (norm(2)) / dis0));
+
+        tripletes.push_back(Trip(i, lvx, -(norm(0)) / dis0));
+        tripletes.push_back(Trip(i, lvy, -(norm(1)) / dis0));
+        tripletes.push_back(Trip(i, lvz, -(norm(2)) / dis0));
+
+        energy[i] = norm.dot(Vrf - Ver) / dis0;
+
+        // norm * (Vrb - Ver) = 0
+        tripletes.push_back(Trip(i + vnbr, lnx, (Vrb(0) - Ver(0)) / dis1));
+        tripletes.push_back(Trip(i + vnbr, lny, (Vrb(1) - Ver(1)) / dis1));
+        tripletes.push_back(Trip(i + vnbr, lnz, (Vrb(2) - Ver(2)) / dis1));
+
+        tripletes.push_back(Trip(i + vnbr, lrbx, (norm(0)) / dis1));
+        tripletes.push_back(Trip(i + vnbr, lrby, (norm(1)) / dis1));
+        tripletes.push_back(Trip(i + vnbr, lrbz, (norm(2)) / dis1));
+
+        tripletes.push_back(Trip(i + vnbr, lvx, -(norm(0)) / dis1));
+        tripletes.push_back(Trip(i + vnbr, lvy, -(norm(1)) / dis1));
+        tripletes.push_back(Trip(i + vnbr, lvz, -(norm(2)) / dis1));
+
+        energy[i + vnbr] = norm.dot(Vrb - Ver) / dis1;
+
+        // norm * (Vcf - Ver) = 0
+        tripletes.push_back(Trip(i + vnbr * 2, lnx, (Vcf(0) - Ver(0)) / dis2));
+        tripletes.push_back(Trip(i + vnbr * 2, lny, (Vcf(1) - Ver(1)) / dis2));
+        tripletes.push_back(Trip(i + vnbr * 2, lnz, (Vcf(2) - Ver(2)) / dis2));
+
+        tripletes.push_back(Trip(i + vnbr * 2, lcfx, (norm(0)) / dis2));
+        tripletes.push_back(Trip(i + vnbr * 2, lcfy, (norm(1)) / dis2));
+        tripletes.push_back(Trip(i + vnbr * 2, lcfz, (norm(2)) / dis2));
+
+        tripletes.push_back(Trip(i + vnbr * 2, lvx, -(norm(0)) / dis2));
+        tripletes.push_back(Trip(i + vnbr * 2, lvy, -(norm(1)) / dis2));
+        tripletes.push_back(Trip(i + vnbr * 2, lvz, -(norm(2)) / dis2));
+
+        energy[i + vnbr * 2] = norm.dot(Vcf - Ver) / dis2;
+
+        // norm * (Vcb - Ver) = 0
+        tripletes.push_back(Trip(i + vnbr * 3, lnx, (Vcb(0) - Ver(0)) / dis3));
+        tripletes.push_back(Trip(i + vnbr * 3, lny, (Vcb(1) - Ver(1)) / dis3));
+        tripletes.push_back(Trip(i + vnbr * 3, lnz, (Vcb(2) - Ver(2)) / dis3));
+
+        tripletes.push_back(Trip(i + vnbr * 3, lcbx, (norm(0)) / dis3));
+        tripletes.push_back(Trip(i + vnbr * 3, lcby, (norm(1)) / dis3));
+        tripletes.push_back(Trip(i + vnbr * 3, lcbz, (norm(2)) / dis3));
+
+        tripletes.push_back(Trip(i + vnbr * 3, lvx, -(norm(0)) / dis3));
+        tripletes.push_back(Trip(i + vnbr * 3, lvy, -(norm(1)) / dis3));
+        tripletes.push_back(Trip(i + vnbr * 3, lvz, -(norm(2)) / dis3));
+
+        energy[i + vnbr * 3] = norm.dot(Vcb - Ver) / dis3;
+    }
+    spMat J;
+    J.resize(energy.size(), GlobVars.size());
+    J.setFromTriplets(tripletes.begin(), tripletes.end());
+    H = J.transpose() * J;
+    B = -J.transpose() * energy;
+}
+
+void QuadOpt::opt(){
+    int vnbr = V.rows();
+    if(GlobVars.size()!= varsize){
+        ComputeAuxiliaries = true;
+        GlobVars = Eigen::VectorXd::Zero(varsize);
+    }
+    spMat H;
+    H.resize(varsize, varsize);
+    Eigen::VectorXd B = Eigen::VectorXd::Zero(varsize);
+    Eigen::VectorXd Egravity, Esmth, Enorm, Ebnm0, Ebnm1, Epg[3];
+
+    spMat Hgravity;  // approximation
+	Eigen::VectorXd Bgravity; // right of laplacian
+	assemble_gravity(Hgravity, Bgravity, Egravity);
+    H += weight_gravity * Hgravity;
+	B += weight_gravity * Bgravity;
+
+    spMat Hsmth;
+    Eigen::VectorXd Bsmth;
+	assemble_fairness(Hsmth, Bsmth, Esmth);
+    H += weight_fairness * Hsmth;
+	B += weight_fairness * Bsmth;
+
+    spMat Hnorm;
+    Eigen::VectorXd Bnorm;
+    assemble_normal_conditions(Hnorm, Bnorm, Enorm);
+    H += weight_pg * Hnorm;
+	B += weight_pg * Bnorm;
+
+    if (OptType == 0)
+    { // AAG, the diagonal is geodesic that requires binormals
+        spMat Hbnm;
+        Eigen::VectorXd Bbnm;
+        int family = -1;
+        if (d0_type > 0)
+        {
+            family = 2;
+        }
+        if (d1_type > 0)
+        {
+            family = 3;
+        }
+        // vertices vnbr * 3, normals vnbr * 3, binormals for G vnbr * 3  
+        int bnm_start = vnbr * 6;
+        assemble_binormal_conditions(Hbnm, Bbnm, Ebnm0, family, bnm_start);
+        H += weight_pg * Hbnm;
+        B += weight_pg * Bbnm;
+
+
+        spMat Hpg[3];
+        Eigen::VectorXd Bpg[3];
+        // G
+        int type = 2; // G
+        assemble_pg_extreme_cases(Hpg[0], Bpg[0], Epg[0], type, family, bnm_start);
+
+        // A
+        int type = 1; // A0
+        family = 0;// row
+        bnm_start = -1;
+        assemble_pg_extreme_cases(Hpg[1], Bpg[1], Epg[1], type, family, bnm_start);
+
+        type = 1; // A1
+        family = 1;// col
+        bnm_start = -1;
+        assemble_pg_extreme_cases(Hpg[2], Bpg[2], Epg[2], type, family, bnm_start);
+
+        H += weight_pg * (Hpg[0] + Hpg[1] + Hpg[2]);
+        B += weight_pg * (Bpg[0] + Bpg[1] + Bpg[2]);
+    }
+
+    if (OptType == 1) 
+    { // GGA, the diagonal is asymptotic that requires binormals
+        spMat Hbnm[2];
+        Eigen::VectorXd Bbnm[2];
+        int family = -1;
+        family = 0;// row
+        // vertices vnbr * 3, normals vnbr * 3, binormals for G0 vnbr * 3, binormals for G1 vnbr * 3    
+        int bnm_start = vnbr * 6;
+        assemble_binormal_conditions(Hbnm[0], Bbnm[0], Ebnm0, family, bnm_start);
+
+        family = 1; // column
+        bnm_start = vnbr * 9;
+        assemble_binormal_conditions(Hbnm[1], Bbnm[1], Ebnm1, family, bnm_start);
+
+        // todo unfinished.
+        if (d0_type > 0)
+        {
+            family = 2;
+        }
+        if (d1_type > 0)
+        {
+            family = 3;
+        }
+        
+        H += weight_pg * Hbnm;
+        B += weight_pg * Bbnm;
+
+
+        spMat Hpg[3];
+        Eigen::VectorXd Bpg[3];
+        // G
+        int type = 2; // G
+        assemble_pg_extreme_cases(Hpg[0], Bpg[0], Epg[0], type, family, bnm_start);
+
+        // A
+        int type = 1; // A0
+        family = 0;// row
+        bnm_start = -1;
+        assemble_pg_extreme_cases(Hpg[1], Bpg[1], Epg[1], type, family, bnm_start);
+
+        type = 1; // A1
+        family = 1;// col
+        bnm_start = -1;
+        assemble_pg_extreme_cases(Hpg[2], Bpg[2], Epg[2], type, family, bnm_start);
+
+        H += weight_pg * (Hpg[0] + Hpg[1] + Hpg[2]);
+        B += weight_pg * (Bpg[0] + Bpg[1] + Bpg[2]);
+    }
+
+    // assemble together
+    
 }

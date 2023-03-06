@@ -2039,7 +2039,6 @@ void lsTools::Run_Level_Set_Opt() {
 	
 	int vnbr = V.rows();
 	int fnbr = F.rows();
-	bool first_compute = true; // if we need initialize auxiliary vars
 	
 	// initialize the level set with some number
 	if (func.size() != vnbr)

@@ -165,14 +165,14 @@ public:
     std::vector<std::vector<int>> colinfo; // to record the adjancency info of cols
     Eigen::MatrixXi F;
     Eigen::MatrixXd V;
-    double weight_fairness;
+    bool OptType = 0;// 0: AAG. 1: GGA. 
     int pg1_type = 0;//by default disabled. 1 means asymptotic, 2 means geodesic, 3 pseudo-geodesic
     int pg2_type = 0;
-
     int d0_type = 0; // for the diagonal 0, 0 is disabled, 1 is asymptotic, 2 is geodesic, 3 is pg.
     int d1_type = 0; // for the diagonal 1, 0 is disabled, 1 is asymptotic, 2 is geodesic, 3 is pg.
+    double weight_fairness;
     double weight_pg;
-    double weight_normal;
+    double weight_gravity;
     void opt();
     void reset();
 private:
@@ -188,9 +188,15 @@ private:
     Eigen::VectorXi d1_front; // diagonal 1 front
     Eigen::VectorXi d0_back;
     Eigen::VectorXi d1_back;
+    bool ComputeAuxiliaries = true;
     void assemble_fairness(spMat& H, Eigen::VectorXd& B, Eigen::VectorXd &energy);
     void assemble_gravity(spMat& H, Eigen::VectorXd& B, Eigen::VectorXd &energy);
-    void assemble_pg(spMat& H, Eigen::VectorXd& B, Eigen::VectorXd &energy, bool type);
+    // type: 0 disabled. 1 means asymptotic, 2 means geodesic, 3 pseudo-geodesic
+    // family: 0 rows, 1 cols, 2 diagonal NO0, 3 diagonal NO1.
+    void assemble_pg_extreme_cases(spMat &H, Eigen::VectorXd &B, Eigen::VectorXd &energy,
+                          const int type, const int family, const int aux_start_location);
+    void assemble_binormal_conditions(spMat& H, Eigen::VectorXd& B, Eigen::VectorXd &energy, int type, int family);
+    void assemble_normal_conditions(spMat& H, Eigen::VectorXd& B, Eigen::VectorXd &energy);
     
 
 };
