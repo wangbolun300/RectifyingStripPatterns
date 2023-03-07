@@ -86,6 +86,7 @@ namespace lscif
 	double ptIny = 0;
 	double ptInz = 0;
 	int TracingType = 0;
+	// int QuadOptType = 0;
 
 
 	int OpIter = 10;
@@ -118,6 +119,7 @@ namespace lscif
 	std::vector<CGMesh> Meshes;
 	lsTools tools;
 	PolyOpt poly_tool;
+	QuadOpt quad_tool;
 	double weight_angle = 0;
 	double InputPx = 0; // theta
 	double InputPy = 180; // phi
@@ -2279,7 +2281,7 @@ int main(int argc, char *argv[])
 		{
 			update_qd_mesh_with_plylines();
 		}
-		if (ImGui::CollapsingHeader("Mesh Optimization", ImGuiTreeNodeFlags_DefaultOpen))
+		if (ImGui::CollapsingHeader("Mesh Optimization", ImGuiTreeNodeFlags_CollapsingHeader))
 		{
 			// Expose variable directly ...
 			ImGui::InputInt("Iteration Mesh Opt", &lscif::Nbr_Iterations_Mesh_Opt, 0, 0);
@@ -2291,7 +2293,7 @@ int main(int argc, char *argv[])
 			// ImGui::InputDouble("weight ls mass(big)", &lscif::weight_mass, 0, 0, "%.4f");
 			// ImGui::Checkbox("Fix Boundary", &lscif::fixBoundary_checkbox);
 		}
-		if (ImGui::CollapsingHeader("Shading Paras", ImGuiTreeNodeFlags_DefaultOpen))
+		if (ImGui::CollapsingHeader("Shading Paras", ImGuiTreeNodeFlags_CollapsingHeader))
 		{
 			ImGui::InputInt("Ver_id", &lscif::update_ver_id, 0, 0);
 			ImGui::InputInt("Ring nbr", &lscif::ring_nbr, 0, 0);
@@ -2528,7 +2530,116 @@ int main(int argc, char *argv[])
 
 			viewer.selected_data_index = id;
 		}
+		if (ImGui::CollapsingHeader("QuadMeshOpt", ImGuiTreeNodeFlags_DefaultOpen))
+		{
+			// ImGui::InputInt("Ver_id", &lscif::update_ver_id, 0, 0);
+			// ImGui::InputInt("Ring nbr", &lscif::ring_nbr, 0, 0);
+			// ImGui::InputDouble("Latitude", &lscif::Shading_Latitude, 0, 0, "%.4f");
+			ImGui::Combo("QuadType", &lscif::quad_tool.OptType,
+                 "AAG\0GGA\0\0");
+			ImGui::SameLine();
+			
+			ImGui::Combo("FamilyOfDiag", &lscif::quad_tool.WhichDiagonal,
+                 "D0\0D1\0\0");
+			
 
+			if (ImGui::Button("LoadQuads", ImVec2(ImGui::GetWindowSize().x * 0.25f, 0.0f)))
+			{
+				std::string fname = igl::file_dialog_open();
+				if (fname.length() == 0)
+				{
+					std::cout << "\nLSC: read mesh failed" << std::endl;
+					ImGui::End();
+					return;
+				}
+				CGMesh quadmesh;
+				OpenMesh::IO::read_mesh(quadmesh, fname);
+				std::cout << "\nMesh Readed. Now Please Type Down the Prefix for Row and Column Info" << std::endl;
+				std::string savefile = igl::file_dialog_save();
+				if (savefile.length() == 0)
+				{
+					std::cout << "\nPlease Type Down Something For The Row And Col Info" << std::endl;
+					ImGui::End();
+					return;
+				}
+				lscif::quad_tool.init(quadmesh, savefile);
+
+				size_t last_dot = fname.rfind('.');
+				size_t last_slash = fname.rfind(spliter); // TODO on linux it should be '/'
+				std::string fnameNew = fname.substr(last_slash + 1, (last_dot - last_slash - 1));
+				lscif::meshFileName.push_back(fnameNew);
+				lscif::Meshes.push_back(quadmesh);
+
+				int nbe = 0;
+				for (CGMesh::EdgeIter eit = quadmesh.edges_begin(); eit != quadmesh.edges_end(); ++eit)
+				{
+					if (quadmesh.is_boundary(eit))
+						nbe++;
+				}
+
+				int nbhe = 0;
+				for (CGMesh::HalfedgeIter heit = quadmesh.halfedges_begin(); heit != quadmesh.halfedges_end(); ++heit)
+				{
+					if (quadmesh.is_boundary(heit))
+						nbhe++;
+				}
+
+				std::cout << "Mesh is: " << fname << std::endl;
+
+				std::cout << "Vertices/Edges/Faces/HalfEdges/boundaryHalfEdge/boundaryEdge: " << quadmesh.n_vertices() << "/" << quadmesh.n_edges() << "/" << quadmesh.n_faces() << "/" << quadmesh.n_halfedges() << "/" << nbhe << "/" << nbe << std::endl;
+
+				lscif::updateMeshViewer(viewer, quadmesh);
+			}
+			ImGui::SameLine();
+			
+			if (ImGui::Button("Set&Reset", ImVec2(ImGui::GetWindowSize().x * 0.25f, 0.0f)))
+			{
+				lscif::quad_tool.reset();
+				std::array<Eigen::MatrixXd, 3> Edges;
+				lscif::quad_tool.show_curve_families(Edges);
+				int id = viewer.selected_data_index;
+				lscif::updateMeshViewer(viewer, lscif::quad_tool.mesh_original);
+				lscif::meshFileName.push_back("Rst_" + lscif::meshFileName[id]);
+				lscif::Meshes.push_back(lscif::quad_tool.mesh_original);
+				const Eigen::RowVector3d red(0.8, 0.2, 0.2);
+				const Eigen::RowVector3d blue(0.2, 0.2, 0.8);
+				const Eigen::RowVector3d black(0, 0, 0);
+				const Eigen::RowVector3d green(0.2, 0.8, 0.2);
+
+				viewer.data().add_points(Edges[0], red);// show rows 
+				viewer.data().add_points(Edges[1], green);// cols
+				viewer.data().add_points(Edges[2], blue);// diagonals
+				// std::cout<<"Visualing Rows Cols and Diagonals : "<<Edges[0]<<",\n\n "<<Edges[1]<<",\n\n "<<Edges[2]<<"\n";
+				std::cout<<"The rows, columns and the diagonals are marked in red, green and blue"<<std::endl;;
+				viewer.selected_data_index = id;
+			}
+			ImGui::SameLine();
+			
+			if (ImGui::Button("Opt A&G", ImVec2(ImGui::GetWindowSize().x * 0.25f, 0.0f)))
+			{
+				lscif::quad_tool.weight_fairness = lscif::weight_laplacian;
+				lscif::quad_tool.weight_gravity = lscif::weight_boundary;
+				lscif::quad_tool.weight_pg = lscif::weight_pseudo_geodesic;
+				
+				for (int i = 0; i < lscif::OpIter; i++)
+				{
+					lscif::quad_tool.opt();
+					if (lscif::quad_tool.real_step_length < 1e-16 && i != 0)
+					{ // step length actually is the value for the last step
+						std::cout << "optimization converges " << std::endl;
+						break;
+					}
+				}
+				std::cout << "waiting for instruction..." << std::endl;
+				// lscif::MP.MeshUnitScale(inputMesh, updatedMesh);
+				int id = viewer.selected_data_index;
+				CGMesh updateMesh = lscif::quad_tool.mesh_update;
+				lscif::updateMeshViewer(viewer, updateMesh);
+				lscif::meshFileName.push_back("lso_" + lscif::meshFileName[id]);
+				lscif::Meshes.push_back(updateMesh);
+				viewer.selected_data_index = id;
+			}
+		}
 		ImGui::PushStyleColor(ImGuiCol_Button, (ImVec4)ImColor::HSV(0.0f, 0.6f, 0.6f));
 		ImGui::PushStyleColor(ImGuiCol_ButtonHovered, (ImVec4)ImColor::HSV(0.0f, 0.7f, 0.7f));
 		ImGui::PushStyleColor(ImGuiCol_ButtonActive, (ImVec4)ImColor::HSV(0.0f, 0.8f, 0.8f));

@@ -47,8 +47,8 @@ void convert_polyline_to_developable_strips(const std::vector<Eigen::Vector3d> &
         Eigen::Vector3d d1 = (pt - vf).normalized();
         Eigen::Vector3d d2 = (vb - pt).normalized();
         Eigen::Vector3d bi = bnm[i];
-        bi.normalize();
-        Eigen::Vector3d yy = bi.cross(-d1).normalized();
+        bi = bi.normalized();
+        Eigen::Vector3d yy = (bi.cross(-d1)).normalized();
         // project -d1 to x axis, yy to y axis, bi to z axis.
         Eigen::Matrix3d Rinv, R;
         Rinv.col(0) = -d1;
@@ -64,7 +64,7 @@ void convert_polyline_to_developable_strips(const std::vector<Eigen::Vector3d> &
         // project the crease to y-z plane
         Eigen::Vector3d proj_crease;
         solve_project_vector_on_plane(last_crease, bi, yy, proj_crease);
-        proj_crease.normalize();
+        proj_crease = proj_crease.normalized();
         double cosbeta1 = proj_crease.dot(bi);
         double cosbeta2 = proj_crease.dot(yy);
         // R is the projection matrix, project the 3 vectors to the standard axis.
@@ -104,8 +104,8 @@ void convert_polyline_to_developable_strips(const std::vector<Eigen::Vector3d> &
     // solve for the last vector
     Eigen::Vector3d d1 = (ply[vnbr - 1] - ply[vnbr - 2]).normalized();
     Eigen::Vector3d bi = bnm[vnbr - 1];
-    bi.normalize();
-    Eigen::Vector3d yy = bi.cross(-d1).normalized();
+    bi = bi.normalized();
+    Eigen::Vector3d yy = (bi.cross(-d1)).normalized();
     // the last crease
     solve_project_vector_on_plane(last_crease, bi, yy, creases[vnbr - 1]);
 }
@@ -645,7 +645,7 @@ void PolyOpt::assemble_angle_condition(spMat& H, Eigen::VectorXd& B, Eigen::Vect
         //     PlyVars[lh] = real_h;
         //      first_compute = false;
         // }
-        Eigen::Vector3d real_u = norm.cross(tangent).normalized();
+        Eigen::Vector3d real_u = (norm.cross(tangent)).normalized();
 
         double dis0 = (ver - vfr).norm();
         double dis1 = (ver - vbk).norm();
@@ -1011,12 +1011,15 @@ void load_diagonal_info(const Eigen::VectorXi &row_front, const Eigen::VectorXi 
     }
 }
 
-void QuadOpt::init(CGMesh& mesh_in, const std::string& prefix){
+void QuadOpt::init(CGMesh &mesh_in, const std::string &prefix)
+{
     MP.mesh2Matrix(mesh_in, V, F);
     std::vector<std::vector<double>> rowstmp;
     std::vector<std::vector<double>> colstmp;
-    read_csv_data_lbl(prefix+"_rows", rowstmp);
-    read_csv_data_lbl(prefix+"_cols", colstmp);
+    read_csv_data_lbl(prefix + "_rows.csv", rowstmp);
+    read_csv_data_lbl(prefix + "_cols.csv", colstmp);
+    rowinfo = rowstmp;
+    colinfo = colstmp;
 
     int vnbr = V.rows();
     if (OptType == 0)// AAG
@@ -1042,13 +1045,74 @@ void QuadOpt::init(CGMesh& mesh_in, const std::string& prefix){
 
 
     load_row_col_info(rowstmp, row_front,row_back);
-    load_row_col_info(rowstmp, col_front, col_back);
+    load_row_col_info(colstmp, col_front, col_back);
 
     load_diagonal_info(row_front, row_back, col_front, col_back, d0_front, d1_front, d0_back, d1_back);
     OrigVars = Eigen::VectorXd::Zero(varsize);
     OrigVars.segment(0, vnbr) = V.col(0);
     OrigVars.segment(vnbr, vnbr) = V.col(1);
     OrigVars.segment(vnbr * 2, vnbr) = V.col(2);
+    mesh_original = mesh_in;
+    mesh_update = mesh_original;
+}
+
+void QuadOpt::reset()
+{
+    // re-choose a diagonal
+    if (OptType == 0) // AAG
+    {                                  // set up G
+        std::cout << "Set Up AAG Diagonals" << std::endl;
+        if (WhichDiagonal == 0)
+        {
+            d0_type = 2;
+            d1_type = 0;
+        }
+        if (WhichDiagonal == 1)
+        { // set up G
+            d0_type = 0;
+            d1_type = 2;
+        }
+    }
+    if (OptType == 1) // GGA
+    {                                  // set up A
+        std::cout << "Set Up GGA Diagonals" << std::endl;
+        if (WhichDiagonal == 0)
+        {
+            d0_type = 1;
+            d1_type = 0;
+        }
+        if (WhichDiagonal == 1)
+        { // set up A
+            d0_type = 0;
+            d1_type = 1;
+        }
+    }
+    MP.mesh2Matrix(mesh_original, V, F);
+    int vnbr = V.rows();
+    // reset the var size
+    if (OptType == 0)// AAG
+    {
+        // vertices vnbr * 3, normals vnbr * 3, binormals for G vnbr * 3  
+        varsize = vnbr * 9;
+    }
+    if (OptType == 1)// AGG
+    {
+        // vertices vnbr * 3, normals vnbr * 3, binormals for G0 vnbr * 3, binormals for G1 vnbr * 3.    
+        varsize = vnbr * 12;
+    }
+    if (OptType == 2)// PP
+    {
+        std::cout<<"ERROR Not ready for PP or PPG optimizaitons yet"<<std::endl;
+        return;
+    }
+
+    OrigVars = Eigen::VectorXd::Zero(varsize);
+    OrigVars.segment(0, vnbr) = V.col(0);
+    OrigVars.segment(vnbr, vnbr) = V.col(1);
+    OrigVars.segment(vnbr * 2, vnbr) = V.col(2);
+    GlobVars.resize(0);
+    ComputeAuxiliaries = true;
+    mesh_update = mesh_original;
 }
 
 void QuadOpt::assemble_gravity(spMat& H, Eigen::VectorXd& B, Eigen::VectorXd &energy){
@@ -1300,18 +1364,24 @@ void QuadOpt::assemble_binormal_conditions(spMat &H, Eigen::VectorXd &B, Eigen::
         {
             compute = false;
         }
-        if(ComputeAuxiliaries){
-            // initialize the variables, and mark the inner and boundary of the polylines
-        }
-        if(compute = false){ // the vertex is on the boundary
+        
+        if(compute == false){ // the vertex is on the boundary
             if(!ComputeAuxiliaries){
-                // take the average of the neighbouring binormals which are inner vers.
+                // here we choose doing nothing and care only about inner vertices
             }
             continue;
         }
         Eigen::Vector3d Ver(GlobVars[lvx], GlobVars[lvy], GlobVars[lvz]);
         Eigen::Vector3d Vf(GlobVars[lfx], GlobVars[lfy], GlobVars[lfz]);
         Eigen::Vector3d Vb(GlobVars[lbx], GlobVars[lby], GlobVars[lbz]);
+        if(ComputeAuxiliaries){
+            //init the binormals
+            Eigen::Vector3d real_r = ((Ver - Vf).cross(Vb - Ver)).normalized();
+            GlobVars[lrx] = real_r[0];
+            GlobVars[lry] = real_r[1];
+            GlobVars[lrz] = real_r[2];
+        }
+        
         Eigen::Vector3d r(GlobVars[lrx], GlobVars[lry], GlobVars[lrz]);
         double dis0 = (Vf - Ver).norm();
         double dis1 = (Vb - Ver).norm();
@@ -1598,23 +1668,28 @@ void QuadOpt::assemble_normal_conditions(spMat& H, Eigen::VectorXd& B, Eigen::Ve
         {
             col_smt = false;
         }
-        if(ComputeAuxiliaries){
-            // initialize the variables, and mark the inner and boundary of the polylines
-        }
         if (row_smt == false || col_smt == false)
         { // the vertex is on the boundary
             if(!ComputeAuxiliaries){
-                // take the average of the neighbouring normals which are inner vers.
+                // here we choose doing nothing and care only about inner vertices
             }
             continue;
         }
-        
         
         Eigen::Vector3d Ver(GlobVars[lvx], GlobVars[lvy], GlobVars[lvz]);
         Eigen::Vector3d Vrf(GlobVars[lrfx], GlobVars[lrfy], GlobVars[lrfz]);
         Eigen::Vector3d Vrb(GlobVars[lrbx], GlobVars[lrby], GlobVars[lrbz]);
         Eigen::Vector3d Vcf(GlobVars[lcfx], GlobVars[lcfy], GlobVars[lcfz]);
         Eigen::Vector3d Vcb(GlobVars[lcbx], GlobVars[lcby], GlobVars[lcbz]);
+        if(ComputeAuxiliaries){
+            //init the binormals
+            Eigen::Vector3d real_n = ((Vrf - Vrb).cross(Vcf - Vcb)).normalized();
+            GlobVars[lnx] = real_n[0];
+            GlobVars[lny] = real_n[1];
+            GlobVars[lnz] = real_n[2];
+        }
+        
+        
         Eigen::Vector3d norm(GlobVars[lnx], GlobVars[lny], GlobVars[lnz]);
         double dis0 = (Vrf - Ver).norm();
         double dis1 = (Vrb - Ver).norm();
@@ -1744,7 +1819,7 @@ void QuadOpt::opt(){
         assemble_pg_extreme_cases(Hpg[0], Bpg[0], Epg[0], type, family, bnm_start);
 
         // A
-        int type = 1; // A0
+        type = 1; // A0
         family = 0;// row
         bnm_start = -1;
         assemble_pg_extreme_cases(Hpg[1], Bpg[1], Epg[1], type, family, bnm_start);
@@ -1759,7 +1834,7 @@ void QuadOpt::opt(){
     }
 
     if (OptType == 1) 
-    { // GGA, the diagonal is asymptotic that requires binormals
+    { // GGA, the diagonal is asymptotic
         spMat Hbnm[2];
         Eigen::VectorXd Bbnm[2];
         int family = -1;
@@ -1772,7 +1847,9 @@ void QuadOpt::opt(){
         bnm_start = vnbr * 9;
         assemble_binormal_conditions(Hbnm[1], Bbnm[1], Ebnm1, family, bnm_start);
 
-        // todo unfinished.
+        H += weight_pg * (Hbnm[0] + Hbnm[1]);
+        B += weight_pg * (Bbnm[0] + Bbnm[1]);
+        
         if (d0_type > 0)
         {
             family = 2;
@@ -1781,26 +1858,23 @@ void QuadOpt::opt(){
         {
             family = 3;
         }
-        
-        H += weight_pg * Hbnm;
-        B += weight_pg * Bbnm;
-
 
         spMat Hpg[3];
         Eigen::VectorXd Bpg[3];
-        // G
-        int type = 2; // G
+        // A
+        int type = 1; // A
+        bnm_start = -1;
         assemble_pg_extreme_cases(Hpg[0], Bpg[0], Epg[0], type, family, bnm_start);
 
-        // A
-        int type = 1; // A0
+        // G
+        type = 2; // G0
         family = 0;// row
-        bnm_start = -1;
+        bnm_start = vnbr * 6;
         assemble_pg_extreme_cases(Hpg[1], Bpg[1], Epg[1], type, family, bnm_start);
 
-        type = 1; // A1
+        type = 2; // G1
         family = 1;// col
-        bnm_start = -1;
+        bnm_start = vnbr * 9;
         assemble_pg_extreme_cases(Hpg[2], Bpg[2], Epg[2], type, family, bnm_start);
 
         H += weight_pg * (Hpg[0] + Hpg[1] + Hpg[2]);
@@ -1808,5 +1882,114 @@ void QuadOpt::opt(){
     }
 
     // assemble together
+    H += 1e-6 * spMat(Eigen::VectorXd::Ones(varsize).asDiagonal());
+    Eigen::SimplicialLLT<Eigen::SparseMatrix<double>> solver(H);
+
+	// assert(solver.info() == Eigen::Success);
+	if (solver.info() != Eigen::Success)
+	{
+		// solving failed
+		std::cout << "solver fail" << std::endl;
+		return;
+	}
+	// std::cout<<"solved successfully"<<std::endl;
+    Eigen::VectorXd dx = solver.solve(B).eval();
+    dx *= 0.75;
+    GlobVars += dx;
+    if(OptType == 0){
+        std::cout<<"AAG, ";
+    }
+    if(OptType == 1){
+        std::cout<<"GGA, ";
+    }
+    double ev_appro = Egravity.norm();
+    double ev_smt = Esmth.norm();
+    double ev_norm = Enorm.norm();
+    std::cout << "Eclose, " << ev_appro << ", lap, " << ev_smt << ", normal vector, " << ev_norm << ", ";
+    if (OptType == 0)
+    {
+        double ebi = Ebnm0.norm();
+
+        std::cout << "bnm, " << ebi << ", GAA, " << Epg[0].norm() << ", " << Epg[1].norm() << ", " << Epg[2].norm() << ", ";
+    }
+    if (OptType == 1)
+    {
+        double ebi0 = Ebnm0.norm();
+        double ebi1 = Ebnm1.norm();
+        std::cout << "bnm, " << ebi0 << ", " << ebi1 << ", AGG, " << Epg[0].norm() << ", " << Epg[1].norm() << ", " << Epg[2].norm() << ", ";
+    }
+    real_step_length = dx.norm();
+    std::cout << "stp, " << dx.norm() << ", ";
+    std::cout << "\n";
+
+    // convert the data to the mesh format
+    ComputeAuxiliaries = false;
+    V.col(0) = GlobVars.segment(0, vnbr);
+    V.col(1) = GlobVars.segment(vnbr, vnbr);
+    V.col(2) = GlobVars.segment(vnbr * 2, vnbr);
+    for (CGMesh::VertexIter v_it = mesh_update.vertices_begin(); v_it != mesh_update.vertices_end(); ++v_it)
+    {
+        int vid = v_it.handle().idx();
+        mesh_update.point(*v_it) = CGMesh::Point(V(vid, 0), V(vid, 1), V(vid, 2));
+    }
+}
+
+void QuadOpt::show_curve_families(std::array<Eigen::MatrixXd, 3>& edges){
+    int row_m = rowinfo.size() / 2;
+    int col_m = rowinfo[row_m].size() / 2;
+    int vid = rowinfo[row_m][col_m]; // choose a point in the middle
+
+    std::vector<Eigen::Vector3d> vtp;
+    int vcurrent = vid;
+    for (int i = 0;; i++)// rows
+    {
+        if (row_back[vcurrent] < 0)
+        {
+            break;
+        }
+        int vnext = row_back[vcurrent];
+        vtp.push_back(V.row(vnext));
+        vcurrent = vnext;
+    }
+    edges[0] = vec_list_to_matrix(vtp);
+
+    vtp.clear();
+    vcurrent = vid;
+    for (int i = 0;; i++)// cols
+    {
+        if (col_back[vcurrent] < 0)
+        {
+            break;
+        }
+        int vnext = col_back[vcurrent];
+        vtp.push_back(V.row(vnext));
+        vcurrent = vnext;
+    }
+    edges[1] = vec_list_to_matrix(vtp);
+
+    vtp.clear();
+    vcurrent = vid;
+    Eigen::VectorXi ajc;
+    if (d0_type > 0)
+    {
+        ajc = d0_back;
+    }
+    if (d1_type > 0)
+    {
+        ajc = d1_back;
+    }
     
+    for (int i = 0;; i++) // diagonals
+    {
+        if (ajc[vcurrent] < 0)
+        {
+            break;
+        }
+        int vnext = ajc[vcurrent];
+        vtp.push_back(V.row(vnext));
+        vcurrent = vnext;
+    }
+    edges[2] = vec_list_to_matrix(vtp);
+    
+
 }

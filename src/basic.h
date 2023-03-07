@@ -161,11 +161,18 @@ public:
     QuadOpt(){};
     void init(CGMesh& mesh_in, const std::vector<std::vector<double>> rowinfo, const std::vector<std::vector<double>>colinfo);
     void init(CGMesh& mesh_in, const std::string& prefix);
-    std::vector<std::vector<int>> rowinfo; // to record the adjancency info of rows  
-    std::vector<std::vector<int>> colinfo; // to record the adjancency info of cols
+    
+    std::vector<std::vector<double>> rowinfo; // to record the adjancency info of rows  
+    std::vector<std::vector<double>> colinfo; // to record the adjancency info of cols
     Eigen::MatrixXi F;
     Eigen::MatrixXd V;
-    bool OptType = 0;// 0: AAG. 1: GGA. 
+    CGMesh mesh_original;
+    CGMesh mesh_update;
+    double real_step_length;
+    
+    // input from outside
+    int OptType = 0;// 0: AAG. 1: GGA. 
+    int WhichDiagonal = 0; // 0 or 1
     int pg1_type = 0;//by default disabled. 1 means asymptotic, 2 means geodesic, 3 pseudo-geodesic
     int pg2_type = 0;
     int d0_type = 0; // for the diagonal 0, 0 is disabled, 1 is asymptotic, 2 is geodesic, 3 is pg.
@@ -173,8 +180,11 @@ public:
     double weight_fairness;
     double weight_pg;
     double weight_gravity;
+    
+    
     void opt();
     void reset();
+    void show_curve_families(std::array<Eigen::MatrixXd, 3>& edges); 
 private:
     MeshProcessing MP;
     int varsize;
