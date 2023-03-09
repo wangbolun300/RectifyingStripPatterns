@@ -1220,10 +1220,12 @@ void QuadOpt::assemble_fairness(spMat& H, Eigen::VectorXd& B, Eigen::VectorXd &e
         }
         if (row_smt)
         {
+            assert(rf != rb);
             Eigen::Vector3d Ver(GlobVars[lvx], GlobVars[lvy], GlobVars[lvz]);
             Eigen::Vector3d Vfr(GlobVars[lrfx], GlobVars[lrfy], GlobVars[lrfz]);
             Eigen::Vector3d Vbk(GlobVars[lrbx], GlobVars[lrby], GlobVars[lrbz]);
             double ratiof = (Ver - Vfr).norm() / (Vbk - Vfr).norm();
+            assert((Vbk - Vfr).norm() > 0);
             counter = i;
             push_fairness_conditions(tripletes, energy, lvx, lrfx, lrbx, Ver[0], Vfr[0], Vbk[0], counter, ratiof);
             counter = i + vnbr;
@@ -1239,6 +1241,7 @@ void QuadOpt::assemble_fairness(spMat& H, Eigen::VectorXd& B, Eigen::VectorXd &e
             Eigen::Vector3d Vfr(GlobVars[lcfx], GlobVars[lcfy], GlobVars[lcfz]);
             Eigen::Vector3d Vbk(GlobVars[lcbx], GlobVars[lcby], GlobVars[lcbz]);
             double ratiof = (Ver - Vfr).norm() / (Vbk - Vfr).norm();
+            assert((Vbk - Vfr).norm() > 0);
             counter = i + vnbr * 3;
             push_fairness_conditions(tripletes, energy, lvx, lcfx, lcbx, Ver[0], Vfr[0], Vbk[0], counter, ratiof);
             counter = i + vnbr * 4;
@@ -1254,6 +1257,7 @@ void QuadOpt::assemble_fairness(spMat& H, Eigen::VectorXd& B, Eigen::VectorXd &e
             Eigen::Vector3d Vfr(GlobVars[ld0fx], GlobVars[ld0fy], GlobVars[ld0fz]);
             Eigen::Vector3d Vbk(GlobVars[ld0bx], GlobVars[ld0by], GlobVars[ld0bz]);
             double ratiof = (Ver - Vfr).norm() / (Vbk - Vfr).norm();
+            assert((Vbk - Vfr).norm() > 0);
             counter = i + vnbr * 6;
             push_fairness_conditions(tripletes, energy, lvx, ld0fx, ld0bx, Ver[0], Vfr[0], Vbk[0], counter, ratiof);
             counter = i + vnbr * 7;
@@ -1267,6 +1271,7 @@ void QuadOpt::assemble_fairness(spMat& H, Eigen::VectorXd& B, Eigen::VectorXd &e
             Eigen::Vector3d Vfr(GlobVars[ld1fx], GlobVars[ld1fy], GlobVars[ld1fz]);
             Eigen::Vector3d Vbk(GlobVars[ld1bx], GlobVars[ld1by], GlobVars[ld1bz]);
             double ratiof = (Ver - Vfr).norm() / (Vbk - Vfr).norm();
+            assert((Vbk - Vfr).norm() > 0);
             counter = i + vnbr * 9;
             push_fairness_conditions(tripletes, energy, lvx, ld1fx, ld1bx, Ver[0], Vfr[0], Vbk[0], counter, ratiof);
             counter = i + vnbr * 10;
@@ -1289,6 +1294,7 @@ void QuadOpt::assemble_fairness(spMat& H, Eigen::VectorXd& B, Eigen::VectorXd &e
 // family: 0: row. 1: col. 2: d0. 3: d1.
 void QuadOpt::assemble_binormal_conditions(spMat &H, Eigen::VectorXd &B, Eigen::VectorXd &energy, int family, int bnm_start)
 {
+    // std::cout<<"check 1, family "<<family<<std::endl;
     std::vector<Trip> tripletes;
     int vnbr = V.rows();
     energy = Eigen::VectorXd::Zero(vnbr * 3); 
@@ -1377,6 +1383,10 @@ void QuadOpt::assemble_binormal_conditions(spMat &H, Eigen::VectorXd &B, Eigen::
         if(ComputeAuxiliaries){
             //init the binormals
             Eigen::Vector3d real_r = ((Ver - Vf).cross(Vb - Ver)).normalized();
+            if (real_r.norm() == 0)
+            {
+                real_r = Eigen::Vector3d(0, 0, 1);
+            }
             GlobVars[lrx] = real_r[0];
             GlobVars[lry] = real_r[1];
             GlobVars[lrz] = real_r[2];
@@ -1765,9 +1775,13 @@ void QuadOpt::assemble_normal_conditions(spMat& H, Eigen::VectorXd& B, Eigen::Ve
 
 void QuadOpt::opt(){
     int vnbr = V.rows();
-    if(GlobVars.size()!= varsize){
+    if (GlobVars.size() != varsize)
+    {
         ComputeAuxiliaries = true;
         GlobVars = Eigen::VectorXd::Zero(varsize);
+        GlobVars.segment(0, vnbr) = V.col(0);
+        GlobVars.segment(vnbr, vnbr) = V.col(1);
+        GlobVars.segment(vnbr * 2, vnbr) = V.col(2);
     }
     spMat H;
     H.resize(varsize, varsize);
