@@ -125,8 +125,7 @@ double get_interactive_angle(const Eigen::VectorXd &func, const LSAnalizer &anal
                              const std::vector<std::vector<Eigen::Vector3f>> &interactive_bclist, const Eigen::VectorXi &InnerV);
 void convert_polyline_to_developable_strips(const std::vector<Eigen::Vector3d> &ply,
                                             const std::vector<Eigen::Vector3d> &bnm, std::vector<Eigen::Vector3d> &creases);
-
-
-
-
-
+void convert_polyline_to_developable_strips_reflection_method(const std::vector<Eigen::Vector3d> &ply,
+                                                              const std::vector<Eigen::Vector3d> &bnm, std::vector<Eigen::Vector3d> &creases);
+void evaluate_and_print_strip_developability(const std::vector<std::vector<Eigen::Vector3d>> &ply,
+                                             const std::vector<std::vector<Eigen::Vector3d>> &crease);

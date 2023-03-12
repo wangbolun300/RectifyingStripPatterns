@@ -1872,7 +1872,7 @@ int main(int argc, char *argv[])
 			for (int i = 0; i < lscif::Poly_readed.size(); i++)
 			{
 				std::vector<Eigen::Vector3d> creases;
-				convert_polyline_to_developable_strips(lscif::Poly_readed[i], lscif::Bino_readed[i], creases);
+				convert_polyline_to_developable_strips_reflection_method(lscif::Poly_readed[i], lscif::Bino_readed[i], creases);
 				dev_crease.push_back(creases);
 			}
 			int id = viewer.selected_data_index;
@@ -1883,6 +1883,13 @@ int main(int argc, char *argv[])
 			viewer.selected_data_index = id;
 			lscif::poly_tool.save_polyline_and_binormals_as_files(lscif::Poly_readed, dev_crease);
 			std::cout << "waiting for instructions" << std::endl;
+		}
+		ImGui::SameLine();
+		if (ImGui::Button("EvltDvlp", ImVec2(ImGui::GetWindowSize().x * 0.23f, 0.0f)))
+		{
+			std::cout<<"evaluate developable of the loaded strips ..."<<std::endl;
+			evaluate_and_print_strip_developability(lscif::Poly_readed, lscif::Bino_readed);
+
 		}
 		ImGui::SetNextItemOpen(true);
 		if (ImGui::TreeNode("Mesh Management"))

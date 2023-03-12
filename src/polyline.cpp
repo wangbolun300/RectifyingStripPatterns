@@ -73,8 +73,8 @@ void convert_polyline_to_developable_strips(const std::vector<Eigen::Vector3d> &
         Eigen::Vector3d D = R * d2;
         Eigen::Vector3d C(0, cosbeta2, cosbeta1);
         double D0 = D(0), D1 = D(1), D2 = D(2);
-        double a, b; // the crease is defined as a*C+b*(1,0,0)
-        if (abs(1 + D0) < SCALAR_ZERO)// unlike to happen
+        double a, b;                   // the crease is defined as a*C+b*(1,0,0)
+        if (abs(1 + D0) < SCALAR_ZERO) // unlike to happen
         {
             a = 0;
             b = 1;
@@ -85,21 +85,21 @@ void convert_polyline_to_developable_strips(const std::vector<Eigen::Vector3d> &
             b = -(D1 * cosbeta2 + D2 * cosbeta1) / (1 + D0);
         }
         Eigen::Vector3d A = Eigen::Vector3d(b, a * cosbeta2, a * cosbeta1);
-        if (A(2) < 0)// to make sure A is the same orient with the binormal vector
+        if (A(2) < 0) // to make sure A is the same orient with the binormal vector
         {
             A *= -1;
         }
         double ratio = sqrt(1 / (A.dot(A) - A(0) * A(0)));
         A *= ratio;
         creases[i] = Rinv * A;
-        last_crease=creases[i];
-        if(print_info){
+        last_crease = creases[i];
+        if (print_info)
+        {
             std::cout << "R\n"
                       << R << "\nbi, " << bi.transpose() << "\nyy, " << yy.transpose() << "\nproj_crease, " << proj_crease.transpose()
                       << "\ncrease, " << last_crease.transpose() << "\n";
-                      exit(0);
+            exit(0);
         }
-        
     }
     // solve for the last vector
     Eigen::Vector3d d1 = (ply[vnbr - 1] - ply[vnbr - 2]).normalized();
@@ -110,8 +110,153 @@ void convert_polyline_to_developable_strips(const std::vector<Eigen::Vector3d> &
     solve_project_vector_on_plane(last_crease, bi, yy, creases[vnbr - 1]);
 }
 
-void sample_polylines_and_binormals_evenly(const int nbr_segs, const std::vector<std::vector<Eigen::Vector3d>> &ply_in, const std::vector<std::vector<Eigen::Vector3d>> &bi_in,
-                            std::vector<std::vector<Eigen::Vector3d>> &ply, std::vector<std::vector<Eigen::Vector3d>> &bi)
+// rul_left is the ruling of the left plane,
+void reflect_wrt_rectifying(const Eigen::Vector3d &ver0, const Eigen::Vector3d &ver1, const Eigen::Vector3d &ver2, const Eigen::Vector3d &rul_left,
+                            const Eigen::Vector3d &bi_middle, Eigen::Vector3d &crease, Eigen::Vector3d rul_right)
+{
+    Eigen::Vector3d dir0 = (ver1 - ver0).normalized();
+    Eigen::Vector3d dir1 = (ver2 - ver1).normalized();
+
+    double straight_tol = 1e-2; // 0.01
+    if (dir0.dot(dir1) > 1 - straight_tol)
+    { // the curve does not bend much, meaning that it is a flat one
+        crease = rul_left;
+        rul_right = rul_left;
+        return;
+    }
+    if (rul_left.dot(bi_middle) > 1 - straight_tol)
+    { // the ruling of the left surface is the same as the right one, is the binormal
+        rul_right = bi_middle;
+        crease = bi_middle;
+        return;
+    }
+
+    // P0, P1 define the mirror
+    Eigen::Vector3d P0 = (dir0 + dir1).normalized();
+    Eigen::Vector3d P1 = bi_middle.normalized();
+
+    // the other edge of the left strip
+    Eigen::Vector3d prl_start = ver0 + rul_left;
+    // the direction is dir0. (prl_start + t * dir0 - ver1, p0, p1) = 0
+    // solve the intersection point
+    Eigen::Matrix3d c0, c1;
+    c0.col(0) = prl_start - ver1;
+    c0.col(1) = P0;
+    c0.col(2) = P1;
+    c1.col(0) = dir0;
+    c1.col(1) = P0;
+    c1.col(2) = P1;
+    double coff0 = c0.determinant();
+    double coff1 = c1.determinant();
+    if (abs(coff1) < 1e-6)
+    {
+        std::cout << "ERROR: the vector is parallel to the plane" << std::endl;
+    }
+    double t = -coff0 / coff1;
+    Eigen::Vector3d proj = prl_start + t * dir0; // the intersection point between the other side of the strip and the mirror
+    crease = proj - ver1;
+    // the ruling is proj - (v1 + t * dir1)
+    t = (proj - ver1).dot(dir1);
+    rul_right = proj - (ver1 + t * dir1);
+    double scale = rul_right.norm();
+    if (abs(scale - 1) > SCALAR_ZERO)
+    {
+        std::cout << "The ruling is not accurate, the length of it is " << scale << std::endl;
+    }
+    rul_right.normalize();
+}
+
+void convert_polyline_to_developable_strips_reflection_method(const std::vector<Eigen::Vector3d> &ply,
+                                                              const std::vector<Eigen::Vector3d> &bnm, std::vector<Eigen::Vector3d> &creases)
+{
+    creases = bnm;
+    int vnbr = ply.size();
+    Eigen::Vector3d ruling;
+    ruling = (bnm[0] + bnm[1]).normalized();
+    for (int i = 1; i < vnbr - 1; i++)
+    {
+        Eigen::Vector3d rul_right, crs;
+        reflect_wrt_rectifying(ply[i - 1], ply[i], ply[i + 1], ruling, bnm[i], crs, rul_right);
+        creases[i] = crs;
+        ruling = rul_right;
+    }
+    creases[vnbr - 1] = ruling;
+}
+void evaluate_strip_developability(const std::vector<Eigen::Vector3d> &ply,
+                                   const std::vector<Eigen::Vector3d> &crease, double &planarity, double &angle_diff, double &max_angle_error)
+{
+    // use the distances between diagonals to evaluate planarity
+    double planar_total = 0;
+    double angle_total = 0;
+    double angle_max = 0;
+    int vnbr = ply.size();
+    for (int i = 0; i < vnbr - 1; i++)
+    {
+        Eigen::Vector3d v0 = ply[i];
+        Eigen::Vector3d v1 = ply[i + 1];
+        Eigen::Vector3d v2 = ply[i + 1] + crease[i + 1];
+        Eigen::Vector3d v3 = ply[i] + crease[i];
+        // dirction of diagonals
+        Eigen::Vector3d dir0 = (v2 - v0).normalized();
+        Eigen::Vector3d dir1 = (v3 - v1).normalized();
+        double distance = dir0.cross(dir1).dot(v0 - v1);
+        distance = abs(distance) / dir0.cross(dir1).norm();
+        planar_total += distance;
+
+        // double dis_left = (v0 - v1).norm();
+        // double dis_right = (v2 - v3).norm();
+        // dis_total_left += dis_left;
+        // dis_total_right += dis_right;
+        if (i == 0)
+        {
+            continue;
+        }
+        Eigen::Vector3d dir_middle = crease[i].normalized();
+        Eigen::Vector3d dir_left = (ply[i - 1] - ply[i]).normalized();
+        Eigen::Vector3d dir_right = (ply[i + 1] - ply[i]).normalized();
+        double angle_left = acos(dir_middle.dot(dir_left));
+        double angle_right = acos(dir_middle.dot(dir_right));
+        double angle_err = fabs(angle_left + angle_right - LSC_PI);
+        if (angle_err > angle_max)
+        {
+            angle_max = angle_err;
+            if (print_info)
+            {
+                std::cout << "find max: i " << i << ", angle diff, " << angle_err << std::endl;
+            }
+        }
+
+        angle_total += angle_err;
+    }
+    planarity = planar_total;
+    angle_diff = angle_total;
+    max_angle_error = angle_max;
+    // length_diff = abs(dis_total_left - dis_total_right);
+}
+
+void evaluate_and_print_strip_developability(const std::vector<std::vector<Eigen::Vector3d>> &ply,
+                                             const std::vector<std::vector<Eigen::Vector3d>> &crease)
+{
+    double planar_total = 0;
+    double anglediff_total = 0;
+    double max_angle_error = 0;
+    for (int i = 0; i < ply.size(); i++)
+    {
+        double planar, anglediff, angle_max;
+        evaluate_strip_developability(ply[i], crease[i], planar, anglediff, angle_max);
+        planar_total += planar;
+        anglediff_total += anglediff;
+        if (angle_max > max_angle_error)
+        {
+            max_angle_error = angle_max;
+        }
+    }
+    std::cout << "Evaluate current polylines: planarity: " << planar_total << ", total angle changes of the strip, " << anglediff_total << ", maximal angle error, "
+              << max_angle_error << std::endl;
+}
+
+    void sample_polylines_and_binormals_evenly(const int nbr_segs, const std::vector<std::vector<Eigen::Vector3d>> &ply_in, const std::vector<std::vector<Eigen::Vector3d>> &bi_in,
+                                               std::vector<std::vector<Eigen::Vector3d>> &ply, std::vector<std::vector<Eigen::Vector3d>> &bi)
 {
     double max_length = 0;
     ply.clear();
