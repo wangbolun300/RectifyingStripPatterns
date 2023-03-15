@@ -171,7 +171,9 @@ public:
     double real_step_length;
     
     // input from outside
-    int OptType = 0;// 0: AAG. 1: GGA. 
+    double angle_degree0;
+    double angle_degree1;
+    int OptType = 0;// 0: AAG. 1: GGA. 2: PP. 3: PPG 
     int WhichDiagonal = 0; // 0 or 1
     int pg1_type = 0;//by default disabled. 1 means asymptotic, 2 means geodesic, 3 pseudo-geodesic
     int pg2_type = 0;
@@ -204,11 +206,11 @@ private:
     // type: 0 disabled. 1 means asymptotic, 2 means geodesic, 3 pseudo-geodesic
     // family: 0 rows, 1 cols, 2 diagonal NO0, 3 diagonal NO1.
     void assemble_pg_extreme_cases(spMat &H, Eigen::VectorXd &B, Eigen::VectorXd &energy,
-                          const int type, const int family, const int aux_start_location);
-    void assemble_binormal_conditions(spMat& H, Eigen::VectorXd& B, Eigen::VectorXd &energy, int type, int family);
-    void assemble_normal_conditions(spMat& H, Eigen::VectorXd& B, Eigen::VectorXd &energy);
-    
-
+                                   const int type, const int family, const int aux_start_location);
+    void assemble_pg_cases(const double angle_radian, spMat &H, Eigen::VectorXd &B, Eigen::VectorXd &energy,
+                           const int family, const int aux_start_location);
+    void assemble_binormal_conditions(spMat &H, Eigen::VectorXd &B, Eigen::VectorXd &energy, int type, int family);
+    void assemble_normal_conditions(spMat &H, Eigen::VectorXd &B, Eigen::VectorXd &energy);
 };
 
 // The basic tool of LSC. Please initialize it with a mesh
