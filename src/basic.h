@@ -175,14 +175,12 @@ public:
     double angle_degree1;
     int OptType = 0;// 0: AAG. 1: GGA. 2: PP. 3: PPG 
     int WhichDiagonal = 0; // 0 or 1
-    int pg1_type = 0;//by default disabled. 1 means asymptotic, 2 means geodesic, 3 pseudo-geodesic
-    int pg2_type = 0;
-    int d0_type = 0; // for the diagonal 0, 0 is disabled, 1 is asymptotic, 2 is geodesic, 3 is pg.
-    int d1_type = 0; // for the diagonal 1, 0 is disabled, 1 is asymptotic, 2 is geodesic, 3 is pg.
     double weight_fairness;
     double weight_pg;
     double weight_gravity;
-    
+    double pg_ratio = 1;// the ratio of pg energy to weight_pg
+    // int pg1_type = 0;//by default disabled. 1 means asymptotic, 2 means geodesic, 3 pseudo-geodesic
+    // int pg2_type = 0;
     
     void opt();
     void reset();
@@ -190,6 +188,8 @@ public:
 private:
     MeshProcessing MP;
     int varsize;
+    int d0_type = 0; // for the diagonal 0, 0 is disabled, 1 is asymptotic, 2 is geodesic, 3 is pg.
+    int d1_type = 0; // for the diagonal 1, 0 is disabled, 1 is asymptotic, 2 is geodesic, 3 is pg.
     Eigen::VectorXd GlobVars; // variables for optimization.
     Eigen::VectorXd OrigVars; // copied original vars.
     Eigen::VectorXi row_front;
@@ -201,6 +201,7 @@ private:
     Eigen::VectorXi d0_back;
     Eigen::VectorXi d1_back;
     bool ComputeAuxiliaries = true;
+    bool Estimate_PG_Angles = true;
     void assemble_fairness(spMat& H, Eigen::VectorXd& B, Eigen::VectorXd &energy);
     void assemble_gravity(spMat& H, Eigen::VectorXd& B, Eigen::VectorXd &energy);
     // type: 0 disabled. 1 means asymptotic, 2 means geodesic, 3 pseudo-geodesic
@@ -211,6 +212,11 @@ private:
                            const int family, const int aux_start_location);
     void assemble_binormal_conditions(spMat &H, Eigen::VectorXd &B, Eigen::VectorXd &energy, int type, int family);
     void assemble_normal_conditions(spMat &H, Eigen::VectorXd &B, Eigen::VectorXd &energy);
+
+public:
+    // debug tools
+    Eigen::MatrixXd Enm0;
+    Eigen::MatrixXd Enm1;
 };
 
 // The basic tool of LSC. Please initialize it with a mesh

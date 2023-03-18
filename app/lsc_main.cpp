@@ -2543,7 +2543,7 @@ int main(int argc, char *argv[])
 			// ImGui::InputInt("Ring nbr", &lscif::ring_nbr, 0, 0);
 			// ImGui::InputDouble("Latitude", &lscif::Shading_Latitude, 0, 0, "%.4f");
 			ImGui::Combo("QuadType", &lscif::quad_tool.OptType,
-                 "AAG\0GGA\0\0");
+                 "AAG\0GGA\0PP\0PPG\0\0");
 			ImGui::SameLine();
 			
 			ImGui::Combo("FamilyOfDiag", &lscif::quad_tool.WhichDiagonal,
@@ -2622,11 +2622,14 @@ int main(int argc, char *argv[])
 			}
 			ImGui::SameLine();
 			
-			if (ImGui::Button("Opt A&G", ImVec2(ImGui::GetWindowSize().x * 0.25f, 0.0f)))
+			if (ImGui::Button("Opt", ImVec2(ImGui::GetWindowSize().x * 0.25f, 0.0f)))
 			{
 				lscif::quad_tool.weight_fairness = lscif::weight_laplacian;
 				lscif::quad_tool.weight_gravity = lscif::weight_boundary;
 				lscif::quad_tool.weight_pg = lscif::weight_pseudo_geodesic;
+				lscif::quad_tool.angle_degree0 = lscif::target_angle;
+				lscif::quad_tool.angle_degree1 = lscif::target_angle_2;
+				lscif::quad_tool.pg_ratio = lscif::weight_geodesic;
 				
 				for (int i = 0; i < lscif::OpIter; i++)
 				{
@@ -2646,6 +2649,34 @@ int main(int argc, char *argv[])
 				lscif::Meshes.push_back(updateMesh);
 				viewer.selected_data_index = id;
 			}
+			ImGui::SameLine();
+			
+			if (ImGui::Button("DrawNormal", ImVec2(ImGui::GetWindowSize().x * 0.25f, 0.0f)))
+			{
+				const Eigen::RowVector3d red(0.8, 0.2, 0.2);
+				const Eigen::RowVector3d blue(0.2, 0.2, 0.8);
+				const Eigen::RowVector3d yellow(241./255, 196./255, 15./255);
+
+				const Eigen::RowVector3d black(0, 0, 0);
+				const Eigen::RowVector3d green(0.2, 0.8, 0.2);
+
+				Eigen::MatrixXd pts, E0, E1;
+
+				std::cout << "ploting the normal vectors" << std::endl;
+				Eigen::MatrixXd binormals;
+				if (lscif::quad_tool.Enm0.rows() == 0)
+				{
+					std::cout << "\nWrong Usage ..." << std::endl;
+					ImGui::End();
+					return;
+				}
+				
+				viewer.data().add_edges(lscif::quad_tool.Enm0, lscif::quad_tool.Enm1, green);
+				
+				
+			}
+			
+			
 		}
 		ImGui::PushStyleColor(ImGuiCol_Button, (ImVec4)ImColor::HSV(0.0f, 0.6f, 0.6f));
 		ImGui::PushStyleColor(ImGuiCol_ButtonHovered, (ImVec4)ImColor::HSV(0.0f, 0.7f, 0.7f));

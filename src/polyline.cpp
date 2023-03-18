@@ -1183,14 +1183,14 @@ void QuadOpt::init(CGMesh &mesh_in, const std::string &prefix)
     }
     if (OptType == 2)// PP
     {
-        // vertices vnbr * 3, normals vnbr * 3, binormals vnbr * 6
-        varsize = vnbr * 12;
+        // vertices vnbr * 3, normals vnbr * 3, binormals + side vectors:  (vnbr * 6) * 2
+        varsize = vnbr * 18;
    
     }
     if (OptType == 3)// PPG
     {
-        // vertices vnbr * 3, normals vnbr * 3, binormals vnbr * 9
-        varsize = vnbr * 15;
+        // vertices vnbr * 3, normals vnbr * 3, binormals + side vectors:  (vnbr * 6) * 2 + vnbr * 3
+        varsize = vnbr * 21;
 
     }
     
@@ -1210,6 +1210,8 @@ void QuadOpt::init(CGMesh &mesh_in, const std::string &prefix)
     OrigVars.segment(vnbr * 2, vnbr) = V.col(2);
     mesh_original = mesh_in;
     mesh_update = mesh_original;
+    ComputeAuxiliaries = true;
+    Estimate_PG_Angles = true;
 }
 
 void QuadOpt::reset()
@@ -1244,6 +1246,7 @@ void QuadOpt::reset()
         }
     }
     MP.mesh2Matrix(mesh_original, V, F);
+    std::cout<<"Get V and F of the quads: "<<V.rows()<<", "<<F.rows()<<std::endl;
     int vnbr = V.rows();
     // reset the var size
     if (OptType == 0)// AAG
@@ -1258,14 +1261,14 @@ void QuadOpt::reset()
     }
     if (OptType == 2)// PP
     {
-        // vertices vnbr * 3, normals vnbr * 3, binormals vnbr * 6
-        varsize = vnbr * 12;
+        // vertices vnbr * 3, normals vnbr * 3, binormals + side vectors:  (vnbr * 6) * 2
+        varsize = vnbr * 18;
    
     }
     if (OptType == 3)// PPG
     {
-        // vertices vnbr * 3, normals vnbr * 3, binormals vnbr * 9
-        varsize = vnbr * 15;
+        // vertices vnbr * 3, normals vnbr * 3, binormals + side vectors:  (vnbr * 6) * 2 + vnbr * 3
+        varsize = vnbr * 21;
 
     }
 
@@ -1275,6 +1278,7 @@ void QuadOpt::reset()
     OrigVars.segment(vnbr * 2, vnbr) = V.col(2);
     GlobVars.resize(0);
     ComputeAuxiliaries = true;
+    Estimate_PG_Angles = true;
     mesh_update = mesh_original;
 }
 
@@ -1387,7 +1391,14 @@ void QuadOpt::assemble_fairness(spMat& H, Eigen::VectorXd& B, Eigen::VectorXd &e
             Eigen::Vector3d Ver(GlobVars[lvx], GlobVars[lvy], GlobVars[lvz]);
             Eigen::Vector3d Vfr(GlobVars[lrfx], GlobVars[lrfy], GlobVars[lrfz]);
             Eigen::Vector3d Vbk(GlobVars[lrbx], GlobVars[lrby], GlobVars[lrbz]);
-            double ratiof = (Ver - Vfr).norm() / (Vbk - Vfr).norm();
+            Eigen::Vector3d Ver_o(OrigVars[lvx], OrigVars[lvy], OrigVars[lvz]);
+            Eigen::Vector3d Vfr_o(OrigVars[lrfx], OrigVars[lrfy], OrigVars[lrfz]);
+            Eigen::Vector3d Vbk_o(OrigVars[lrbx], OrigVars[lrby], OrigVars[lrbz]);
+            
+            double ratiof = (Ver_o - Vfr_o).norm() / (Vbk_o - Vfr_o).norm();
+            if((Vbk_o - Vfr_o).norm() == 0){
+                std::cout<<"NAN happens in fairness term"<<std::endl;
+            }
             assert((Vbk - Vfr).norm() > 0);
             counter = i;
             push_fairness_conditions(tripletes, energy, lvx, lrfx, lrbx, Ver[0], Vfr[0], Vbk[0], counter, ratiof);
@@ -1403,7 +1414,14 @@ void QuadOpt::assemble_fairness(spMat& H, Eigen::VectorXd& B, Eigen::VectorXd &e
             Eigen::Vector3d Ver(GlobVars[lvx], GlobVars[lvy], GlobVars[lvz]);
             Eigen::Vector3d Vfr(GlobVars[lcfx], GlobVars[lcfy], GlobVars[lcfz]);
             Eigen::Vector3d Vbk(GlobVars[lcbx], GlobVars[lcby], GlobVars[lcbz]);
-            double ratiof = (Ver - Vfr).norm() / (Vbk - Vfr).norm();
+            Eigen::Vector3d Ver_o(OrigVars[lvx], OrigVars[lvy], OrigVars[lvz]);
+            Eigen::Vector3d Vfr_o(OrigVars[lrfx], OrigVars[lrfy], OrigVars[lrfz]);
+            Eigen::Vector3d Vbk_o(OrigVars[lrbx], OrigVars[lrby], OrigVars[lrbz]);
+            
+            double ratiof = (Ver_o - Vfr_o).norm() / (Vbk_o - Vfr_o).norm();
+            if((Vbk_o - Vfr_o).norm() == 0){
+                std::cout<<"NAN happens in fairness term"<<std::endl;
+            }
             assert((Vbk - Vfr).norm() > 0);
             counter = i + vnbr * 3;
             push_fairness_conditions(tripletes, energy, lvx, lcfx, lcbx, Ver[0], Vfr[0], Vbk[0], counter, ratiof);
@@ -1419,7 +1437,14 @@ void QuadOpt::assemble_fairness(spMat& H, Eigen::VectorXd& B, Eigen::VectorXd &e
             Eigen::Vector3d Ver(GlobVars[lvx], GlobVars[lvy], GlobVars[lvz]);
             Eigen::Vector3d Vfr(GlobVars[ld0fx], GlobVars[ld0fy], GlobVars[ld0fz]);
             Eigen::Vector3d Vbk(GlobVars[ld0bx], GlobVars[ld0by], GlobVars[ld0bz]);
-            double ratiof = (Ver - Vfr).norm() / (Vbk - Vfr).norm();
+            Eigen::Vector3d Ver_o(OrigVars[lvx], OrigVars[lvy], OrigVars[lvz]);
+            Eigen::Vector3d Vfr_o(OrigVars[lrfx], OrigVars[lrfy], OrigVars[lrfz]);
+            Eigen::Vector3d Vbk_o(OrigVars[lrbx], OrigVars[lrby], OrigVars[lrbz]);
+            
+            double ratiof = (Ver_o - Vfr_o).norm() / (Vbk_o - Vfr_o).norm();
+            if((Vbk_o - Vfr_o).norm() == 0){
+                std::cout<<"NAN happens in fairness term"<<std::endl;
+            }
             assert((Vbk - Vfr).norm() > 0);
             counter = i + vnbr * 6;
             push_fairness_conditions(tripletes, energy, lvx, ld0fx, ld0bx, Ver[0], Vfr[0], Vbk[0], counter, ratiof);
@@ -1433,7 +1458,14 @@ void QuadOpt::assemble_fairness(spMat& H, Eigen::VectorXd& B, Eigen::VectorXd &e
             Eigen::Vector3d Ver(GlobVars[lvx], GlobVars[lvy], GlobVars[lvz]);
             Eigen::Vector3d Vfr(GlobVars[ld1fx], GlobVars[ld1fy], GlobVars[ld1fz]);
             Eigen::Vector3d Vbk(GlobVars[ld1bx], GlobVars[ld1by], GlobVars[ld1bz]);
-            double ratiof = (Ver - Vfr).norm() / (Vbk - Vfr).norm();
+            Eigen::Vector3d Ver_o(OrigVars[lvx], OrigVars[lvy], OrigVars[lvz]);
+            Eigen::Vector3d Vfr_o(OrigVars[lrfx], OrigVars[lrfy], OrigVars[lrfz]);
+            Eigen::Vector3d Vbk_o(OrigVars[lrbx], OrigVars[lrby], OrigVars[lrbz]);
+            
+            double ratiof = (Ver_o - Vfr_o).norm() / (Vbk_o - Vfr_o).norm();
+            if((Vbk_o - Vfr_o).norm() == 0){
+                std::cout<<"NAN happens in fairness term"<<std::endl;
+            }
             assert((Vbk - Vfr).norm() > 0);
             counter = i + vnbr * 9;
             push_fairness_conditions(tripletes, energy, lvx, ld1fx, ld1bx, Ver[0], Vfr[0], Vbk[0], counter, ratiof);
@@ -1750,7 +1782,7 @@ void QuadOpt::assemble_pg_extreme_cases(spMat &H, Eigen::VectorXd &B, Eigen::Vec
             lby = d1b + vnbr;
             lbz = d1b + vnbr * 2;
         }
-        if (lfx < 0 || lbx < 0)
+        if (rf < 0 || rb < 0 || cf < 0 || cb < 0)
         {
             compute = false;
         }
@@ -1791,11 +1823,13 @@ void QuadOpt::assemble_pg_cases(const double angle_radian, spMat &H, Eigen::Vect
     std::vector<Trip> tripletes;
     int vnbr = V.rows();
     int energy_size = 0;
+    double angle_avg = 0;
+    int counter = 0;
 
-    energy_size = vnbr * 2;
+    energy_size = vnbr * 5;
 
     energy = Eigen::VectorXd::Zero(energy_size);
-    tripletes.reserve(vnbr * 6);
+    tripletes.reserve(vnbr * 40);
     for (int i = 0; i < vnbr; i++)
     {
         // the ids
@@ -1816,12 +1850,18 @@ void QuadOpt::assemble_pg_cases(const double angle_radian, spMat &H, Eigen::Vect
         int lvz = vid + 2 * vnbr;
         // the front and back vertices
         int lfx, lfy, lfz, lbx, lby, lbz;
+        // the normal vectors
         int lnx = vnbr * 3 + i;
         int lny = vnbr * 4 + i;
         int lnz = vnbr * 5 + i;
+        // the binormals
         int lrx = bnm_start_location + i;
         int lry = bnm_start_location + i + vnbr;
         int lrz = bnm_start_location + i + vnbr * 2;
+        // the side vectors
+        int lux = bnm_start_location + i + vnbr * 3;
+        int luy = bnm_start_location + i + vnbr * 4;
+        int luz = bnm_start_location + i + vnbr * 5;
         
         bool compute = true;
         if (family == 0) // rows
@@ -1866,7 +1906,7 @@ void QuadOpt::assemble_pg_cases(const double angle_radian, spMat &H, Eigen::Vect
             lby = d1b + vnbr;
             lbz = d1b + vnbr * 2;
         }
-        if (lfx < 0 || lbx < 0)
+        if (rf < 0 || rb < 0 || cf < 0 || cb < 0)
         {
             compute = false;
         }
@@ -1880,9 +1920,22 @@ void QuadOpt::assemble_pg_cases(const double angle_radian, spMat &H, Eigen::Vect
         Eigen::Vector3d norm(GlobVars[lnx], GlobVars[lny], GlobVars[lnz]);
         Eigen::Vector3d r(GlobVars[lrx], GlobVars[lry], GlobVars[lrz]);
 
-        Eigen::Vector3d tangent = -(Vbk -Vfr);// This sign is changable depends on what user defines of the curve tangent directions
-        
+        Eigen::Vector3d tangent = Vbk - Vfr; // This sign is changable depends on what user defines of the curve tangent directions
         Eigen::Vector3d real_u = (norm.cross(tangent)).normalized();
+        if(ComputeAuxiliaries){
+            GlobVars[lux] = real_u[0];
+            GlobVars[luy] = real_u[1];
+            GlobVars[luz] = real_u[2];
+        }
+        Eigen::Vector3d u(GlobVars[lux], GlobVars[luy], GlobVars[luz]);
+        if(real_u.dot(u)<0){
+            std::cout<<"flip u"<<std::endl;
+            u * -1;
+            GlobVars[lux] *= -1;
+            GlobVars[luy] *= -1;
+            GlobVars[luz] *= -1;
+        }
+        
 
         double dis0 = (Ver - Vfr).norm();
         double dis1 = (Ver - Vbk).norm();
@@ -1891,24 +1944,87 @@ void QuadOpt::assemble_pg_cases(const double angle_radian, spMat &H, Eigen::Vect
 
         // (binormal * n)^2 = cos^2
         double ndb = norm.dot(r);
-        tripletes.push_back(Trip(i, lnx, 2 * ndb * norm(0)));
-        tripletes.push_back(Trip(i, lny, 2 * ndb * norm(1)));
-        tripletes.push_back(Trip(i, lnz, 2 * ndb * norm(2)));
+        tripletes.push_back(Trip(i, lrx, 2 * ndb * norm(0)));
+        tripletes.push_back(Trip(i, lry, 2 * ndb * norm(1)));
+        tripletes.push_back(Trip(i, lrz, 2 * ndb * norm(2)));
+
+        tripletes.push_back(Trip(i, lnx, 2 * ndb * r(0)));
+        tripletes.push_back(Trip(i, lny, 2 * ndb * r(1)));
+        tripletes.push_back(Trip(i, lnz, 2 * ndb * r(2)));
 
         energy[i] = ndb * ndb - cos_angle * cos_angle;
 
         // (binormal * n) * (binormal * u) = sin * cos
         // regard n and u as constant values in each iteration, since u is related to the tangent vector, which will not change much.
-        double udb = real_u.dot(r);
+        double udb = u.dot(r);
 
-        tripletes.push_back(Trip(i + vnbr, lnx, ndb * real_u[0] + udb * norm[0]));
-        tripletes.push_back(Trip(i + vnbr, lny, ndb * real_u[1] + udb * norm[1]));
-        tripletes.push_back(Trip(i + vnbr, lnz, ndb * real_u[2] + udb * norm[2]));
+        tripletes.push_back(Trip(i + vnbr, lnx, udb * r[0]));
+        tripletes.push_back(Trip(i + vnbr, lny, udb * r[1]));
+        tripletes.push_back(Trip(i + vnbr, lnz, udb * r[2]));
+
+        tripletes.push_back(Trip(i + vnbr, lrx, ndb * u[0] + udb * norm[0]));
+        tripletes.push_back(Trip(i + vnbr, lry, ndb * u[1] + udb * norm[1]));
+        tripletes.push_back(Trip(i + vnbr, lrz, ndb * u[2] + udb * norm[2]));
+
+        tripletes.push_back(Trip(i + vnbr, lux, ndb * r[0]));
+        tripletes.push_back(Trip(i + vnbr, luy, ndb * r[1]));
+        tripletes.push_back(Trip(i + vnbr, luz, ndb * r[2]));
 
         energy[i + vnbr] = ndb * udb - sin_angle * cos_angle;
-        
-    }
 
+        // u * u = 1
+        tripletes.push_back(Trip(i + vnbr * 2, lux, 2 * u[0]));
+        tripletes.push_back(Trip(i + vnbr * 2, luy, 2 * u[1]));
+        tripletes.push_back(Trip(i + vnbr * 2, luz, 2 * u[2]));
+
+        energy[i + vnbr * 2] = u.dot(u) - 1;
+
+        // u * n = 0
+        tripletes.push_back(Trip(i + vnbr * 3, lux, norm[0]));
+        tripletes.push_back(Trip(i + vnbr * 3, luy, norm[1]));
+        tripletes.push_back(Trip(i + vnbr * 3, luz, norm[2]));
+
+        tripletes.push_back(Trip(i + vnbr * 3, lnx, u[0]));
+        tripletes.push_back(Trip(i + vnbr * 3, lny, u[1]));
+        tripletes.push_back(Trip(i + vnbr * 3, lnz, u[2]));
+
+        energy[i + vnbr * 3] = u.dot(norm);
+
+        // u * (Vfr - Vbk) = 0
+        tripletes.push_back(Trip(i + vnbr * 4, lux, (Vfr - Vbk)[0]));
+        tripletes.push_back(Trip(i + vnbr * 4, luy, (Vfr - Vbk)[1]));
+        tripletes.push_back(Trip(i + vnbr * 4, luz, (Vfr - Vbk)[2]));
+
+        tripletes.push_back(Trip(i + vnbr * 4, lfx, u[0]));
+        tripletes.push_back(Trip(i + vnbr * 4, lfy, u[1]));
+        tripletes.push_back(Trip(i + vnbr * 4, lfz, u[2]));
+
+        tripletes.push_back(Trip(i + vnbr * 4, lbx, -u[0]));
+        tripletes.push_back(Trip(i + vnbr * 4, lby, -u[1]));
+        tripletes.push_back(Trip(i + vnbr * 4, lbz, -u[2]));
+
+        energy[i + vnbr * 4] = u.dot(Vfr - Vbk);
+
+
+        // get the average pseudo-geodesic angle
+        if (Estimate_PG_Angles)
+        {
+            double cosang = r.dot(norm);
+            double sinang = r.dot(u);
+            if (sinang < 0)
+            {
+                cosang *= -1;
+            }
+            double angle = acos(cosang);// get angle in radian
+            angle_avg += 180 / LSC_PI * angle; // get angle in degree.
+            counter++;
+        }
+    }
+    if(Estimate_PG_Angles){
+        angle_avg /= counter;
+        std::cout<<"Estimating PG Angles: "<<angle_avg<<std::endl;
+    }
+    std::cout<<"detail, "<<energy.segment(0,vnbr).norm()<<", "<<energy.segment(vnbr, vnbr).norm()<<", tgt, "<<angle_radian<<", ";
     // std::cout<<"check 2"<<std::endl;
     spMat J;
     J.resize(energy.size(), GlobVars.size());
@@ -1920,9 +2036,12 @@ void QuadOpt::assemble_pg_cases(const double angle_radian, spMat &H, Eigen::Vect
 void QuadOpt::assemble_normal_conditions(spMat& H, Eigen::VectorXd& B, Eigen::VectorXd &energy){
     std::vector<Trip> tripletes;
     int vnbr = V.rows();
-    energy = Eigen::VectorXd::Zero(vnbr * 4); // todo
-    tripletes.reserve(vnbr * 12 * 3); // todo
+    energy = Eigen::VectorXd::Zero(vnbr * 3); // todo
+    tripletes.reserve(vnbr * 21); // todo
     int counter = 0;
+    std::vector<Eigen::Vector3d> edge_nm0, edge_nm1; 
+    edge_nm0.reserve(vnbr);
+    edge_nm1.reserve(vnbr);
     for (int i = 0; i < vnbr; i++)
     {
         // the ids
@@ -1985,81 +2104,72 @@ void QuadOpt::assemble_normal_conditions(spMat& H, Eigen::VectorXd& B, Eigen::Ve
         Eigen::Vector3d Vrb(GlobVars[lrbx], GlobVars[lrby], GlobVars[lrbz]);
         Eigen::Vector3d Vcf(GlobVars[lcfx], GlobVars[lcfy], GlobVars[lcfz]);
         Eigen::Vector3d Vcb(GlobVars[lcbx], GlobVars[lcby], GlobVars[lcbz]);
+        Eigen::Vector3d real_n = ((Vrf - Vrb).cross(Vcf - Vcb)).normalized();
         if(ComputeAuxiliaries){
             //init the binormals
-            Eigen::Vector3d real_n = ((Vrf - Vrb).cross(Vcf - Vcb)).normalized();
+            
             GlobVars[lnx] = real_n[0];
             GlobVars[lny] = real_n[1];
             GlobVars[lnz] = real_n[2];
         }
+
         
         
         Eigen::Vector3d norm(GlobVars[lnx], GlobVars[lny], GlobVars[lnz]);
-        double dis0 = (Vrf - Ver).norm();
-        double dis1 = (Vrb - Ver).norm();
-        double dis2 = (Vcf - Ver).norm();
-        double dis3 = (Vcb - Ver).norm();
+        if (real_n.dot(norm) < 0)
+        {
+            std::cout<<"flip n"<<std::endl;
+            norm *= -1;
+            GlobVars[lnx] *= -1;
+            GlobVars[lny] *= -1;
+            GlobVars[lnz] *= -1;
+        }
+        edge_nm0.push_back(Ver);
+        edge_nm1.push_back(Ver + norm);
+        double dis0 = (Vrf - Vrb).norm();
+        double dis1 = (Vcf - Vcb).norm();
 
-        // n * (Vrf - Ver) = 0
-        tripletes.push_back(Trip(i, lnx, (Vrf(0) - Ver(0)) / dis0));
-        tripletes.push_back(Trip(i, lny, (Vrf(1) - Ver(1)) / dis0));
-        tripletes.push_back(Trip(i, lnz, (Vrf(2) - Ver(2)) / dis0));
+        // n * (Vrf - Vrb) = 0
+        tripletes.push_back(Trip(i, lnx, (Vrf(0) - Vrb(0)) / dis0));
+        tripletes.push_back(Trip(i, lny, (Vrf(1) - Vrb(1)) / dis0));
+        tripletes.push_back(Trip(i, lnz, (Vrf(2) - Vrb(2)) / dis0));
 
         tripletes.push_back(Trip(i, lrfx, (norm(0)) / dis0));
         tripletes.push_back(Trip(i, lrfy, (norm(1)) / dis0));
         tripletes.push_back(Trip(i, lrfz, (norm(2)) / dis0));
 
-        tripletes.push_back(Trip(i, lvx, -(norm(0)) / dis0));
-        tripletes.push_back(Trip(i, lvy, -(norm(1)) / dis0));
-        tripletes.push_back(Trip(i, lvz, -(norm(2)) / dis0));
+        tripletes.push_back(Trip(i, lrbx, -(norm(0)) / dis0));
+        tripletes.push_back(Trip(i, lrby, -(norm(1)) / dis0));
+        tripletes.push_back(Trip(i, lrbz, -(norm(2)) / dis0));
 
-        energy[i] = norm.dot(Vrf - Ver) / dis0;
+        energy[i] = norm.dot(Vrf - Vrb) / dis0;
 
-        // norm * (Vrb - Ver) = 0
-        tripletes.push_back(Trip(i + vnbr, lnx, (Vrb(0) - Ver(0)) / dis1));
-        tripletes.push_back(Trip(i + vnbr, lny, (Vrb(1) - Ver(1)) / dis1));
-        tripletes.push_back(Trip(i + vnbr, lnz, (Vrb(2) - Ver(2)) / dis1));
+        // norm * (Vcf - Vcb) = 0
+        tripletes.push_back(Trip(i + vnbr, lnx, (Vcf(0) - Vcb(0)) / dis1));
+        tripletes.push_back(Trip(i + vnbr, lny, (Vcf(1) - Vcb(1)) / dis1));
+        tripletes.push_back(Trip(i + vnbr, lnz, (Vcf(2) - Vcb(2)) / dis1));
 
-        tripletes.push_back(Trip(i + vnbr, lrbx, (norm(0)) / dis1));
-        tripletes.push_back(Trip(i + vnbr, lrby, (norm(1)) / dis1));
-        tripletes.push_back(Trip(i + vnbr, lrbz, (norm(2)) / dis1));
+        tripletes.push_back(Trip(i + vnbr, lcfx, (norm(0)) / dis1));
+        tripletes.push_back(Trip(i + vnbr, lcfy, (norm(1)) / dis1));
+        tripletes.push_back(Trip(i + vnbr, lcfz, (norm(2)) / dis1));
 
-        tripletes.push_back(Trip(i + vnbr, lvx, -(norm(0)) / dis1));
-        tripletes.push_back(Trip(i + vnbr, lvy, -(norm(1)) / dis1));
-        tripletes.push_back(Trip(i + vnbr, lvz, -(norm(2)) / dis1));
+        tripletes.push_back(Trip(i + vnbr, lcbx, -(norm(0)) / dis1));
+        tripletes.push_back(Trip(i + vnbr, lcby, -(norm(1)) / dis1));
+        tripletes.push_back(Trip(i + vnbr, lcbz, -(norm(2)) / dis1));
 
-        energy[i + vnbr] = norm.dot(Vrb - Ver) / dis1;
+        energy[i + vnbr] = norm.dot(Vcf - Vcb) / dis1;
 
-        // norm * (Vcf - Ver) = 0
-        tripletes.push_back(Trip(i + vnbr * 2, lnx, (Vcf(0) - Ver(0)) / dis2));
-        tripletes.push_back(Trip(i + vnbr * 2, lny, (Vcf(1) - Ver(1)) / dis2));
-        tripletes.push_back(Trip(i + vnbr * 2, lnz, (Vcf(2) - Ver(2)) / dis2));
+        // norm * norm = 1
+        tripletes.push_back(Trip(i + vnbr * 2, lnx, 2 * norm(0)));
+        tripletes.push_back(Trip(i + vnbr * 2, lny, 2 * norm(1)));
+        tripletes.push_back(Trip(i + vnbr * 2, lnz, 2 * norm(2)));
 
-        tripletes.push_back(Trip(i + vnbr * 2, lcfx, (norm(0)) / dis2));
-        tripletes.push_back(Trip(i + vnbr * 2, lcfy, (norm(1)) / dis2));
-        tripletes.push_back(Trip(i + vnbr * 2, lcfz, (norm(2)) / dis2));
+        energy[i + vnbr * 2] = norm.dot(norm) - 1;
 
-        tripletes.push_back(Trip(i + vnbr * 2, lvx, -(norm(0)) / dis2));
-        tripletes.push_back(Trip(i + vnbr * 2, lvy, -(norm(1)) / dis2));
-        tripletes.push_back(Trip(i + vnbr * 2, lvz, -(norm(2)) / dis2));
-
-        energy[i + vnbr * 2] = norm.dot(Vcf - Ver) / dis2;
-
-        // norm * (Vcb - Ver) = 0
-        tripletes.push_back(Trip(i + vnbr * 3, lnx, (Vcb(0) - Ver(0)) / dis3));
-        tripletes.push_back(Trip(i + vnbr * 3, lny, (Vcb(1) - Ver(1)) / dis3));
-        tripletes.push_back(Trip(i + vnbr * 3, lnz, (Vcb(2) - Ver(2)) / dis3));
-
-        tripletes.push_back(Trip(i + vnbr * 3, lcbx, (norm(0)) / dis3));
-        tripletes.push_back(Trip(i + vnbr * 3, lcby, (norm(1)) / dis3));
-        tripletes.push_back(Trip(i + vnbr * 3, lcbz, (norm(2)) / dis3));
-
-        tripletes.push_back(Trip(i + vnbr * 3, lvx, -(norm(0)) / dis3));
-        tripletes.push_back(Trip(i + vnbr * 3, lvy, -(norm(1)) / dis3));
-        tripletes.push_back(Trip(i + vnbr * 3, lvz, -(norm(2)) / dis3));
-
-        energy[i + vnbr * 3] = norm.dot(Vcb - Ver) / dis3;
+        
     }
+    Enm0 = vec_list_to_matrix(edge_nm0);
+    Enm1 = vec_list_to_matrix(edge_nm1);
     spMat J;
     J.resize(energy.size(), GlobVars.size());
     J.setFromTriplets(tripletes.begin(), tripletes.end());
@@ -2194,39 +2304,34 @@ void QuadOpt::opt(){
         Eigen::VectorXd Bbnm[3];
         int family = -1;
         family = 0;// row
-        // vertices vnbr * 3, normals vnbr * 3, binormals for P0 vnbr * 3, binormals for P1 vnbr * 3    
+        // vertices vnbr * 3, normals vnbr * 3, binormals for P0 vnbr * 3, u for P0 vnbr * 3, binormals for P1 vnbr * 3, u for P1 vnbr * 3    
         int bnm_start = vnbr * 6;
         assemble_binormal_conditions(Hbnm[0], Bbnm[0], Ebnm0, family, bnm_start);
-
         family = 1; // column
-        bnm_start = vnbr * 9;
+        bnm_start = vnbr * 12;
         assemble_binormal_conditions(Hbnm[1], Bbnm[1], Ebnm1, family, bnm_start);
-
         H += weight_pg * (Hbnm[0] + Hbnm[1]);
         B += weight_pg * (Bbnm[0] + Bbnm[1]);
 
 
         spMat Hpg[3];
         Eigen::VectorXd Bpg[3];
-        // P
+        // P0
         bnm_start = vnbr * 6;
         family = 0;
         double angle_radian = angle_degree0 * LSC_PI / 180.;
         assemble_pg_cases(angle_radian, Hpg[0], Bpg[0], Epg[0], family, bnm_start);
-
-        // P
-        bnm_start = vnbr * 9;
+        // P1
+        bnm_start = vnbr * 12;
         family = 1;
         angle_radian = angle_degree1 * LSC_PI / 180.;
-        assemble_pg_cases(angle_radian, Hpg[0], Bpg[0], Epg[0], family, bnm_start);
-        
-        H += weight_pg * (Hpg[0] + Hpg[1]);
-        B += weight_pg * (Bpg[0] + Bpg[1]);
-        // type = 2; // G1
-        // family = 1;// col
-        // bnm_start = vnbr * 9;
-        // assemble_pg_extreme_cases(Hpg[2], Bpg[2], Epg[2], type, family, bnm_start);
+        assemble_pg_cases(angle_radian, Hpg[1], Bpg[1], Epg[1], family, bnm_start);
+        // H += weight_pg * pg_ratio * (Hpg[1]);
+        // B += weight_pg * pg_ratio * (Bpg[1]);
+        H += weight_pg * pg_ratio * (Hpg[0] + Hpg[1]);
+        B += weight_pg * pg_ratio * (Bpg[0] + Bpg[1]);
 
+        Estimate_PG_Angles = false;
 
         
         if (OptType == 3)// G as diagonal 
@@ -2240,13 +2345,15 @@ void QuadOpt::opt(){
                 family = 3;
             }
 
-            bnm_start = vnbr * 12;
+            bnm_start = vnbr * 18;
             assemble_binormal_conditions(Hbnm[2], Bbnm[2], Ebnm2, family, bnm_start);
             H += weight_pg * Hbnm[2];
             B += weight_pg * Bbnm[2];
+            std::cout<<"check 5"<<std::endl;
 
             int type = 2; 
             assemble_pg_extreme_cases(Hpg[2], Bpg[2], Epg[2], type, family, bnm_start);
+            std::cout<<"check 6"<<std::endl;
             H += weight_pg * Hpg[2];
             B += weight_pg * Bpg[2];
         }
@@ -2337,6 +2444,7 @@ void QuadOpt::opt(){
 void QuadOpt::show_curve_families(std::array<Eigen::MatrixXd, 3>& edges){
     int row_m = rowinfo.size() / 2;
     int col_m = rowinfo[row_m].size() / 2;
+
     int vid = rowinfo[row_m][col_m]; // choose a point in the middle
 
     std::vector<Eigen::Vector3d> vtp;
@@ -2351,6 +2459,7 @@ void QuadOpt::show_curve_families(std::array<Eigen::MatrixXd, 3>& edges){
         vtp.push_back(V.row(vnext));
         vcurrent = vnext;
     }
+
     edges[0] = vec_list_to_matrix(vtp);
 
     vtp.clear();
@@ -2370,15 +2479,14 @@ void QuadOpt::show_curve_families(std::array<Eigen::MatrixXd, 3>& edges){
     vtp.clear();
     vcurrent = vid;
     Eigen::VectorXi ajc;
-    if (d0_type > 0)
+    if (WhichDiagonal == 0)
     {
         ajc = d0_back;
     }
-    if (d1_type > 0)
+    if (WhichDiagonal == 1)
     {
         ajc = d1_back;
     }
-    
     for (int i = 0;; i++) // diagonals
     {
         if (ajc[vcurrent] < 0)
