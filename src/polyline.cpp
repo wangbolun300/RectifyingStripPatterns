@@ -1391,14 +1391,7 @@ void QuadOpt::assemble_fairness(spMat& H, Eigen::VectorXd& B, Eigen::VectorXd &e
             Eigen::Vector3d Ver(GlobVars[lvx], GlobVars[lvy], GlobVars[lvz]);
             Eigen::Vector3d Vfr(GlobVars[lrfx], GlobVars[lrfy], GlobVars[lrfz]);
             Eigen::Vector3d Vbk(GlobVars[lrbx], GlobVars[lrby], GlobVars[lrbz]);
-            Eigen::Vector3d Ver_o(OrigVars[lvx], OrigVars[lvy], OrigVars[lvz]);
-            Eigen::Vector3d Vfr_o(OrigVars[lrfx], OrigVars[lrfy], OrigVars[lrfz]);
-            Eigen::Vector3d Vbk_o(OrigVars[lrbx], OrigVars[lrby], OrigVars[lrbz]);
-            
-            double ratiof = (Ver_o - Vfr_o).norm() / (Vbk_o - Vfr_o).norm();
-            if((Vbk_o - Vfr_o).norm() == 0){
-                std::cout<<"NAN happens in fairness term"<<std::endl;
-            }
+            double ratiof = (Ver - Vfr).norm() / (Vbk - Vfr).norm();
             assert((Vbk - Vfr).norm() > 0);
             counter = i;
             push_fairness_conditions(tripletes, energy, lvx, lrfx, lrbx, Ver[0], Vfr[0], Vbk[0], counter, ratiof);
@@ -1414,14 +1407,7 @@ void QuadOpt::assemble_fairness(spMat& H, Eigen::VectorXd& B, Eigen::VectorXd &e
             Eigen::Vector3d Ver(GlobVars[lvx], GlobVars[lvy], GlobVars[lvz]);
             Eigen::Vector3d Vfr(GlobVars[lcfx], GlobVars[lcfy], GlobVars[lcfz]);
             Eigen::Vector3d Vbk(GlobVars[lcbx], GlobVars[lcby], GlobVars[lcbz]);
-            Eigen::Vector3d Ver_o(OrigVars[lvx], OrigVars[lvy], OrigVars[lvz]);
-            Eigen::Vector3d Vfr_o(OrigVars[lrfx], OrigVars[lrfy], OrigVars[lrfz]);
-            Eigen::Vector3d Vbk_o(OrigVars[lrbx], OrigVars[lrby], OrigVars[lrbz]);
-            
-            double ratiof = (Ver_o - Vfr_o).norm() / (Vbk_o - Vfr_o).norm();
-            if((Vbk_o - Vfr_o).norm() == 0){
-                std::cout<<"NAN happens in fairness term"<<std::endl;
-            }
+            double ratiof = (Ver - Vfr).norm() / (Vbk - Vfr).norm();
             assert((Vbk - Vfr).norm() > 0);
             counter = i + vnbr * 3;
             push_fairness_conditions(tripletes, energy, lvx, lcfx, lcbx, Ver[0], Vfr[0], Vbk[0], counter, ratiof);
@@ -1437,14 +1423,7 @@ void QuadOpt::assemble_fairness(spMat& H, Eigen::VectorXd& B, Eigen::VectorXd &e
             Eigen::Vector3d Ver(GlobVars[lvx], GlobVars[lvy], GlobVars[lvz]);
             Eigen::Vector3d Vfr(GlobVars[ld0fx], GlobVars[ld0fy], GlobVars[ld0fz]);
             Eigen::Vector3d Vbk(GlobVars[ld0bx], GlobVars[ld0by], GlobVars[ld0bz]);
-            Eigen::Vector3d Ver_o(OrigVars[lvx], OrigVars[lvy], OrigVars[lvz]);
-            Eigen::Vector3d Vfr_o(OrigVars[lrfx], OrigVars[lrfy], OrigVars[lrfz]);
-            Eigen::Vector3d Vbk_o(OrigVars[lrbx], OrigVars[lrby], OrigVars[lrbz]);
-            
-            double ratiof = (Ver_o - Vfr_o).norm() / (Vbk_o - Vfr_o).norm();
-            if((Vbk_o - Vfr_o).norm() == 0){
-                std::cout<<"NAN happens in fairness term"<<std::endl;
-            }
+            double ratiof = (Ver - Vfr).norm() / (Vbk - Vfr).norm();
             assert((Vbk - Vfr).norm() > 0);
             counter = i + vnbr * 6;
             push_fairness_conditions(tripletes, energy, lvx, ld0fx, ld0bx, Ver[0], Vfr[0], Vbk[0], counter, ratiof);
@@ -1458,14 +1437,7 @@ void QuadOpt::assemble_fairness(spMat& H, Eigen::VectorXd& B, Eigen::VectorXd &e
             Eigen::Vector3d Ver(GlobVars[lvx], GlobVars[lvy], GlobVars[lvz]);
             Eigen::Vector3d Vfr(GlobVars[ld1fx], GlobVars[ld1fy], GlobVars[ld1fz]);
             Eigen::Vector3d Vbk(GlobVars[ld1bx], GlobVars[ld1by], GlobVars[ld1bz]);
-            Eigen::Vector3d Ver_o(OrigVars[lvx], OrigVars[lvy], OrigVars[lvz]);
-            Eigen::Vector3d Vfr_o(OrigVars[lrfx], OrigVars[lrfy], OrigVars[lrfz]);
-            Eigen::Vector3d Vbk_o(OrigVars[lrbx], OrigVars[lrby], OrigVars[lrbz]);
-            
-            double ratiof = (Ver_o - Vfr_o).norm() / (Vbk_o - Vfr_o).norm();
-            if((Vbk_o - Vfr_o).norm() == 0){
-                std::cout<<"NAN happens in fairness term"<<std::endl;
-            }
+            double ratiof = (Ver - Vfr).norm() / (Vbk - Vfr).norm();
             assert((Vbk - Vfr).norm() > 0);
             counter = i + vnbr * 9;
             push_fairness_conditions(tripletes, energy, lvx, ld1fx, ld1bx, Ver[0], Vfr[0], Vbk[0], counter, ratiof);
