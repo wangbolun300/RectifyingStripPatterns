@@ -990,7 +990,7 @@ void lsTools::Run_Mesh_Opt(){
     if (vars != Glob_Vars.topRows(vnbr * 3)) {
         std::cout << "vars diff from glob vars" << std::endl;
     }
-    double energy_smooth=(V.transpose()*QcH*V).norm();
+    double energy_smooth=(Hsmooth*Glob_Vars.topRows(vnbr * 3)).norm();
     /*double energy_mvl = (MVLap * vars).norm();*/
     std::cout<<"Mesh Opt: smooth, "<< energy_smooth <<", ";
     if (!enable_extreme_cases) {
@@ -1136,7 +1136,7 @@ void lsTools::Run_AAG_Mesh_Opt(Eigen::VectorXd& func0, Eigen::VectorXd& func1, E
     if (vars != Glob_Vars.topRows(vnbr * 3)) {
         std::cout << "vars diff from glob vars" << std::endl;
     }
-    double energy_smooth=(V.transpose()*QcH*V).norm();
+    double energy_smooth = (Hsmooth * Glob_Vars.topRows(vnbr * 3)).norm();
     std::cout<<"Mesh Opt: smooth, "<< energy_smooth <<", ";
     /*double energy_mvl = (MVLap * vars).norm();*/
     double energy_ls[3];
@@ -1267,7 +1267,7 @@ void lsTools::Run_AGG_Mesh_Opt(Eigen::VectorXd& func0, Eigen::VectorXd& func1, E
     if (vars != Glob_Vars.topRows(vnbr * 3)) {
         std::cout << "vars diff from glob vars" << std::endl;
     }
-    double energy_smooth=(V.transpose()*QcH*V).norm();
+    double energy_smooth = (Hsmooth * Glob_Vars.topRows(vnbr * 3)).norm();
     std::cout<<"Mesh Opt: smooth, "<< energy_smooth <<", ";
     /*double energy_mvl = (MVLap * vars).norm();*/
     double energy_ls[3];

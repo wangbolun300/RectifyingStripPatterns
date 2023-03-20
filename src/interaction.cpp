@@ -772,7 +772,7 @@ void lsTools::Run_Level_Set_Opt_interactive(const bool compute_pg)
 	func += dx.topRows(vnbr);
 	fvalues = func;
 	Glob_lsvars += dx;
-	double energy_biharmonic = func.transpose() * QcH * func;
+	double energy_biharmonic = (QcH * func).norm();
 	double energy_boundary = (bcfvalue).norm();
 	std::cout << "energy: harm " << energy_biharmonic << ", bnd " << energy_boundary << ", ";
     // std::cout<<"check 5.5"<<std::endl;

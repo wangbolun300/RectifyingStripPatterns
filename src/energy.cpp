@@ -2286,7 +2286,7 @@ void lsTools::Run_Level_Set_Opt() {
 	func += dx.topRows(vnbr);
 	fvalues = func;
 	Glob_lsvars += dx;
-	double energy_biharmonic = func.transpose() * QcH * func;
+	double energy_biharmonic = (QcH * func).norm();
 	double energy_boundary = (bcfvalue).norm();
 	std::cout << "energy: harm " << energy_biharmonic << ", bnd " << energy_boundary << ", ";
 	if (enable_pseudo_geodesic_energy)
@@ -2455,9 +2455,9 @@ void lsTools::Run_AAG(Eigen::VectorXd& func0, Eigen::VectorXd& func1, Eigen::Vec
 
 	// energy evaluation
 	double energy_biharmonic[3];
-	energy_biharmonic[0] = func0.transpose() * QcH * func0;
-	energy_biharmonic[1] = func1.transpose() * QcH * func1;
-	energy_biharmonic[2] = func2.transpose() * QcH * func2;
+	energy_biharmonic[0] = (QcH * func0).norm();
+	energy_biharmonic[1] = (QcH * func1).norm();
+	energy_biharmonic[2] = (QcH * func2).norm();
 	std::cout << "energy: harm " << energy_biharmonic[0] << ", "<<energy_biharmonic[1] << ", "<<energy_biharmonic[2] << ", ";
 	if (enable_pseudo_geodesic_energy)
 	{
@@ -2621,9 +2621,9 @@ void lsTools::Run_AGG(Eigen::VectorXd& func0, Eigen::VectorXd& func1, Eigen::Vec
 
 	// energy evaluation
 	double energy_biharmonic[3];
-	energy_biharmonic[0] = func0.transpose() * QcH * func0;
-	energy_biharmonic[1] = func1.transpose() * QcH * func1;
-	energy_biharmonic[2] = func2.transpose() * QcH * func2;
+	energy_biharmonic[0] = (QcH * func0).norm();
+	energy_biharmonic[1] = (QcH * func1).norm();
+	energy_biharmonic[2] = (QcH * func2).norm();
 	std::cout << "energy: harm " << energy_biharmonic[0] << ", "<<energy_biharmonic[1] << ", "<<energy_biharmonic[2] << ", ";
 	if (enable_pseudo_geodesic_energy)
 	{
@@ -2800,9 +2800,9 @@ void lsTools::Run_PPG(Eigen::VectorXd& func0, Eigen::VectorXd& func1, Eigen::Vec
 
 	// energy evaluation
 	double energy_biharmonic[3];
-	energy_biharmonic[0] = func0.transpose() * QcH * func0;
-	energy_biharmonic[1] = func1.transpose() * QcH * func1;
-	energy_biharmonic[2] = func2.transpose() * QcH * func2;
+	energy_biharmonic[0] = (QcH * func0).norm();
+	energy_biharmonic[1] = (QcH * func1).norm();
+	energy_biharmonic[2] = (QcH * func2).norm();
 	std::cout << "energy: harm " << energy_biharmonic[0] << ", "<<energy_biharmonic[1] << ", "<<energy_biharmonic[2] << ", ";
 	if (enable_pseudo_geodesic_energy)
 	{
@@ -2992,7 +2992,7 @@ void lsTools::Run_Othogonal_Levelset(const Eigen::VectorXd &func_ref)
 	func += dx.topRows(vnbr);
 	fvalues = func;
 	Glob_lsvars += dx;
-	double energy_biharmonic = func.transpose() * QcH * func;
+	double energy_biharmonic = (QcH * func).norm();
 	double energy_boundary = (bcfvalue).norm();
 	std::cout << "energy: harm " << energy_biharmonic << ", bnd " << energy_boundary << ", ";
 	if (enable_pseudo_geodesic_energy)
