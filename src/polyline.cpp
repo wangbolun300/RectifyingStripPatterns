@@ -1174,14 +1174,14 @@ void QuadOpt::init(CGMesh &mesh_in, const std::string &prefix)
     read_csv_data_lbl(prefix + "_cols.csv", colstmp);
     rowinfo = rowstmp;
     colinfo = colstmp;
-    for (int i = 0; i < rowinfo.size(); i++)
-    {
-        std::cout << "init, row size, " << i << "th, " << rowinfo[i].size() << std::endl;
-    }
-    for (int i = 0; i < colinfo.size(); i++)
-    {
-        std::cout << "init, col size, " << i << "th, " << colinfo[i].size() << std::endl;
-    }
+    // for (int i = 0; i < rowinfo.size(); i++)
+    // {
+    //     std::cout << "init, row size, " << i << "th, " << rowinfo[i].size() << std::endl;
+    // }
+    // for (int i = 0; i < colinfo.size(); i++)
+    // {
+    //     std::cout << "init, col size, " << i << "th, " << colinfo[i].size() << std::endl;
+    // }
 
     int vnbr = V.rows();
     if (OptType == 0)// AAG
@@ -2577,10 +2577,7 @@ void QuadOpt::write_polyline_info(){
     }
     std::vector<std::vector<Eigen::Vector3d>> lines_rows, lines_cols,
         bi_rows, bi_cols;
-    lines_rows.resize(rowinfo.size());
-    bi_rows.resize(rowinfo.size());
-    lines_cols.resize(colinfo.size());
-    bi_cols.resize(colinfo.size());
+
     int vnbr = V.rows();
     // extract the family 0
     int family = 0;
@@ -2591,24 +2588,44 @@ void QuadOpt::write_polyline_info(){
     {
         line.clear();
         binormal.clear();
+
         for (int j = 0; j < rowinfo[i].size(); j++)
         {
             int vid = rowinfo[i][j];
             if (vid < 0)
             {
+                if (line.size() > 0)
+                {
+                    int real_size = line.size();
+                    if (real_size > 2)
+                    {
+                        binormal[0] = binormal[1];
+                        binormal[real_size - 1] = binormal[real_size - 2];
+                        lines_rows.push_back(line);
+                        bi_rows.push_back(binormal);
+                    }
+                    line.clear();
+                    binormal.clear();
+                }
                 continue;
             }
+
             Eigen::Vector3d b_local;
             extract_binormals(family, bnm_start, vid, b_local);
             line.push_back(V.row(vid));
             binormal.push_back(b_local);
         }
-        int real_size = line.size();
-        binormal[0] = binormal[1];
-        binormal[real_size - 1] = binormal[real_size - 2];
-        lines_rows[i] = line;
-        bi_rows[i] = binormal;
-        std::cout << i << "th, " << lines_rows[i].size() << ", " << bi_rows[i].size()<<", "<<rowinfo[i].size() << std::endl;
+        if (line.size() > 0)
+        {
+            int real_size = line.size();
+            if (real_size > 2)
+            {
+                binormal[0] = binormal[1];
+                binormal[real_size - 1] = binormal[real_size - 2];
+                lines_rows.push_back(line);
+                bi_rows.push_back(binormal);
+            }
+        }
     }
     family = 1;
     bnm_start =  vnbr * 12;
@@ -2617,27 +2634,46 @@ void QuadOpt::write_polyline_info(){
     {
         line.clear();
         binormal.clear();
+
         for (int j = 0; j < colinfo[i].size(); j++)
         {
             int vid = colinfo[i][j];
             if (vid < 0)
             {
+                if (line.size() > 0)
+                {
+                    int real_size = line.size();
+                    if (real_size > 2)
+                    {
+                        binormal[0] = binormal[1];
+                        binormal[real_size - 1] = binormal[real_size - 2];
+                        lines_cols.push_back(line);
+                        bi_cols.push_back(binormal);
+                    }
+
+                    line.clear();
+                    binormal.clear();
+                }
                 continue;
             }
+  
             Eigen::Vector3d b_local;
             extract_binormals(family, bnm_start, vid, b_local);
             line.push_back(V.row(vid));
             binormal.push_back(b_local);
         }
-        int real_size = line.size();
-        binormal[0] = binormal[1];
-        binormal[real_size - 1] = binormal[real_size - 2];
-        lines_cols[i] = line;
-        bi_cols[i] = binormal;
-        std::cout << i << "th, " << lines_rows[i].size() << ", " << bi_rows[i].size()<<", "<<colinfo[i].size() << std::endl;
+        if (line.size() > 0)
+        {
+            int real_size = line.size();
+            if (real_size > 2)
+            {
+                binormal[0] = binormal[1];
+                binormal[real_size - 1] = binormal[real_size - 2];
+                lines_cols.push_back(line);
+                bi_cols.push_back(binormal);
+            }
+        }
     }
-
-    
 
     write_polyline_xyz(lines_rows, fname+"_r");
     write_polyline_xyz(bi_rows, fname + "_r_b");
