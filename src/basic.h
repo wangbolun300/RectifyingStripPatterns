@@ -433,6 +433,8 @@ private:
     void assemble_solver_shading_mesh_opt(const Eigen::VectorXd &func, const Eigen::Vector3d &ray,
                                            const LSAnalizer &analizer,
                                            spMat &JTJ, Eigen::VectorXd &B, Eigen::VectorXd &MTEnergy);
+    void assemble_solver_curve_smooth_mesh_opt(const LSAnalizer &analizer,
+                                           spMat &JTJ, Eigen::VectorXd &B, Eigen::VectorXd &energy);
     void update_mesh_properties();// the mesh properties (normals, laplacian, etc.) get updated before optimization
 
 
