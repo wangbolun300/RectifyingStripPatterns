@@ -2672,8 +2672,11 @@ int main(int argc, char *argv[])
 				}
 				
 				viewer.data().add_edges(lscif::quad_tool.Enm0, lscif::quad_tool.Enm1, green);
-				
-				
+			}
+			if (ImGui::Button("writePlyInfo", ImVec2(ImGui::GetWindowSize().x * 0.25f, 0.0f)))
+			{
+				lscif::quad_tool.write_polyline_info();
+
 			}
 			
 			

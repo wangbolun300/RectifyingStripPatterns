@@ -185,6 +185,8 @@ public:
     void opt();
     void reset();
     void show_curve_families(std::array<Eigen::MatrixXd, 3>& edges); 
+    void extract_binormals(const int family, const int bnm_start, const int vid, Eigen::Vector3d& bi);
+    void write_polyline_info();
 private:
     MeshProcessing MP;
     int varsize;

@@ -961,6 +961,11 @@ void PolyOpt::save_polyline_and_binormals_as_files(const bool rotated)
 {
     std::cout << "Saving the binormal files, please provide the prefix" << std::endl;
     std::string fname = igl::file_dialog_save();
+    if (fname.length() == 0)
+    {
+        std::cout << "\nLSC: save mesh failed, please type down the correct name" << std::endl;
+        return;
+    }
     std::vector<std::vector<Eigen::Vector3d>> lines, binormals;
     if (rotated)
     {
@@ -1169,6 +1174,14 @@ void QuadOpt::init(CGMesh &mesh_in, const std::string &prefix)
     read_csv_data_lbl(prefix + "_cols.csv", colstmp);
     rowinfo = rowstmp;
     colinfo = colstmp;
+    for (int i = 0; i < rowinfo.size(); i++)
+    {
+        std::cout << "init, row size, " << i << "th, " << rowinfo[i].size() << std::endl;
+    }
+    for (int i = 0; i < colinfo.size(); i++)
+    {
+        std::cout << "init, col size, " << i << "th, " << colinfo[i].size() << std::endl;
+    }
 
     int vnbr = V.rows();
     if (OptType == 0)// AAG
@@ -2472,4 +2485,164 @@ void QuadOpt::show_curve_families(std::array<Eigen::MatrixXd, 3>& edges){
     edges[2] = vec_list_to_matrix(vtp);
     
 
+}
+void QuadOpt::extract_binormals(const int family, const int bnm_start, const int vid, Eigen::Vector3d &bi)
+{
+    int vnbr = V.rows();
+    int rf = row_front[vid];
+    int rb = row_back[vid];
+    int cf = col_front[vid];
+    int cb = col_back[vid];
+    int d0f = d0_front[vid];
+    int d0b = d0_back[vid];
+    int d1f = d1_front[vid];
+    int d1b = d1_back[vid];
+    // the locations
+    // the vertex
+    int lvx = vid;
+    int lvy = vid + vnbr;
+    int lvz = vid + 2 * vnbr;
+    // the front and back vertices
+    int lfx, lfy, lfz, lbx, lby, lbz;
+    // the binormal vector locations
+    int lrx = bnm_start + vid;
+    int lry = bnm_start + vid + vnbr;
+    int lrz = bnm_start + vid + vnbr * 2;
+    bool compute = true;
+    if (family == 0) // rows
+    {
+        lfx = rf;
+        lfy = rf + vnbr;
+        lfz = rf + vnbr * 2;
+
+        lbx = rb;
+        lby = rb + vnbr;
+        lbz = rb + vnbr * 2;
+    }
+    if (family == 1) // cols
+    {
+        lfx = cf;
+        lfy = cf + vnbr;
+        lfz = cf + vnbr * 2;
+
+        lbx = cb;
+        lby = cb + vnbr;
+        lbz = cb + vnbr * 2;
+    }
+    if (family == 2) // d0
+    {
+        lfx = d0f;
+        lfy = d0f + vnbr;
+        lfz = d0f + vnbr * 2;
+
+        lbx = d0b;
+        lby = d0b + vnbr;
+        lbz = d0b + vnbr * 2;
+    }
+
+    if (family == 3) // d1
+    {
+
+        lfx = d1f;
+        lfy = d1f + vnbr;
+        lfz = d1f + vnbr * 2;
+
+        lbx = d1b;
+        lby = d1b + vnbr;
+        lbz = d1b + vnbr * 2;
+    }
+    if (lfx < 0 || lbx < 0)// this is an end point
+    {
+        compute = false;
+    }
+
+    if (compute == false)
+    { // the vertex is on the boundary
+        bi = Eigen::Vector3d(0, 0, 0);
+        return;
+    }
+    Eigen::Vector3d Ver(GlobVars[lvx], GlobVars[lvy], GlobVars[lvz]);
+    Eigen::Vector3d Vf(GlobVars[lfx], GlobVars[lfy], GlobVars[lfz]);
+    Eigen::Vector3d Vb(GlobVars[lbx], GlobVars[lby], GlobVars[lbz]);
+    Eigen::Vector3d r(GlobVars[lrx], GlobVars[lry], GlobVars[lrz]);
+    bi = r;
+}
+
+void QuadOpt::write_polyline_info(){
+    std::string fname = igl::file_dialog_save();
+    if (fname.length() == 0)
+    {
+        std::cout << "\nLSC: save mesh failed, please type down the correct name" << std::endl;
+        return;
+    }
+    std::vector<std::vector<Eigen::Vector3d>> lines_rows, lines_cols,
+        bi_rows, bi_cols;
+    lines_rows.resize(rowinfo.size());
+    bi_rows.resize(rowinfo.size());
+    lines_cols.resize(colinfo.size());
+    bi_cols.resize(colinfo.size());
+    int vnbr = V.rows();
+    // extract the family 0
+    int family = 0;
+    int bnm_start = vnbr * 6;
+    std::cout<<"Row: ";
+    std::vector<Eigen::Vector3d> line, binormal;
+    for (int i = 0; i < rowinfo.size(); i++)
+    {
+        line.clear();
+        binormal.clear();
+        for (int j = 0; j < rowinfo[i].size(); j++)
+        {
+            int vid = rowinfo[i][j];
+            if (vid < 0)
+            {
+                continue;
+            }
+            Eigen::Vector3d b_local;
+            extract_binormals(family, bnm_start, vid, b_local);
+            line.push_back(V.row(vid));
+            binormal.push_back(b_local);
+        }
+        int real_size = line.size();
+        binormal[0] = binormal[1];
+        binormal[real_size - 1] = binormal[real_size - 2];
+        lines_rows[i] = line;
+        bi_rows[i] = binormal;
+        std::cout << i << "th, " << lines_rows[i].size() << ", " << bi_rows[i].size()<<", "<<rowinfo[i].size() << std::endl;
+    }
+    family = 1;
+    bnm_start =  vnbr * 12;
+    std::cout<<"Col: ";
+    for (int i = 0; i < colinfo.size(); i++)
+    {
+        line.clear();
+        binormal.clear();
+        for (int j = 0; j < colinfo[i].size(); j++)
+        {
+            int vid = colinfo[i][j];
+            if (vid < 0)
+            {
+                continue;
+            }
+            Eigen::Vector3d b_local;
+            extract_binormals(family, bnm_start, vid, b_local);
+            line.push_back(V.row(vid));
+            binormal.push_back(b_local);
+        }
+        int real_size = line.size();
+        binormal[0] = binormal[1];
+        binormal[real_size - 1] = binormal[real_size - 2];
+        lines_cols[i] = line;
+        bi_cols[i] = binormal;
+        std::cout << i << "th, " << lines_rows[i].size() << ", " << bi_rows[i].size()<<", "<<colinfo[i].size() << std::endl;
+    }
+
+    
+
+    write_polyline_xyz(lines_rows, fname+"_r");
+    write_polyline_xyz(bi_rows, fname + "_r_b");
+    write_polyline_xyz(lines_cols, fname+"_c");
+    write_polyline_xyz(bi_cols, fname + "_c_b");
+    std::cout << "files get saved" << std::endl;
+    
 }
