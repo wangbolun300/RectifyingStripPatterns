@@ -1767,10 +1767,10 @@ void QuadOpt::assemble_pg_extreme_cases(spMat &H, Eigen::VectorXd &B, Eigen::Vec
             lby = d1b + vnbr;
             lbz = d1b + vnbr * 2;
         }
-        if (rf < 0 || rb < 0 || cf < 0 || cb < 0)// it does not have a normal vector properly defined
-        {
-            compute = false;
-        }
+        // if (rf < 0 || rb < 0 || cf < 0 || cb < 0)// it does not have a normal vector properly defined
+        // {
+        //     compute = false;
+        // }
         if (lfx < 0 || lbx < 0)
         {
             compute = false;
@@ -1904,10 +1904,10 @@ void QuadOpt::assemble_pg_cases(const double angle_radian, spMat &H, Eigen::Vect
             lby = d1b + vnbr;
             lbz = d1b + vnbr * 2;
         }
-        if (rf < 0 || rb < 0 || cf < 0 || cb < 0)
-        {
-            compute = false;
-        }
+        // if (rf < 0 || rb < 0 || cf < 0 || cb < 0)
+        // {
+        //     compute = false;
+        // }
         if (lfx < 0 || lbx < 0)
         {
             compute = false;
