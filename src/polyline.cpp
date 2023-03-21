@@ -2052,10 +2052,29 @@ void QuadOpt::assemble_normal_conditions(spMat& H, Eigen::VectorXd& B, Eigen::Ve
         int rb = row_back[vid];
         int cf = col_front[vid];
         int cb = col_back[vid];
-        int d0f = d0_front[vid];
-        int d0b = d0_back[vid];
-        int d1f = d1_front[vid];
-        int d1b = d1_back[vid];
+        // if on one direction, there is no vertex, we use the current vertex to replace it for normal vector 
+        // calculation. In such a way, the orientaion of the normal vector will not change.
+        if (rf < 0)
+        {
+            rf = vid;
+        }
+        if (rb < 0)
+        {
+            rb = vid;
+        }
+        if (cf < 0)
+        {
+            cf = vid;
+        }
+        if (cb < 0)
+        {
+            cb = vid;
+        }
+
+        // int d0f = d0_front[vid];
+        // int d0b = d0_back[vid];
+        // int d1f = d1_front[vid];
+        // int d1b = d1_back[vid];
         // the locations
         // the vertex
         int lvx = vid;
@@ -2081,25 +2100,51 @@ void QuadOpt::assemble_normal_conditions(spMat& H, Eigen::VectorXd& B, Eigen::Ve
         int lnx = i + vnbr * 3;
         int lny = i + vnbr * 4;
         int lnz = i + vnbr * 5;
-
-        bool row_smt = true;
-        bool col_smt = true;
+        // bool row_smt = true;
+        // bool col_smt = true;
         
-        if (rf < 0 || rb < 0)
-        {
-            row_smt = false;
-        }
-        if (cf < 0 || cb < 0)
-        {
-            col_smt = false;
-        }
-        if (row_smt == false || col_smt == false)
-        { // the vertex is on the boundary
-            if(!ComputeAuxiliaries){
-                // here we choose doing nothing and care only about inner vertices
-            }
-            continue;
-        }
+        // if (rf < 0 || rb < 0)
+        // {
+        //     row_smt = false;
+        // }
+        // if (cf < 0 || cb < 0)
+        // {
+        //     col_smt = false;
+        // }
+        // if (row_smt == false || col_smt == false)
+        // { // the vertex is on the boundary, need special conditions
+        //     // std::vector<int> topos;//record the vids of the neibouring vers
+        //     // topos.reserve(3);
+        //     // if (rf >= 0)
+        //     // {
+        //     //     topos.push_back(rf);
+        //     // }
+        //     // if (rb >= 0)
+        //     // {
+        //     //     topos.push_back(rb);
+        //     // }
+        //     // if (cf >= 0)
+        //     // {
+        //     //     topos.push_back(cf);
+        //     // }
+        //     // if (cb >= 0)
+        //     // {
+        //     //     topos.push_back(cb);
+        //     // }
+        //     // Eigen::Vector3d AvgNormal(0,0,0);
+        //     // for (int itr = 0; itr < topos.size(); itr++)
+        //     // {
+        //     //     int lneix = topos[itr] + vnbr * 3;
+        //     //     int lneiy = topos[itr] + vnbr * 4;
+        //     //     int lneiz = topos[itr] + vnbr * 5;
+        //     //     Eigen::Vector3d NeiNormal(GlobVars[lneix], GlobVars[lneiy], GlobVars[lneiz]);
+        //     //     AvgNormal += NeiNormal;
+        //     // }
+
+        //     // 
+
+        //     continue;
+        // }
         
         Eigen::Vector3d Ver(GlobVars[lvx], GlobVars[lvy], GlobVars[lvz]);
         Eigen::Vector3d Vrf(GlobVars[lrfx], GlobVars[lrfy], GlobVars[lrfz]);
