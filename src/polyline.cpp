@@ -1721,9 +1721,9 @@ void QuadOpt::assemble_pg_extreme_cases(spMat &H, Eigen::VectorXd &B, Eigen::Vec
         int lvz = vid + 2 * vnbr;
         // the front and back vertices
         int lfx, lfy, lfz, lbx, lby, lbz;
-        int lnx = vnbr * 3 + i;
-        int lny = vnbr * 4 + i;
-        int lnz = vnbr * 5 + i;
+        int lnx = vnbr * 3 + vid;
+        int lny = vnbr * 4 + vid;
+        int lnz = vnbr * 5 + vid;
         bool compute = true;
         if (family == 0) // rows
         {
@@ -1767,7 +1767,11 @@ void QuadOpt::assemble_pg_extreme_cases(spMat &H, Eigen::VectorXd &B, Eigen::Vec
             lby = d1b + vnbr;
             lbz = d1b + vnbr * 2;
         }
-        if (rf < 0 || rb < 0 || cf < 0 || cb < 0)
+        if (rf < 0 || rb < 0 || cf < 0 || cb < 0)// it does not have a normal vector properly defined
+        {
+            compute = false;
+        }
+        if (lfx < 0 || lbx < 0)
         {
             compute = false;
         }
@@ -1775,6 +1779,16 @@ void QuadOpt::assemble_pg_extreme_cases(spMat &H, Eigen::VectorXd &B, Eigen::Vec
         {
             continue;
         }
+        if(!(lvx >= 0 && lfx >= 0 && lbx >= 0 && lnx >= 0)){
+            std::cout << lvx << ", " << lfx << ", " << lbx << ", " << lnx << std::endl;
+        }
+        assert(lvx >= 0 && lfx >= 0 && lbx >= 0 && lnx >= 0);
+        assert(lvy >= 0 && lfy >= 0 && lby >= 0 && lny >= 0);
+        assert(lvz >= 0 && lfz >= 0 && lbz >= 0 && lnz >= 0);
+
+        assert(lvx <= GlobVars.size() && lfx <= GlobVars.size() && lbx <= GlobVars.size() && lnx <= GlobVars.size());
+        assert(lvy <= GlobVars.size() && lfy <= GlobVars.size() && lby <= GlobVars.size() && lny <= GlobVars.size());
+        assert(lvz <= GlobVars.size() && lfz <= GlobVars.size() && lbz <= GlobVars.size() && lnz <= GlobVars.size());
         Eigen::Vector3d Ver(GlobVars[lvx], GlobVars[lvy], GlobVars[lvz]);
         Eigen::Vector3d Vfr(GlobVars[lfx], GlobVars[lfy], GlobVars[lfz]);
         Eigen::Vector3d Vbk(GlobVars[lbx], GlobVars[lby], GlobVars[lbz]);
@@ -1794,7 +1808,6 @@ void QuadOpt::assemble_pg_extreme_cases(spMat &H, Eigen::VectorXd &B, Eigen::Vec
             push_geodesic_condition(tripletes, energy, counter, lnx, lny, lnz, lrx, lry, lrz, norm, r);
         }
     }
-
     // std::cout<<"check 2"<<std::endl;
     spMat J;
     J.resize(energy.size(), GlobVars.size());
@@ -1892,6 +1905,10 @@ void QuadOpt::assemble_pg_cases(const double angle_radian, spMat &H, Eigen::Vect
             lbz = d1b + vnbr * 2;
         }
         if (rf < 0 || rb < 0 || cf < 0 || cb < 0)
+        {
+            compute = false;
+        }
+        if (lfx < 0 || lbx < 0)
         {
             compute = false;
         }
