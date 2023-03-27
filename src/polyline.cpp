@@ -183,7 +183,106 @@ void convert_polyline_to_developable_strips_reflection_method(const std::vector<
     creases[vnbr - 1] = ruling;
 }
 
+// the nbr of vers - 1 = the nbr of length = the nbr of angles + 1.
+void check_strip_straightness(const std::vector<double>& lengths, const std::vector<double> &angles){
+    // set the initial direction as (0, 0) ->(0, 1)
+    int vnbr = lengths.size() + 1;
+    Eigen::MatrixXd pts;
+    double total_length = 0;
+    pts.resize(vnbr, 2);
+    pts.row(0) = Eigen::Vector2d(0, 0);
+    pts.row(1) = Eigen::Vector2d(0, lengths[0]);
+    total_length+=lengths[0];
+    for (int i = 2; i < vnbr; i++)
+    {
+        // solve pts[i]
+        // the reference direction from i-2 to i-1,
+        Eigen::Vector2d ref_dirc = (pts.row(i - 1) - pts.row(i - 2)).normalized();
+        double ang_diff = LSC_PI - angles[i - 2]; // counter clock rotation
+        double len = lengths[i - 1];
+        total_length+=len;
+        double a = cos(ang_diff);
+        double b = sin(ang_diff);
+        Eigen::Vector2d ref_otho(-ref_dirc[1], ref_dirc[0]); // the othogonal vector is (-y, x)
+        // new direction is a * ref_dirc + b * ref_otho.
+        Eigen::Vector2d direction = a * ref_dirc + b * ref_otho;
+        Eigen::Vector2d newpt = Eigen::Vector2d(pts.row(i - 1)) + direction * len;
+        pts.row(i) = newpt;
+    }
+    Eigen::VectorXd iden = Eigen::VectorXd::Ones(vnbr);
+    Eigen::Vector2d centroid = pts.transpose() * iden;
+    centroid /= vnbr;
+    Eigen::MatrixXd y = pts.rowwise() - centroid.transpose();// y is a matrix of n x 2
+    Eigen::Matrix2d YTY = y.transpose() * y;// 2 x 2
+    Eigen::EigenSolver<Eigen::MatrixXd> eg(YTY);
+    Eigen::VectorXcd ev = eg.eigenvalues();
+    int minevid = ev[0].real() < ev[1].real() ? 0 : 1;
+    Eigen::VectorXcd eigenvecC = eg.eigenvectors().col(minevid);
+    Eigen::Vector2d eigenvec(eigenvecC[0].real(), eigenvecC[1].real());
+    Eigen::Vector2d n = eigenvec.normalized();// this is othogonal to the regression line.
 
+    Eigen::VectorXd proj_dis = (y * n).rowwise().norm();
+    std::cout<<"The maximal derivate: "<<proj_dis.maxCoeff()<<", the total length of this polyline: "<<total_length<<std::endl;
+}
+
+// the tangents are on each vertex. 
+// evaluate the rectifying planes intersects with each other
+void evaluate_intersect_rectifying(const std::vector<Eigen::Vector3d> &vertices, const std::vector<Eigen::Vector3d> &tangents,
+                                   const std::vector<Eigen::Vector3d> &binormals, const std::vector<double>& lengths)
+{
+    int vnbr = vertices.size();
+    double angle_diff = 0;
+    std::vector<double> angles;
+    angles.resize(vnbr - 1);
+    
+    for (int i = 0; i < vnbr - 1; i++)
+    {
+        Eigen::Vector3d normal1 = (tangents[i].cross(binormals[i])).normalized();
+        Eigen::Vector3d normal2 = (tangents[i + 1].cross(binormals[i + 1])).normalized();
+        Eigen::Vector3d crease;
+        if (normal1.cross(normal2).norm() < 1e-6)
+        { // if the two planes are already coplanar, then the crease is the binormal
+            crease = binormals[i];
+        }
+        else
+        {
+            crease = normal1.cross(normal2).normalized();
+        }
+        if (crease.dot(binormals[i]) < 0)
+        { // make sure the crease is the same orientation as the binormals.
+            crease *= -1;
+        }
+        double ang_left = acos(crease.dot(-tangents[i]));
+        double ang_right = acos(crease.dot(tangents[i + 1]));
+        angles[i] = ang_left + ang_right;
+    }
+
+    check_strip_straightness(lengths, angles);
+
+}
+void get_polyline_rectifying_plane_on_inner_vers(const std::vector<Eigen::Vector3d> &ply_in, const std::vector<Eigen::Vector3d> &bnm_in,
+                                                 std::vector<Eigen::Vector3d> &vertices, std::vector<Eigen::Vector3d> &tangents, std::vector<Eigen::Vector3d> &binormals)
+{
+    int vnbr = ply_in.size()-2;
+    vertices.resize(vnbr);
+    tangents.resize(vnbr);
+    binormals.resize(vnbr);
+    std::vector<double> lengths;// the lengths of each segment estimated on each inner vertex.
+    lengths.resize(vnbr);
+    for (int i = 0; i < vnbr; i++)
+    {
+        Eigen::Vector3d dir0 = (ply_in[i + 1] - ply_in[i]).normalized();
+        Eigen::Vector3d dir1 = (ply_in[i + 2] - ply_in[i + 1]).normalized();
+        Eigen::Vector3d bisector = (dir0 + dir1).normalized();
+        vertices[i] = ply_in[i + 1];
+        binormals[i] = bnm_in[i + 1];
+        tangents[i] = bisector;
+        lengths[i] = (ply_in[i + 2] - ply_in[i]).norm() / 2;
+    }
+
+    evaluate_intersect_rectifying(vertices, tangents,binormals,lengths);
+    
+}
 
 void evaluate_strip_developability(const std::vector<Eigen::Vector3d> &ply,
                                    const std::vector<Eigen::Vector3d> &crease, double &planarity, double &angle_diff, double &max_angle_error)
@@ -238,24 +337,33 @@ void evaluate_strip_developability(const std::vector<Eigen::Vector3d> &ply,
 }
 
 void evaluate_and_print_strip_developability(const std::vector<std::vector<Eigen::Vector3d>> &ply,
-                                             const std::vector<std::vector<Eigen::Vector3d>> &crease)
+                                             const std::vector<std::vector<Eigen::Vector3d>> &bnm)
 {
-    double planar_total = 0;
-    double anglediff_total = 0;
-    double max_angle_error = 0;
+    // double planar_total = 0;
+    // double anglediff_total = 0;
+    // double max_angle_error = 0;
     for (int i = 0; i < ply.size(); i++)
     {
-        double planar, anglediff, angle_max;
-        evaluate_strip_developability(ply[i], crease[i], planar, anglediff, angle_max);
-        planar_total += planar;
-        anglediff_total += anglediff;
-        if (angle_max > max_angle_error)
+        std::vector<Eigen::Vector3d> vertices;
+        std::vector<Eigen::Vector3d> tangents;
+        std::vector<Eigen::Vector3d> binormals;
+        // double planar, anglediff, angle_max;
+        if (ply[i].size() < 4)// 4 vertices, resulting in 2 rectifying planes, which has 1 crease
         {
-            max_angle_error = angle_max;
+            continue;
         }
+        get_polyline_rectifying_plane_on_inner_vers(ply[i], bnm[i],
+                                                 vertices, tangents, binormals);                              
+        // evaluate_strip_developability(ply[i], crease[i], planar, anglediff, angle_max);
+        // planar_total += planar;
+        // anglediff_total += anglediff;
+        // if (angle_max > max_angle_error)
+        // {
+        //     max_angle_error = angle_max;
+        // }
     }
-    std::cout << "Evaluate current polylines: planarity: " << planar_total << ", total angle changes of the strip, " << anglediff_total << ", maximal angle error, "
-              << max_angle_error << std::endl;
+    // std::cout << "Evaluate current polylines: planarity: " << planar_total << ", total angle changes of the strip, " << anglediff_total << ", maximal angle error, "
+    //           << max_angle_error << std::endl;
 }
 
     void sample_polylines_and_binormals_evenly(const int nbr_segs, const std::vector<std::vector<Eigen::Vector3d>> &ply_in, const std::vector<std::vector<Eigen::Vector3d>> &bi_in,
@@ -383,9 +491,67 @@ void PolyOpt::init(const std::vector<std::vector<Eigen::Vector3d>> &ply_in, cons
     }
     OriVars = PlyVars;
     RecMesh = polyline_to_strip_mesh(ply, bi, strip_scale);
-    ply_extracted = ply;
-    bin_extracted = bi;
+    // ply_extracted = ply;
+    // bin_extracted = bi;
     endpts_signs = endpts.asDiagonal();
+    opt_for_polyline = true;
+}
+void PolyOpt::init_crease_opt(const std::vector<std::vector<Eigen::Vector3d>> &vertices,
+                              const std::vector<std::vector<Eigen::Vector3d>> &tangents,
+                              const std::vector<std::vector<Eigen::Vector3d>> &binormals)
+{
+
+    int vnbr = 0;
+    for (auto line : vertices)
+    {
+        for (auto ver : line)
+        {
+            vnbr++;
+        }
+    }
+    VerNbr = vnbr;
+    // the variables are the coffecients alpha and beta on each vertex.
+    PlyVars = Eigen::VectorXd::Zero(vnbr * 2);
+    PlyVars.segment(vnbr, vnbr) = Eigen::VectorXd::Ones(vnbr);
+    Front.resize(vnbr);
+    Back.resize(vnbr);
+    vertices_cp.resize(vnbr, 3);
+    tangents_cp.resize(vnbr, 3);
+    binormal_cp.resize(vnbr, 3);
+    VinPly = Eigen::VectorXd::Ones(vnbr) * -1;
+    int counter = 0;
+    for (int i = 0; i < vertices.size(); i++)
+    {
+        for (int j = 0; j < vertices[i].size(); j++)
+        {
+            int location = counter;
+            if (j == 0) // first point of the seg
+            {
+                Front[counter] = -1;
+            }
+            else
+            {
+                Front[counter] = counter - 1;
+            }
+            if (j == vertices[i].size() - 1) // last point of the seg
+            {
+                Back[counter] = -1;
+            }
+            else
+            {
+                Back[counter] = counter + 1;
+            }
+            VinPly[location] = i;
+            vertices_cp.row(counter) = vertices[i][j];
+            tangents_cp.row(counter) = tangents[i][j];
+            binormal_cp.row(counter) = binormals[i][j];
+
+            counter++;
+        }
+    }
+    OriVars = PlyVars;
+    RecMesh = polyline_to_strip_mesh(vertices, binormals, strip_scale);
+    opt_for_crease = true;
 }
 // use this when avoiding flipping of the strips.
 void PolyOpt::force_smoothing_binormals(){
@@ -593,9 +759,7 @@ void PolyOpt::assemble_polyline_smooth(spMat &H, Eigen::VectorXd &B, Eigen::Vect
     B = -J.transpose() * energy;
     // std::cout<<"check 3"<<std::endl;
 }
-void PolyOpt::assemble_smooth_neighbouring_polyline_binormal(spMat& H, Eigen::VectorXd& B, Eigen::VectorXd &energy){
-    
-}
+
 void PolyOpt::assemble_binormal_condition(spMat &H, Eigen::VectorXd &B, Eigen::VectorXd &energy)
 {
     if (Front.size() == 0)
@@ -926,6 +1090,7 @@ void PolyOpt::rotate_back_the_model_to_horizontal_coordinates(const double latit
     rotation << 1, 0, 0,
         0, cos(rho), -sin(rho),
         0, sin(rho), cos(rho);
+    assert(ply_extracted.size() > 0);
     ply_rotated = ply_extracted;
     bin_rotated = bin_extracted;
     for (int i = 0; i < ply_rotated.size(); i++)
@@ -941,6 +1106,7 @@ void PolyOpt::extract_polylines_and_binormals()
 {
     int vnbr = PlyVars.size() / 6;
     int counter = 0;
+    assert(ply_extracted.size() > 0);
     for (int i = 0; i < ply_extracted.size(); i++)
     {
         for (int j = 0; j < ply_extracted[i].size(); j++)
@@ -974,6 +1140,7 @@ void PolyOpt::save_polyline_and_binormals_as_files(const bool rotated)
     }
     else
     {
+        assert(ply_extracted.size() > 0);
         lines = ply_extracted;
         binormals = bin_extracted;
     }
@@ -1021,6 +1188,10 @@ void PolyOpt::orient_binormals_of_plyline(const std::vector<std::vector<Eigen::V
 }
 void PolyOpt::opt()
 {
+    if(opt_for_crease){
+        std::cout<<"The environment is polluted, Please re-start the program"<<std::endl;
+        return;
+    }
     spMat H;
     Eigen::VectorXd B;
 
@@ -1087,7 +1258,154 @@ void PolyOpt::opt()
     std::cout<<"\n";
     extract_rectifying_plane_mesh();
     extract_polylines_and_binormals();
+    opt_for_polyline = true;
     //
+}
+
+// try to make the variable to 0
+void PolyOpt::assemble_gravity_crease(spMat &H, Eigen::VectorXd &B, Eigen::VectorXd &energy)
+{
+    if (Front.size() == 0)
+    {
+        std::cout << "please use assemble_binormal_condition after init the PolyOpt" << std::endl;
+        return;
+    }
+    int vnbr = Front.size();
+    H = Eigen::VectorXd::Ones(PlyVars.size()).asDiagonal();
+    energy = PlyVars - OriVars;
+    B = -energy;
+
+}
+void PolyOpt::assemble_crease_planarity(spMat &H, Eigen::VectorXd &B, Eigen::VectorXd &energy)
+{
+    if (Front.size() == 0)
+    {
+        std::cout << "please use assemble_polyline_smooth after init the PolyOpt" << std::endl;
+        return;
+    }
+
+    std::vector<Trip> tripletes;
+    int vnbr = Front.size();
+    energy = Eigen::VectorXd::Zero(vnbr * 2);
+    tripletes.reserve(vnbr * 6);
+    // std::cout<<"check 1"<<std::endl;
+    for (int i = 0; i < vnbr; i++)
+    {
+        int vid = i;
+        int bk = Back[vid];
+        bool compute_back = true;
+
+        if (bk == -1)
+        {
+            compute_back = false;
+        }
+        // locations
+        int loc = vid;
+        int lal = vid;
+        int lbl = vid + vnbr;
+        int lbk = bk;
+        int lar = bk;
+        int lbr = bk + vnbr;
+
+        Eigen::Vector3d vl = vertices_cp.row(loc);
+        Eigen::Vector3d tanl = tangents_cp.row(loc);
+        Eigen::Vector3d binl = binormal_cp.row(loc);
+
+        Eigen::Vector3d vr = vertices_cp.row(lbk);
+        Eigen::Vector3d tanr = tangents_cp.row(lbk);
+        Eigen::Vector3d binr = binormal_cp.row(lbk);
+
+        double alpha_l = PlyVars[lal];
+        double alpha_r = PlyVars[lar];
+        double beta_l = PlyVars[lbl];
+        double beta_r = PlyVars[lbr];
+        Eigen::Vector3d vlr = (vl - vr).normalized();
+        Eigen::Vector3d c0 = tanl.cross(tanr);
+        Eigen::Vector3d c1 = tanl.cross(binr);
+        Eigen::Vector3d c2 = binl.cross(tanr);
+        Eigen::Vector3d c3 = binl.cross(binr);
+        // cross is the left crease X right crease
+        Eigen::Vector3d cross = alpha_l * alpha_r * c0 + alpha_l * beta_r * c1 + alpha_r * beta_l * c2 + beta_l * beta_r * c3;
+        double m0 = c0.dot(vlr);
+        double m1 = c1.dot(vlr);
+        double m2 = c2.dot(vlr);
+        double m3 = c3.dot(vlr);
+
+        if (compute_back)
+        {
+            // cross * vlr = 0
+            tripletes.push_back(Trip(i, lal, alpha_r * m0 + beta_r * m1));
+            tripletes.push_back(Trip(i, lar, alpha_l * m0 + beta_l * m2));
+            tripletes.push_back(Trip(i, lbl, alpha_r * m2 + beta_r * m3));
+            tripletes.push_back(Trip(i, lbr, alpha_l * m1 + beta_l * m3));
+
+            energy[i] = cross.dot(vlr);
+        }
+
+        // alpha_l^2 + beta_l^2 = 1
+        tripletes.push_back(Trip(i + vnbr, lal, 2 * alpha_l));
+        tripletes.push_back(Trip(i + vnbr, lbl, 2 * beta_l));
+        energy[i + vnbr] = alpha_l * alpha_l + beta_l * beta_l - 1;
+    }
+    spMat J;
+    J.resize(energy.size(), PlyVars.size());
+    J.setFromTriplets(tripletes.begin(), tripletes.end());
+    H = J.transpose() * J;
+    B = -J.transpose() * energy;
+}
+
+void PolyOpt::opt_planarity(){
+    if(opt_for_polyline){
+        std::cout<<"The environment is polluted, Please re-start the program"<<std::endl;
+        return;
+    }
+    spMat H;
+    Eigen::VectorXd B;
+    spMat Hmass;
+    Eigen::VectorXd Bmass, emass;
+     assemble_gravity_crease(Hmass, Bmass, emass);
+
+    H = weight_mass * 1e-6 * Hmass;
+    B = weight_mass * 1e-6 * Bmass;
+
+    spMat Hangle;
+    Eigen::VectorXd Bangle, Eangle;
+    if(weight_angle > 0){
+        assemble_crease_planarity(Hangle, Bangle,Eangle);
+        H += weight_angle * Hangle;
+        B += weight_angle * Bangle;
+    }
+    Eigen::SimplicialLLT<Eigen::SparseMatrix<double>> solver(H);
+
+    // assert(solver.info() == Eigen::Success);
+    if (solver.info() != Eigen::Success)
+    {
+        // solving failed
+        std::cout << "solver fail" << std::endl;
+        return;
+    }
+    // std::cout<<"solved successfully"<<std::endl;
+    Eigen::VectorXd dx = solver.solve(B).eval();
+    double level_set_step_length = dx.norm();
+    if (level_set_step_length > max_step)
+    {
+        dx *= max_step / level_set_step_length;
+    }
+    PlyVars += dx;
+
+
+    double stplength = dx.norm();
+
+    std::cout << "Crease: step, " << stplength;
+    if(weight_angle > 0){
+        double energy_angle = Eangle.norm();
+        std::cout<<", Energy Planarity, "<<energy_angle<<", Planar max, "<< Eangle.lpNorm<Eigen::Infinity>();
+    }
+    std::cout<<"\n";
+    todo
+    extract_rectifying_plane_mesh();
+    extract_polylines_and_binormals();
+    opt_for_crease = true;
 }
 std::vector<std::vector<int>> load_row_col_info(const std::vector<std::vector<double>> &rowstmp)
 {
@@ -1225,6 +1543,10 @@ void QuadOpt::init(CGMesh &mesh_in, const std::string &prefix)
     mesh_update = mesh_original;
     ComputeAuxiliaries = true;
     Estimate_PG_Angles = true;
+    Eigen::VectorXd grav_vec = Eigen::VectorXd::Ones(vnbr * 3);
+    Eigen::VectorXd var_vec = Eigen::VectorXd::Zero(varsize);
+    var_vec.segment(0, vnbr * 3) = grav_vec;
+    gravity_matrix = var_vec.asDiagonal();
 }
 
 void QuadOpt::reset()
@@ -1293,6 +1615,10 @@ void QuadOpt::reset()
     ComputeAuxiliaries = true;
     Estimate_PG_Angles = true;
     mesh_update = mesh_original;
+    Eigen::VectorXd grav_vec = Eigen::VectorXd::Ones(vnbr * 3);
+    Eigen::VectorXd var_vec = Eigen::VectorXd::Zero(varsize);
+    var_vec.segment(0, vnbr * 3) = grav_vec;
+    gravity_matrix = var_vec.asDiagonal();
 }
 
 void QuadOpt::assemble_gravity(spMat& H, Eigen::VectorXd& B, Eigen::VectorXd &energy){
@@ -1767,10 +2093,10 @@ void QuadOpt::assemble_pg_extreme_cases(spMat &H, Eigen::VectorXd &B, Eigen::Vec
             lby = d1b + vnbr;
             lbz = d1b + vnbr * 2;
         }
-        // if (rf < 0 || rb < 0 || cf < 0 || cb < 0)// it does not have a normal vector properly defined
-        // {
-        //     compute = false;
-        // }
+        if (rf < 0 || rb < 0 || cf < 0 || cb < 0)// on the boundary it does not have a normal vector properly defined
+        {
+            compute = false;
+        }
         if (lfx < 0 || lbx < 0)
         {
             compute = false;
@@ -1904,10 +2230,10 @@ void QuadOpt::assemble_pg_cases(const double angle_radian, spMat &H, Eigen::Vect
             lby = d1b + vnbr;
             lbz = d1b + vnbr * 2;
         }
-        // if (rf < 0 || rb < 0 || cf < 0 || cb < 0)
-        // {
-        //     compute = false;
-        // }
+        if (rf < 0 || rb < 0 || cf < 0 || cb < 0)
+        {
+            compute = false;
+        }
         if (lfx < 0 || lbx < 0)
         {
             compute = false;
@@ -1925,6 +2251,7 @@ void QuadOpt::assemble_pg_cases(const double angle_radian, spMat &H, Eigen::Vect
         Eigen::Vector3d tangent = Vbk - Vfr; // This sign is changable depends on what user defines of the curve tangent directions
         Eigen::Vector3d real_u = (norm.cross(tangent)).normalized();
         if(ComputeAuxiliaries){
+            // std::cout<<"Init Auxiliary Variables ..."<<std::endl;
             GlobVars[lux] = real_u[0];
             GlobVars[luy] = real_u[1];
             GlobVars[luz] = real_u[2];
@@ -1993,20 +2320,20 @@ void QuadOpt::assemble_pg_cases(const double angle_radian, spMat &H, Eigen::Vect
         energy[i + vnbr * 3] = u.dot(norm);
 
         // u * (Vfr - Vbk) = 0
-        tripletes.push_back(Trip(i + vnbr * 4, lux, (Vfr - Vbk)[0]));
-        tripletes.push_back(Trip(i + vnbr * 4, luy, (Vfr - Vbk)[1]));
-        tripletes.push_back(Trip(i + vnbr * 4, luz, (Vfr - Vbk)[2]));
+        double disFB = (Vfr - Vbk).norm();
+        tripletes.push_back(Trip(i + vnbr * 4, lux, (Vfr - Vbk)[0] / disFB));
+        tripletes.push_back(Trip(i + vnbr * 4, luy, (Vfr - Vbk)[1] / disFB));
+        tripletes.push_back(Trip(i + vnbr * 4, luz, (Vfr - Vbk)[2] / disFB));
 
-        tripletes.push_back(Trip(i + vnbr * 4, lfx, u[0]));
-        tripletes.push_back(Trip(i + vnbr * 4, lfy, u[1]));
-        tripletes.push_back(Trip(i + vnbr * 4, lfz, u[2]));
+        tripletes.push_back(Trip(i + vnbr * 4, lfx, u[0] / disFB));
+        tripletes.push_back(Trip(i + vnbr * 4, lfy, u[1] / disFB));
+        tripletes.push_back(Trip(i + vnbr * 4, lfz, u[2] / disFB));
 
-        tripletes.push_back(Trip(i + vnbr * 4, lbx, -u[0]));
-        tripletes.push_back(Trip(i + vnbr * 4, lby, -u[1]));
-        tripletes.push_back(Trip(i + vnbr * 4, lbz, -u[2]));
+        tripletes.push_back(Trip(i + vnbr * 4, lbx, -u[0] / disFB));
+        tripletes.push_back(Trip(i + vnbr * 4, lby, -u[1] / disFB));
+        tripletes.push_back(Trip(i + vnbr * 4, lbz, -u[2] / disFB));
 
-        energy[i + vnbr * 4] = u.dot(Vfr - Vbk);
-
+        energy[i + vnbr * 4] = u.dot(Vfr - Vbk) / disFB;
 
         // get the average pseudo-geodesic angle
         if (Estimate_PG_Angles)
@@ -2026,7 +2353,7 @@ void QuadOpt::assemble_pg_cases(const double angle_radian, spMat &H, Eigen::Vect
         angle_avg /= counter;
         std::cout<<"Estimating PG Angles: "<<angle_avg<<std::endl;
     }
-    std::cout<<"detail, "<<energy.segment(0,vnbr).norm()<<", "<<energy.segment(vnbr, vnbr).norm()<<", tgt, "<<angle_radian<<", ";
+    // std::cout<<"detail, "<<energy.segment(0,vnbr).norm()<<", "<<energy.segment(vnbr, vnbr).norm()<<", tgt, "<<angle_radian<<", ";
     // std::cout<<"check 2"<<std::endl;
     spMat J;
     J.resize(energy.size(), GlobVars.size());
@@ -2294,8 +2621,8 @@ void QuadOpt::opt(){
         bnm_start = -1;
         assemble_pg_extreme_cases(Hpg[2], Bpg[2], Epg[2], type, family, bnm_start);
 
-        H += weight_pg * (Hpg[0] + Hpg[1] + Hpg[2]);
-        B += weight_pg * (Bpg[0] + Bpg[1] + Bpg[2]);
+        H += weight_pg * (pg_ratio * Hpg[0] + Hpg[1] + Hpg[2]);
+        B += weight_pg * (pg_ratio * Bpg[0] + Bpg[1] + Bpg[2]);
     }
 
     if (OptType == 1) 
@@ -2357,8 +2684,8 @@ void QuadOpt::opt(){
         family = 1; // column
         bnm_start = vnbr * 12;
         assemble_binormal_conditions(Hbnm[1], Bbnm[1], Ebnm1, family, bnm_start);
-        H += weight_pg * (Hbnm[0] + Hbnm[1]);
-        B += weight_pg * (Bbnm[0] + Bbnm[1]);
+        H += weight_pg * pg_ratio * (Hbnm[0] + Hbnm[1]);
+        B += weight_pg * pg_ratio * (Bbnm[0] + Bbnm[1]);
 
 
         spMat Hpg[3];
@@ -2375,8 +2702,8 @@ void QuadOpt::opt(){
         assemble_pg_cases(angle_radian, Hpg[1], Bpg[1], Epg[1], family, bnm_start);
         // H += weight_pg * pg_ratio * (Hpg[1]);
         // B += weight_pg * pg_ratio * (Bpg[1]);
-        H += weight_pg * pg_ratio * (Hpg[0] + Hpg[1]);
-        B += weight_pg * pg_ratio * (Bpg[0] + Bpg[1]);
+        H += weight_pg * (Hpg[0] + Hpg[1]);
+        B += weight_pg * (Bpg[0] + Bpg[1]);
 
         Estimate_PG_Angles = false;
 
@@ -2394,13 +2721,13 @@ void QuadOpt::opt(){
 
             bnm_start = vnbr * 18;
             assemble_binormal_conditions(Hbnm[2], Bbnm[2], Ebnm2, family, bnm_start);
-            H += weight_pg * Hbnm[2];
-            B += weight_pg * Bbnm[2];
-            std::cout<<"check 5"<<std::endl;
+            H += weight_pg * pg_ratio * Hbnm[2];
+            B += weight_pg * pg_ratio * Bbnm[2];
+            // std::cout<<"check 5"<<std::endl;
 
             int type = 2; 
             assemble_pg_extreme_cases(Hpg[2], Bpg[2], Epg[2], type, family, bnm_start);
-            std::cout<<"check 6"<<std::endl;
+            // std::cout<<"check 6"<<std::endl;
             H += weight_pg * Hpg[2];
             B += weight_pg * Bpg[2];
         }
@@ -2408,7 +2735,8 @@ void QuadOpt::opt(){
     }
 
     // assemble together
-    H += 1e-6 * spMat(Eigen::VectorXd::Ones(varsize).asDiagonal());
+
+    H += 1e-6 * (weight_mass * gravity_matrix + spMat(Eigen::VectorXd::Ones(varsize).asDiagonal()));
     Eigen::SimplicialLLT<Eigen::SparseMatrix<double>> solver(H);
 
 	// assert(solver.info() == Eigen::Success);

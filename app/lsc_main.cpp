@@ -102,7 +102,7 @@ namespace lscif
 	Eigen::VectorXd readed_LS1;
 	Eigen::VectorXd readed_LS2;
 	Eigen::VectorXd readed_LS3;
-	CGMesh readed_mesh1;
+	std::vector<CGMesh> readed_mesh1;
 	CGMesh readed_mesh2;
 	int Nbr_Iterations_Mesh_Opt=10;
 	double weight_Mesh_smoothness=0.01;
@@ -1223,6 +1223,91 @@ int main(int argc, char *argv[])
 				viewer.selected_data_index = id;
 				
 			}
+			ImGui::SameLine();
+			if (ImGui::Button("AngleVariable", ImVec2(ImGui::GetWindowSize().x * 0.23f, 0.0f)))
+			{
+
+				
+				EnergyPrepare einit;
+				einit.weight_gravity = lscif::weight_mass;
+				einit.weight_lap = lscif::weight_laplacian;
+				einit.weight_bnd = lscif::weight_boundary;
+				einit.weight_pg = lscif::weight_pseudo_geodesic;
+				einit.weight_strip_width = lscif::weight_strip_width;
+				einit.solve_pseudo_geodesic = lscif::enable_pg_energy_checkbox;
+				einit.target_angle = lscif::target_angle;
+				einit.max_step_length = lscif::maximal_step_length;
+				einit.solve_strip_width_on_traced = lscif::enable_strip_width_checkbox;
+				einit.enable_inner_vers_fixed = lscif::enable_inner_vers_fixed;
+				einit.enable_functional_angles = lscif::enable_functional_degrees;
+				einit.enable_extreme_cases = lscif::enable_extreme_cases;
+				einit.target_min_angle = lscif::target_min_angle;
+				einit.target_max_angle = lscif::target_max_angle;
+				einit.start_angle = lscif::start_angle;
+				einit.enable_boundary_angles = lscif::enable_boundary_angles;
+				einit.Given_Const_Direction = lscif::Given_Const_Direction;
+				// lscif::tools.weight_shading = lscif::weight_shading;
+				lscif::tools.prepare_level_set_solving(einit);
+				lscif::tools.Second_Ray_vers = lscif::update_verlist;
+				lscif::tools.Second_Ray_nbr_rings = lscif::ring_nbr;
+				lscif::tools.Reference_theta = lscif::InputPx;
+				lscif::tools.Reference_phi = lscif::InputPy;
+				lscif::tools.Reference_theta1 = lscif::InputPx1;
+				lscif::tools.Reference_phi1 = lscif::InputPy1;
+				lscif::tools.Theta_tol = lscif::InputThetaTol;
+				lscif::tools.Phi_tol = lscif::InputPhiTol;
+				lscif::tools.Theta_tol1 = lscif::InputThetaTol1;
+				lscif::tools.Phi_tol1 = lscif::InputPhiTol1;
+				lscif::tools.weight_geodesic=lscif::weight_geodesic;
+				lscif::tools.enable_max_energy_check = lscif::enable_max_energy_check;
+				lscif::tools.max_energy_percentage = lscif::max_e_percentage;
+				lscif::tools.enable_shading_init = lscif::shading_init;
+				lscif::tools.weight_binormal = lscif::weight_binormal;
+				lscif::tools.weight_smt_binormal = lscif::weight_smt_binormal;
+				lscif::tools.enable_let_ray_through = lscif::let_ray_through;
+				lscif::tools.ShadingLatitude = lscif::Shading_Latitude;
+				lscif::tools.enable_reflection = lscif::let_ray_reflect;
+				lscif::tools.recompute_auxiliaries = lscif::recompute_auxiliaries;
+				
+
+				for (int i = 0; i < lscif::OpIter; i++)
+				{
+					lscif::tools.Run_Level_Set_Opt_Angle_Variable();
+					if (lscif::tools.step_length < 1e-16 && i != 0)
+					{ // step length actually is the value for the last step
+						std::cout << "optimization converges " << std::endl;
+						break;
+					}
+				}
+				std::cout << "waiting for instruction..." << std::endl;
+				// lscif::MP.MeshUnitScale(inputMesh, updatedMesh);
+				int id = viewer.selected_data_index;
+				CGMesh inputMesh = lscif::tools.lsmesh;
+				lscif::updateMeshViewer(viewer, inputMesh);
+				lscif::meshFileName.push_back("lso_" + lscif::meshFileName[id]);
+				lscif::Meshes.push_back(inputMesh);
+
+				Eigen::VectorXd level_set_values;
+				lscif::tools.show_level_set(level_set_values);
+				if(level_set_values.size()==0){
+					ImGui::End();
+					return;
+				}
+				Eigen::MatrixXd CM;
+				// std::cout<<"before compute colormap"<<std::endl;
+				igl::parula(Eigen::VectorXd::LinSpaced(21, 0, 1).eval(), false, CM);
+				igl::isolines_map(Eigen::MatrixXd(CM), CM);
+				// std::cout<<"before set colormap"<<std::endl;
+				viewer.data().set_colormap(CM);
+				// std::cout<<"before set color"<<std::endl;
+				viewer.data().set_data(level_set_values);
+				// Eigen::MatrixXd E0, E1;
+				// // lscif::tools.show_gradients(E0,E1, lscif::vector_scaling);
+				const Eigen::RowVector3d red(0.8, 0.2, 0.2);
+				const Eigen::RowVector3d blue(0.2, 0.2, 0.8);
+
+				viewer.selected_data_index = id;
+			}
 			if (ImGui::Button("AAG LvSet", ImVec2(ImGui::GetWindowSize().x * 0.25f, 0.0f)))
 			{
 				if(lscif::readed_LS1.size()==0|| lscif::readed_LS2.size()==0){
@@ -1587,6 +1672,7 @@ int main(int argc, char *argv[])
 				Eigen::MatrixXd binormals;
 				lscif::tools.show_binormals(lscif::tools.fvalues, E0, E1, binormals, lscif::vector_scaling);
 				viewer.data().add_edges(E0, E1, green);
+				viewer.data().add_edges(lscif::tools.V, lscif::tools.V + lscif::vector_scaling * lscif::tools.norm_v, black);
 				if (lscif::enable_extreme_cases && lscif::Given_Const_Direction)
 				{
 					std::cout << "Ploting the light directions" << std::endl;
@@ -1888,6 +1974,8 @@ int main(int argc, char *argv[])
 		if (ImGui::Button("EvltDvlp", ImVec2(ImGui::GetWindowSize().x * 0.23f, 0.0f)))
 		{
 			std::cout<<"evaluate developable of the loaded strips ..."<<std::endl;
+			// get_polyline_rectifying_plane_on_inner_vers(const std::vector<Eigen::Vector3d> &ply_in, const std::vector<Eigen::Vector3d> &bnm_in,
+            //                                      std::vector<Eigen::Vector3d> &vertices, std::vector<Eigen::Vector3d> &tangents, std::vector<Eigen::Vector3d> &binormals);
 			evaluate_and_print_strip_developability(lscif::Poly_readed, lscif::Bino_readed);
 
 		}
@@ -2003,9 +2091,10 @@ int main(int argc, char *argv[])
 					ImGui::End();
 					return;
 				}
-
-				OpenMesh::IO::read_mesh(lscif::readed_mesh1, fname);
-				std::cout << "mesh 1 get readed " << std::endl;
+				CGMesh readed_mesh;
+				OpenMesh::IO::read_mesh(readed_mesh, fname);
+				lscif::readed_mesh1.push_back(readed_mesh);
+				std::cout << "mesh 1 get readed, current mesh nbr: "<< lscif::readed_mesh1.size() << std::endl;
 			}
 			ImGui::SameLine();
 			if (ImGui::Button("Load Second mesh", ImVec2(ImGui::GetWindowSize().x * 0.25f, 0.0f)))
@@ -2027,13 +2116,26 @@ int main(int argc, char *argv[])
 				Eigen::VectorXi info;
 				Eigen::MatrixXd P1;
 				Eigen::MatrixXd P2;
-				project_mesh_and_get_shading_info(lscif::readed_mesh1, lscif::readed_mesh2, lscif::ring_nbr, info, P1, P2);
-				std::cout<<"the first type is green, the second is red"<<std::endl;
-				
-				viewer.data().add_points(P2, lscif::hot_red);
-				viewer.data().add_points(P1, lscif::sea_green);
-				std::cout<<"Nbr first, "<<P1.rows()<<std::endl;
-				std::cout<<"Nbr second, "<<P2.rows()<<std::endl;
+				if (lscif::readed_mesh1.empty())
+				{
+					std::cout << "\nLSC: Please read meshes" << std::endl;
+					ImGui::End();
+					return;
+				}
+				if (lscif::readed_mesh1.size() == 1)
+				{
+					project_mesh_and_get_shading_info(lscif::readed_mesh1[0], lscif::readed_mesh2, lscif::ring_nbr, info, P1, P2);
+					std::cout << "the first type is green, the second is red" << std::endl;
+
+					viewer.data().add_points(P2, lscif::hot_red);
+					viewer.data().add_points(P1, lscif::sea_green);
+					std::cout << "Nbr first, " << P1.rows() << std::endl;
+					std::cout << "Nbr second, " << P2.rows() << std::endl;
+				}
+				if (lscif::readed_mesh1.size() >1){
+					project_mesh_and_get_vertex_class(lscif::readed_mesh1, lscif::readed_mesh2, info);
+				}
+
 				std::cout<<"Passing the info to the level-set system"<<std::endl;
 				lscif::tools.shading_condition_info = info;
 			}
@@ -2426,6 +2528,11 @@ int main(int argc, char *argv[])
 			lscif::project_pts.clear();
 			lscif::flist.clear();
 			lscif::bclist.clear();
+			CGMesh updatemesh = lscif::tools.lsmesh;
+			int id = viewer.selected_data_index;
+			lscif::updateMeshViewer(viewer, updatemesh);
+			lscif::meshFileName.push_back(lscif::meshFileName[id]);
+			lscif::Meshes.push_back(updatemesh);
 			std::cout<<"The Strokes Are Cleared"<<std::endl;
 		}
 		ImGui::SameLine();
@@ -2630,7 +2737,13 @@ int main(int argc, char *argv[])
 				lscif::quad_tool.angle_degree0 = lscif::target_angle;
 				lscif::quad_tool.angle_degree1 = lscif::target_angle_2;
 				lscif::quad_tool.pg_ratio = lscif::weight_geodesic;
-				
+				lscif::quad_tool.weight_mass = lscif::weight_mass;
+				if (lscif::quad_tool.V.rows()==0)
+				{
+					std::cout << "\nEmpty quad, please load a quad mesh first" << std::endl;
+					ImGui::End();
+					return;
+				}
 				for (int i = 0; i < lscif::OpIter; i++)
 				{
 					lscif::quad_tool.opt();
@@ -2670,8 +2783,9 @@ int main(int argc, char *argv[])
 					ImGui::End();
 					return;
 				}
-				
-				viewer.data().add_edges(lscif::quad_tool.Enm0, lscif::quad_tool.Enm1, green);
+
+				viewer.data().add_edges(lscif::quad_tool.Enm0,
+										lscif::quad_tool.Enm0 + (lscif::quad_tool.Enm1 - lscif::quad_tool.Enm0) * lscif::vector_scaling, green);
 			}
 			if (ImGui::Button("writePlyInfo", ImVec2(ImGui::GetWindowSize().x * 0.25f, 0.0f)))
 			{

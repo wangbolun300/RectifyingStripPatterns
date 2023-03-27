@@ -116,6 +116,7 @@ Eigen::Vector3d get_light_rotated_back_from_earth_axis(const double latitude_deg
 bool read_csv_data_lbl(const std::string fname, std::vector<std::vector<double>> &data);
 void project_mesh_and_get_shading_info(CGMesh &ref, CGMesh &base, const int nbr_rings, Eigen::VectorXi &info,
                                        Eigen::MatrixXd &P1, Eigen::MatrixXd &P2);
+void project_mesh_and_get_vertex_class(std::vector<CGMesh> &ref, CGMesh &base, Eigen::VectorXi &info);
 spMat put_mat_in_middle(const spMat &mat, const int sizemat);
 Eigen::VectorXd put_vec_in_middle(const Eigen::VectorXd &vec);
 double get_interactive_angle(const Eigen::VectorXd &func, const LSAnalizer &analizer, 

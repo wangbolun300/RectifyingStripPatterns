@@ -18,6 +18,7 @@ typedef Eigen::Triplet<double> Trip;
 
 static bool produce_no_smooth_oscu = false;// this is a flag to create wrong results when set as true.
 static bool produce_small_search_range = false; // this is to enable small searching range for tracing.
+#define LSC_VARIABLE_CURVE_ANGLES // this is the flag 
 
 enum BCtype{ // boundary condition type
     Traced, //0 // the traced values as the guide directions
@@ -134,6 +135,9 @@ public:
     bool first_compute = true;
     bool pick_single_line=false;
     int pick_line_id;
+    // if opt for polyline, then don't opt for crease.
+    bool opt_for_polyline = false;
+    bool opt_for_crease = false;
 
     void opt();
     // make the values not far from original data
@@ -141,7 +145,6 @@ public:
     void assemble_polyline_smooth(spMat& H, Eigen::VectorXd& B, Eigen::VectorXd &energy);
     void assemble_binormal_condition(spMat& H, Eigen::VectorXd& B, Eigen::VectorXd &energy);
     void assemble_angle_condition(spMat& H, Eigen::VectorXd& B, Eigen::VectorXd &energy);
-    void assemble_smooth_neighbouring_polyline_binormal(spMat& H, Eigen::VectorXd& B, Eigen::VectorXd &energy);
     void extract_rectifying_plane_mesh();
     void extract_polylines_and_binormals();
     void rotate_back_the_model_to_horizontal_coordinates(const double latitude);
@@ -154,7 +157,20 @@ public:
     void vertex_matrix_to_polyline(std::vector<std::vector<Eigen::Vector3d>> &ply, Eigen::MatrixXd& V);
     void get_normal_vector_from_reference(const Eigen::MatrixXd& Vr, const Eigen::MatrixXi& Fr, const Eigen::MatrixXd& nr);
     void force_smoothing_binormals();
+
+    // the crease opt framework
+    Eigen::MatrixXd vertices_cp;
+    Eigen::MatrixXd tangents_cp;
+    Eigen::MatrixXd binormal_cp;
+void init_crease_opt(const std::vector<std::vector<Eigen::Vector3d>> &vertices,
+                     const std::vector<std::vector<Eigen::Vector3d>> &tangents,
+                     const std::vector<std::vector<Eigen::Vector3d>> &binormals);
+void assemble_gravity_crease(spMat &H, Eigen::VectorXd &B, Eigen::VectorXd &energy);
+void assemble_crease_planarity(spMat &H, Eigen::VectorXd &B, Eigen::VectorXd &energy);
+
+void opt_planarity();
 };
+
 
 class QuadOpt{
 public:
@@ -178,6 +194,7 @@ public:
     double weight_fairness;
     double weight_pg;
     double weight_gravity;
+    double weight_mass = 1;
     double pg_ratio = 1;// the ratio of pg energy to weight_pg
     // int pg1_type = 0;//by default disabled. 1 means asymptotic, 2 means geodesic, 3 pseudo-geodesic
     // int pg2_type = 0;
@@ -204,6 +221,7 @@ private:
     Eigen::VectorXi d1_back;
     bool ComputeAuxiliaries = true;
     bool Estimate_PG_Angles = true;
+    spMat gravity_matrix;
     void assemble_fairness(spMat& H, Eigen::VectorXd& B, Eigen::VectorXd &energy);
     void assemble_gravity(spMat& H, Eigen::VectorXd& B, Eigen::VectorXd &energy);
     // type: 0 disabled. 1 means asymptotic, 2 means geodesic, 3 pseudo-geodesic
@@ -498,6 +516,7 @@ public:
     int Second_Ray_nbr_rings = 1; // the nbr of rings associate to the vers corresponding to the second ray
     double weight_binormal;
     Eigen::VectorXi shading_condition_info;
+    std::vector<std::vector<int>> PG_Vertex_Types;// record the vertices types used in 
     double angle_between_two_levelsets;
     double weight_fix_two_ls_angle;
 
@@ -591,6 +610,7 @@ public:
     // after tracing, use this function to get smooth level set
     void Run_Level_Set_Opt();
     void Run_Level_Set_Opt_interactive(const bool compute_pg);
+    void Run_Level_Set_Opt_Angle_Variable();
     void Run_Mesh_Opt();
     void Run_AAG(Eigen::VectorXd& func0, Eigen::VectorXd& func1, Eigen::VectorXd& func2);
     void Run_AAG_Mesh_Opt(Eigen::VectorXd& func0, Eigen::VectorXd& func1, Eigen::VectorXd& func2);

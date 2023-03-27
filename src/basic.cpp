@@ -592,6 +592,7 @@ void lsTools::get_all_the_edge_normals()
             Actid.push_back(i);
         }
     }
+    std::cout<<"The edge normal vectors are solved for tracing method"<<std::endl;
 }
 
 

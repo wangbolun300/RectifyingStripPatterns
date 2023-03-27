@@ -4336,11 +4336,11 @@ void project_mesh_and_get_shading_info(CGMesh &ref, CGMesh &base, const int nbr_
         //     continue;
         // }
         location = InnerV[i];
-        info[location] = 0;// ordinary points
         if (location < 0)// boundary point of base mesh, ignor
         {
             continue;
         }
+        info[location] = 0;// ordinary points
         if(neighbours[i]>0){// this is a transition point
             info[location] = 2;
             points2.push_back(bastool.V.row(i));
@@ -4356,6 +4356,42 @@ void project_mesh_and_get_shading_info(CGMesh &ref, CGMesh &base, const int nbr_
     }
     P1 = vec_list_to_matrix(points1);
     P2 = vec_list_to_matrix(points2);
+}
+
+// -1 means transition, 0 ... , n are types.
+void project_mesh_and_get_vertex_class(std::vector<CGMesh> &ref, CGMesh &base, Eigen::VectorXi &info)
+{
+    int nbr_types = ref.size();
+    std::vector<Eigen::VectorXi> infos;
+    infos.resize(nbr_types);
+    Eigen::MatrixXd P1, P2;
+    for (int i = 0; i < nbr_types; i++)
+    {
+        project_mesh_and_get_shading_info(ref[i], base, 0, infos[i],
+                                          P1, P2);
+    }
+    // std::cout<<"check 1"<<std::endl;
+    // get the infos into one vector
+    lsTools bastool(base);
+    // bastool.initialize_mesh_properties();
+    // std::cout<<"check 2"<<std::endl;
+    int ninner = bastool.IVids.size();
+    info = Eigen::VectorXi::Ones(ninner) * -1; // set all the points as -1.
+    for (int i = 0; i < ninner; i++)
+    {
+        int type = -1;
+        for (int j = 0; j < nbr_types; j++)
+        {
+            if (infos[j][i] == 1)
+            {
+                type = j;
+                // break;
+            }
+        }
+        info[i] = type;
+    }
+    // std::cout<<"check 3"<<std::endl;
+
 }
 
 // put the matrix in the middle of a matrix which is 3 times larger.
