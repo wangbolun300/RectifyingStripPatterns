@@ -1979,6 +1979,66 @@ int main(int argc, char *argv[])
 			evaluate_and_print_strip_developability(lscif::Poly_readed, lscif::Bino_readed);
 
 		}
+		if (ImGui::Button("ReadCreases", ImVec2(ImGui::GetWindowSize().x * 0.23f, 0.0f)))
+		{
+			int id = viewer.selected_data_index;
+			read_plylines_and_binormals(lscif::Poly_readed, lscif::Bino_readed);
+			if (lscif::Poly_readed.empty())
+			{
+				std::cout << "ERROR, Please load the polylines first" << std::endl;
+				ImGui::End();
+				return;
+			}
+			CGMesh updatemesh = polyline_to_strip_mesh(lscif::Poly_readed, lscif::Bino_readed, lscif::vector_scaling);
+			lscif::updateMeshViewer(viewer, updatemesh);
+			lscif::meshFileName.push_back("ply_" + lscif::meshFileName[id]);
+			lscif::Meshes.push_back(updatemesh);
+
+			std::vector<std::vector<Eigen::Vector3d>> vertices;
+			std::vector<std::vector<Eigen::Vector3d>> tangents;
+			std::vector<std::vector<Eigen::Vector3d>> binormals;
+			get_polyline_rectifying_planes(lscif::Poly_readed, lscif::Bino_readed, vertices, tangents, binormals);
+			lscif::poly_tool.init_crease_opt(vertices, tangents, binormals);
+
+			viewer.selected_data_index = id;
+		}
+		ImGui::SameLine();
+		if (ImGui::Button("OptCrease", ImVec2(ImGui::GetWindowSize().x * 0.23f, 0.0f)))
+		{
+			if (lscif::Poly_readed.empty())
+			{
+				std::cout << "ERROR, Please load the polylines first" << std::endl;
+				ImGui::End();
+				return;
+			}
+			lscif::poly_tool.weight_smooth = lscif::weight_laplacian;
+			lscif::poly_tool.weight_mass = lscif::weight_mass;
+			lscif::poly_tool.weight_binormal = lscif::weight_pseudo_geodesic;
+			lscif::poly_tool.max_step = lscif::maximal_step_length;
+			lscif::poly_tool.strip_scale = lscif::vector_scaling;
+			lscif::poly_tool.binormal_ratio = lscif::weight_geodesic;
+			lscif::poly_tool.weight_angle = lscif::weight_angle;
+			lscif::poly_tool.target_angle = lscif::target_angle;
+			lscif::poly_tool.ratio_endpts = lscif::weight_endpoint_ratio;
+			lscif::poly_tool.pick_single_line = lscif::pick_single_ply;
+			lscif::poly_tool.pick_line_id = lscif::pick_line_id;
+
+			for (int i = 0; i < lscif::OpIter; i++)
+			{
+				// if (lscif::weight_angle > 0)
+				// {
+				// 	lscif::poly_tool.get_normal_vector_from_reference(lscif::tools.V, lscif::tools.F, lscif::tools.norm_v);
+				// }
+				lscif::poly_tool.opt_planarity();
+			}
+			CGMesh updatemesh = lscif::poly_tool.RecMesh;
+			int id = viewer.selected_data_index;
+			lscif::updateMeshViewer(viewer, updatemesh);
+			lscif::meshFileName.push_back("ply_" + lscif::meshFileName[id]);
+			lscif::Meshes.push_back(updatemesh);
+			viewer.selected_data_index = id;
+			std::cout << "waiting for instructions" << std::endl;
+		}
 		ImGui::SetNextItemOpen(true);
 		if (ImGui::TreeNode("Mesh Management"))
 		{

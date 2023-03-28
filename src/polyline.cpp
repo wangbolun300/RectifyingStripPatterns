@@ -365,9 +365,34 @@ void evaluate_and_print_strip_developability(const std::vector<std::vector<Eigen
     // std::cout << "Evaluate current polylines: planarity: " << planar_total << ", total angle changes of the strip, " << anglediff_total << ", maximal angle error, "
     //           << max_angle_error << std::endl;
 }
+void get_polyline_rectifying_planes(const std::vector<std::vector<Eigen::Vector3d>> &ply,
+                                    const std::vector<std::vector<Eigen::Vector3d>> &bnm,
+                                    std::vector<std::vector<Eigen::Vector3d>>& vertices,
+                                    std::vector<std::vector<Eigen::Vector3d>>& tangents,
+                                    std::vector<std::vector<Eigen::Vector3d>>& binormals)
+{
+    vertices.clear();
+    tangents.clear();
+    binormals.clear();
+     for (int i = 0; i < ply.size(); i++)
+    {
+        std::vector<Eigen::Vector3d> ver;
+        std::vector<Eigen::Vector3d> tan;
+        std::vector<Eigen::Vector3d> bin;
+        if (ply[i].size() < 4)// 4 vertices, resulting in 2 rectifying planes, which has 1 crease
+        {
+            continue;
+        }
+        get_polyline_rectifying_plane_on_inner_vers(ply[i], bnm[i],
+                                                 ver, tan, bin);
+        vertices.push_back(ver);
+        tangents.push_back(tan);
+        binormals.push_back(bin);                 
+    }
 
-    void sample_polylines_and_binormals_evenly(const int nbr_segs, const std::vector<std::vector<Eigen::Vector3d>> &ply_in, const std::vector<std::vector<Eigen::Vector3d>> &bi_in,
-                                               std::vector<std::vector<Eigen::Vector3d>> &ply, std::vector<std::vector<Eigen::Vector3d>> &bi)
+}
+void sample_polylines_and_binormals_evenly(const int nbr_segs, const std::vector<std::vector<Eigen::Vector3d>> &ply_in, const std::vector<std::vector<Eigen::Vector3d>> &bi_in,
+                                           std::vector<std::vector<Eigen::Vector3d>> &ply, std::vector<std::vector<Eigen::Vector3d>> &bi)
 {
     double max_length = 0;
     ply.clear();
@@ -396,11 +421,7 @@ void evaluate_and_print_strip_developability(const std::vector<std::vector<Eigen
         // std::cout<<"pushed"<<std::endl;
     }
     // std::cout<<"check 2"<<std::endl;
-
-
 }
-
-
 
 void PolyOpt::init(const std::vector<std::vector<Eigen::Vector3d>> &ply_in, const std::vector<std::vector<Eigen::Vector3d>> &bi_in, const int sample_nbr)
 {
@@ -491,8 +512,8 @@ void PolyOpt::init(const std::vector<std::vector<Eigen::Vector3d>> &ply_in, cons
     }
     OriVars = PlyVars;
     RecMesh = polyline_to_strip_mesh(ply, bi, strip_scale);
-    // ply_extracted = ply;
-    // bin_extracted = bi;
+    ply_extracted = ply;// to record the topology of the vers
+    bin_extracted = bi;
     endpts_signs = endpts.asDiagonal();
     opt_for_polyline = true;
 }
@@ -549,6 +570,8 @@ void PolyOpt::init_crease_opt(const std::vector<std::vector<Eigen::Vector3d>> &v
             counter++;
         }
     }
+    ply_extracted = vertices;// to record the topology of the vers
+    bin_extracted = binormals;
     OriVars = PlyVars;
     RecMesh = polyline_to_strip_mesh(vertices, binormals, strip_scale);
     opt_for_crease = true;
@@ -1057,6 +1080,37 @@ void PolyOpt::extract_rectifying_plane_mesh()
         RecMesh.point(*v_it) = CGMesh::Point(pt(0), pt(1), pt(2));
     }
 }
+void PolyOpt::extract_rectifying_plane_mesh_from_crease(){
+    int nv = Front.size();
+    Eigen::MatrixXd v0list(nv, 3), v1list(nv, 3);
+    Eigen::MatrixXd binlist(nv, 3);
+    v0list = vertices_cp;
+    for (int i = 0; i < nv; i++)
+    {
+        // the crease is defined as alpha * tangent + binormal. This is to 
+        // make sure that the strip width is 1.
+        double alpha = PlyVars[i];
+        binlist.row(i) = alpha * tangents_cp.row(i) + binormal_cp.row(i);
+    }
+
+    v1list = v0list + strip_scale * binlist;
+
+    for (CGMesh::VertexIter v_it = RecMesh.vertices_begin(); v_it != RecMesh.vertices_end(); ++v_it)
+    {
+        int vid = v_it.handle().idx();
+        int v0_id = vid / 2;
+        Eigen::Vector3d pt;
+        if (vid % 2 == 0) // this is a vertex of the polyline
+        {
+            pt = v0list.row(v0_id);
+        }
+        else
+        { // this is a offset vertex
+            pt = v1list.row(v0_id);
+        }
+        RecMesh.point(*v_it) = CGMesh::Point(pt(0), pt(1), pt(2));
+    }
+}
 void PolyOpt::polyline_to_matrix(const std::vector<std::vector<Eigen::Vector3d>> &ply, Eigen::MatrixXd &V)
 {
     std::vector<Eigen::Vector3d> verlist;
@@ -1121,6 +1175,31 @@ void PolyOpt::extract_polylines_and_binormals()
         }
     }
     assert(counter == vnbr);
+}
+
+void PolyOpt::extract_polylines_and_binormals_from_creases(){
+    int nv = Front.size();
+    Eigen::MatrixXd v0list(nv, 3);
+    Eigen::MatrixXd binlist(nv, 3);
+    v0list = vertices_cp;
+    for (int i = 0; i < nv; i++)
+    {
+        // the crease is defined as alpha * tangent + binormal. This is to 
+        // make sure that the strip width is 1.
+        double alpha = PlyVars[i];
+        binlist.row(i) = alpha * tangents_cp.row(i) + binormal_cp.row(i);
+    }
+    int counter = 0;
+    assert(ply_extracted.size() > 0);
+    for (int i = 0; i < ply_extracted.size(); i++)
+    {
+        for (int j = 0; j < ply_extracted[i].size(); j++)
+        {
+            ply_extracted[i][j] = v0list.row(counter);
+            bin_extracted[i][j] = binlist.row(counter);
+            counter ++;
+        }
+    }
 }
 // if rotated, we save the rotated mesh; otherwise we save the mesh extracted from optimizer.
 void PolyOpt::save_polyline_and_binormals_as_files(const bool rotated)
@@ -1298,6 +1377,7 @@ void PolyOpt::assemble_crease_planarity(spMat &H, Eigen::VectorXd &B, Eigen::Vec
         if (bk == -1)
         {
             compute_back = false;
+            bk = vid;
         }
         // locations
         int loc = vid;
@@ -1395,16 +1475,18 @@ void PolyOpt::opt_planarity(){
 
 
     double stplength = dx.norm();
-
-    std::cout << "Crease: step, " << stplength;
+    double energy_gravity = emass.norm();
+    
+    std::cout << "Crease, gravity, " << energy_gravity<<", ";
+    std::cout << "step, " << stplength;
     if(weight_angle > 0){
         double energy_angle = Eangle.norm();
         std::cout<<", Energy Planarity, "<<energy_angle<<", Planar max, "<< Eangle.lpNorm<Eigen::Infinity>();
     }
     std::cout<<"\n";
-    todo
-    extract_rectifying_plane_mesh();
-    extract_polylines_and_binormals();
+    
+    extract_rectifying_plane_mesh_from_crease();
+    extract_polylines_and_binormals_from_creases();
     opt_for_crease = true;
 }
 std::vector<std::vector<int>> load_row_col_info(const std::vector<std::vector<double>> &rowstmp)

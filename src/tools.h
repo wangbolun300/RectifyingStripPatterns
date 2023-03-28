@@ -130,3 +130,8 @@ void convert_polyline_to_developable_strips_reflection_method(const std::vector<
                                                               const std::vector<Eigen::Vector3d> &bnm, std::vector<Eigen::Vector3d> &creases);
 void evaluate_and_print_strip_developability(const std::vector<std::vector<Eigen::Vector3d>> &ply,
                                              const std::vector<std::vector<Eigen::Vector3d>> &crease);
+void get_polyline_rectifying_planes(const std::vector<std::vector<Eigen::Vector3d>> &ply,
+                                    const std::vector<std::vector<Eigen::Vector3d>> &bnm,
+                                    std::vector<std::vector<Eigen::Vector3d>>& vertices,
+                                    std::vector<std::vector<Eigen::Vector3d>>& tangents,
+                                    std::vector<std::vector<Eigen::Vector3d>>& binormals);

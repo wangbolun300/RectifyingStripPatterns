@@ -167,6 +167,8 @@ void init_crease_opt(const std::vector<std::vector<Eigen::Vector3d>> &vertices,
                      const std::vector<std::vector<Eigen::Vector3d>> &binormals);
 void assemble_gravity_crease(spMat &H, Eigen::VectorXd &B, Eigen::VectorXd &energy);
 void assemble_crease_planarity(spMat &H, Eigen::VectorXd &B, Eigen::VectorXd &energy);
+void extract_rectifying_plane_mesh_from_crease();
+void extract_polylines_and_binormals_from_creases();
 
 void opt_planarity();
 };
