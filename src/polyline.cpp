@@ -414,8 +414,17 @@ void sample_polylines_and_binormals_evenly(const int nbr_segs, const std::vector
         std::vector<Eigen::Vector3d> ply_current = ply_in[i], bin_current = bi_in[i];
         std::vector<Eigen::Vector3d> ply_sampled, bin_sampled;
         int nbr = plylengths[i] / avg + 1;
-
-        ply_sampled = sample_one_polyline_and_binormals_based_on_length(ply_current, nbr, bin_current, bin_sampled);
+        if (nbr < 3)
+        {
+            ply_sampled.push_back(ply_current.front());
+            ply_sampled.push_back(ply_current.back());
+            bin_sampled.push_back(bin_current.front());
+            bin_sampled.push_back(bin_current.back());
+        }
+        else{
+            ply_sampled = sample_one_polyline_and_binormals_based_on_length(ply_current, nbr, bin_current, bin_sampled);
+        }
+        
         ply.push_back(ply_sampled);
         bi.push_back(bin_sampled);
         // std::cout<<"pushed"<<std::endl;

@@ -2949,6 +2949,9 @@ void find_next_pt_on_polyline(const int start_seg, const std::vector<Eigen::Vect
 // nbr - 1 is the nbr of segments
 // length is the length of the polyline
 void sample_polyline_and_extend_verlist(const std::vector<Eigen::Vector3d>& polyline, const int nbr, const double length, std::vector<Eigen::Vector3d>& verlist){
+    if(nbr < 3){
+        std::cout<<"nbr is less than 3: "<<nbr<<std::endl;
+    }
     assert(nbr >= 3);
     double avg = length / (nbr - 1);
     verlist.push_back(polyline[0]);
@@ -2966,6 +2969,10 @@ void sample_polyline_and_extend_verlist(const std::vector<Eigen::Vector3d>& poly
 void sample_polyline_and_extend_verlist(const std::vector<Eigen::Vector3d> &polyline, const int nbr, const double avg, std::vector<Eigen::Vector3d> &verlist,
                                         std::vector<int> &segid, std::vector<double> &t)
 {
+    if (nbr < 3)
+    {
+        std::cout << "nbr is less than 3: " << nbr << std::endl;
+    }
     assert(nbr >= 3);
     // double avg = length / (nbr - 1); // this is the relationship between avg and nbr
     verlist.push_back(polyline[0]);

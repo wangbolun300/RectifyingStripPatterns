@@ -2354,10 +2354,11 @@ void get_ver_nbr_for_each_class(const Eigen::VectorXi &info, std::vector<std::ve
 {
 	int type_low = info.minCoeff();
 	int type_up = info.maxCoeff();
-	int nbr_types = type_up - type_low + 1;
+	int nbr_types = type_up + 2;
 	int ninner = info.size();
 
 	types.resize(nbr_types);
+	std::cout<<"Types nbr: "<<nbr_types<<", min "<<type_low<<", max "<<type_up<<std::endl;
 	for(int i =0;i<ninner;i++){
 		int type = info[i] + 1;// the type starts from -1
 		types[type].push_back(i);
