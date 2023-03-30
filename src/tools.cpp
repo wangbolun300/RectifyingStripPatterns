@@ -2324,7 +2324,53 @@ void save_quad_left_right_info(const std::string &namebase, std::vector<Eigen::V
     current = vc;
     write_one_info_file(fname, current, file);
 }
-
+void save_strokes(const std::vector<std::vector<int>> &flist, const std::vector<std::vector<Eigen::Vector3f>> &bclist)
+{
+    std::cout << "Saving the info for the strokes, please provide the prefix: " << std::endl;
+    std::string fname = igl::file_dialog_save();
+    std::ofstream file;
+    file.open(fname + "_flist.csv");
+    for (int i = 0; i < flist.size(); i++)
+    {
+        for (int j = 0; j < flist[i].size() - 1; j++)
+        {
+            file << flist[i][j] << ",";
+        }
+        file << flist[i].back() << std::endl;
+    }
+    file.close();
+    file.open(fname + "_bc.csv");
+    for (int i = 0; i < bclist.size(); i++)
+    {
+        for (int j = 0; j < bclist[i].size() - 1; j++)
+        {
+            file << bclist[i][j][0] << ","<<bclist[i][j][1]<<","<<bclist[i][j][2]<<",";
+        }
+        file << bclist[i].back()[0] << "," << bclist[i].back()[1] << "," << bclist[i].back()[2] << "," << std::endl;
+    }
+    file.close();
+    std::cout<<"files saved"<<std::endl;
+}
+void read_strokes( std::vector<std::vector<int>> &flist,  std::vector<std::vector<Eigen::Vector3f>> &bclist){
+    std::cout<<"Reading stroke files, please provide the prefix: "<<std::endl;
+    std::string fname = igl::file_dialog_save();
+    std::ofstream file;
+    std::vector<std::vector<double>> tmp_f, tmp_v;
+    read_csv_data_lbl(fname + "_flist.csv",tmp_f);
+    read_csv_data_lbl(fname + "_bc.csv",tmp_v);
+    flist.resize(tmp_f.size());
+    bclist.resize(tmp_f.size());
+    for(int i=0;i<tmp_f.size();i++){
+        std::vector<int> silist;
+        std::vector<Eigen::Vector3f> sivers;
+        for(int j=0;j<tmp_f[i].size();j++){
+            silist.push_back(tmp_f[i][j]);
+            sivers.push_back(Eigen::Vector3f(tmp_v[i][j * 3], tmp_v[i][j * 3 + 1], tmp_v[i][j * 3 + 2]));
+        }
+        flist[i]=silist;
+        bclist[i]=sivers;
+    }
+}
 std::vector<int> element_ids_for_not_computed_vers(const Eigen::VectorXi &vec)
 {
     std::vector<int> tmp, result;

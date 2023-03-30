@@ -947,16 +947,48 @@ int main(int argc, char *argv[])
 					viewer.data().add_points(pts, red);
 				}
 				viewer.selected_data_index = id;
-				std::cout<<"SAVING The Traced Vertices into obj format"<<std::endl;
+				std::cout<<"SAVING The Traced Vertices, Binormals and Normals into obj format, please provide prefix"<<std::endl;
 				std::string fname = igl::file_dialog_save();
 				std::ofstream file;
-				file.open(fname);
+				file.open(fname+".obj");
 				for (int i = 0; i < pts.rows(); i++)
 				{
 					file << "v " << pts(i, 0) << " " << pts(i, 1) << " " << pts(i, 2) << std::endl;
 				}
 
 				file.close();
+
+				Eigen::MatrixXd bE0, bE1, nE0, nE1;
+				lscif::tools.show_traced_binormals(bE0, bE1, nE0, nE1, lscif::vector_scaling);
+
+				
+				file.open(fname+"_start.obj");
+				assert(bE0.rows() == pts.rows() - 2 && "Please Trace only one curve so we can save the correct data");
+				for (int i = 0; i < bE0.rows(); i++)
+				{
+					file << "v " << pts(i + 1, 0) << " " << pts(i + 1, 1) << " " << pts(i + 1, 2) << std::endl;
+				}
+
+				file.close();
+
+				file.open(fname+"_binormal_end.obj");
+				for (int i = 0; i < bE1.rows(); i++)
+				{
+					file << "v " << bE1(i, 0) << " " << bE1(i, 1) << " " << bE1(i, 2) << std::endl;
+				}
+
+				file.close();
+
+
+				file.open(fname+"_normal_end.obj");
+				for (int i = 0; i < nE1.rows(); i++)
+				{
+					file << "v " << nE1(i, 0) << " " << nE1(i, 1) << " " << nE1(i, 2) << std::endl;
+				}
+
+				file.close();
+
+				
 
 				std::cout << "Traced Data SAVED" << std::endl;
 
@@ -2703,6 +2735,38 @@ int main(int argc, char *argv[])
 			const Eigen::RowVector3d blue(0.2, 0.2, 0.8);
 
 			viewer.selected_data_index = id;
+		}
+		ImGui::SameLine();
+		if (ImGui::Button("SaveStrokes", ImVec2(ImGui::GetWindowSize().x * 0.25f, 0.0f)))
+
+		{
+			save_strokes(lscif::flist, lscif::bclist);
+		}
+		ImGui::SameLine();
+		if (ImGui::Button("ReadStrokes", ImVec2(ImGui::GetWindowSize().x * 0.25f, 0.0f)))
+
+		{
+			Eigen::MatrixXd V = lscif::tools.V;
+			Eigen::MatrixXi F = lscif::tools.F;
+			read_strokes(lscif::flist, lscif::bclist);
+			Eigen::MatrixXd vlist;
+			for (int i = 0; i < lscif::flist.size(); i++)
+			{
+				vlist.resize(lscif::flist[i].size(), 3);
+				for (int j = 0; j < lscif::flist[i].size(); j++)
+				{
+					int fid = lscif::flist[i][j];
+					Eigen::Vector3f bc = lscif::bclist[i][j];
+					Eigen::Vector3d v0 = V.row(F(fid, 0));
+					Eigen::Vector3d v1 = V.row(F(fid, 1));
+					Eigen::Vector3d v2 = V.row(F(fid, 2));
+
+					Eigen::Vector3d pt = bc[0] * v0 + bc[1] * v1 + bc[2] * v2;
+					vlist.row(j) = pt;
+				}
+				const Eigen::RowVector3d red(0.8, 0.2, 0.2);
+				viewer.data().add_points(vlist, red); // show rows
+			}
 		}
 		if (ImGui::CollapsingHeader("QuadMeshOpt", ImGuiTreeNodeFlags_DefaultOpen))
 		{

@@ -135,3 +135,6 @@ void get_polyline_rectifying_planes(const std::vector<std::vector<Eigen::Vector3
                                     std::vector<std::vector<Eigen::Vector3d>>& vertices,
                                     std::vector<std::vector<Eigen::Vector3d>>& tangents,
                                     std::vector<std::vector<Eigen::Vector3d>>& binormals);
+
+void save_strokes(const std::vector<std::vector<int>> &flist, const std::vector<std::vector<Eigen::Vector3f>> &bclist);
+void read_strokes( std::vector<std::vector<int>> &flist,  std::vector<std::vector<Eigen::Vector3f>> &bclist);
