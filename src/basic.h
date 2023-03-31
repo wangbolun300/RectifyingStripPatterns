@@ -519,7 +519,9 @@ public:
     int Second_Ray_nbr_rings = 1; // the nbr of rings associate to the vers corresponding to the second ray
     double weight_binormal;
     Eigen::VectorXi shading_condition_info;
-    std::vector<std::vector<int>> PG_Vertex_Types;// record the vertices types used in 
+    std::vector<std::vector<int>> PG_Vertex_Types;// record the vertices types used in variational angle
+    Eigen::VectorXd PGGeoDistance;
+    Eigen::VectorXd PGVariationalAngles;
     double angle_between_two_levelsets;
     double weight_fix_two_ls_angle;
 

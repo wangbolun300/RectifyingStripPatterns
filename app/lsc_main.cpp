@@ -1268,6 +1268,7 @@ int main(int argc, char *argv[])
 				einit.weight_strip_width = lscif::weight_strip_width;
 				einit.solve_pseudo_geodesic = lscif::enable_pg_energy_checkbox;
 				einit.target_angle = lscif::target_angle;
+				// std::cout<<"Target angle, "<<lscif::target_angle<<std::endl; exit(0);
 				einit.max_step_length = lscif::maximal_step_length;
 				einit.solve_strip_width_on_traced = lscif::enable_strip_width_checkbox;
 				einit.enable_inner_vers_fixed = lscif::enable_inner_vers_fixed;
@@ -2203,7 +2204,7 @@ int main(int argc, char *argv[])
 				std::cout << "mesh 2 get readed " << std::endl;
 			}
 			ImGui::SameLine();
-			if (ImGui::Button("ShowVerTypes", ImVec2(ImGui::GetWindowSize().x * 0.25f, 0.0f)))
+			if (ImGui::Button("ShadingTypes", ImVec2(ImGui::GetWindowSize().x * 0.25f, 0.0f)))
 			{
 				Eigen::VectorXi info;
 				Eigen::MatrixXd P1;
@@ -2214,21 +2215,34 @@ int main(int argc, char *argv[])
 					ImGui::End();
 					return;
 				}
-				if (lscif::readed_mesh1.size() == 1)
-				{
-					project_mesh_and_get_shading_info(lscif::readed_mesh1[0], lscif::readed_mesh2, lscif::ring_nbr, info, P1, P2);
-					std::cout << "the first type is green, the second is red" << std::endl;
 
-					viewer.data().add_points(P2, lscif::hot_red);
-					viewer.data().add_points(P1, lscif::sea_green);
-					std::cout << "Nbr first, " << P1.rows() << std::endl;
-					std::cout << "Nbr second, " << P2.rows() << std::endl;
-				}
-				if (lscif::readed_mesh1.size() >1){
-					project_mesh_and_get_vertex_class(lscif::readed_mesh1, lscif::readed_mesh2, info);
-				}
+				project_mesh_and_get_shading_info(lscif::readed_mesh1[0], lscif::readed_mesh2, lscif::ring_nbr, info, P1, P2);
+				std::cout << "the first type is green, the second is red" << std::endl;
+
+				viewer.data().add_points(P2, lscif::hot_red);
+				viewer.data().add_points(P1, lscif::sea_green);
+				std::cout << "Nbr first, " << P1.rows() << std::endl;
+				std::cout << "Nbr second, " << P2.rows() << std::endl;
 
 				std::cout<<"Passing the info to the level-set system"<<std::endl;
+				lscif::tools.shading_condition_info = info;
+			}
+			ImGui::SameLine();
+			if (ImGui::Button("PGTypes", ImVec2(ImGui::GetWindowSize().x * 0.25f, 0.0f)))
+			{
+				Eigen::VectorXi info;
+				Eigen::MatrixXd P1;
+				Eigen::MatrixXd P2;
+				if (lscif::readed_mesh1.empty())
+				{
+					std::cout << "\nLSC: Please read meshes" << std::endl;
+					ImGui::End();
+					return;
+				}
+
+				project_mesh_and_get_vertex_class(lscif::readed_mesh1, lscif::readed_mesh2, info);
+
+				std::cout << "Passing the info to the level-set system" << std::endl;
 				lscif::tools.shading_condition_info = info;
 			}
 

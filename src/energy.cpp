@@ -260,7 +260,7 @@ void lsTools::analysis_pseudo_geodesic_on_vertices(const Eigen::VectorXd& func_v
 // s: Q-P （reducted without denominators, position: aux_start_loc + ninner * 6 ~ aux_start_loc + ninner * 9
 // h: the r.dot(u). position: aux_start_loc + ninner * 9 ~ aux_start_loc + ninner * 10
 // the nbr of vars: vnbr + ninner * 10
-
+ 
 void lsTools::calculate_pseudo_geodesic_opt_expanded_function_values(Eigen::VectorXd& vars, const std::vector<double>& angle_degree,
 	const LSAnalizer &analizer, const int vars_start_loc, const int aux_start_loc, std::vector<Trip>& tripletes, Eigen::VectorXd& Energy) {
 	double cos_angle, sin_angle;
@@ -274,25 +274,41 @@ void lsTools::calculate_pseudo_geodesic_opt_expanded_function_values(Eigen::Vect
 		cos_angle = cos(angle_radian);
 		sin_angle = sin(angle_radian);
 	}
-	assert(angle_degree.size() == 1 || angle_degree.size() == vnbr);
+	
 	
 	tripletes.clear();
 	tripletes.reserve(ninner * 60); // 
 	Energy = Eigen::VectorXd::Zero(ninner * 12); // mesh total energy values
-	
+#ifdef LSC_VARIABLE_CURVE_ANGLES
+	std::vector<int> type_record = PG_Vertex_Types[0];
+	for (int itr = 0; itr < type_record.size(); itr++)
+	{
+		int i = type_record[itr]; // the id in inner vers
+
+#else
+	assert(angle_degree.size() == 1 || angle_degree.size() == vnbr);
 	for (int i = 0; i < ninner; i++)
 	{
+
+#endif
 		int vm = IVids[i];
 		if (analizer.LocalActInner[i] == false) {
 			std::cout << "singularity, " << vm << std::endl;
 			continue;
 		}
-		
-		if (angle_degree.size() == vnbr) {
+#ifdef LSC_VARIABLE_CURVE_ANGLES
+		double angle_radian = PGVariationalAngles[vm] * LSC_PI / 180.;
+		cos_angle = cos(angle_radian);
+		sin_angle = sin(angle_radian);
+#else
+		if (angle_degree.size() == vnbr)
+		{
 			double angle_radian = angle_degree[vm] * LSC_PI / 180.; // the angle in radian
 			cos_angle = cos(angle_radian);
 			sin_angle = sin(angle_radian);
 		}
+#endif
+
 		CGMesh::HalfedgeHandle inhd = analizer.heh0[i], outhd = analizer.heh1[i];
 		int v1 = lsmesh.from_vertex_handle(inhd).idx();
 		int v2 = lsmesh.to_vertex_handle(inhd).idx();
@@ -1272,7 +1288,7 @@ void lsTools::calculate_extreme_pseudo_geodesic_values(Eigen::VectorXd &vars, co
 	double max_ele = 0;
 	double max_eng = 0;
 #ifdef LSC_VARIABLE_CURVE_ANGLES
-	std::vector<int> type_record = asymptotic ? PG_Vertex_Types[1] : PG_Vertex_Types[3];
+	std::vector<int> type_record =  PG_Vertex_Types[1];
 	for (int itr = 0; itr < type_record.size(); itr++)
 	{
 		int i = type_record[itr]; // the id in inner vers
@@ -2370,10 +2386,7 @@ void lsTools::Run_Level_Set_Opt_Angle_Variable() {
 	Eigen::MatrixXd GradValueF, GradValueV;
 	Eigen::VectorXd PGEnergy[3];
 	Eigen::VectorXd func = fvalues;
-	
-	std::vector<double> angle_degree;
-	angle_degree.resize(1);
-	angle_degree[0] = pseudo_geodesic_target_angle_degree;
+
 	
 	int vnbr = V.rows();
 	int fnbr = F.rows();
@@ -2413,12 +2426,15 @@ void lsTools::Run_Level_Set_Opt_Angle_Variable() {
 		{
 			std::cout << "type " << i << ", nbr of vers, " << PG_Vertex_Types[i].size() << std::endl;
 		}
+		// std::cout<<"Before go inside"<<std::endl;
+		get_geodesic_distance(V, F, IVids, PG_Vertex_Types[1], PGGeoDistance);
+		assign_pg_angle_based_on_geodesic_distance(PGGeoDistance, pseudo_geodesic_target_angle_degree, PGVariationalAngles);
 	}
-	// transition points PG_Vertex_Types[0], size: vnbr
-	// asymptotic points PG_Vertex_Types[1], size: vnbr
-	// pseudo-geo points PG_Vertex_Types[2], size: vnbr // TODO we first try without any other condition except smoothness
-	// geodesic points   PG_Vertex_Types[3], size: vnbr 
-	int final_size = vnbr;
+	
+	// pseudo_geodesic points PG_Vertex_Types[0], auxiliary: vnbr + size * 10
+	// asymptotic points PG_Vertex_Types[1], auxiliary: vnbr
+
+	int final_size = vnbr + ninner * 10;
 	
 	if (Glob_lsvars.size() != final_size) {
 		
@@ -2512,14 +2528,18 @@ void lsTools::Run_Level_Set_Opt_Angle_Variable() {
 		Blarge = sum_uneven_vectors(Blarge, weight_pseudo_geodesic_energy * pg_mJTF[0]);
 		if (enable_extreme_cases)
 		{
-			asymptotic = false;
-			assemble_solver_extreme_cases_part_vertex_based(Glob_lsvars, asymptotic, false,
-															analizers[0], vars_start_loc, pg_JTJ[1], pg_mJTF[1], PGEnergy[1]);
+			std::vector<double> angle_list;
+			int vars_start_loc = 0;
+			int aux_start_loc = vnbr;
+			assemble_solver_pesudo_geodesic_energy_part_vertex_based(Glob_lsvars, angle_list, analizers[0], vars_start_loc, aux_start_loc, pg_JTJ[1],
+																	 pg_mJTF[1], PGEnergy[1]);
+
 			Hlarge = sum_uneven_spMats(Hlarge, weight_pseudo_geodesic_energy * pg_JTJ[1]);
 			Blarge = sum_uneven_vectors(Blarge, weight_pseudo_geodesic_energy * pg_mJTF[1]);
+			Compute_Auxiliaries = false;
 		}
 
-		Compute_Auxiliaries = false;
+		
 	}
 	if(vector_contains_NAN(Blarge)){
         std::cout<<"energy contains NAN"<<std::endl;

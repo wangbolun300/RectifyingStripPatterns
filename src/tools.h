@@ -138,3 +138,6 @@ void get_polyline_rectifying_planes(const std::vector<std::vector<Eigen::Vector3
 
 void save_strokes(const std::vector<std::vector<int>> &flist, const std::vector<std::vector<Eigen::Vector3f>> &bclist);
 void read_strokes( std::vector<std::vector<int>> &flist,  std::vector<std::vector<Eigen::Vector3f>> &bclist);
+void get_geodesic_distance(const Eigen::MatrixXd &V, const Eigen::MatrixXi &F, const std::vector<int> &IVids,
+                           const std::vector<int> &idinner, Eigen::VectorXd &D);
+void assign_pg_angle_based_on_geodesic_distance(const Eigen::VectorXd &D, const double percentage, Eigen::VectorXd &angle);
