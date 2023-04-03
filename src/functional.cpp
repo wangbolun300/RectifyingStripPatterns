@@ -60,3 +60,31 @@ void assign_pg_angle_based_on_geodesic_distance(const Eigen::VectorXd &D, const 
         angle[i] = a;
     }
 }
+
+// void get_lengths_of_plys()
+// idinner is the inner vers of asymptotic area.
+// IVids[idinner] is the vid of the inner vers
+// void assign_pg_angle_based_on_ls_length(const CGMesh &lsmesh, const Eigen::MatrixXd &V, const Eigen::MatrixXi &F,
+//                                         const Eigen::VectorXd &ls,
+//                                         const std::vector<CGMesh::HalfedgeHandle> &loop,
+//                                         const std::vector<int> &IVids, const std::vector<int> &idinner,
+//                                         const double percentage,  
+//                                         std::vector<double>& ts)
+// {
+//     vidangle.clear();
+//     vidangle.reserve(V.rows() / 2);
+//     double lsmin = ls.minCoeff();
+//     double lsmax = ls.maxCoeff();
+//     double value = (lsmin + lsmax) / 2;
+//     std::vector<std::vector<double>> paras;
+//     std::vector<std::vector<CGMesh::HalfedgeHandle>> handles;
+//     std::vector<bool> left_large;
+//     std::vector<Eigen::Vector3d> pts;
+//     get_iso_lines_baricenter_coord(lsmesh, loop, V, ls, value, paras, handles, left_large);
+    
+//     if()
+//     int maxsize = 0;
+//     int maxid
+    
+
+// }

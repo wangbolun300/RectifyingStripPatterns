@@ -15,7 +15,6 @@ void lsTools::init(CGMesh &mesh)
 {
     MP.mesh2Matrix(mesh, V, F);
     MP.meshEdges(mesh, E);
-    solve_edge_length_matrix(V, E, Elmat);
     lsmesh = mesh;
     std::cout << "parametrization start, getting boundary loop, F size " << F.rows() << std::endl;
     igl::boundary_loop(F, bnd);
@@ -35,8 +34,18 @@ void lsTools::init(CGMesh &mesh)
     igl::cotmatrix(V, F, Dlps);
     igl::curved_hessian_energy(V, F, QcH);
     initialize_mesh_properties();
-    
-    
+    // restore the original mesh info: edge lengths, aabb tree, and the original vertices
+    int enbr = E.rows();
+    ElStored.resize(enbr);
+    for (int i = 0; i < enbr; i++)
+    {
+        int vid0 = E(i, 0);
+        int vid1 = E(i, 1);
+        ElStored[i] = (V.row(vid0) - V.row(vid1)).norm();
+    }
+    Vstored = V;
+    aabbtree.init(V, F);
+    Nstored = norm_v;
 }
 
 void lsTools::prepare_level_set_solving(const EnergyPrepare &Energy_initializer)
@@ -545,7 +554,9 @@ void lsTools::assemble_solver_strip_width_part(const Eigen::MatrixXd& GradFValue
     H = JTJ;
     B = mJTF_dense;
 }
-
+void lsTools::assemble_solver_mesh_strip_width(spMat &JTJ, Eigen::VectorXd &B, Eigen::VectorXd &energy){
+    
+}
 void lsTools::get_all_the_edge_normals()
 {
     int ne = lsmesh.n_edges();
@@ -586,7 +597,7 @@ void lsTools::get_all_the_edge_normals()
             Actid.push_back(i);
         }
     }
-    std::cout<<"The edge normal vectors are solved for tracing method"<<std::endl;
+    // std::cout<<"The edge normal vectors are solved for tracing method"<<std::endl;
 }
 
 

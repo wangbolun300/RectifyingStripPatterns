@@ -141,3 +141,11 @@ void read_strokes( std::vector<std::vector<int>> &flist,  std::vector<std::vecto
 void get_geodesic_distance(const Eigen::MatrixXd &V, const Eigen::MatrixXi &F, const std::vector<int> &IVids,
                            const std::vector<int> &idinner, Eigen::VectorXd &D);
 void assign_pg_angle_based_on_geodesic_distance(const Eigen::VectorXd &D, const double percentage, Eigen::VectorXd &angle);
+void read_ver_write_into_xyz_files();
+
+void get_iso_lines_baricenter_coord(const CGMesh &lsmesh, const std::vector<CGMesh::HalfedgeHandle>& loop, const Eigen::MatrixXd &V,
+                   const Eigen::MatrixXi &F, const Eigen::VectorXd &ls, double value, std::vector<std::vector<double>> &paras,
+                   std::vector<std::vector<CGMesh::HalfedgeHandle>> &handles,
+                   std::vector<bool>& left_large);
+void get_diff_polylines_order(const std::vector<std::vector<Eigen::Vector3d>> &pls, std::vector<std::vector<Eigen::Vector3d>> &sorted,
+                              const int threadshold);

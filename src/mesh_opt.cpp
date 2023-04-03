@@ -711,6 +711,82 @@ void lsTools::assemble_solver_mesh_extreme(Eigen::VectorXd &vars, const int aux_
     JTJ = J.transpose() * J;
     B = -J.transpose() * MTEnergy;
 }
+void lsTools::assemble_solver_approximate_original(spMat &H, Eigen::VectorXd &B, Eigen::VectorXd &energy){
+    int vnbr = V.rows();
+    // std::vector<int> fids(vnbr);
+    std::vector<Eigen::Vector3d> vprojs(vnbr);
+    std::vector<Eigen::Vector3d> Nlocal(vnbr);
+    for (int i = 0; i < vnbr; i++)
+    {
+        Eigen::Vector3d query = V.row(i);
+        int f;
+        Eigen::RowVector3d proj;
+        aabbtree.squared_distance(Vstored, F, query, f, proj);
+        Eigen::Vector3d p = proj;
+        Eigen::Vector3d v0 = Vstored.row(F(f, 0));
+        Eigen::Vector3d v1 = Vstored.row(F(f, 1));
+        Eigen::Vector3d v2 = Vstored.row(F(f, 2));
+        std::array<double, 3> coor = 
+        barycenter_coordinate(v0, v1, v2, p);
+        Eigen::Vector3d norm = coor[0] * Nstored.row(F(f, 0)) + coor[1] * Nstored.row(F(f, 1)) + coor[2] * Nstored.row(F(f, 2));
+        assert(Nstored.row(F(f, 0)).dot(Nstored.row(F(f, 1))) > 0 && Nstored.row(F(f, 0)).dot(Nstored.row(F(f, 2))) > 0);
+        norm.normalize();
+        vprojs[i] = p;
+        Nlocal[i] = norm;
+
+        // debug
+        Eigen::Vector3d rec_pro = coor[0] * v0 + coor[1] * v1 + coor[2] * v2;
+        if ((rec_pro - p).norm() > 0.5)
+        {
+            std::cout<<"INACCURATE SOLVING: coor: "<<coor[0]<<", "<<coor[1]<<", "<<coor[2]<<std::endl;
+            std::cout<<"v0, "<<v0.transpose()<<std::endl;
+            std::cout<<"v1, "<<v1.transpose()<<std::endl;
+            std::cout<<"v2, "<<v2.transpose()<<std::endl;
+            std::cout<<"p "<<p.transpose()<<std::endl;
+            std::cout<<"p_compute "<<rec_pro.transpose()<<std::endl;
+        }
+    }
+    Ppro0 = vec_list_to_matrix(vprojs);
+    Npro0 = vec_list_to_matrix(Nlocal);
+    std::vector<Trip> tripletes;
+    tripletes.reserve(vnbr * 6);
+    energy = Eigen::VectorXd::Zero(vnbr * 2);
+    for (int i = 0; i < vnbr; i++)
+    {
+        int vid = i;
+        int lx = vid;
+        int ly = vid + vnbr;
+        int lz = vid + vnbr * 2;
+        Eigen::Vector3d normal = Nlocal[vid]; // the normal vector
+        Eigen::Vector3d closest = vprojs[vid]; // the closest point
+        Eigen::Vector3d ver = V.row(vid);
+
+        // ver.dot(n^*) - ver^*.dot(v^*) = 0
+        tripletes.push_back(Trip(i, lx, normal[0]));
+        tripletes.push_back(Trip(i, ly, normal[1]));
+        tripletes.push_back(Trip(i, lz, normal[2]));
+
+        energy[i] = ver.dot(normal) - closest.dot(normal);
+
+        // vertices not far away from the original ones
+        // (ver - ver^*)^2 = 0
+        double scale = 0.01; // give very little weight
+        Eigen::Vector3d vdiff = V.row(vid) - Vstored.row(vid);
+        // std::cout<<"Through here"<<std::endl;
+        tripletes.push_back(Trip(i + vnbr, lx, 2 * vdiff[0] * scale));
+        tripletes.push_back(Trip(i + vnbr, ly, 2 * vdiff[1] * scale));
+        tripletes.push_back(Trip(i + vnbr, lz, 2 * vdiff[2] * scale));
+
+        energy[i + vnbr] = vdiff.dot(vdiff) * scale;
+    }
+    int nvars = vnbr * 3;
+    int ncondi = energy.size();
+    spMat J;
+    J.resize(ncondi, nvars);
+    J.setFromTriplets(tripletes.begin(), tripletes.end());
+    H = J.transpose() * J;
+    B = -J.transpose() * energy;
+}
 void lsTools::assemble_solver_mesh_smoothing(const Eigen::VectorXd &vars, spMat &H, Eigen::VectorXd &B)
 {
     spMat JTJ = igl::repdiag(QcH, 3); // the matrix size nx3 x nx3
@@ -880,47 +956,46 @@ void lsTools::assemble_solver_mean_value_laplacian(const Eigen::VectorXd &vars, 
     B = mJTF;
 }
 
-void lsTools::solve_edge_length_matrix(const Eigen::MatrixXd &V, const Eigen::MatrixXi &E, spMat &mat)
-{
-    int enbr = E.rows();
-    int nver = V.rows();
-    std::vector<Trip> tripletes;
-    tripletes.reserve(enbr * 6);
-    ElStored.resize(enbr * 3);
-    for (int i = 0; i < enbr; i++)
-    {
-        int vid0 = E(i, 0);
-        int vid1 = E(i, 1);
-        tripletes.push_back(Trip(3 * i, vid0, 1));
-        tripletes.push_back(Trip(3 * i, vid1, -1));
-        tripletes.push_back(Trip(3 * i + 1, nver + vid0, 1));
-        tripletes.push_back(Trip(3 * i + 1, nver + vid1, -1));
-        tripletes.push_back(Trip(3 * i + 2, nver * 2 + vid0, 1));
-        tripletes.push_back(Trip(3 * i + 2, nver * 2 + vid1, -1));
-        ElStored[3 * i] = V(vid0, 0) - V(vid1, 0);
-        ElStored[3 * i + 1] = V(vid0, 1) - V(vid1, 1);
-        ElStored[3 * i + 2] = V(vid0, 2) - V(vid1, 2);
-    }
-    mat.resize(enbr * 3, nver * 3);
-    mat.setFromTriplets(tripletes.begin(), tripletes.end());
-}
 void lsTools::assemble_solver_mesh_edge_length_part(const Eigen::VectorXd vars, spMat &H, Eigen::VectorXd &B,
                                                     Eigen::VectorXd &ElEnergy)
 {
-    H = Elmat.transpose() * Elmat;
     int enbr = E.rows();
-    int nver = V.rows();
-    B.resize(enbr * 3);
+    int vnbr = V.rows();
+    std::vector<Trip> tripletes;
+    tripletes.reserve(enbr * 6);
+    ElEnergy = Eigen::VectorXd::Zero(enbr);
     for (int i = 0; i < enbr; i++)
     {
         int vid0 = E(i, 0);
         int vid1 = E(i, 1);
-        B[i * 3] = vars[vid0] - vars[vid1] - ElStored[i * 3];
-        B[i * 3 + 1] = vars[nver + vid0] - vars[nver + vid1] - ElStored[i * 3 + 1];
-        B[i * 3 + 2] = vars[nver * 2 + vid0] - vars[nver * 2 + vid1] - ElStored[i * 3 + 2];
+        int l0x = vid0;
+        int l0y = vid0 + vnbr;
+        int l0z = vid0 + vnbr * 2;
+        int l1x = vid1;
+        int l1y = vid1 + vnbr;
+        int l1z = vid1 + vnbr * 2;
+        Eigen::Vector3d ver0 = V.row(vid0);
+        Eigen::Vector3d ver1 = V.row(vid1);
+        double length = ElStored[i];
+        // (ver0 - ver1)^2 - length^2 = 0
+        tripletes.push_back(Trip(i, l0x, 2 * (ver0[0] - ver1[0])));
+        tripletes.push_back(Trip(i, l0y, 2 * (ver0[1] - ver1[1])));
+        tripletes.push_back(Trip(i, l0z, 2 * (ver0[2] - ver1[2])));
+
+        tripletes.push_back(Trip(i, l1x, 2 * -(ver0[0] - ver1[0])));
+        tripletes.push_back(Trip(i, l1y, 2 * -(ver0[1] - ver1[1])));
+        tripletes.push_back(Trip(i, l1z, 2 * -(ver0[2] - ver1[2])));
+
+        ElEnergy[i] = (ver0 - ver1).dot(ver0 - ver1) - length * length;
     }
-    ElEnergy = B;
-    B = -Elmat.transpose() * B;
+
+    int nvars = vnbr * 3;
+    int ncondi = ElEnergy.size();
+    spMat J;
+    J.resize(ncondi, nvars);
+    J.setFromTriplets(tripletes.begin(), tripletes.end());
+    H = J.transpose() * J;
+    B = -J.transpose() * ElEnergy;
 }
 
 // the mat must be a symmetric matrix
@@ -1027,6 +1102,11 @@ void lsTools::Run_Mesh_Opt()
     Eigen::VectorXd B;
     H.resize(vnbr * 3, vnbr * 3);
     B = Eigen::VectorXd::Zero(vnbr * 3);
+    spMat Happro;
+    Eigen::VectorXd Bappro, Eappro;
+    assemble_solver_approximate_original(Happro, Bappro, Eappro);
+    H += weight_Mesh_approximation * Happro;
+    B += weight_Mesh_approximation * Bappro;
 
     spMat Hsmooth, HCsmt;
     Eigen::VectorXd Bsmooth, BCsmt, ECsmt;
@@ -1075,7 +1155,9 @@ void lsTools::Run_Mesh_Opt()
     // add the PG energy
     Htotal = sum_uneven_spMats(weight_Mesh_pesudo_geodesic * Hpg, Htotal);
     Btotal = sum_uneven_vectors(weight_Mesh_pesudo_geodesic * Bpg, Btotal);
-    Htotal += spMat(weight_mass * 1e-6 * Eigen::VectorXd::Ones(final_size).asDiagonal());
+    Eigen::VectorXd gravity = Eigen::VectorXd::Zero(final_size);
+    gravity.segment(0, vnbr * 3) = Eigen::VectorXd::Ones(vnbr * 3);
+    Htotal += spMat(weight_mass * 1e-6 * (Eigen::VectorXd::Ones(final_size) + weight_Mesh_mass * gravity).asDiagonal());
 
     if (vector_contains_NAN(Btotal))
     {
@@ -1110,14 +1192,14 @@ void lsTools::Run_Mesh_Opt()
     }
     double energy_smooth = (Hsmooth * Glob_Vars.topRows(vnbr * 3)).norm();
     /*double energy_mvl = (MVLap * vars).norm();*/
-    std::cout << "Mesh Opt: smooth, " << energy_smooth << ", ls_smooth, "<<ECsmt.norm()<<", ";
+    std::cout << "Mesh Opt: smooth, " << energy_smooth << ", ls_smooth, "<<ECsmt.norm()<<", close, "<<Eappro.norm()<<", ";
     if (!enable_extreme_cases)
     {
         double energy_ls = MTEnergy.norm();
         double max_energy_ls = MTEnergy.lpNorm<Eigen::Infinity>();
         std::cout << "pg, " << energy_ls << ", MaxEnergy, " << max_energy_ls << ", ";
-        double max_ls_angle_energy = MTEnergy.bottomRows(ninner).norm();
-        std::cout << "total angle energy, " << max_ls_angle_energy << ", ";
+        // double max_ls_angle_energy = MTEnergy.bottomRows(ninner).norm();
+        // std::cout << "total angle energy, " << max_ls_angle_energy << ", ";
     }
     else
     {

@@ -105,10 +105,13 @@ namespace lscif
 	std::vector<CGMesh> readed_mesh1;
 	CGMesh readed_mesh2;
 	int Nbr_Iterations_Mesh_Opt=10;
-	double weight_Mesh_smoothness=0.01;
-	double weight_Mesh_edgelength = 1;
+	double weight_Mesh_mass = 100;
+	double weight_Mesh_smoothness=0.001;
+	double weight_Mesh_edgelength = 0.01;
     double weight_Mesh_pesudo_geodesic=30;
-    double Mesh_opt_max_step_length=0.01;
+    double Mesh_opt_max_step_length=0.1;
+	double weight_Mesh_approximation = 0.01;
+
 
 	int update_ver_id;
 	int ring_nbr;
@@ -1054,6 +1057,10 @@ int main(int argc, char *argv[])
 				pts.row(0)<<lscif::ptInx,lscif::ptIny,lscif::ptInz;
 				viewer.data().add_points(pts, lscif::hot_red);
 			}
+			if (ImGui::Button("ReadVers&Write", ImVec2(ImGui::GetWindowSize().x * 0.23f, 0.0f)))
+			{
+				read_ver_write_into_xyz_files();
+			}
 		}
 		if (ImGui::CollapsingHeader("LS Processing", ImGuiTreeNodeFlags_DefaultOpen))
 		{
@@ -1164,6 +1171,8 @@ int main(int argc, char *argv[])
 				initializer.weight_Mesh_edgelength = lscif::weight_Mesh_edgelength;
 				initializer.enable_extreme_cases=lscif::enable_extreme_cases;
 				initializer.Given_Const_Direction = lscif::Given_Const_Direction;
+				lscif::tools.weight_Mesh_approximation = lscif::weight_Mesh_approximation;
+				lscif::tools.weight_Mesh_mass = lscif::weight_Mesh_mass;
 				// lscif::tools.weight_shading = lscif::weight_shading;
 				lscif::tools.Reference_theta = lscif::InputPx;
 				lscif::tools.Reference_phi = lscif::InputPy;
@@ -2500,10 +2509,30 @@ int main(int argc, char *argv[])
 		{
 			// Expose variable directly ...
 			ImGui::InputInt("Iteration Mesh Opt", &lscif::Nbr_Iterations_Mesh_Opt, 0, 0);
+			ImGui::InputDouble("Weight Mass", &lscif::weight_Mesh_mass, 0, 0, "%.4f");
 			ImGui::InputDouble("Weight Smoothness", &lscif::weight_Mesh_smoothness, 0, 0, "%.4f");
 			ImGui::InputDouble("Weight Mesh Pseudo Geodesic", &lscif::weight_Mesh_pesudo_geodesic, 0, 0, "%.4f");
 			ImGui::InputDouble("Weight Mesh Egdge Length", &lscif::weight_Mesh_edgelength, 0, 0, "%.4f");
+			ImGui::InputDouble("Weight Approx", &lscif::weight_Mesh_approximation, 0, 0, "%.4f");
 			ImGui::InputDouble("Max Mesh Step Length", &lscif::Mesh_opt_max_step_length, 0, 0, "%.4f");
+			if (ImGui::Button("DrawProjection", ImVec2(ImGui::GetWindowSize().x * 0.25f, 0.0f)))
+			{
+				const Eigen::RowVector3d red(0.8, 0.2, 0.2);
+				const Eigen::RowVector3d blue(0.2, 0.2, 0.8);
+				const Eigen::RowVector3d yellow(241. / 255, 196. / 255, 15. / 255);
+
+				const Eigen::RowVector3d black(0, 0, 0);
+				const Eigen::RowVector3d green(0.2, 0.8, 0.2);
+
+				if (lscif::tools.Ppro0.size() != 0)
+				{
+					viewer.data().add_edges(lscif::tools.Ppro0, lscif::tools.V, green);
+					// viewer.data().add_edges(lscif::tools.Ppro0,
+					// 						lscif::tools.Ppro0 + lscif::vector_scaling * lscif::tools.Npro0, red);
+					viewer.data().add_edges(lscif::tools.V,
+											lscif::tools.V + lscif::vector_scaling * lscif::tools.norm_v, red);
+				}
+			}
 			// ImGui::InputInt("Iteration", &lscif::OpIter, 0, 0);
 			// ImGui::InputDouble("weight ls mass(big)", &lscif::weight_mass, 0, 0, "%.4f");
 			// ImGui::Checkbox("Fix Boundary", &lscif::fixBoundary_checkbox);

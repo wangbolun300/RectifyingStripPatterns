@@ -2371,6 +2371,49 @@ void read_strokes( std::vector<std::vector<int>> &flist,  std::vector<std::vecto
         bclist[i]=sivers;
     }
 }
+void read_ver_write_into_xyz_files()
+{
+    std::string fname = igl::file_dialog_open();
+    if(fname.empty()){
+        std::cout << "please read a proper ver list in obj format" << std::endl;
+    }
+    Eigen::MatrixXd V;
+    Eigen::MatrixXi F;
+    igl::readOBJ(fname, V, F);
+    std::ofstream file;
+    file.open(fname + "_x.csv");
+    for (int i = 0; i < V.rows(); i++)
+    {
+        file << V(i, 0);
+        if (i < V.rows() - 1)
+        {
+            file << ",";
+        }
+    }
+    file.close();
+    file.open(fname + "_y.csv");
+    for (int i = 0; i < V.rows(); i++)
+    {
+        file << V(i, 1);
+        if (i < V.rows() - 1)
+        {
+            file << ",";
+        }
+    }
+    file.close();
+    file.open(fname + "_z.csv");
+    for (int i = 0; i < V.rows(); i++)
+    {
+        file << V(i, 2);
+        if (i < V.rows() - 1)
+        {
+            file << ",";
+        }
+    }
+    file.close();
+
+    std::cout<<"files saved"<<std::endl;
+}
 std::vector<int> element_ids_for_not_computed_vers(const Eigen::VectorXi &vec)
 {
     std::vector<int> tmp, result;
@@ -3140,11 +3183,21 @@ std::array<double, 3> barycenter_coordinate(const Eigen::Vector3d &v0, const Eig
     double t1 = (v0 - v2).cross(v2 - p).norm();
     double t2 = (v1 - v0).cross(v1 - p).norm();
     double all = (v1 - v0).cross(v1 - v2).norm();
-    // if ((t0 + t1 + t2) / all > 1 + 1e-3 || (t0 + t1 + t2) / all < 1 - 1e-3)
-    // {
-    //     std::cout << "barycenter coordinate not accurate, " << t0 + t1 + t2 << " " << all << std::endl;
-    //     std::cout <<v0.transpose()<< "\n"<<v1.transpose()<< "\n"<<v2.transpose()<< "\n"<<p<< "\n";
-    // }
+    if (t0 < -1e-3 || t1 < -1e-3 || t2 < -1e-3)
+    {
+        std::cout << "COMPUTATION ERROR IN barycenter_coordinate()" << std::endl;
+        std::cout << "v0, " << v0.transpose() << std::endl;
+        std::cout << "v1, " << v1.transpose() << std::endl;
+        std::cout << "v2, " << v2.transpose() << std::endl;
+        std::cout << "p, " << p.transpose() << std::endl;
+        std::cout<<"coor, "<<t0<<", "<<t1<<", "<<t2<<" all, "<<all<<std::endl;
+
+    }
+        // if ((t0 + t1 + t2) / all > 1 + 1e-3 || (t0 + t1 + t2) / all < 1 - 1e-3)
+        // {
+        //     std::cout << "barycenter coordinate not accurate, " << t0 + t1 + t2 << " " << all << std::endl;
+        //     std::cout <<v0.transpose()<< "\n"<<v1.transpose()<< "\n"<<v2.transpose()<< "\n"<<p<< "\n";
+        // }
     std::array<double, 3> result;
     all = t0 + t1 + t2;
     result[0] = t0 / all;

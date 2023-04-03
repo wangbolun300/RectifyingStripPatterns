@@ -2,6 +2,7 @@
 #include <lsc/MeshProcessing.h>
 #include <lsc/igl_tool.h>
 #include <lsc/basic.h>
+#include <igl/AABB.h>
 
 // Efunc represent a elementary value, which is the linear combination of
 // some function values on their corresponding vertices, of this vertex.
@@ -18,7 +19,7 @@ typedef Eigen::Triplet<double> Trip;
 
 static bool produce_no_smooth_oscu = false;// this is a flag to create wrong results when set as true.
 static bool produce_small_search_range = true; // this is to enable small searching range for tracing.
-#define LSC_VARIABLE_CURVE_ANGLES // this is the flag 
+// #define LSC_VARIABLE_CURVE_ANGLES // this is the flag 
 
 enum BCtype{ // boundary condition type
     Traced, //0 // the traced values as the guide directions
@@ -421,17 +422,23 @@ private:
     // Mesh Optimization Part
 
     Eigen::VectorXd ElStored; // edge length of the original mesh
+    Eigen::MatrixXd Vstored; // the stored vertices of the original mesh.
+    igl::AABB<Eigen::MatrixXd, 3> aabbtree; // tree of the original mesh
+    Eigen::MatrixXd Nstored; // stored normal vectors of the original mesh.
     spMat MVLap; // mean value laplacian
     spMat Elmat; // the edge length constriant
     double weight_Mesh_smoothness;
     double weight_Mesh_pesudo_geodesic;
     double weight_Mesh_edgelength;
+public:
+    double weight_Mesh_approximation;
+    double weight_Mesh_mass;
+private:
     double Mesh_opt_max_step_length;
     bool Last_Opt_Mesh=false; // the last step was mesh optimization. need to update all the mesh properties
     Eigen::VectorXd Glob_Vars;
     std::array<LSAnalizer, 3> analizers;
 
-    void solve_edge_length_matrix(const Eigen::MatrixXd& V, const Eigen::MatrixXi& E, spMat& mat);
     void calculate_mesh_opt_expanded_function_values( Eigen::VectorXd& vars,
         const LSAnalizer &analizer,
         const std::vector<double>& angle_degree,
@@ -456,6 +463,8 @@ private:
                                            spMat &JTJ, Eigen::VectorXd &B, Eigen::VectorXd &MTEnergy);
     void assemble_solver_curve_smooth_mesh_opt(const LSAnalizer &analizer,
                                            spMat &JTJ, Eigen::VectorXd &B, Eigen::VectorXd &energy);
+    void assemble_solver_approximate_original(spMat &JTJ, Eigen::VectorXd &B, Eigen::VectorXd &energy);
+    void assemble_solver_mesh_strip_width(spMat &JTJ, Eigen::VectorXd &B, Eigen::VectorXd &energy);
     void update_mesh_properties();// the mesh properties (normals, laplacian, etc.) get updated before optimization
 
 
@@ -544,6 +553,9 @@ public:
     Eigen::VectorXd PGE;// pseudo geodesic energy
 
     std::vector<int> refids;                      // output the ids of current dealing points. just for debug purpose
+    Eigen::MatrixXd Ppro0;// the projected corresponding points 
+    Eigen::MatrixXd Npro0;// the normal vector of the projected corresponding points 
+    
     // Eigen::Vector3d ray_catcher(int vid);
     // boundary conditions
     // int boundary_type = 
