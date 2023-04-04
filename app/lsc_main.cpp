@@ -1061,6 +1061,13 @@ int main(int argc, char *argv[])
 			{
 				read_ver_write_into_xyz_files();
 			}
+			ImGui::SameLine();
+			if (ImGui::Button("TMP", ImVec2(ImGui::GetWindowSize().x * 0.23f, 0.0f)))
+			{
+				// read_pts_csv_and_write_xyz_files();
+				recover_polyline_endpts();
+				write_unfold_single_strip();    
+			}
 		}
 		if (ImGui::CollapsingHeader("LS Processing", ImGuiTreeNodeFlags_DefaultOpen))
 		{

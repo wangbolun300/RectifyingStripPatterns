@@ -4627,3 +4627,236 @@ void lsTools::show_traced_curve_params(Eigen::MatrixXd &curve){
     }
     curve = vec_list_to_matrix(pts);
 }
+void read_pts_csv_and_write_xyz_files(){
+    std::vector<std::vector<Eigen::Vector3d>> ply, bin;
+    std::cout<<"Reading ply file"<<std::endl;
+    std::string fname = igl::file_dialog_open();
+    if (fname.length() == 0)
+    {
+        std::cout<<"Read Error "<<std::endl;
+        return;
+    }
+    std::vector<std::vector<double>> data;
+    read_csv_data_lbl(fname, data);
+
+    std::vector<Eigen::Vector3d> pts;
+    pts.resize(data.size());
+    std::vector<Eigen::Vector3d> binormals;
+    binormals.resize(data.size());
+    for (int i = 0; i < data.size(); i++)
+    {
+        pts[i][0] = data[i][0];
+        pts[i][1] = data[i][1];
+        pts[i][2] = data[i][2];
+    }
+    for (int i = 1; i < data.size() - 1; i++)
+    {
+        Eigen::Vector3d v0 = pts[i - 1];
+        Eigen::Vector3d v1 = pts[i];
+        Eigen::Vector3d v2 = pts[i + 1];
+        Eigen::Vector3d blocal = (v0 - v1).cross(v1 - v2);
+        blocal.normalize();
+        if(i>1)
+        {
+            Eigen::Vector3d biprev = binormals[i - 1];
+            if (blocal.dot(biprev) < 0)
+            {
+                blocal *= -1;
+            }
+        }
+        binormals[i] = blocal;
+    }
+    binormals[0] = binormals[1];
+    binormals.back() = binormals[data.size() - 2];
+    ply.push_back(pts);
+    bin.push_back(binormals);
+    std::cout << "Saving the poly files" << std::endl;
+    fname = igl::file_dialog_save();
+    if (fname.length() == 0)
+    {
+        std::cout<<"Please type something "<<std::endl;
+        return;
+    }
+
+    write_polyline_xyz(ply, fname);
+    write_polyline_xyz(bin, fname + "_b");
+    std::cout << "files get saved" << std::endl;
+
+}
+
+void recover_end_pt_direction_from_crease(const Eigen::Vector3d &crease, const Eigen::Vector3d &v01, Eigen::Vector3d &bi)
+{
+    Eigen::Vector3d np = crease.cross(v01).normalized();
+    bi = v01.cross(np).normalized();
+    if (bi.dot(crease) < 0)
+    {
+        bi *= -1;
+    }
+    return;
+}
+
+void recover_polyline_endpts(){
+    std::vector<std::vector<Eigen::Vector3d>> ply0, ply1, bin0, bin1, ply2, bin2;
+    std::cout<<"First read the crease plyline"<<std::endl;
+    read_plylines_and_binormals(ply0, bin0);
+    std::cout<<"second read the plyline with accurate binormals"<<std::endl;
+    read_plylines_and_binormals(ply1, bin1);
+    int ncurve = ply0.size();
+    int crease_cid = 0;
+    for (int i = 0; i < ncurve; i++)
+    {
+        int vnbr = ply1[i].size();
+        if (vnbr < 4)
+        {
+            ply2.push_back(ply1[i]);
+            bin2.push_back(bin1[i]);
+            crease_cid++;
+            continue;
+        }
+
+        std::vector<Eigen::Vector3d> tmp_ply(vnbr), tmp_bin(vnbr);
+        int vnbr_crease = ply0[crease_cid].size();
+        std::vector<Eigen::Vector3d> current_crease = bin0[crease_cid];
+        if (vnbr - vnbr_crease != 2)
+        {
+            std::cout << "ERROR in recover_polyline_endpts(): polyline size not match" << std::endl;
+            return;
+        }
+        // recover the first pt
+        tmp_ply = ply1[i];
+        Eigen::Vector3d v01 = tmp_ply[0]-tmp_ply[1];
+        Eigen::Vector3d crease = current_crease[0];
+        recover_end_pt_direction_from_crease(crease, v01, tmp_bin[0]);
+
+        // recover the last pt
+        v01 = tmp_ply[vnbr - 1] - tmp_ply[vnbr - 2];
+        crease = current_crease.back();
+        recover_end_pt_direction_from_crease(crease, v01, tmp_bin.back());
+
+        for (int j = 1; j < vnbr-1; j++)
+        {
+            tmp_bin[j] = current_crease[j - 1];
+        }
+        ply2.push_back(tmp_ply);
+        bin2.push_back(tmp_bin);
+
+        crease_cid++;
+    }
+    std::cout<<"Save the polylines with recovered endpts"<<std::endl;
+    std::string fname = igl::file_dialog_save();
+    if (fname.length() == 0)
+    {
+        std::cout<<"Please type something "<<std::endl;
+        return;
+    }
+
+    write_polyline_xyz(ply2, fname);
+    write_polyline_xyz(bin2, fname + "_b");
+    std::cout << "files get saved" << std::endl;
+}
+// the nbr of length = the nbr of angles + 1.
+void write_unfold_single_strip(int which_curve)
+{
+    std::vector<std::vector<Eigen::Vector3d>> polylines, creases;
+    std::cout<<"Read the crease plyline"<<std::endl;
+    read_plylines_and_binormals(polylines, creases);
+    std::vector<Eigen::Vector3d> ply, crs;
+    ply = polylines[which_curve];
+    crs = creases[which_curve];
+    int nver = ply.size();
+    std::vector<double> lengths(nver - 1);
+    std::vector<double> angles(nver - 2);
+    std::vector<double> alefts(nver - 2);
+    for(int i = 0; i < nver - 2; i++){
+        Eigen::Vector3d c = crs[i + 1].normalized();
+        Eigen::Vector3d poT = (ply[i + 2] - ply[i + 1]).normalized();
+        Eigen::Vector3d neT = (ply[i] - ply[i + 1]).normalized();
+        double ang_left = acos(c.dot(neT));
+        double ang_right = acos(c.dot(poT));
+        angles[i] = ang_left + ang_right;
+        lengths[i] = (ply[i] - ply[i + 1]).norm();
+        std::cout<<i<<", angle "<<angles[i]<<", length, "<<lengths[i]<<std::endl;
+        alefts[i] = ang_left;
+    }
+    lengths.back() = (ply[nver - 1] - ply[nver - 2]).norm();
+    std::cout<<"length back "<<lengths.back()<<std::endl;
+    // set the initial direction as (0, 0) ->(0, 1)
+    int vnbr = lengths.size() + 1;
+    Eigen::MatrixXd pts;
+    double total_length = 0;
+    pts.resize(vnbr, 2);
+    pts.row(0) = Eigen::Vector2d(0, 0);
+    pts.row(1) = Eigen::Vector2d(0, lengths[0]);
+    total_length += lengths[0];
+    for (int i = 2; i < vnbr; i++)
+    {
+        // solve pts[i]
+        // the reference direction from i-2 to i-1,
+        Eigen::Vector2d ref_dirc = (pts.row(i - 1) - pts.row(i - 2)).normalized();
+        double ang_diff = LSC_PI - angles[i - 2]; // counter clock rotation
+        double len = lengths[i - 1];
+        total_length+=len;
+        double a = cos(ang_diff);
+        double b = sin(ang_diff);
+        Eigen::Vector2d ref_otho(-ref_dirc[1], ref_dirc[0]); // the othogonal vector is (-y, x)
+        // new direction is a * ref_dirc + b * ref_otho.
+        Eigen::Vector2d direction = a * ref_dirc + b * ref_otho;
+        Eigen::Vector2d newpt = Eigen::Vector2d(pts.row(i - 1)) + direction * len;
+        pts.row(i) = newpt;
+    }
+    Eigen::VectorXd iden = Eigen::VectorXd::Ones(vnbr);
+    Eigen::Vector2d centroid = pts.transpose() * iden;
+    centroid /= vnbr;
+    Eigen::MatrixXd y = pts.rowwise() - centroid.transpose();// y is a matrix of n x 2
+    Eigen::Matrix2d YTY = y.transpose() * y;// 2 x 2
+    Eigen::EigenSolver<Eigen::MatrixXd> eg(YTY);
+    Eigen::VectorXcd ev = eg.eigenvalues();
+    int minevid = ev[0].real() < ev[1].real() ? 0 : 1;
+    Eigen::VectorXcd eigenvecC = eg.eigenvectors().col(minevid);
+    Eigen::Vector2d eigenvec(eigenvecC[0].real(), eigenvecC[1].real());
+    Eigen::Vector2d n = eigenvec.normalized();// this is othogonal to the regression line.
+
+    Eigen::VectorXd proj_dis = (y * n).rowwise().norm();
+    std::cout<<"The maximal derivate: "<<proj_dis.maxCoeff()<<", the total length of this polyline: "<<total_length<<std::endl;
+    std::vector<Eigen::Vector2d> directions;
+    directions.resize(vnbr);
+    
+    Eigen::Vector2d tangent = (pts.row(1) - pts.row(0)).normalized();
+    Eigen::Vector2d orthogonal = Eigen::Vector2d(-tangent[1], tangent[0]);
+    directions[0] = orthogonal;
+
+    tangent = (pts.row(vnbr - 1) - pts.row(vnbr - 2)).normalized();
+    orthogonal = Eigen::Vector2d(-tangent[1], tangent[0]);
+    directions.back() = orthogonal;
+
+    for (int i = 1; i < vnbr - 1; i++)
+    {
+        // the tangent direction
+        tangent = (pts.row(i) - pts.row(i - 1)).normalized();
+        orthogonal = Eigen::Vector2d(-tangent[1], tangent[0]);
+        double ang = LSC_PI - alefts[i - 1];
+
+        directions[i] = tangent * cos(ang) + orthogonal * sin(ang);
+        directions[i] *= 1 / sin(ang); // make sure the direction project on orthogonal is 1
+    }
+    std::vector<std::vector<Eigen::Vector3d>> ply_out, bin_out;
+    ply_out.resize(1);
+    bin_out.resize(1);
+    ply_out[0].resize(vnbr);
+    bin_out[0].resize(vnbr);
+    for(int i = 0;i<vnbr;i++){
+        ply_out[0][i] = Eigen::Vector3d(pts(i,0), pts(i,1), 0);
+        bin_out[0][i] = Eigen::Vector3d(directions[i][0], directions[i][1], 0);
+    }
+    std::cout<<"Write out the unfolded curve: "<<std::endl;
+    std::string fname = igl::file_dialog_save();
+    if (fname.length() == 0)
+    {
+        std::cout<<"Please type something "<<std::endl;
+        return;
+    }
+
+    write_polyline_xyz(ply_out, fname);
+    write_polyline_xyz(bin_out, fname + "_b");
+    std::cout << "files get saved" << std::endl;
+}

@@ -1096,10 +1096,12 @@ void PolyOpt::extract_rectifying_plane_mesh_from_crease(){
     v0list = vertices_cp;
     for (int i = 0; i < nv; i++)
     {
-        // the crease is defined as alpha * tangent + binormal. This is to 
+        // the crease is defined as alpha * tangent + beta * binormal. This is to 
         // make sure that the strip width is 1.
         double alpha = PlyVars[i];
-        binlist.row(i) = alpha * tangents_cp.row(i) + binormal_cp.row(i);
+        double beta = PlyVars[i + nv];
+        binlist.row(i) = alpha * tangents_cp.row(i) + beta * binormal_cp.row(i);
+        binlist.row(i) *= 1 / beta;
     }
 
     v1list = v0list + strip_scale * binlist;
@@ -1196,7 +1198,9 @@ void PolyOpt::extract_polylines_and_binormals_from_creases(){
         // the crease is defined as alpha * tangent + binormal. This is to 
         // make sure that the strip width is 1.
         double alpha = PlyVars[i];
-        binlist.row(i) = alpha * tangents_cp.row(i) + binormal_cp.row(i);
+        double beta = PlyVars[i + nv];
+        binlist.row(i) = alpha * tangents_cp.row(i) + beta * binormal_cp.row(i);
+        binlist.row(i) *= 1 / beta;
     }
     int counter = 0;
     assert(ply_extracted.size() > 0);

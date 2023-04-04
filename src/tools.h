@@ -149,3 +149,6 @@ void get_iso_lines_baricenter_coord(const CGMesh &lsmesh, const std::vector<CGMe
                    std::vector<bool>& left_large);
 void get_diff_polylines_order(const std::vector<std::vector<Eigen::Vector3d>> &pls, std::vector<std::vector<Eigen::Vector3d>> &sorted,
                               const int threadshold);
+void read_pts_csv_and_write_xyz_files();    
+void recover_polyline_endpts();  
+void write_unfold_single_strip(int which_curve = 0);                        
