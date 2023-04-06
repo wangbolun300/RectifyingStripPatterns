@@ -1065,7 +1065,8 @@ int main(int argc, char *argv[])
 			if (ImGui::Button("TMP", ImVec2(ImGui::GetWindowSize().x * 0.23f, 0.0f)))
 			{
 				// read_pts_csv_and_write_xyz_files();
-				recover_polyline_endpts();
+				// recover_polyline_endpts();
+				construct_single_developable_strips_by_intersect_rectifying(0); 
 				write_unfold_single_strip();    
 			}
 		}
@@ -1426,6 +1427,8 @@ int main(int argc, char *argv[])
 				initializer.weight_Mesh_edgelength = lscif::weight_Mesh_edgelength;
 				initializer.enable_extreme_cases = lscif::enable_extreme_cases;
 				lscif::tools.weight_geodesic=lscif::weight_geodesic;
+				lscif::tools.weight_Mesh_mass = lscif::weight_Mesh_mass;
+				lscif::tools.weight_Mesh_approximation = lscif::weight_Mesh_approximation;
 				lscif::tools.prepare_mesh_optimization_solving(initializer);
 				for (int i = 0; i < lscif::Nbr_Iterations_Mesh_Opt; i++)
 				{
@@ -1510,6 +1513,8 @@ int main(int argc, char *argv[])
 				initializer.weight_Mesh_edgelength = lscif::weight_Mesh_edgelength;
 				initializer.enable_extreme_cases = lscif::enable_extreme_cases;
 				lscif::tools.weight_geodesic=lscif::weight_geodesic;
+				lscif::tools.weight_Mesh_mass = lscif::weight_Mesh_mass;
+				lscif::tools.weight_Mesh_approximation = lscif::weight_Mesh_approximation;
 				lscif::tools.prepare_mesh_optimization_solving(initializer);
 				for (int i = 0; i < lscif::Nbr_Iterations_Mesh_Opt; i++)
 				{
@@ -2536,8 +2541,8 @@ int main(int argc, char *argv[])
 					viewer.data().add_edges(lscif::tools.Ppro0, lscif::tools.V, green);
 					// viewer.data().add_edges(lscif::tools.Ppro0,
 					// 						lscif::tools.Ppro0 + lscif::vector_scaling * lscif::tools.Npro0, red);
-					viewer.data().add_edges(lscif::tools.V,
-											lscif::tools.V + lscif::vector_scaling * lscif::tools.norm_v, red);
+					viewer.data().add_edges(lscif::tools.Ppro0,
+											lscif::tools.Ppro0 + lscif::vector_scaling * lscif::tools.Npro0, red);
 				}
 			}
 			// ImGui::InputInt("Iteration", &lscif::OpIter, 0, 0);

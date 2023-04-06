@@ -770,7 +770,7 @@ void lsTools::assemble_solver_approximate_original(spMat &H, Eigen::VectorXd &B,
 
         // vertices not far away from the original ones
         // (ver - ver^*)^2 = 0
-        double scale = 0.01; // give very little weight
+        double scale = 0.1; // give very little weight
         Eigen::Vector3d vdiff = V.row(vid) - Vstored.row(vid);
         // std::cout<<"Through here"<<std::endl;
         tripletes.push_back(Trip(i + vnbr, lx, 2 * vdiff[0] * scale));
@@ -791,8 +791,12 @@ void lsTools::assemble_solver_mesh_smoothing(const Eigen::VectorXd &vars, spMat 
 {
     spMat JTJ = igl::repdiag(QcH, 3); // the matrix size nx3 x nx3
     Eigen::VectorXd mJTF = -JTJ * vars;
-    H = JTJ;
-    B = mJTF;
+
+    spMat JTJm = MVLap.transpose() * MVLap;
+    Eigen::VectorXd mJTFm = -JTJm * vars;
+    double scale = 1;
+    H = JTJ + scale * JTJm;
+    B = mJTF + scale * mJTFm;
 }
 void lsTools::assemble_solver_curve_smooth_mesh_opt(const LSAnalizer &analizer,
                                                     spMat &JTJ, Eigen::VectorXd &B, Eigen::VectorXd &energy)
@@ -1270,12 +1274,23 @@ void lsTools::Run_AAG_Mesh_Opt(Eigen::VectorXd &func0, Eigen::VectorXd &func1, E
     vars.middleRows(vnbr, vnbr) = V.col(1);
     vars.bottomRows(vnbr) = V.col(2);
 
-    spMat Hsmooth;
-    Eigen::VectorXd Bsmooth;
+    spMat Happro;
+    Eigen::VectorXd Bappro, Eappro;
+    assemble_solver_approximate_original(Happro, Bappro, Eappro);
+    H += weight_Mesh_approximation * Happro;
+    B += weight_Mesh_approximation * Bappro;
+
+    spMat Hsmooth, HCsmt[3];
+    Eigen::VectorXd Bsmooth, BCsmt[3], ECsmt[3];
     assemble_solver_mesh_smoothing(vars, Hsmooth, Bsmooth); // as smooth as possible
     // assemble_solver_mean_value_laplacian(vars, Hsmooth, Bsmooth);
     H += weight_Mesh_smoothness * Hsmooth;
     B += weight_Mesh_smoothness * Bsmooth;
+    assemble_solver_curve_smooth_mesh_opt(analizers[0], HCsmt[0], BCsmt[0], ECsmt[0]);
+    assemble_solver_curve_smooth_mesh_opt(analizers[1], HCsmt[1], BCsmt[1], ECsmt[1]);
+    assemble_solver_curve_smooth_mesh_opt(analizers[2], HCsmt[2], BCsmt[2], ECsmt[2]);
+    H += weight_Mesh_smoothness * (HCsmt[0]+ HCsmt[1]+ HCsmt[2]);
+    B += weight_Mesh_smoothness * (BCsmt[0]+ BCsmt[1]+ BCsmt[2]);
 
     spMat Hel;
     Eigen::VectorXd Bel;
@@ -1309,7 +1324,10 @@ void lsTools::Run_AAG_Mesh_Opt(Eigen::VectorXd &func0, Eigen::VectorXd &func1, E
     Btotal = sum_uneven_vectors(weight_Mesh_pesudo_geodesic * (Bpg[0] + Bpg[1]), Btotal);
     Btotal += weight_Mesh_pesudo_geodesic * weight_geodesic * Bpg[2];
 
-    Htotal += spMat(weight_mass * 1e-6 * Eigen::VectorXd::Ones(final_size).asDiagonal());
+    Eigen::VectorXd gravity = Eigen::VectorXd::Zero(final_size);
+    gravity.segment(0, vnbr * 3) = Eigen::VectorXd::Ones(vnbr * 3);
+    Htotal += spMat(weight_mass * 1e-6 * (Eigen::VectorXd::Ones(final_size) + weight_Mesh_mass * gravity).asDiagonal());
+
 
     if (vector_contains_NAN(Btotal))
     {
@@ -1343,7 +1361,8 @@ void lsTools::Run_AAG_Mesh_Opt(Eigen::VectorXd &func0, Eigen::VectorXd &func1, E
         std::cout << "vars diff from glob vars" << std::endl;
     }
     double energy_smooth = (Hsmooth * Glob_Vars.topRows(vnbr * 3)).norm();
-    std::cout << "Mesh Opt: smooth, " << energy_smooth << ", ";
+    std::cout << "Mesh Opt: smooth, " << energy_smooth << ", approxi, "<<Eappro.norm()<<", ";
+    std::cout << "Csmooth, " << ECsmt[0].norm() << ", " << ECsmt[1].norm() << ", " << ECsmt[2].norm() << ", ";
     /*double energy_mvl = (MVLap * vars).norm();*/
     double energy_ls[3];
     energy_ls[0] = MTEnergy[0].norm();
@@ -1403,12 +1422,23 @@ void lsTools::Run_AGG_Mesh_Opt(Eigen::VectorXd &func0, Eigen::VectorXd &func1, E
     vars.middleRows(vnbr, vnbr) = V.col(1);
     vars.bottomRows(vnbr) = V.col(2);
 
-    spMat Hsmooth;
-    Eigen::VectorXd Bsmooth;
+    spMat Happro;
+    Eigen::VectorXd Bappro, Eappro;
+    assemble_solver_approximate_original(Happro, Bappro, Eappro);
+    H += weight_Mesh_approximation * Happro;
+    B += weight_Mesh_approximation * Bappro;
+
+    spMat Hsmooth, HCsmt[3];
+    Eigen::VectorXd Bsmooth, BCsmt[3], ECsmt[3];
     assemble_solver_mesh_smoothing(vars, Hsmooth, Bsmooth); // as smooth as possible
     // assemble_solver_mean_value_laplacian(vars, Hsmooth, Bsmooth);
     H += weight_Mesh_smoothness * Hsmooth;
     B += weight_Mesh_smoothness * Bsmooth;
+    assemble_solver_curve_smooth_mesh_opt(analizers[0], HCsmt[0], BCsmt[0], ECsmt[0]);
+    assemble_solver_curve_smooth_mesh_opt(analizers[1], HCsmt[1], BCsmt[1], ECsmt[1]);
+    assemble_solver_curve_smooth_mesh_opt(analizers[2], HCsmt[2], BCsmt[2], ECsmt[2]);
+    H += weight_Mesh_smoothness * (HCsmt[0]+ HCsmt[1]+ HCsmt[2]);
+    B += weight_Mesh_smoothness * (BCsmt[0]+ BCsmt[1]+ BCsmt[2]);
 
     spMat Hel;
     Eigen::VectorXd Bel;
@@ -1444,7 +1474,9 @@ void lsTools::Run_AGG_Mesh_Opt(Eigen::VectorXd &func0, Eigen::VectorXd &func1, E
     Btotal = sum_uneven_vectors(weight_Mesh_pesudo_geodesic * (Bpg[0] + Bpg[1]), Btotal);
     Btotal += weight_Mesh_pesudo_geodesic * weight_geodesic * Bpg[2];
 
-    Htotal += spMat(weight_mass * 1e-6 * Eigen::VectorXd::Ones(final_size).asDiagonal());
+    Eigen::VectorXd gravity = Eigen::VectorXd::Zero(final_size);
+    gravity.segment(0, vnbr * 3) = Eigen::VectorXd::Ones(vnbr * 3);
+    Htotal += spMat(weight_mass * 1e-6 * (Eigen::VectorXd::Ones(final_size) + weight_Mesh_mass * gravity).asDiagonal());
 
     if (vector_contains_NAN(Btotal))
     {
@@ -1478,7 +1510,8 @@ void lsTools::Run_AGG_Mesh_Opt(Eigen::VectorXd &func0, Eigen::VectorXd &func1, E
         std::cout << "vars diff from glob vars" << std::endl;
     }
     double energy_smooth = (Hsmooth * Glob_Vars.topRows(vnbr * 3)).norm();
-    std::cout << "Mesh Opt: smooth, " << energy_smooth << ", ";
+    std::cout << "Mesh Opt: smooth, " << energy_smooth << ", approxi, "<<Eappro.norm()<<", ";
+    std::cout << "Csmooth, " << ECsmt[0].norm() << ", " << ECsmt[1].norm() << ", " << ECsmt[2].norm() << ", ";
     /*double energy_mvl = (MVLap * vars).norm();*/
     double energy_ls[3];
     energy_ls[0] = MTEnergy[0].norm();
@@ -1493,4 +1526,9 @@ void lsTools::Run_AGG_Mesh_Opt(Eigen::VectorXd &func0, Eigen::VectorXd &func1, E
     std::cout << "step " << step_length << std::endl;
     update_mesh_properties();
     Last_Opt_Mesh = true;
+}
+
+void lsTools::Run_PPG_Mesh_Opt(Eigen::VectorXd &func0, Eigen::VectorXd &func1, Eigen::VectorXd &func2)
+{
+
 }

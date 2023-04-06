@@ -3021,10 +3021,10 @@ void lsTools::Run_PPG(Eigen::VectorXd& func0, Eigen::VectorXd& func1, Eigen::Vec
 	assemble_AAG_extra_condition(final_size, vnbr, func0, func1, func2, extraH, extraB, extra_energy);
 	H += weight_boundary * extraH;
 	B += weight_boundary * extraB;
+	spMat pg_JTJ[3], faH;
+	Eigen::VectorXd pg_mJTF[3], faB;
 	if (enable_pseudo_geodesic_energy)
 	{
-		spMat pg_JTJ[3], faH;
-		Eigen::VectorXd pg_mJTF[3], faB;
 		// the variables:
 		// func0 (vnbr), func1 (vnbr), func2 (vnbr), aux0（ninner * 10), aux1（ninner * 10)
 		std::vector<double> target_angles_0(1), target_angles_1(1);
@@ -3049,15 +3049,15 @@ void lsTools::Run_PPG(Eigen::VectorXd& func0, Eigen::VectorXd& func1, Eigen::Vec
 		Compute_Auxiliaries = false;
 		H += weight_pseudo_geodesic_energy * (pg_JTJ[0] + pg_JTJ[1] + weight_geodesic* pg_JTJ[2]);
 		B += weight_pseudo_geodesic_energy * (pg_mJTF[0] + pg_mJTF[1] + weight_geodesic * pg_mJTF[2]);
-		if (fix_angle_of_two_levelsets)
-		{
-			// fix angle between the first (A) and the second (G) level set
-			assemble_solver_fix_two_ls_angle(Glob_lsvars, angle_between_two_levelsets, faH, faB, Eangle);
-			H = sum_uneven_spMats(H, weight_fix_two_ls_angle * faH);
-			B = sum_uneven_vectors(B, weight_fix_two_ls_angle * faB);
-		}
 	}
-	
+	if (fix_angle_of_two_levelsets)
+	{
+		// fix angle between the first (A) and the second (G) level set
+		assemble_solver_fix_two_ls_angle(Glob_lsvars, angle_between_two_levelsets, faH, faB, Eangle);
+		H = sum_uneven_spMats(H, weight_fix_two_ls_angle * faH);
+		B = sum_uneven_vectors(B, weight_fix_two_ls_angle * faB);
+	}
+
 	H += 1e-6 * weight_mass * spMat(Eigen::VectorXd::Ones(final_size).asDiagonal());
 
 	Eigen::SimplicialLLT<Eigen::SparseMatrix<double>> solver(H);

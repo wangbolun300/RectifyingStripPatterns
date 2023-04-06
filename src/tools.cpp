@@ -4754,6 +4754,7 @@ void recover_polyline_endpts(){
     write_polyline_xyz(bin2, fname + "_b");
     std::cout << "files get saved" << std::endl;
 }
+
 // the nbr of length = the nbr of angles + 1.
 void write_unfold_single_strip(int which_curve)
 {
@@ -4858,5 +4859,99 @@ void write_unfold_single_strip(int which_curve)
 
     write_polyline_xyz(ply_out, fname);
     write_polyline_xyz(bin_out, fname + "_b");
+    std::cout << "files get saved" << std::endl;
+}
+
+
+void construct_single_developable_strips_by_intersect_rectifying(const int which)
+{
+
+    std::vector<std::vector<Eigen::Vector3d>> vertices_in;
+    std::vector<std::vector<Eigen::Vector3d>> binormals_in;
+    std::cout
+        << "Read the plyline and binormal files" << std::endl;
+    
+    read_plylines_and_binormals(vertices_in, binormals_in);
+    std::vector<Eigen::Vector3d> vertices = vertices_in[which];
+    std::vector<Eigen::Vector3d> binormals = binormals_in[which];
+    int vnbr = vertices.size();
+    // the creases lines are constructed by foot points and creases
+    // the foot is the intersection of the line and the right plane. vout and crease construct the strip
+    std::vector<Eigen::Vector3d> tangents, creases, foot;
+    tangents.resize(vnbr);
+    creases.resize(vnbr);
+    foot.resize(vnbr);
+
+
+    tangents.front() = (vertices[1] - vertices[0]).normalized();
+    tangents.back() = (vertices[vnbr - 1] - vertices[vnbr - 2]).normalized();
+    tangents[1] = ((vertices[1] - vertices[0]).normalized() + (vertices[2] - vertices[1]).normalized()).normalized();
+    
+
+    foot.front() = vertices.front();
+    foot[1] = vertices[1];
+    foot.back() = vertices.back();
+
+    creases[0] = binormals[0];
+    creases[1] = binormals[1];
+    creases[vnbr - 1] = binormals[vnbr - 1];
+
+    for (int i = 2; i < vnbr - 1; i++)
+    {
+        Eigen::Vector3d dirl = (vertices[i] - vertices[i-1]).normalized();
+        Eigen::Vector3d dirr = (vertices[i+1] - vertices[i]).normalized();
+
+        // tangents
+        Eigen::Vector3d tleft = tangents[i - 1];
+        Eigen::Vector3d tright = (dirl + dirr).normalized();
+        // binormals
+        Eigen::Vector3d bleft = binormals[i - 1];
+        Eigen::Vector3d bright = binormals[i];
+        // normals of the both planes
+        Eigen::Vector3d nleft = tleft.cross(bleft).normalized();
+        Eigen::Vector3d nright = tright.cross(bright).normalized();
+        // this crease direction is the intersection of the both planes. if the planes are parallel, use the binormal.
+        Eigen::Vector3d c = nleft.cross(nright);
+        bool parallel = false;
+        if (c.norm() < 1e-4)
+        {
+            c = bleft;
+            parallel = true;
+        }
+        c.normalize();
+        if (c.dot(bleft) < 0)
+        {
+            c *= -1;
+        }
+        double scale = 1 / c.dot(bleft);
+        c *= scale;
+        // the foot point is the intersection of the left tangent with the right plane
+        Eigen::Vector3d f;
+        if(parallel){
+            f = (vertices[i - 1] + vertices[i]) / 2;
+        }
+        else{
+            // (vleft + alpha * tleft - v).dot(nright) = 0
+            double alpha = (vertices[i] - vertices[i - 1]).dot(nright) / tleft.dot(nright);
+            f = vertices[i - 1] + alpha * tleft;
+        }
+        tright = (vertices[i] - f).normalized();
+        tangents[i] = tright;
+        foot[i] = f;
+        creases[i] = c;
+    }
+    std::vector<std::vector<Eigen::Vector3d>> vout, bout;
+    vout.push_back(foot);
+    bout.push_back(creases);
+    std::cout<<"Write out the space curve: "<<std::endl;
+    std::string fname = igl::file_dialog_save();
+    if (fname.length() == 0)
+    {
+        std::cout<<"Please type something "<<std::endl;
+        return;
+    }
+
+    write_polyline_xyz(vout, fname);
+    write_polyline_xyz(bout, fname + "_b");
     std::cout << "files get saved" << std::endl;
 }

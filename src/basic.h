@@ -462,9 +462,9 @@ private:
                                            const LSAnalizer &analizer,
                                            spMat &JTJ, Eigen::VectorXd &B, Eigen::VectorXd &MTEnergy);
     void assemble_solver_curve_smooth_mesh_opt(const LSAnalizer &analizer,
-                                           spMat &JTJ, Eigen::VectorXd &B, Eigen::VectorXd &energy);
+                                               spMat &JTJ, Eigen::VectorXd &B, Eigen::VectorXd &energy);
     void assemble_solver_approximate_original(spMat &JTJ, Eigen::VectorXd &B, Eigen::VectorXd &energy);
-    void assemble_solver_mesh_strip_width(spMat &JTJ, Eigen::VectorXd &B, Eigen::VectorXd &energy);
+    // void assemble_solver_mesh_strip_width(spMat &JTJ, Eigen::VectorXd &B, Eigen::VectorXd &energy);
     void update_mesh_properties();// the mesh properties (normals, laplacian, etc.) get updated before optimization
 
 
@@ -634,6 +634,7 @@ public:
     void Run_AGG(Eigen::VectorXd& func0, Eigen::VectorXd& func1, Eigen::VectorXd& func2);
     void Run_AGG_Mesh_Opt(Eigen::VectorXd& func0, Eigen::VectorXd& func1, Eigen::VectorXd& func2);
     void Run_PPG(Eigen::VectorXd& func0, Eigen::VectorXd& func1, Eigen::VectorXd& func2);
+    void Run_PPG_Mesh_Opt(Eigen::VectorXd& func0, Eigen::VectorXd& func1, Eigen::VectorXd& func2);
     void Run_Othogonal_Levelset(const Eigen::VectorXd &func_ref);
     void initialize_level_set_accroding_to_parametrization();
     void initialize_level_set_by_tracing(const TracingPrepare& Tracing_initializer);

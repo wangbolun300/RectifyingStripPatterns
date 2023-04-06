@@ -554,9 +554,9 @@ void lsTools::assemble_solver_strip_width_part(const Eigen::MatrixXd& GradFValue
     H = JTJ;
     B = mJTF_dense;
 }
-void lsTools::assemble_solver_mesh_strip_width(spMat &JTJ, Eigen::VectorXd &B, Eigen::VectorXd &energy){
+// void lsTools::assemble_solver_mesh_strip_width(spMat &JTJ, Eigen::VectorXd &B, Eigen::VectorXd &energy){
     
-}
+// }
 void lsTools::get_all_the_edge_normals()
 {
     int ne = lsmesh.n_edges();

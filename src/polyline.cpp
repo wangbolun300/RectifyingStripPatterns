@@ -225,6 +225,7 @@ void check_strip_straightness(const std::vector<double>& lengths, const std::vec
     std::cout<<"The maximal derivate: "<<proj_dis.maxCoeff()<<", the total length of this polyline: "<<total_length<<std::endl;
 }
 
+
 // the tangents are on each vertex. 
 // evaluate the rectifying planes intersects with each other
 void evaluate_intersect_rectifying(const std::vector<Eigen::Vector3d> &vertices, const std::vector<Eigen::Vector3d> &tangents,
@@ -434,6 +435,7 @@ void sample_polylines_and_binormals_evenly(const int nbr_segs, const std::vector
 
 void PolyOpt::init(const std::vector<std::vector<Eigen::Vector3d>> &ply_in, const std::vector<std::vector<Eigen::Vector3d>> &bi_in, const int sample_nbr)
 {
+    std::cout<<"Check 1"<<std::endl;
     std::vector<std::vector<Eigen::Vector3d>> ply;
     std::vector<std::vector<Eigen::Vector3d>> bi;
     Eigen::VectorXd endpts;
@@ -446,6 +448,7 @@ void PolyOpt::init(const std::vector<std::vector<Eigen::Vector3d>> &ply_in, cons
         sample_polylines_and_binormals_evenly(sample_nbr, ply_in, bi_in, ply, bi);
         std::cout<<"polyline get sampled"<<std::endl;
     }
+    std::cout<<"Check 2"<<std::endl;
     int vnbr = 0;
     for (auto line : ply)
     {
@@ -461,6 +464,7 @@ void PolyOpt::init(const std::vector<std::vector<Eigen::Vector3d>> &ply_in, cons
     VinPly = Eigen::VectorXd::Ones(vnbr * 6) * -1;
     Front.resize(vnbr);
     Back.resize(vnbr);
+    std::cout<<"Check 3"<<std::endl;
     int counter = 0;
     for (int i = 0; i < ply.size(); i++)
     {
@@ -519,12 +523,14 @@ void PolyOpt::init(const std::vector<std::vector<Eigen::Vector3d>> &ply_in, cons
             counter++;
         }
     }
+    std::cout<<"Check 4"<<std::endl;
     OriVars = PlyVars;
     RecMesh = polyline_to_strip_mesh(ply, bi, strip_scale);
     ply_extracted = ply;// to record the topology of the vers
     bin_extracted = bi;
     endpts_signs = endpts.asDiagonal();
     opt_for_polyline = true;
+    std::cout<<"Check 5"<<std::endl;
 }
 void PolyOpt::init_crease_opt(const std::vector<std::vector<Eigen::Vector3d>> &vertices,
                               const std::vector<std::vector<Eigen::Vector3d>> &tangents,
