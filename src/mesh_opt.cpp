@@ -770,7 +770,7 @@ void lsTools::assemble_solver_approximate_original(spMat &H, Eigen::VectorXd &B,
 
         // vertices not far away from the original ones
         // (ver - ver^*)^2 = 0
-        double scale = 0.1; // give very little weight
+        double scale = 1; // give very little weight
         Eigen::Vector3d vdiff = V.row(vid) - Vstored.row(vid);
         // std::cout<<"Through here"<<std::endl;
         tripletes.push_back(Trip(i + vnbr, lx, 2 * vdiff[0] * scale));
@@ -841,34 +841,40 @@ void lsTools::assemble_solver_curve_smooth_mesh_opt(const LSAnalizer &analizer,
         int l4y = v4 + vnbr;
         int l4z = v4 + vnbr * 2;
 
-        double ratio = (ver1 - ver0).norm() / (ver2 - ver0).norm();
-        double c1 = (1 - ratio) * (1 - t1);
-        double c2 = (1 - ratio) * t1;
-        double c3 = ratio * (1 - t2);
-        double c4 = ratio * t2;
-        Eigen::Vector3d error = c1 * V.row(v1) + c2 * V.row(v2) + c3 * V.row(v3) + c4 * V.row(v4) - V.row(vm);
+        // (v1-v0).normalized() - (v2 - v1).normalized() = 0
+        Eigen::Vector3d v01 = ver1 - ver0;
+        Eigen::Vector3d v12 = ver2 - ver1;
+        double scale0 = v01.norm();
+        double scale1 = v12.norm();
+        double cm = 1 / scale0 + 1 / scale1;
+        double c1 = -(1 - t1) / scale0;
+        double c2 = -t1 / scale0;
+        double c3 = -(1 - t2) / scale1;
+        double c4 = -t2 / scale1;
 
+        Eigen::Vector3d error = (ver1 - ver0) / scale0 + (ver1 - ver2) / scale1;
+
+        tripletes.push_back(Trip(i, lmx, cm));
         tripletes.push_back(Trip(i, l1x, c1));
         tripletes.push_back(Trip(i, l2x, c2));
         tripletes.push_back(Trip(i, l3x, c3));
         tripletes.push_back(Trip(i, l4x, c4));
-        tripletes.push_back(Trip(i, lmx, -1));
 
         energy[i] = error[0];
 
+        tripletes.push_back(Trip(i + ninner, lmy, cm));
         tripletes.push_back(Trip(i + ninner, l1y, c1));
         tripletes.push_back(Trip(i + ninner, l2y, c2));
         tripletes.push_back(Trip(i + ninner, l3y, c3));
         tripletes.push_back(Trip(i + ninner, l4y, c4));
-        tripletes.push_back(Trip(i + ninner, lmy, -1));
 
         energy[i + ninner] = error[1];
 
+        tripletes.push_back(Trip(i + ninner * 2, lmz, cm));
         tripletes.push_back(Trip(i + ninner * 2, l1z, c1));
         tripletes.push_back(Trip(i + ninner * 2, l2z, c2));
         tripletes.push_back(Trip(i + ninner * 2, l3z, c3));
         tripletes.push_back(Trip(i + ninner * 2, l4z, c4));
-        tripletes.push_back(Trip(i + ninner * 2, lmz, -1));
 
         energy[i + ninner * 2] = error[2];
     }
@@ -1289,8 +1295,8 @@ void lsTools::Run_AAG_Mesh_Opt(Eigen::VectorXd &func0, Eigen::VectorXd &func1, E
     assemble_solver_curve_smooth_mesh_opt(analizers[0], HCsmt[0], BCsmt[0], ECsmt[0]);
     assemble_solver_curve_smooth_mesh_opt(analizers[1], HCsmt[1], BCsmt[1], ECsmt[1]);
     assemble_solver_curve_smooth_mesh_opt(analizers[2], HCsmt[2], BCsmt[2], ECsmt[2]);
-    H += weight_Mesh_smoothness * (HCsmt[0]+ HCsmt[1]+ HCsmt[2]);
-    B += weight_Mesh_smoothness * (BCsmt[0]+ BCsmt[1]+ BCsmt[2]);
+    H += weight_Mesh_smoothness * (HCsmt[0]+ HCsmt[1]+ weight_geodesic * HCsmt[2]);
+    B += weight_Mesh_smoothness * (BCsmt[0]+ BCsmt[1]+ weight_geodesic * BCsmt[2]);
 
     spMat Hel;
     Eigen::VectorXd Bel;
@@ -1437,8 +1443,8 @@ void lsTools::Run_AGG_Mesh_Opt(Eigen::VectorXd &func0, Eigen::VectorXd &func1, E
     assemble_solver_curve_smooth_mesh_opt(analizers[0], HCsmt[0], BCsmt[0], ECsmt[0]);
     assemble_solver_curve_smooth_mesh_opt(analizers[1], HCsmt[1], BCsmt[1], ECsmt[1]);
     assemble_solver_curve_smooth_mesh_opt(analizers[2], HCsmt[2], BCsmt[2], ECsmt[2]);
-    H += weight_Mesh_smoothness * (HCsmt[0]+ HCsmt[1]+ HCsmt[2]);
-    B += weight_Mesh_smoothness * (BCsmt[0]+ BCsmt[1]+ BCsmt[2]);
+    H += weight_Mesh_smoothness * (HCsmt[0]+ HCsmt[1]+ weight_geodesic * HCsmt[2]);
+    B += weight_Mesh_smoothness * (BCsmt[0]+ BCsmt[1]+ weight_geodesic * BCsmt[2]);
 
     spMat Hel;
     Eigen::VectorXd Bel;

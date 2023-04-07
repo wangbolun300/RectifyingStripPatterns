@@ -149,7 +149,12 @@ void get_iso_lines_baricenter_coord(const CGMesh &lsmesh, const std::vector<CGMe
                    std::vector<bool>& left_large);
 void get_diff_polylines_order(const std::vector<std::vector<Eigen::Vector3d>> &pls, std::vector<std::vector<Eigen::Vector3d>> &sorted,
                               const int threadshold);
-void read_pts_csv_and_write_xyz_files();    
+void read_pts_csv_and_write_xyz_files();
+// the optimization results of the strips lose the endpoints. this function recovers the endpoints by comparing with the
+// version before opt    
 void recover_polyline_endpts();  
-void write_unfold_single_strip(int which_curve = 0);    
+
+// read the developable strip, and unfold it in 2d.
+void write_unfold_single_strip(int which_curve = 0);
+// the first version of straight strips: not exactly straight.    
 void construct_single_developable_strips_by_intersect_rectifying(const int which);                    

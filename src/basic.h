@@ -421,16 +421,17 @@ private:
 
     // Mesh Optimization Part
 
-    Eigen::VectorXd ElStored; // edge length of the original mesh
-    Eigen::MatrixXd Vstored; // the stored vertices of the original mesh.
-    igl::AABB<Eigen::MatrixXd, 3> aabbtree; // tree of the original mesh
-    Eigen::MatrixXd Nstored; // stored normal vectors of the original mesh.
+
     spMat MVLap; // mean value laplacian
     spMat Elmat; // the edge length constriant
     double weight_Mesh_smoothness;
     double weight_Mesh_pesudo_geodesic;
     double weight_Mesh_edgelength;
 public:
+    igl::AABB<Eigen::MatrixXd, 3> aabbtree; // tree of the original mesh
+    Eigen::VectorXd ElStored;               // edge length of the original mesh
+    Eigen::MatrixXd Vstored;                // the stored vertices of the original mesh.
+    Eigen::MatrixXd Nstored;                // stored normal vectors of the original mesh.
     double weight_Mesh_approximation;
     double weight_Mesh_mass;
 private:
