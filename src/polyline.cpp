@@ -1719,26 +1719,104 @@ void QuadOpt::reset()
 
 void QuadOpt::assemble_gravity(spMat& H, Eigen::VectorXd& B, Eigen::VectorXd &energy){
 
-    // std::vector<Trip> tripletes;
     int vnbr = V.rows();
-    H = spMat(Eigen::VectorXd::Ones(GlobVars.size()).asDiagonal());
-    energy = Eigen::VectorXd::Zero(GlobVars.size());
-    energy.segment(0, vnbr * 3) = (GlobVars - OrigVars).segment(0, vnbr * 3);
+    std::vector<Eigen::Vector3d> vprojs(vnbr);
+    std::vector<Eigen::Vector3d> Nlocal(vnbr);
+    for (int i = 0; i < vnbr; i++)
+    {
+        Eigen::Vector3d query = V.row(i);
+        int f;
+        Eigen::RowVector3d proj;
+        aabbtree.squared_distance(Vtri, Ftri, query, f, proj);
+        Eigen::Vector3d p = proj;
+        Eigen::Vector3d v0 = Vtri.row(Ftri(f, 0));
+        Eigen::Vector3d v1 = Vtri.row(Ftri(f, 1));
+        Eigen::Vector3d v2 = Vtri.row(Ftri(f, 2));
+        std::array<double, 3> coor = 
+        barycenter_coordinate(v0, v1, v2, p);
+        Eigen::Vector3d norm = coor[0] * Ntri.row(Ftri(f, 0)) + coor[1] * Ntri.row(Ftri(f, 1)) + coor[2] * Ntri.row(Ftri(f, 2));
+        assert(Ntri.row(Ftri(f, 0)).dot(Ntri.row(Ftri(f, 1))) > 0 && Ntri.row(Ftri(f, 0)).dot(Ntri.row(Ftri(f, 2))) > 0);
+        norm.normalize();
+        vprojs[i] = p;
+        Nlocal[i] = norm;
 
-    B = -H * energy;
+        // debug
+        Eigen::Vector3d rec_pro = coor[0] * v0 + coor[1] * v1 + coor[2] * v2;
+        if ((rec_pro - p).norm() > 0.5)
+        {
+            std::cout<<"INACCURATE SOLVING: coor: "<<coor[0]<<", "<<coor[1]<<", "<<coor[2]<<std::endl;
+            std::cout<<"v0, "<<v0.transpose()<<std::endl;
+            std::cout<<"v1, "<<v1.transpose()<<std::endl;
+            std::cout<<"v2, "<<v2.transpose()<<std::endl;
+            std::cout<<"p "<<p.transpose()<<std::endl;
+            std::cout<<"p_compute "<<rec_pro.transpose()<<std::endl;
+        }
+    }
+    // Ppro0 = vec_list_to_matrix(vprojs);
+    // Npro0 = vec_list_to_matrix(Nlocal);
+    std::vector<Trip> tripletes;
+    tripletes.reserve(vnbr * 6);
+    energy = Eigen::VectorXd::Zero(vnbr * 2);
+    for (int i = 0; i < vnbr; i++)
+    {
+        int vid = i;
+        int lx = vid;
+        int ly = vid + vnbr;
+        int lz = vid + vnbr * 2;
+        Eigen::Vector3d normal = Nlocal[vid]; // the normal vector
+        Eigen::Vector3d closest = vprojs[vid]; // the closest point
+        Eigen::Vector3d ver = V.row(vid);
+
+        // ver.dot(n^*) - ver^*.dot(v^*) = 0
+        tripletes.push_back(Trip(i, lx, normal[0]));
+        tripletes.push_back(Trip(i, ly, normal[1]));
+        tripletes.push_back(Trip(i, lz, normal[2]));
+
+        energy[i] = ver.dot(normal) - closest.dot(normal);
+
+        // vertices not far away from the original ones
+        // (ver - ver^*)^2 = 0
+        double scale = 0.01; // give very little weight
+        Eigen::Vector3d verori;
+        verori[0] = OrigVars[lx];
+        verori[1] = OrigVars[ly];
+        verori[2] = OrigVars[lz];
+        Eigen::Vector3d vdiff = Eigen::Vector3d(V.row(vid)) - verori;
+        // std::cout<<"Through here"<<std::endl;
+        tripletes.push_back(Trip(i + vnbr, lx, 2 * vdiff[0] * scale));
+        tripletes.push_back(Trip(i + vnbr, ly, 2 * vdiff[1] * scale));
+        tripletes.push_back(Trip(i + vnbr, lz, 2 * vdiff[2] * scale));
+
+        energy[i + vnbr] = vdiff.dot(vdiff) * scale;
+    }
+    int nvars = GlobVars.size();
+    int ncondi = energy.size();
+    spMat J;
+    J.resize(ncondi, nvars);
+    J.setFromTriplets(tripletes.begin(), tripletes.end());
+    H = J.transpose() * J;
+    B = -J.transpose() * energy;
+}
+void QuadOpt::load_triangle_mesh_tree(const igl::AABB<Eigen::MatrixXd, 3> &tree, const Eigen::MatrixXd &Vt,
+                                      const Eigen::MatrixXi &Ft, const Eigen::MatrixXd &Nt)
+{
+    aabbtree = tree;
+    Vtri = Vt;
+    Ftri = Ft;
+    Ntri = Nt;
+    std::cout<<"Tree got loaded from triangle mesh."<<std::endl;
 }
 // lv is ver location, lf is front location, lb is back location, cid is the id of the condition
-// ratiof is the ratio of lengths.
-// v - (1-ratio) f - ratio * b = 0
+// (v-f)/scale0 + (v-b)/scale1 = 0
 void push_fairness_conditions(std::vector<Trip> &tripletes, Eigen::VectorXd &energy,
                               const int lv, const int lf, const int lb,
                               const double vval, const double fval, const double bval,
-                              const int cid, const double ratiof)
+                              const int cid, const double scale0, const double scale1)
 {
-    tripletes.push_back(Trip(cid, lv, 1));
-    tripletes.push_back(Trip(cid, lf, ratiof - 1));
-    tripletes.push_back(Trip(cid, lb, -ratiof));
-    energy[cid] = vval - (1 - ratiof) * fval - ratiof * bval;
+    tripletes.push_back(Trip(cid, lv, 1 / scale0 + 1 / scale1));
+    tripletes.push_back(Trip(cid, lf, -scale0));
+    tripletes.push_back(Trip(cid, lb, -scale1));
+    energy[cid] = (vval - fval) / scale0 + (vval - bval) / scale1;
 }
 
 void QuadOpt::assemble_fairness(spMat& H, Eigen::VectorXd& B, Eigen::VectorXd &energy){
@@ -1826,14 +1904,15 @@ void QuadOpt::assemble_fairness(spMat& H, Eigen::VectorXd& B, Eigen::VectorXd &e
             Eigen::Vector3d Ver(GlobVars[lvx], GlobVars[lvy], GlobVars[lvz]);
             Eigen::Vector3d Vfr(GlobVars[lrfx], GlobVars[lrfy], GlobVars[lrfz]);
             Eigen::Vector3d Vbk(GlobVars[lrbx], GlobVars[lrby], GlobVars[lrbz]);
-            double ratiof = (Ver - Vfr).norm() / (Vbk - Vfr).norm();
+            double scale0 = (Ver - Vfr).norm();
+            double scale1 = (Ver - Vbk).norm();
             assert((Vbk - Vfr).norm() > 0);
             counter = i;
-            push_fairness_conditions(tripletes, energy, lvx, lrfx, lrbx, Ver[0], Vfr[0], Vbk[0], counter, ratiof);
+            push_fairness_conditions(tripletes, energy, lvx, lrfx, lrbx, Ver[0], Vfr[0], Vbk[0], counter, scale0, scale1);
             counter = i + vnbr;
-            push_fairness_conditions(tripletes, energy, lvy, lrfy, lrby, Ver[1], Vfr[1], Vbk[1], counter, ratiof);
+            push_fairness_conditions(tripletes, energy, lvy, lrfy, lrby, Ver[1], Vfr[1], Vbk[1], counter, scale0, scale1);
             counter = i + vnbr * 2;
-            push_fairness_conditions(tripletes, energy, lvz, lrfz, lrbz, Ver[2], Vfr[2], Vbk[2], counter, ratiof);
+            push_fairness_conditions(tripletes, energy, lvz, lrfz, lrbz, Ver[2], Vfr[2], Vbk[2], counter, scale0, scale1);
             
         }
 
@@ -1842,14 +1921,15 @@ void QuadOpt::assemble_fairness(spMat& H, Eigen::VectorXd& B, Eigen::VectorXd &e
             Eigen::Vector3d Ver(GlobVars[lvx], GlobVars[lvy], GlobVars[lvz]);
             Eigen::Vector3d Vfr(GlobVars[lcfx], GlobVars[lcfy], GlobVars[lcfz]);
             Eigen::Vector3d Vbk(GlobVars[lcbx], GlobVars[lcby], GlobVars[lcbz]);
-            double ratiof = (Ver - Vfr).norm() / (Vbk - Vfr).norm();
+            double scale0 = (Ver - Vfr).norm();
+            double scale1 = (Ver - Vbk).norm();
             assert((Vbk - Vfr).norm() > 0);
             counter = i + vnbr * 3;
-            push_fairness_conditions(tripletes, energy, lvx, lcfx, lcbx, Ver[0], Vfr[0], Vbk[0], counter, ratiof);
+            push_fairness_conditions(tripletes, energy, lvx, lcfx, lcbx, Ver[0], Vfr[0], Vbk[0], counter, scale0, scale1);
             counter = i + vnbr * 4;
-            push_fairness_conditions(tripletes, energy, lvy, lcfy, lcby, Ver[1], Vfr[1], Vbk[1], counter, ratiof);
+            push_fairness_conditions(tripletes, energy, lvy, lcfy, lcby, Ver[1], Vfr[1], Vbk[1], counter, scale0, scale1);
             counter = i + vnbr * 5;
-            push_fairness_conditions(tripletes, energy, lvz, lcfz, lcbz, Ver[2], Vfr[2], Vbk[2], counter, ratiof);
+            push_fairness_conditions(tripletes, energy, lvz, lcfz, lcbz, Ver[2], Vfr[2], Vbk[2], counter, scale0, scale1);
             
         }
 
@@ -1858,28 +1938,30 @@ void QuadOpt::assemble_fairness(spMat& H, Eigen::VectorXd& B, Eigen::VectorXd &e
             Eigen::Vector3d Ver(GlobVars[lvx], GlobVars[lvy], GlobVars[lvz]);
             Eigen::Vector3d Vfr(GlobVars[ld0fx], GlobVars[ld0fy], GlobVars[ld0fz]);
             Eigen::Vector3d Vbk(GlobVars[ld0bx], GlobVars[ld0by], GlobVars[ld0bz]);
-            double ratiof = (Ver - Vfr).norm() / (Vbk - Vfr).norm();
+            double scale0 = (Ver - Vfr).norm();
+            double scale1 = (Ver - Vbk).norm();
             assert((Vbk - Vfr).norm() > 0);
             counter = i + vnbr * 6;
-            push_fairness_conditions(tripletes, energy, lvx, ld0fx, ld0bx, Ver[0], Vfr[0], Vbk[0], counter, ratiof);
+            push_fairness_conditions(tripletes, energy, lvx, ld0fx, ld0bx, Ver[0], Vfr[0], Vbk[0], counter, scale0, scale1);
             counter = i + vnbr * 7;
-            push_fairness_conditions(tripletes, energy, lvy, ld0fy, ld0by, Ver[1], Vfr[1], Vbk[1], counter, ratiof);
+            push_fairness_conditions(tripletes, energy, lvy, ld0fy, ld0by, Ver[1], Vfr[1], Vbk[1], counter, scale0, scale1);
             counter = i + vnbr * 8;
-            push_fairness_conditions(tripletes, energy, lvz, ld0fz, ld0bz, Ver[2], Vfr[2], Vbk[2], counter, ratiof);
+            push_fairness_conditions(tripletes, energy, lvz, ld0fz, ld0bz, Ver[2], Vfr[2], Vbk[2], counter, scale0, scale1);
         }
         if (d1_smt)
         {
             Eigen::Vector3d Ver(GlobVars[lvx], GlobVars[lvy], GlobVars[lvz]);
             Eigen::Vector3d Vfr(GlobVars[ld1fx], GlobVars[ld1fy], GlobVars[ld1fz]);
             Eigen::Vector3d Vbk(GlobVars[ld1bx], GlobVars[ld1by], GlobVars[ld1bz]);
-            double ratiof = (Ver - Vfr).norm() / (Vbk - Vfr).norm();
+            double scale0 = (Ver - Vfr).norm();
+            double scale1 = (Ver - Vbk).norm();
             assert((Vbk - Vfr).norm() > 0);
             counter = i + vnbr * 9;
-            push_fairness_conditions(tripletes, energy, lvx, ld1fx, ld1bx, Ver[0], Vfr[0], Vbk[0], counter, ratiof);
+            push_fairness_conditions(tripletes, energy, lvx, ld1fx, ld1bx, Ver[0], Vfr[0], Vbk[0], counter, scale0, scale1);
             counter = i + vnbr * 10;
-            push_fairness_conditions(tripletes, energy, lvy, ld1fy, ld1by, Ver[1], Vfr[1], Vbk[1], counter, ratiof);
+            push_fairness_conditions(tripletes, energy, lvy, ld1fy, ld1by, Ver[1], Vfr[1], Vbk[1], counter, scale0, scale1);
             counter = i + vnbr * 11;
-            push_fairness_conditions(tripletes, energy, lvz, ld1fz, ld1bz, Ver[2], Vfr[2], Vbk[2], counter, ratiof);
+            push_fairness_conditions(tripletes, energy, lvz, ld1fz, ld1bz, Ver[2], Vfr[2], Vbk[2], counter, scale0, scale1);
         }
     }
 

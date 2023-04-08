@@ -205,6 +205,8 @@ public:
     
     void opt();
     void reset();
+    void load_triangle_mesh_tree(const igl::AABB<Eigen::MatrixXd, 3> &tree, const Eigen::MatrixXd &Vt,
+                                 const Eigen::MatrixXi &Ft, const Eigen::MatrixXd &Nt);
     void show_curve_families(std::array<Eigen::MatrixXd, 3>& edges); 
     void extract_binormals(const int family, const int bnm_start, const int vid, Eigen::Vector3d& bi);
     void write_polyline_info();
@@ -226,6 +228,10 @@ private:
     bool ComputeAuxiliaries = true;
     bool Estimate_PG_Angles = true;
     spMat gravity_matrix;
+    igl::AABB<Eigen::MatrixXd, 3> aabbtree;
+    Eigen::MatrixXd Vtri;
+    Eigen::MatrixXi Ftri;
+    Eigen::MatrixXd Ntri;
     void assemble_fairness(spMat& H, Eigen::VectorXd& B, Eigen::VectorXd &energy);
     void assemble_gravity(spMat& H, Eigen::VectorXd& B, Eigen::VectorXd &energy);
     // type: 0 disabled. 1 means asymptotic, 2 means geodesic, 3 pseudo-geodesic

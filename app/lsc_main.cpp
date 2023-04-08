@@ -2971,8 +2971,12 @@ int main(int argc, char *argv[])
 				lscif::quad_tool.write_polyline_info();
 
 			}
-			
-			
+			ImGui::SameLine();
+			if (ImGui::Button("LoadTriangTree", ImVec2(ImGui::GetWindowSize().x * 0.25f, 0.0f)))
+			{
+				lscif::quad_tool.load_triangle_mesh_tree(lscif::tools.aabbtree, lscif::tools.Vstored,
+														 lscif::tools.F, lscif::tools.Nstored);
+			}
 		}
 		ImGui::PushStyleColor(ImGuiCol_Button, (ImVec4)ImColor::HSV(0.0f, 0.6f, 0.6f));
 		ImGui::PushStyleColor(ImGuiCol_ButtonHovered, (ImVec4)ImColor::HSV(0.0f, 0.7f, 0.7f));
