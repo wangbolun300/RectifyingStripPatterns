@@ -2917,6 +2917,7 @@ int main(int argc, char *argv[])
 				lscif::quad_tool.angle_degree1 = lscif::target_angle_2;
 				lscif::quad_tool.pg_ratio = lscif::weight_geodesic;
 				lscif::quad_tool.weight_mass = lscif::weight_mass;
+				lscif::quad_tool.max_step = lscif::maximal_step_length;
 				if (lscif::quad_tool.V.rows()==0)
 				{
 					std::cout << "\nEmpty quad, please load a quad mesh first" << std::endl;

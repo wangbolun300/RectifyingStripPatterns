@@ -1776,12 +1776,24 @@ void QuadOpt::assemble_gravity(spMat& H, Eigen::VectorXd& B, Eigen::VectorXd &en
 
         // vertices not far away from the original ones
         // (ver - ver^*)^2 = 0
-        double scale = 0.01; // give very little weight
+        double scale = 1;
         Eigen::Vector3d verori;
+        // verori = closest;
+        // Eigen::Vector3d normal_local = normal;
         verori[0] = OrigVars[lx];
         verori[1] = OrigVars[ly];
         verori[2] = OrigVars[lz];
         Eigen::Vector3d vdiff = Eigen::Vector3d(V.row(vid)) - verori;
+        // if (vdiff.dot(normal_local) < 0)
+        // {
+        //     normal_local *= -1;
+        // }
+        // double cos_angle = vdiff.normalized().dot(normal_local);
+        // double angle_radian = acos(cos_angle);
+        // if (angle_radian > 30)
+        // {
+        //     continue;
+        // }
         // std::cout<<"Through here"<<std::endl;
         tripletes.push_back(Trip(i + vnbr, lx, 2 * vdiff[0] * scale));
         tripletes.push_back(Trip(i + vnbr, ly, 2 * vdiff[1] * scale));
@@ -2927,6 +2939,11 @@ void QuadOpt::opt(){
 	// std::cout<<"solved successfully"<<std::endl;
     Eigen::VectorXd dx = solver.solve(B).eval();
     dx *= 0.75;
+    double step_length = dx.norm();
+    if (step_length > max_step)
+    {
+        dx *= max_step / step_length;
+    }
     GlobVars += dx;
     if(OptType == 0){
         std::cout<<"AAG, ";
