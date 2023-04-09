@@ -428,7 +428,6 @@ private:
 
     // Mesh Optimization Part
 
-
     spMat MVLap; // mean value laplacian
     spMat Elmat; // the edge length constriant
     double weight_Mesh_smoothness;
@@ -444,6 +443,14 @@ public:
 private:
     double Mesh_opt_max_step_length;
     bool Last_Opt_Mesh=false; // the last step was mesh optimization. need to update all the mesh properties
+
+    //functional angle values part
+
+    bool Analyze_Optimized_LS_Angles = false; // analyze the pg angles from the variables.
+    Eigen::VectorXd AnalizedAngelVector;
+    // void generate_
+    
+    
     Eigen::VectorXd Glob_Vars;
     std::array<LSAnalizer, 3> analizers;
 
@@ -644,6 +651,7 @@ public:
     void Run_PPG(Eigen::VectorXd& func0, Eigen::VectorXd& func1, Eigen::VectorXd& func2);
     void Run_PPG_Mesh_Opt(Eigen::VectorXd& func0, Eigen::VectorXd& func1, Eigen::VectorXd& func2);
     void Run_Othogonal_Levelset(const Eigen::VectorXd &func_ref);
+    void Run_AsOrthAsPossible_LS();
     void initialize_level_set_accroding_to_parametrization();
     void initialize_level_set_by_tracing(const TracingPrepare& Tracing_initializer);
     void initialize_level_set_by_boundary_assignment(const TracingPrepare& Tracing_initializer);

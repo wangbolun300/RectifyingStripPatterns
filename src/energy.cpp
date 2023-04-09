@@ -274,8 +274,11 @@ void lsTools::calculate_pseudo_geodesic_opt_expanded_function_values(Eigen::Vect
 		cos_angle = cos(angle_radian);
 		sin_angle = sin(angle_radian);
 	}
-	
-	
+	if (Analyze_Optimized_LS_Angles)
+	{
+		AnalizedAngelVector.resize(ninner);
+	}
+
 	tripletes.clear();
 	tripletes.reserve(ninner * 60); // 
 	Energy = Eigen::VectorXd::Zero(ninner * 12); // mesh total energy values
@@ -370,7 +373,7 @@ void lsTools::calculate_pseudo_geodesic_opt_expanded_function_values(Eigen::Vect
 			vars[lh] = real_h;
 		}
 		Eigen::Vector3d s = Eigen::Vector3d(vars(lsx), vars(lsy), vars(lsz));
-		Eigen::VectorXd u = Eigen::Vector3d(vars(lux), vars(luy), vars(luz));
+		Eigen::Vector3d u = Eigen::Vector3d(vars(lux), vars(luy), vars(luz));
 		double ns = s.norm();
 		// r can flip to the opposite position, but u cannot, since it is the side vector.
 		if (u.dot(real_u) < 0)
@@ -520,8 +523,21 @@ void lsTools::calculate_pseudo_geodesic_opt_expanded_function_values(Eigen::Vect
 		Energy[i + ninner * 11] = (r.dot(norm) * h - sin_angle * cos_angle) * scale;
 
 		//
+		if (Analyze_Optimized_LS_Angles)
+		{
+			Eigen::Vector3d nu = u.normalized();
+			Eigen::Vector3d nn = norm;
+			Eigen::Vector3d nb = r.normalized();
+			double cosina = nb.dot(nn);
+			double sina = nb.dot(nu);
+			if (sina < 0)
+            {
+                cosina *= -1;
+            }
+            double angle = acos(cosina);
+			AnalizedAngelVector[i] = angle;
+		}
 	}
-
 }
 // convert angles (theta, phi) into a ray
 Eigen::Vector3d angle_ray_converter(const double theta, const double phi)
