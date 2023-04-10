@@ -89,19 +89,134 @@ void assign_pg_angle_based_on_geodesic_distance(const Eigen::VectorXd &D, const 
 
 // }
 
-// angles are in radian
+// angles are in radian, size is ninner, target are in degree, size is vnbr, raw_angles size is ninner
+// increase the angle, and fit it into a polynomial to get the target angles.
+
 void assign_angle_get_closer_angle_to_asymptotic(const double percent, const Eigen::VectorXd &angles, const int vnbr,
-                                    const std::vector<int> &IVids, std::vector<double> &target)
+                                    const Eigen::VectorXd &fvalues,
+                                    const std::vector<int> &IVids, std::vector<double> &target, Eigen::VectorXd& raw_angles)
 {
-    target.resize(vnbr);
+    int ninner = angles.size();
     double aasym = 0; // target angle is 0 or 180. 180 is included in 0.
+    Eigen::VectorXd Xs(ninner), Ys(ninner);
+    Eigen::MatrixXd A(angles.size(), 4);
+    raw_angles.resize(angles.size());
     for (int i = 0; i < angles.size(); i++)
     {
         double a = angles[i];
         a += (aasym - a) * percent / 100.;
+        raw_angles[i] = a;
+
         int vm = IVids[i];
-        target[vm] = a;
+        double x = fvalues[vm];
+        Xs[i] = x;
+        Ys[i] = a;
+        A.row(i) << x * x * x, x * x, x, 1;
+        // double angle_degree = a * 180 / LSC_PI;
+        // target[vm] = angle_degree;
     }
+    Eigen::Matrix4d ATA = A.transpose() * A, inv;
+    bool invertable;
+    ATA.computeInverseWithCheck(inv, invertable);
+    if(!invertable){
+        std::cout<<"MATRIX NOT INVERTABLE IN void assign_angle_get_closer_angle_to_asymptotic()"<<std::endl;
+        return;
+    }
+    Eigen::Vector4d paras = inv*A.transpose()*Ys;
+    // output the fitting results
+    target.resize(vnbr);
+    double a = paras[0];
+    double b = paras[1];
+    double c = paras[2];
+    double d = paras[3];
+    for (int i = 0; i < ninner; i++)
+    {
+        // i is the id in inner, vm is the id in global
+        int vm = IVids[i];
+        double f = fvalues[vm];
+        double ang = a * f * f * f + b * f * f + c * f + d; // this is in radian
+        ang = ang * 180. / LSC_PI; // this is in degree.
+        if (ang > 90)// don't exceed 90 degree.
+        {
+            ang = 90;
+        }
+        if (ang < 0)
+        {
+            ang = 0;
+        }
+        target[vm] = ang;
+    }
+    std::cout<<"TargetFitting, "<<a<<", "<<b<<", "<<c<<", "<<d<<", ";
+}
+
+//
+void assign_angle_by_poly_fitting(const Eigen::VectorXd &func, const std::vector<double> &angle_degree,
+                                  const Eigen::VectorXi &InnerV, const int ninner,
+                                  const double perc_conservative, std::vector<double> &angle_out)
+{
+    int vnbr = func.size();
+    Eigen::VectorXd Xs(ninner), Ys(ninner);
+    for (int i = 0; i < vnbr; i++) // first make the angle conservative.
+    {
+        int loc = InnerV[i];// location in inner vers
+        if (loc < 0)
+        {
+            continue;
+        }
+        double ang_ref = angle_degree[i];
+        double ang_conserv = ang_ref * (1 + perc_conservative);
+        if (ang_conserv > 90)
+        {
+            ang_conserv = ang_ref;
+        }
+        Xs[loc] = func[i];
+        Ys[loc] = ang_conserv;
+    }
+    // fit it to a polynomial of degree 3
+    Eigen::MatrixXd A(ninner, 4);
+    for(int i=0;i<ninner;i++){
+        double x = Xs[i];
+        A(i, 0) = x * x * x;
+        A(i, 1) = x * x;
+        A(i, 2) = x;
+        A(i, 3) = 1;
+    }
+    Eigen::Matrix4d ATA = A.transpose() * A, inv;
+    bool invertable;
+    ATA.computeInverseWithCheck(inv, invertable);
+    if(!invertable){
+        std::cout<<"MATRIX NOT INVERTABLE IN void assign_angle_by_poly_fitting()"<<std::endl;
+        return;
+    }
+    Eigen::Vector4d paras = inv*A.transpose()*Ys;
+    // output the fitting results
+    angle_out.resize(vnbr);
+    double a = paras[0];
+    double b = paras[1];
+    double c = paras[2];
+    double d = paras[3];
+    for (int i = 0; i < vnbr; i++)
+    {
+        int loc = InnerV[i];// location in inner vers
+        if (loc < 0)
+        {
+            continue;
+        }
+        double f = func[i];
+        
+        // angle = a*f^3 + b*f^2 + c*f + d
+        double ang = a * f * f * f + b * f * f + c * f + d;
+        if (ang > 90)
+        {
+            ang = 90;
+        }
+        if (ang < 0)
+        {
+            ang = 0;
+        }
+        angle_out[i] = ang;
+    }
+    std::cout<<"Fitting, "<<a<<", "<<b<<", "<<c<<", "<<d<<", ";
 }
 
 void  lsTools::Run_AsOrthAsPossible_LS(){
@@ -110,12 +225,14 @@ void  lsTools::Run_AsOrthAsPossible_LS(){
 	Eigen::VectorXd PGEnergy;
 	Eigen::VectorXd func = fvalues;
 	
-	std::vector<double> angle_degree; todo;
-	
-	int vnbr = V.rows();
+	std::vector<double> angle_degree;
+
+    int vnbr = V.rows();
 	int fnbr = F.rows();
-	
-	// initialize the level set with some number
+    bool early_terminate = false;
+
+    
+    // initialize the level set with some number
 	if (func.size() != vnbr)
 	{
 		if(trace_hehs.size()==0){
@@ -135,8 +252,34 @@ void  lsTools::Run_AsOrthAsPossible_LS(){
 	// std::cout<<"check "<<func.norm()<<std::endl;
 	analysis_pseudo_geodesic_on_vertices(func, analizers[0]);
 	int ninner = analizers[0].LocalActInner.size();
+    // the logic: 1. For the first iteration, we compute the real angles, and terminate.
+    // 2. Then, we optimize with increasing angles. Sometimes we just stop increasing, 
+    // but use the fixed target angles to optimize until convergence.
+    // 3. in the last phase, we optimize with the conservatively fitted angles.
+    if (AnalizedAngelVector.size() == 0)
+    {
+        early_terminate = true;
+        angle_degree.push_back(0); // put any angle as target, since we terminate early anyway.
+    }
+    else
+    {
+        if(Disable_Changed_Angles){ // use the unchanged angels until converges.
+            angle_degree = changed_angles;
+        }
+        else{
+            double percentage = 5;
+            assign_angle_get_closer_angle_to_asymptotic(percentage, AnalizedAngelVector, vnbr, fvalues, IVids, angle_degree, RawTargetAngles);
+            changed_angles = angle_degree;
+        }
+
+        if (Use_Fitting_Angles) // use the fitting result.
+        {
+            double percentage = 10;
+            assign_angle_by_poly_fitting(func, changed_angles, InnerV, ninner, percentage, angle_degree);
+        }
+    }
+
 	int final_size;
-    todo: add more auxiliary variables;
     final_size = ninner * 10 + vnbr;// pseudo - geodesic 
 	
 	
@@ -226,9 +369,7 @@ void  lsTools::Run_AsOrthAsPossible_LS(){
 	
 	Hlarge = sum_uneven_spMats(H, Hlarge);
 	Blarge = sum_uneven_vectors(B, Blarge);
-    if(AnalizedAngelVector.size()!=0){
-        
-    }
+    
 	if (enable_pseudo_geodesic_energy)
 	{
 
@@ -247,6 +388,10 @@ void  lsTools::Run_AsOrthAsPossible_LS(){
 
 		Compute_Auxiliaries = false;
 	}
+    if(early_terminate){
+        std::cout<<"Early Terminate for the first iteration"<<std::endl;
+        return;
+    }
 	if(vector_contains_NAN(Blarge)){
         std::cout<<"energy contains NAN"<<std::endl;
 		return;
@@ -310,7 +455,32 @@ void  lsTools::Run_AsOrthAsPossible_LS(){
 		pseudo_geodesic_target_angle_degree = 180. / LSC_PI * get_interactive_angle(func, analizers[0], lsmesh, norm_v, V, F, interactive_flist, interactive_bclist, InnerV);
 		std::cout << ", target_angle, " << pseudo_geodesic_target_angle_degree;
 	}
+    assert(AnalizedAngelVector.size() > 0);
+    std::cout<<", current angle: max, "<<AnalizedAngelVector.maxCoeff()<<", min, "<<AnalizedAngelVector.minCoeff()
+    <<", ang_average, "<<AnalizedAngelVector.mean()<<", ";
 
 	std::cout << std::endl;
 	Last_Opt_Mesh = false;
+}
+#include<igl/file_dialog_save.h>
+void lsTools::write_fitting_data(){
+    // write: 1. real angles: AnalizedAngelVector (size is ninner), 2. the target angles: changed_angles (size is vnbr), 
+    // 3. fvalues: size is vnbr. 4. raw target angles RawTargetAngles: (size is ninner)
+    // we only write the inner ver values
+    int ninner = analizers[0].LocalActInner.size();
+    std::string fname = igl::file_dialog_save();
+    std::ofstream file;
+    file.open(fname);
+    for (int i = 0; i < ninner; i++)
+    {
+        int vloc = IVids[i];
+        double realangle = AnalizedAngelVector[i];
+        double targangle = changed_angles[vloc] * LSC_PI / 180.;
+        double realfunc = fvalues[vloc];
+        double tar_raw = RawTargetAngles[i];
+        file<<realangle<<","<<targangle<<","<<realfunc<<","<<tar_raw<<"\n";
+
+    }
+    file.close();
+    std::cout<<"Necessary info saved"<<std::endl;
 }

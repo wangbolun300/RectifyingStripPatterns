@@ -276,6 +276,7 @@ void lsTools::calculate_pseudo_geodesic_opt_expanded_function_values(Eigen::Vect
 	}
 	if (Analyze_Optimized_LS_Angles)
 	{
+		// std::cout<<"Check 1"<<std::endl;
 		AnalizedAngelVector.resize(ninner);
 	}
 
@@ -397,41 +398,63 @@ void lsTools::calculate_pseudo_geodesic_opt_expanded_function_values(Eigen::Vect
 		assert(dis0 != 0 || dis1 != 0);
 		
 		double scale = mass_uniform.coeff(vm, vm);
+		double EhanceBinormal = 1;
+		if (Analyze_Optimized_LS_Angles && !Use_Fitting_Angles)
+		{
+			EhanceBinormal = 100;
+		}
 		assert(scale != 0);
 		// r dot (vm+(t1-1)*vf-t1*vt)
 		// vf = v1, vt = v2
-		tripletes.push_back(Trip(i, lrx, ((V(v1, 0) - V(v2, 0)) * vars[lvm] + (V(v2, 0) - V(vm, 0)) * vars[lv1] + (V(vm, 0) - V(v1, 0)) * vars[lv2]) / dis0 * scale));
-		tripletes.push_back(Trip(i, lry, ((V(v1, 1) - V(v2, 1)) * vars[lvm] + (V(v2, 1) - V(vm, 1)) * vars[lv1] + (V(vm, 1) - V(v1, 1)) * vars[lv2]) / dis0 * scale));
-		tripletes.push_back(Trip(i, lrz, ((V(v1, 2) - V(v2, 2)) * vars[lvm] + (V(v2, 2) - V(vm, 2)) * vars[lv1] + (V(vm, 2) - V(v1, 2)) * vars[lv2]) / dis0 * scale));
+		tripletes.push_back(Trip(i, lrx, ((V(v1, 0) - V(v2, 0)) * vars[lvm] + (V(v2, 0) - V(vm, 0)) * vars[lv1] + (V(vm, 0) - V(v1, 0)) * vars[lv2]) / dis0 * scale * EhanceBinormal));
+		tripletes.push_back(Trip(i, lry, ((V(v1, 1) - V(v2, 1)) * vars[lvm] + (V(v2, 1) - V(vm, 1)) * vars[lv1] + (V(vm, 1) - V(v1, 1)) * vars[lv2]) / dis0 * scale * EhanceBinormal));
+		tripletes.push_back(Trip(i, lrz, ((V(v1, 2) - V(v2, 2)) * vars[lvm] + (V(v2, 2) - V(vm, 2)) * vars[lv1] + (V(vm, 2) - V(v1, 2)) * vars[lv2]) / dis0 * scale * EhanceBinormal));
 
 		double r12 = (V.row(v1) - V.row(v2)).dot(r);
 		double rm1 = (V.row(vm) - V.row(v1)).dot(r);
 		double r2m = (V.row(v2) - V.row(vm)).dot(r);
-		tripletes.push_back(Trip(i, lvm, r12 / dis0 * scale));
-		tripletes.push_back(Trip(i, lv1, r2m / dis0 * scale));
-		tripletes.push_back(Trip(i, lv2, rm1 / dis0 * scale));
-		Energy[i] = (r12 * vars[lvm] + rm1 * vars[lv2] + r2m * vars[lv1]) / dis0 * scale;
+		tripletes.push_back(Trip(i, lvm, r12 / dis0 * scale * EhanceBinormal));
+		tripletes.push_back(Trip(i, lv1, r2m / dis0 * scale * EhanceBinormal));
+		tripletes.push_back(Trip(i, lv2, rm1 / dis0 * scale * EhanceBinormal));
+		Energy[i] = (r12 * vars[lvm] + rm1 * vars[lv2] + r2m * vars[lv1]) / dis0 * scale * EhanceBinormal;
 
 		// vf = v3, vt = v4
-		tripletes.push_back(Trip(i + ninner, lrx, ((V(v3, 0) - V(v4, 0)) * vars[lvm] + (V(v4, 0) - V(vm, 0)) * vars[lv3] + (V(vm, 0) - V(v3, 0)) * vars[lv4]) / dis1 * scale));
-		tripletes.push_back(Trip(i + ninner, lry, ((V(v3, 1) - V(v4, 1)) * vars[lvm] + (V(v4, 1) - V(vm, 1)) * vars[lv3] + (V(vm, 1) - V(v3, 1)) * vars[lv4]) / dis1 * scale));
-		tripletes.push_back(Trip(i + ninner, lrz, ((V(v3, 2) - V(v4, 2)) * vars[lvm] + (V(v4, 2) - V(vm, 2)) * vars[lv3] + (V(vm, 2) - V(v3, 2)) * vars[lv4]) / dis1 * scale));
+		tripletes.push_back(Trip(i + ninner, lrx, ((V(v3, 0) - V(v4, 0)) * vars[lvm] + (V(v4, 0) - V(vm, 0)) * vars[lv3] + (V(vm, 0) - V(v3, 0)) * vars[lv4]) / dis1 * scale * EhanceBinormal));
+		tripletes.push_back(Trip(i + ninner, lry, ((V(v3, 1) - V(v4, 1)) * vars[lvm] + (V(v4, 1) - V(vm, 1)) * vars[lv3] + (V(vm, 1) - V(v3, 1)) * vars[lv4]) / dis1 * scale * EhanceBinormal));
+		tripletes.push_back(Trip(i + ninner, lrz, ((V(v3, 2) - V(v4, 2)) * vars[lvm] + (V(v4, 2) - V(vm, 2)) * vars[lv3] + (V(vm, 2) - V(v3, 2)) * vars[lv4]) / dis1 * scale * EhanceBinormal));
 
 		r12 = (V.row(v3) - V.row(v4)).dot(r);
 		rm1 = (V.row(vm) - V.row(v3)).dot(r);
 		r2m = (V.row(v4) - V.row(vm)).dot(r);
-		tripletes.push_back(Trip(i + ninner, lvm, r12 / dis1 * scale));
-		tripletes.push_back(Trip(i + ninner, lv3, r2m / dis1 * scale));
-		tripletes.push_back(Trip(i + ninner, lv4, rm1 / dis1 * scale));
+		tripletes.push_back(Trip(i + ninner, lvm, r12 / dis1 * scale * EhanceBinormal));
+		tripletes.push_back(Trip(i + ninner, lv3, r2m / dis1 * scale * EhanceBinormal));
+		tripletes.push_back(Trip(i + ninner, lv4, rm1 / dis1 * scale * EhanceBinormal));
 
-		Energy[i + ninner] = (r12 * vars[lvm] + rm1 * vars[lv4] + r2m * vars[lv3]) / dis1 * scale;
+		Energy[i + ninner] = (r12 * vars[lvm] + rm1 * vars[lv4] + r2m * vars[lv3]) / dis1 * scale * EhanceBinormal;
 
 		// r*r=1
-		tripletes.push_back(Trip(i + ninner * 2, lrx, 2 * vars(lrx) * scale));
-		tripletes.push_back(Trip(i + ninner * 2, lry, 2 * vars(lry) * scale));
-		tripletes.push_back(Trip(i + ninner * 2, lrz, 2 * vars(lrz) * scale));
+		tripletes.push_back(Trip(i + ninner * 2, lrx, 2 * vars(lrx) * scale * EhanceBinormal));
+		tripletes.push_back(Trip(i + ninner * 2, lry, 2 * vars(lry) * scale * EhanceBinormal));
+		tripletes.push_back(Trip(i + ninner * 2, lrz, 2 * vars(lrz) * scale * EhanceBinormal));
 
-		Energy[i + ninner * 2] = (r.dot(r) - 1) * scale;
+		Energy[i + ninner * 2] = (r.dot(r) - 1) * scale * EhanceBinormal;
+		if (Analyze_Optimized_LS_Angles)
+		{
+			Eigen::Vector3d nu = u.normalized();
+			Eigen::Vector3d nn = norm;
+			Eigen::Vector3d nb = r.normalized();
+			double cosina = nb.dot(nn);
+			double sina = nb.dot(nu);
+			if (sina < 0)
+            {
+                cosina *= -1;
+            }
+            double angle = acos(cosina);
+			AnalizedAngelVector[i] = angle;
+			if(Use_Opt_Only_BNMS){
+				continue;
+			}
+		}
 		// (r*norm)^2 - cos^2 = 0
 
 		tripletes.push_back(Trip(i + ninner * 3, lrx,
@@ -523,20 +546,7 @@ void lsTools::calculate_pseudo_geodesic_opt_expanded_function_values(Eigen::Vect
 		Energy[i + ninner * 11] = (r.dot(norm) * h - sin_angle * cos_angle) * scale;
 
 		//
-		if (Analyze_Optimized_LS_Angles)
-		{
-			Eigen::Vector3d nu = u.normalized();
-			Eigen::Vector3d nn = norm;
-			Eigen::Vector3d nb = r.normalized();
-			double cosina = nb.dot(nn);
-			double sina = nb.dot(nu);
-			if (sina < 0)
-            {
-                cosina *= -1;
-            }
-            double angle = acos(cosina);
-			AnalizedAngelVector[i] = angle;
-		}
+		
 	}
 }
 // convert angles (theta, phi) into a ray

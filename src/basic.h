@@ -444,12 +444,23 @@ private:
     double Mesh_opt_max_step_length;
     bool Last_Opt_Mesh=false; // the last step was mesh optimization. need to update all the mesh properties
 
-    //functional angle values part
+    ///////////////functional angle values part//////////////////////
 
     bool Analyze_Optimized_LS_Angles = false; // analyze the pg angles from the variables.
     Eigen::VectorXd AnalizedAngelVector;
+
+    std::vector<double> changed_angles;
+    Eigen::VectorXd RawTargetAngles;
+    // disable changed angles and use the current version.
+public:
+    bool Disable_Changed_Angles = false;
+    // By default false, meaning we still change the angles to make it close to asymptotics. 
+    // if true, fit the angles as a polynormial curve, and approximate the curve values.
+    bool Use_Fitting_Angles = false; 
+    bool Use_Opt_Only_BNMS = false;
+    void write_fitting_data();
     // void generate_
-    
+private:
     
     Eigen::VectorXd Glob_Vars;
     std::array<LSAnalizer, 3> analizers;
