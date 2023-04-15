@@ -157,4 +157,9 @@ void recover_polyline_endpts();
 // read the developable strip, and unfold it in 2d.
 void write_unfold_single_strip(int which_curve = 0);
 // the first version of straight strips: not exactly straight.    
-void construct_single_developable_strips_by_intersect_rectifying(const int which);                    
+void construct_single_developable_strips_by_intersect_rectifying(const int which);         
+void draw_catenaries_on_cylinder();           
+
+void match_the_two_catenaries(const CGMesh &lsmesh, const std::vector<CGMesh::HalfedgeHandle> &loop, const Eigen::MatrixXd &V,
+                              const Eigen::MatrixXi &F, const Eigen::VectorXd &ls,
+                              Eigen::MatrixXd& Vcout, Eigen::MatrixXd& Vlout);

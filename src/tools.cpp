@@ -882,7 +882,7 @@ void cylinder_example(double radius, double height, int nr, int nh)
                              ver, faces);
     std::cout << "sphere mesh file saved " << std::endl;
 }
-
+// make a cylinder mesh
 void cylinder_open_example(double radius, double height, int nr, int nh)
 {
     Eigen::MatrixXd ver;
@@ -4954,4 +4954,222 @@ void construct_single_developable_strips_by_intersect_rectifying(const int which
     write_polyline_xyz(vout, fname);
     write_polyline_xyz(bout, fname + "_b");
     std::cout << "files get saved" << std::endl;
+}
+
+void draw_catenaries_on_cylinder(){
+    double radius = 5;
+    double height = 10;
+    double angle_degree = 60;
+
+    double angle_radian = angle_degree * LSC_PI / 180.;
+    int vnbr = 100;
+    double tmin = -LSC_PI / 2;
+    double tmax = LSC_PI / 2;
+    double titv = (tmax - tmin) / (vnbr - 1);
+    
+    std::string fname = igl::file_dialog_save();
+    if (fname.length() == 0)
+    {
+        std::cout<<"Please type something "<<std::endl;
+        return;
+    }
+    std::ofstream file;
+    file.open(fname);
+    for (int i = 0; i < vnbr; i++)
+    {
+        double t = tmin + i * titv;
+        double x = radius * cos(t + LSC_PI / 2);// add pi/2 to have a rotation of 90 degree. 
+        double y = radius * sin(t + LSC_PI / 2);// add pi/2 to have a rotation of 90 degree. 
+        double tangent = tan(angle_radian);
+        double z = radius * tangent * cosh(t / tangent) - 5;//minus 5 to make a transportation.
+
+        file<<"v "<<x<<" "<<y<<" "<<z<<std::endl;
+        
+
+    }
+    file.close();
+}
+
+void get_single_isoline(const CGMesh &lsmesh, const std::vector<CGMesh::HalfedgeHandle>& loop, const Eigen::MatrixXd &V,
+                   const Eigen::MatrixXi &F, const Eigen::VectorXd &ls, 
+                   Eigen::MatrixXd &pts)
+{
+    double value = (ls.maxCoeff() + ls.minCoeff()) / 2;
+    std::vector<std::vector<Eigen::Vector3d>> pts_list;
+    std::vector<bool> left_large;
+    get_iso_lines(lsmesh, loop, V, F, ls, value, pts_list, left_large);
+    int counter = 0;
+    for (auto p1 : pts_list)
+    {
+        for (auto p2 : p1)
+        {
+            counter++;
+        }
+    }
+    pts.resize(counter, 3);
+    counter = 0;
+    for (auto p1 : pts_list)
+    {
+        for (auto p2 : p1)
+        {
+            pts.row(counter) = p2;
+            counter++;
+        }
+    }
+}
+
+void match_the_two_catenaries(const CGMesh &lsmesh, const std::vector<CGMesh::HalfedgeHandle> &loop, const Eigen::MatrixXd &V,
+                              const Eigen::MatrixXi &F, const Eigen::VectorXd &ls,
+                              Eigen::MatrixXd& Vcout, Eigen::MatrixXd& Vlout)
+{
+    double x = 0;
+    double y = 5;
+    double tangent = tan(60*LSC_PI/180);
+    double z = 5 * tangent * cosh(0) - 5; // minus 5 to make a transportation.
+    std::cout<<"middle point is actually "<<x<<" "<<y<<" "<<z<<std::endl;
+    Eigen::MatrixXd pts;
+    get_single_isoline(lsmesh, loop, V, F, ls, pts); // get the isoline from mesh
+    std::cout<<"Reading the catenary file "<<std::endl;
+    std::string fname = igl::file_dialog_open();
+    if (fname.length() == 0)
+    {
+        std::cout<<"Please open something "<<std::endl;
+        return;
+    }
+    Eigen::MatrixXd Vc;
+    Eigen::MatrixXi Fc;
+    igl::readOBJ(fname, Vc, Fc);
+
+    int lowest_c;
+    double zlow = Vc(0, 2);
+    for (int i = 0; i < Vc.rows(); i++)
+    {
+        double z = Vc(i, 2);
+        if (zlow > z)
+        {
+            zlow = z;
+            lowest_c = i;
+        }
+    }
+    int lowest_l;
+    zlow = pts(0, 2);
+    for (int i = 0; i < pts.rows(); i++)
+    {
+        double z = pts(i, 2);
+        if (zlow > z)
+        {
+            zlow = z;
+            lowest_l = i;
+        }
+    }
+    std::cout<<"The lowest point of ls: "<<pts.row(lowest_l)<<", caten: "<<Vc.row(lowest_c)<<std::endl;
+    Eigen::Vector3d pl=pts.row(lowest_l);
+    Eigen::Vector3d pc = Eigen::Vector3d(x, y, z);
+
+    Eigen::Vector3d nl(pl[0], pl[1], 0), nc(pc[0], pc[1], 0);
+    nl.normalize();
+    nc.normalize();
+    double angle = acos(nl.dot(nc));// this is roughly correct for small angle. For arbitrary angle need to modify.
+    if (nc.cross(nl)[2] < 0)
+    {
+        angle *= -1;
+    }
+    // counterclockwise rotate angle
+    Eigen::Matrix3d rot;
+    rot << cos(angle), -sin(angle), 0,
+        sin(angle), cos(angle), 0,
+        0, 0, 1;
+    double trans = (pl - pc)[2];
+    Vcout = (rot * Vc.transpose()).transpose();
+    Vcout.rowwise() += Eigen::Vector3d(0, 0, trans).transpose();
+    Vlout = pts;
+}
+// angle is from 0 to pi
+void slope_of_given_angle(const Eigen::Vector3d& norm, const double angle_radian, double &slope){
+    double x = sin(angle_radian);
+    double y = cos(angle_radian);
+    double z = -(norm[0] * x + norm[1] * y) / norm[2];
+    slope = z;
+}
+// phi is in degree.
+// range is in radian
+// active if false, skip
+void shading_slope_range_compute(const Eigen::MatrixXd& V, const Eigen::MatrixXi& F,
+    const Eigen::MatrixXd& norm_f, const double phi_min,
+    const double phi_max, std::vector<std::array<double,2>>& range, std::vector<bool> &active){
+    double phi0 = phi_min * LSC_PI / 180 - LSC_PI / 2;
+    double phi1 = phi_max * LSC_PI / 180 - LSC_PI / 2;
+    int fnbr = F.rows();
+    int vnbr = V.rows();
+    range.resize(fnbr);
+    active.resize(fnbr);
+    for (int i = 0; i < fnbr; i++)
+    {
+        active[i] = true;
+        Eigen::Vector3d v0 = V.row(F(i, 0));
+        Eigen::Vector3d v1 = V.row(F(i, 1));
+        Eigen::Vector3d v2 = V.row(F(i, 2));
+        Eigen::Vector3d norm = norm_f.row(i);
+        if (abs(abs(norm(2)) - 1) < 1e-4)
+        { // the triangle is almost horizontal.
+            active[i] = false;
+            continue;
+        }
+        Eigen::Vector3d deepest;
+        if (abs(norm(2)) < 1e-4) // the triangle is almost verticle, all slopes exist
+        {
+            range[i][0] = -LSC_PI / 2;
+            range[i][1] = LSC_PI / 2;
+            continue;
+        }
+
+        deepest[0] = norm[0];
+        deepest[1] = norm[1];
+        deepest[2] = -(deepest[0] * norm[0] + deepest[1] * norm[1]) / norm[2]; // deepest * norm = 0
+        if (deepest[0] < 0)
+        {
+            deepest *= -1;
+        }
+        // get the corresponding phi of this vector
+        double scale = deepest[0] * deepest[0] + deepest[1] * deepest[1];
+        scale = sqrt(scale);
+        // the sin and cos value of the angle. the range is from 0 to pi
+        double sn = deepest[0] / scale;
+        double cn = deepest[1] / scale;
+        double deep_radian = acos(cn);
+        bool including_deep = false;
+        if (deep_radian < phi1 && deep_radian > phi0)
+        {
+            including_deep = true;
+        }
+        double slope0, slope1;
+        slope_of_given_angle(norm, phi0, slope0);
+        slope_of_given_angle(norm, phi1, slope1);
+        if (!including_deep)
+        {
+            if (slope0 < slope1)
+            {
+                range[i][0] = atan(slope0);
+                range[i][1] = atan(slope1);
+            }
+            else
+            {
+                range[i][0] = atan(slope1);
+                range[i][1] = atan(slope0);
+            }
+        }
+        else{
+            double slopem = deepest[2] / scale;
+            if (slope0 < slopem)
+            {
+                range[i][0] = atan(std::min(slope0, slope1));
+                range[i][1] = atan(slopem);
+            }
+            else
+            {
+                range[i][0] = atan(slopem);
+                range[i][1] = atan(std::max(slope0, slope1));
+            }
+        }
+    }
 }

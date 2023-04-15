@@ -18,7 +18,7 @@ typedef Eigen::Triplet<double> Trip;
 #define QUADRANT_TOLERANCE 0.04 // over 2 degree tolerance
 
 static bool produce_no_smooth_oscu = false;// this is a flag to create wrong results when set as true.
-static bool produce_small_search_range = true; // this is to enable small searching range for tracing.
+static bool produce_small_search_range = false; // this is to enable small searching range for tracing.
 // #define LSC_VARIABLE_CURVE_ANGLES // this is the flag 
 
 enum BCtype{ // boundary condition type

@@ -1071,8 +1071,16 @@ int main(int argc, char *argv[])
 			{
 				// read_pts_csv_and_write_xyz_files();
 				// recover_polyline_endpts();
-				construct_single_developable_strips_by_intersect_rectifying(0); 
-				write_unfold_single_strip();    
+				// using intersections of the rectifying planes to get the developable.
+				// construct_single_developable_strips_by_intersect_rectifying(0); 
+				// write_unfold_single_strip();    
+				// draw_catenaries_on_cylinder();
+				Eigen::MatrixXd Vcout; 
+				Eigen::MatrixXd Vlout;
+				match_the_two_catenaries(lscif::tools.lsmesh, lscif::tools.Boundary_Edges, lscif::tools.V,
+										 lscif::tools.F, lscif::tools.fvalues, Vcout, Vlout);
+				viewer.data().add_points(Vcout, lscif::hot_red);
+				viewer.data().add_points(Vlout, lscif::sea_green);
 			}
 		}
 		if (ImGui::CollapsingHeader("LS Processing", ImGuiTreeNodeFlags_DefaultOpen))
@@ -1209,7 +1217,7 @@ int main(int argc, char *argv[])
 				
 			}
 			ImGui::SameLine();
-			if (ImGui::Button("Othogonal LS", ImVec2(ImGui::GetWindowSize().x * 0.25f, 0.0f)))
+			if (ImGui::Button("Orthogonal LS", ImVec2(ImGui::GetWindowSize().x * 0.25f, 0.0f)))
 			{
 				int id = viewer.selected_data_index;
 				CGMesh inputMesh = lscif::tools.lsmesh;
