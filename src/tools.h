@@ -163,3 +163,7 @@ void draw_catenaries_on_cylinder();
 void match_the_two_catenaries(const CGMesh &lsmesh, const std::vector<CGMesh::HalfedgeHandle> &loop, const Eigen::MatrixXd &V,
                               const Eigen::MatrixXi &F, const Eigen::VectorXd &ls,
                               Eigen::MatrixXd& Vcout, Eigen::MatrixXd& Vlout);
+bool quadratic_solver(const std::vector<double> &func, std::array<double, 2> &roots);    
+void get_orthogonal_vector_of_selected_slope(const Eigen::MatrixXd &V, const Eigen::MatrixXi &F,
+                                             const Eigen::MatrixXd &norm_f, const double phi_min,
+                                             const double phi_max, std::vector<int> &fout, std::vector<Eigen::Vector3d> &ortho);                          

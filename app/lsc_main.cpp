@@ -2626,214 +2626,225 @@ int main(int argc, char *argv[])
 				igl::writeOBJ(fname, Vnew, lscif::tools.F);
 				std::cout << "mesh saved" << std::endl;
 			}
+
 			ImGui::Checkbox("Shading", &lscif::Given_Const_Direction);
 			ImGui::SameLine();
 			ImGui::Checkbox("Light Through", &lscif::let_ray_through);
 			ImGui::SameLine();
 			ImGui::Checkbox("Light Reflect", &lscif::let_ray_reflect);
-			
-			if (lscif::Given_Const_Direction)
-			{
-				ImGui::PushItemWidth(50);
-				ImGui::InputDouble("T0", &lscif::InputPx, 0, 0, "%.6f");
-				ImGui::SameLine();
-				ImGui::InputDouble("P0", &lscif::InputPy, 0, 0, "%.6f");
-				ImGui::SameLine();
-				ImGui::InputDouble("Ttol0", &lscif::InputThetaTol, 0, 0, "%.6f");
-				ImGui::SameLine();
-				ImGui::InputDouble("Ptol0", &lscif::InputPhiTol, 0, 0, "%.6f");
 
-				ImGui::InputDouble("T1", &lscif::InputPx1, 0, 0, "%.6f");
-				ImGui::SameLine();
-				ImGui::InputDouble("P1", &lscif::InputPy1, 0, 0, "%.6f");
-				ImGui::SameLine();
-				ImGui::InputDouble("Ttol1", &lscif::InputThetaTol1, 0, 0, "%.6f");
-				ImGui::SameLine();
-				ImGui::InputDouble("Ptol1", &lscif::InputPhiTol1, 0, 0, "%.6f");
-				ImGui::Checkbox("MarkMaxEnergy", &lscif::enable_max_energy_check);
-				ImGui::SameLine();
-				if (ImGui::Button("ClearMaxEnergy", ImVec2(ImGui::GetWindowSize().x * 0.23f, 0.0f)))
-				{
-					lscif::tools.clear_high_energy_markers_in_analizer();
-				}
-				ImGui::SameLine();
-				ImGui::InputDouble("MaxEnergyPercent", &lscif::max_e_percentage, 0, 0, "%.6f");
-				ImGui::Checkbox("ShadingInit", &lscif::shading_init);
-				ImGui::SameLine();
-				ImGui::InputDouble("weight binormal", &lscif::weight_binormal, 0, 0, "%.4f");
-				ImGui::InputDouble("weight smtBinormal", &lscif::weight_smt_binormal, 0, 0, "%.4f");
-				ImGui::Checkbox("RecomptAuxiliaries", &lscif::recompute_auxiliaries);
+			ImGui::PushItemWidth(50);
+			ImGui::InputDouble("T0", &lscif::InputPx, 0, 0, "%.6f");
+			ImGui::SameLine();
+			ImGui::InputDouble("P0", &lscif::InputPy, 0, 0, "%.6f");
+			ImGui::SameLine();
+			ImGui::InputDouble("Ttol0", &lscif::InputThetaTol, 0, 0, "%.6f");
+			ImGui::SameLine();
+			ImGui::InputDouble("Ptol0", &lscif::InputPhiTol, 0, 0, "%.6f");
+
+			ImGui::InputDouble("T1", &lscif::InputPx1, 0, 0, "%.6f");
+			ImGui::SameLine();
+			ImGui::InputDouble("P1", &lscif::InputPy1, 0, 0, "%.6f");
+			ImGui::SameLine();
+			ImGui::InputDouble("Ttol1", &lscif::InputThetaTol1, 0, 0, "%.6f");
+			ImGui::SameLine();
+			ImGui::InputDouble("Ptol1", &lscif::InputPhiTol1, 0, 0, "%.6f");
+			ImGui::Checkbox("MarkMaxEnergy", &lscif::enable_max_energy_check);
+			ImGui::SameLine();
+			if (ImGui::Button("ClearMaxEnergy", ImVec2(ImGui::GetWindowSize().x * 0.23f, 0.0f)))
+			{
+				lscif::tools.clear_high_energy_markers_in_analizer();
 			}
-			
+			ImGui::SameLine();
+			ImGui::InputDouble("MaxEnergyPercent", &lscif::max_e_percentage, 0, 0, "%.6f");
+			ImGui::Checkbox("ShadingInit", &lscif::shading_init);
+			ImGui::SameLine();
+			ImGui::InputDouble("weight binormal", &lscif::weight_binormal, 0, 0, "%.4f");
+			ImGui::InputDouble("weight smtBinormal", &lscif::weight_smt_binormal, 0, 0, "%.4f");
+			ImGui::Checkbox("RecomptAuxiliaries", &lscif::recompute_auxiliaries);
+			if (ImGui::Button("draw slopes", ImVec2(ImGui::GetWindowSize().x * 0.23f, 0.0f)))
+			{
+				Eigen::MatrixXd E0, E1;
+				lscif::tools.show_slopes(lscif::vector_scaling, E0, E1);
+				viewer.data().add_edges(E0, E1, lscif::sea_green);
+				std::cout<<"Drawing the slopes"<<std::endl;
+			}
 		}
+
 		ImGui::PushItemWidth(50);
-		ImGui::Checkbox("pickPly", &lscif::pick_single_ply);
-		ImGui::SameLine();
-		ImGui::InputInt("pickID", &lscif::pick_line_id, 0, 0);
-		ImGui::Checkbox("2LvStAngle", &lscif::fix_angle_of_two_levelsets);
-		ImGui::SameLine();
-		ImGui::InputDouble("AngleOfLSs", &lscif::angle_between_two_levelsets, 0, 0, "%.4f");
-		ImGui::SameLine();
-		ImGui::InputDouble("WeightAngleOfLSs", &lscif::weight_fix_two_ls_angle, 0, 0, "%.4f");
-		
-		ImGui::Checkbox("drawStrokes", &lscif::draw_strokes);
-		ImGui::SameLine();
-		if (ImGui::Button("ClearStrokes", ImVec2(ImGui::GetWindowSize().x * 0.25f, 0.0f)))
-
-		{
-			lscif::project_2dx.clear();
-			lscif::project_2dy.clear();
-			lscif::project_x_tmp.clear();
-			lscif::project_y_tmp.clear();
-			lscif::project_pts.clear();
-			lscif::flist.clear();
-			lscif::bclist.clear();
-			CGMesh updatemesh = lscif::tools.lsmesh;
-			int id = viewer.selected_data_index;
-			lscif::updateMeshViewer(viewer, updatemesh);
-			lscif::meshFileName.push_back(lscif::meshFileName[id]);
-			lscif::Meshes.push_back(updatemesh);
-			std::cout<<"The Strokes Are Cleared"<<std::endl;
+		if (ImGui::CollapsingHeader("PickOnePolyline", ImGuiTreeNodeFlags_DefaultOpen)){
+			ImGui::Checkbox("pickPly", &lscif::pick_single_ply);
+			ImGui::SameLine();
+			ImGui::InputInt("pickID", &lscif::pick_line_id, 0, 0);
 		}
-		ImGui::SameLine();
-		if (ImGui::Button("Strokes2LS", ImVec2(ImGui::GetWindowSize().x * 0.25f, 0.0f)))
-
-		{
-			std::cout<<"Using Strokes to Initialize the Level Set"<<std::endl;
-			lscif::tools.receive_interactive_strokes_and_init_ls(lscif::flist, lscif::bclist);
-			bool compute_pg = false;
-			AssignAutoRunDefaultArgs(lscif::autorunner[0], compute_pg);
-			compute_pg = true;
-			AssignAutoRunDefaultArgs(lscif::autorunner[1], compute_pg);
-			std::cout<<"Using Default Parameters"<<std::endl;
+		if (ImGui::CollapsingHeader("TwoLvlStAngle", ImGuiTreeNodeFlags_DefaultOpen)){
+			ImGui::Checkbox("2LvStAngle", &lscif::fix_angle_of_two_levelsets);
+			ImGui::SameLine();
+			ImGui::InputDouble("AngleOfLSs", &lscif::angle_between_two_levelsets, 0, 0, "%.4f");
+			ImGui::SameLine();
+			ImGui::InputDouble("WeightAngleOfLSs", &lscif::weight_fix_two_ls_angle, 0, 0, "%.4f");
 		}
-		
-		if (ImGui::Button("AutoRunSmoothLS", ImVec2(ImGui::GetWindowSize().x * 0.25f, 0.0f)))
-
+		if (ImGui::CollapsingHeader("InterActiveDesign", ImGuiTreeNodeFlags_DefaultOpen))
 		{
-			AutoRunArgs runner = lscif::autorunner[0];
-			for (int i = 0; i < runner.parts.size(); i++)
+			ImGui::Checkbox("drawStrokes", &lscif::draw_strokes);
+			ImGui::SameLine();
+			if (ImGui::Button("ClearStrokes", ImVec2(ImGui::GetWindowSize().x * 0.25f, 0.0f)))
+
 			{
-				lscif::tools.weight_mass = runner.parts[i].weight_gravity;
-				lscif::tools.weight_laplacian = runner.parts[i].weight_lap;
-				lscif::tools.weight_boundary = runner.parts[i].weight_bnd;
-				lscif::tools.weight_pseudo_geodesic_energy = runner.parts[i].weight_pg;
-				lscif::tools.weight_strip_width = runner.parts[i].weight_strip_width;
-				for (int j = 0; j < runner.parts[i].iterations; j++)
+				lscif::project_2dx.clear();
+				lscif::project_2dy.clear();
+				lscif::project_x_tmp.clear();
+				lscif::project_y_tmp.clear();
+				lscif::project_pts.clear();
+				lscif::flist.clear();
+				lscif::bclist.clear();
+				CGMesh updatemesh = lscif::tools.lsmesh;
+				int id = viewer.selected_data_index;
+				lscif::updateMeshViewer(viewer, updatemesh);
+				lscif::meshFileName.push_back(lscif::meshFileName[id]);
+				lscif::Meshes.push_back(updatemesh);
+				std::cout << "The Strokes Are Cleared" << std::endl;
+			}
+			ImGui::SameLine();
+			if (ImGui::Button("Strokes2LS", ImVec2(ImGui::GetWindowSize().x * 0.25f, 0.0f)))
+
+			{
+				std::cout << "Using Strokes to Initialize the Level Set" << std::endl;
+				lscif::tools.receive_interactive_strokes_and_init_ls(lscif::flist, lscif::bclist);
+				bool compute_pg = false;
+				AssignAutoRunDefaultArgs(lscif::autorunner[0], compute_pg);
+				compute_pg = true;
+				AssignAutoRunDefaultArgs(lscif::autorunner[1], compute_pg);
+				std::cout << "Using Default Parameters" << std::endl;
+			}
+
+			if (ImGui::Button("AutoRunSmoothLS", ImVec2(ImGui::GetWindowSize().x * 0.25f, 0.0f)))
+
+			{
+				AutoRunArgs runner = lscif::autorunner[0];
+				for (int i = 0; i < runner.parts.size(); i++)
 				{
-					lscif::tools.Run_Level_Set_Opt_interactive(runner.compute_pg);
-					if (lscif::tools.step_length < runner.stop_step_length && j != 0)
-					{ 
-						std::cout << "optimization converges " << std::endl;
-						break;
+					lscif::tools.weight_mass = runner.parts[i].weight_gravity;
+					lscif::tools.weight_laplacian = runner.parts[i].weight_lap;
+					lscif::tools.weight_boundary = runner.parts[i].weight_bnd;
+					lscif::tools.weight_pseudo_geodesic_energy = runner.parts[i].weight_pg;
+					lscif::tools.weight_strip_width = runner.parts[i].weight_strip_width;
+					for (int j = 0; j < runner.parts[i].iterations; j++)
+					{
+						lscif::tools.Run_Level_Set_Opt_interactive(runner.compute_pg);
+						if (lscif::tools.step_length < runner.stop_step_length && j != 0)
+						{
+							std::cout << "optimization converges " << std::endl;
+							break;
+						}
 					}
 				}
-			}
 
-			std::cout << "A Smooth Scalar Function Following Input Strokes Is Generated ..." << std::endl;
-			int id = viewer.selected_data_index;
-			CGMesh inputMesh = lscif::tools.lsmesh;
-			lscif::updateMeshViewer(viewer, inputMesh);
-			lscif::meshFileName.push_back("lso_" + lscif::meshFileName[id]);
-			lscif::Meshes.push_back(inputMesh);
+				std::cout << "A Smooth Scalar Function Following Input Strokes Is Generated ..." << std::endl;
+				int id = viewer.selected_data_index;
+				CGMesh inputMesh = lscif::tools.lsmesh;
+				lscif::updateMeshViewer(viewer, inputMesh);
+				lscif::meshFileName.push_back("lso_" + lscif::meshFileName[id]);
+				lscif::Meshes.push_back(inputMesh);
 
-			Eigen::VectorXd level_set_values;
-			lscif::tools.show_level_set(level_set_values);
-			if (level_set_values.size() == 0)
-			{
-				std::cout<<"Level Set is not initialized"<<std::endl;
-				ImGui::End();
-				return;
-			}
-			Eigen::MatrixXd CM;
-			igl::parula(Eigen::VectorXd::LinSpaced(21, 0, 1).eval(), false, CM);
-			igl::isolines_map(Eigen::MatrixXd(CM), CM);
-			viewer.data().set_colormap(CM);
-			viewer.data().set_data(level_set_values);
-			const Eigen::RowVector3d red(0.8, 0.2, 0.2);
-			const Eigen::RowVector3d blue(0.2, 0.2, 0.8);
-
-			viewer.selected_data_index = id;
-		}
-		ImGui::SameLine();
-		if (ImGui::Button("AutoRunPd-Gdsic", ImVec2(ImGui::GetWindowSize().x * 0.25f, 0.0f)))
-
-		{
-			AutoRunArgs runner = lscif::autorunner[1];
-			for (int i = 0; i < runner.parts.size(); i++)
-			{
-				lscif::tools.weight_mass = runner.parts[i].weight_gravity;
-				lscif::tools.weight_laplacian = runner.parts[i].weight_lap;
-				lscif::tools.weight_boundary = runner.parts[i].weight_bnd;
-				lscif::tools.weight_pseudo_geodesic_energy = runner.parts[i].weight_pg;
-				lscif::tools.weight_strip_width = runner.parts[i].weight_strip_width;
-				for (int j = 0; j < runner.parts[i].iterations; j++)
+				Eigen::VectorXd level_set_values;
+				lscif::tools.show_level_set(level_set_values);
+				if (level_set_values.size() == 0)
 				{
-					lscif::tools.Run_Level_Set_Opt_interactive(runner.compute_pg);
-					if (lscif::tools.step_length < runner.stop_step_length && j != 0)
-					{ 
-						std::cout << "optimization converges " << std::endl;
-						break;
-					}
+					std::cout << "Level Set is not initialized" << std::endl;
+					ImGui::End();
+					return;
 				}
-				std::cout<<"\n";
-			}
-
-			std::cout << "Pseudo-Geodesic Curves in level sets are Generated ..." << std::endl;
-			int id = viewer.selected_data_index;
-			CGMesh inputMesh = lscif::tools.lsmesh;
-			lscif::updateMeshViewer(viewer, inputMesh);
-			lscif::meshFileName.push_back("lso_" + lscif::meshFileName[id]);
-			lscif::Meshes.push_back(inputMesh);
-
-			Eigen::VectorXd level_set_values;
-			lscif::tools.show_level_set(level_set_values);
-			if (level_set_values.size() == 0)
-			{
-				std::cout<<"Level Set is not initialized"<<std::endl;
-				ImGui::End();
-				return;
-			}
-			Eigen::MatrixXd CM;
-			igl::parula(Eigen::VectorXd::LinSpaced(21, 0, 1).eval(), false, CM);
-			igl::isolines_map(Eigen::MatrixXd(CM), CM);
-			viewer.data().set_colormap(CM);
-			viewer.data().set_data(level_set_values);
-			const Eigen::RowVector3d red(0.8, 0.2, 0.2);
-			const Eigen::RowVector3d blue(0.2, 0.2, 0.8);
-
-			viewer.selected_data_index = id;
-		}
-		ImGui::SameLine();
-		if (ImGui::Button("SaveStrokes", ImVec2(ImGui::GetWindowSize().x * 0.25f, 0.0f)))
-
-		{
-			save_strokes(lscif::flist, lscif::bclist);
-		}
-		ImGui::SameLine();
-		if (ImGui::Button("ReadStrokes", ImVec2(ImGui::GetWindowSize().x * 0.25f, 0.0f)))
-
-		{
-			Eigen::MatrixXd V = lscif::tools.V;
-			Eigen::MatrixXi F = lscif::tools.F;
-			read_strokes(lscif::flist, lscif::bclist);
-			Eigen::MatrixXd vlist;
-			for (int i = 0; i < lscif::flist.size(); i++)
-			{
-				vlist.resize(lscif::flist[i].size(), 3);
-				for (int j = 0; j < lscif::flist[i].size(); j++)
-				{
-					int fid = lscif::flist[i][j];
-					Eigen::Vector3f bc = lscif::bclist[i][j];
-					Eigen::Vector3d v0 = V.row(F(fid, 0));
-					Eigen::Vector3d v1 = V.row(F(fid, 1));
-					Eigen::Vector3d v2 = V.row(F(fid, 2));
-
-					Eigen::Vector3d pt = bc[0] * v0 + bc[1] * v1 + bc[2] * v2;
-					vlist.row(j) = pt;
-				}
+				Eigen::MatrixXd CM;
+				igl::parula(Eigen::VectorXd::LinSpaced(21, 0, 1).eval(), false, CM);
+				igl::isolines_map(Eigen::MatrixXd(CM), CM);
+				viewer.data().set_colormap(CM);
+				viewer.data().set_data(level_set_values);
 				const Eigen::RowVector3d red(0.8, 0.2, 0.2);
-				viewer.data().add_points(vlist, red); // show rows
+				const Eigen::RowVector3d blue(0.2, 0.2, 0.8);
+
+				viewer.selected_data_index = id;
+			}
+			ImGui::SameLine();
+			if (ImGui::Button("AutoRunPd-Gdsic", ImVec2(ImGui::GetWindowSize().x * 0.25f, 0.0f)))
+
+			{
+				AutoRunArgs runner = lscif::autorunner[1];
+				for (int i = 0; i < runner.parts.size(); i++)
+				{
+					lscif::tools.weight_mass = runner.parts[i].weight_gravity;
+					lscif::tools.weight_laplacian = runner.parts[i].weight_lap;
+					lscif::tools.weight_boundary = runner.parts[i].weight_bnd;
+					lscif::tools.weight_pseudo_geodesic_energy = runner.parts[i].weight_pg;
+					lscif::tools.weight_strip_width = runner.parts[i].weight_strip_width;
+					for (int j = 0; j < runner.parts[i].iterations; j++)
+					{
+						lscif::tools.Run_Level_Set_Opt_interactive(runner.compute_pg);
+						if (lscif::tools.step_length < runner.stop_step_length && j != 0)
+						{
+							std::cout << "optimization converges " << std::endl;
+							break;
+						}
+					}
+					std::cout << "\n";
+				}
+
+				std::cout << "Pseudo-Geodesic Curves in level sets are Generated ..." << std::endl;
+				int id = viewer.selected_data_index;
+				CGMesh inputMesh = lscif::tools.lsmesh;
+				lscif::updateMeshViewer(viewer, inputMesh);
+				lscif::meshFileName.push_back("lso_" + lscif::meshFileName[id]);
+				lscif::Meshes.push_back(inputMesh);
+
+				Eigen::VectorXd level_set_values;
+				lscif::tools.show_level_set(level_set_values);
+				if (level_set_values.size() == 0)
+				{
+					std::cout << "Level Set is not initialized" << std::endl;
+					ImGui::End();
+					return;
+				}
+				Eigen::MatrixXd CM;
+				igl::parula(Eigen::VectorXd::LinSpaced(21, 0, 1).eval(), false, CM);
+				igl::isolines_map(Eigen::MatrixXd(CM), CM);
+				viewer.data().set_colormap(CM);
+				viewer.data().set_data(level_set_values);
+				const Eigen::RowVector3d red(0.8, 0.2, 0.2);
+				const Eigen::RowVector3d blue(0.2, 0.2, 0.8);
+
+				viewer.selected_data_index = id;
+			}
+			ImGui::SameLine();
+			if (ImGui::Button("SaveStrokes", ImVec2(ImGui::GetWindowSize().x * 0.25f, 0.0f)))
+
+			{
+				save_strokes(lscif::flist, lscif::bclist);
+			}
+			ImGui::SameLine();
+			if (ImGui::Button("ReadStrokes", ImVec2(ImGui::GetWindowSize().x * 0.25f, 0.0f)))
+
+			{
+				Eigen::MatrixXd V = lscif::tools.V;
+				Eigen::MatrixXi F = lscif::tools.F;
+				read_strokes(lscif::flist, lscif::bclist);
+				Eigen::MatrixXd vlist;
+				for (int i = 0; i < lscif::flist.size(); i++)
+				{
+					vlist.resize(lscif::flist[i].size(), 3);
+					for (int j = 0; j < lscif::flist[i].size(); j++)
+					{
+						int fid = lscif::flist[i][j];
+						Eigen::Vector3f bc = lscif::bclist[i][j];
+						Eigen::Vector3d v0 = V.row(F(fid, 0));
+						Eigen::Vector3d v1 = V.row(F(fid, 1));
+						Eigen::Vector3d v2 = V.row(F(fid, 2));
+
+						Eigen::Vector3d pt = bc[0] * v0 + bc[1] * v1 + bc[2] * v2;
+						vlist.row(j) = pt;
+					}
+					const Eigen::RowVector3d red(0.8, 0.2, 0.2);
+					viewer.data().add_points(vlist, red); // show rows
+				}
 			}
 		}
 		if (ImGui::CollapsingHeader("QuadMeshOpt", ImGuiTreeNodeFlags_DefaultOpen))
@@ -2983,7 +2994,6 @@ int main(int argc, char *argv[])
 			if (ImGui::Button("writePlyInfo", ImVec2(ImGui::GetWindowSize().x * 0.25f, 0.0f)))
 			{
 				lscif::quad_tool.write_polyline_info();
-
 			}
 			ImGui::SameLine();
 			if (ImGui::Button("LoadTriangTree", ImVec2(ImGui::GetWindowSize().x * 0.25f, 0.0f)))
@@ -3093,7 +3103,7 @@ int main(int argc, char *argv[])
 			ImGui::SameLine();
 			if (ImGui::Button("WriteFitting", ImVec2(ImGui::GetWindowSize().x * 0.25f, 0.0f)))
 			{
-				lscif::tools.write_fitting_data(); 
+				lscif::tools.write_fitting_data();
 			}
 		}
 		ImGui::PushStyleColor(ImGuiCol_Button, (ImVec4)ImColor::HSV(0.0f, 0.6f, 0.6f));

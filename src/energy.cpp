@@ -1033,19 +1033,31 @@ void lsTools::calculate_shading_init(Eigen::VectorXd& vars,
 	int ninner = analizer.LocalActInner.size();
 
 	tripletes.clear();
-	tripletes.reserve(ninner * 60); // 
-	Energy = Eigen::VectorXd::Zero(ninner * 12); // mesh total energy values
+	tripletes.reserve(ninner * 60); //todo;
+	Energy = Eigen::VectorXd::Zero(ninner * 12);// todo;
 	if (Lights.rows() != vnbr)
 	{
 		Lights = Eigen::MatrixXd::Zero(vnbr, 3);
 	}
 	double latitude_radian = ShadingLatitude * LSC_PI / 180.;
+	// this is to give the correct sun height (in angle) of the architecture.
 	double rho = (LSC_PI / 2 - latitude_radian);
 	Eigen::Matrix3d rotation;
 	rotation << 1, 0, 0,
 		0, cos(rho), -sin(rho),
 		0, sin(rho), cos(rho);
-	
+	// initialize the orthogonal vectors on the faces.
+	if(Fslope.size()==0){
+		// for pure shading cases
+		if (!enable_let_ray_through && !enable_reflection && analizer.Special.size() == 0)
+		{
+			get_orthogonal_vector_of_selected_slope(V, F,
+													norm_f, Reference_phi - Phi_tol,
+													Reference_phi + Phi_tol, Fslope, OrthoSlope);
+			
+		}
+		
+	}
 	for (int i = 0; i < ninner; i++)
 	{
 		if (analizer.LocalActInner[i] == false) {
@@ -1234,55 +1246,55 @@ void lsTools::calculate_shading_init(Eigen::VectorXd& vars,
 		tripletes.push_back(Trip(i + ninner * 2, lrz, 2 * vars(lrz) * scale));
 
 		Energy[i + ninner * 2] = (r.dot(r) - 1) * scale;
-		// std::cout<<"c3 got"<<std::endl;
-		double weight_test = 1;
+		// // std::cout<<"c3 got"<<std::endl;
+		// double weight_test = 1;
 		
-		Eigen::Vector3d axis;
-		if(condition_type == 1){//shading
-			axis = earth_axis;
-		}
-		if(condition_type == 0){//through
-			axis = main_light;
-		}
-		if(condition_type == 3){//reflection
-			axis = reflect_axis;
-		}
-		if (condition_type != 2)
-		{	// if it is not a transition point
+		// Eigen::Vector3d axis;
+		// if(condition_type == 1){//shading
+		// 	axis = earth_axis;
+		// }
+		// if(condition_type == 0){//through
+		// 	axis = main_light;
+		// }
+		// if(condition_type == 3){//reflection
+		// 	axis = reflect_axis;
+		// }
+		// if (condition_type != 2)
+		// {	// if it is not a transition point
 
-			// axis * ((v2 - v1)*fm+(vm-v2)*f1+(v1-vm)f2) = 0
-			double cm = axis.dot(V.row(v2) - V.row(v1)) / dis0;
-			double c1 = axis.dot(V.row(vm) - V.row(v2)) / dis0;
-			double c2 = axis.dot(V.row(v1) - V.row(vm)) / dis0;
-			tripletes.push_back(Trip(i + ninner * 3, lvm, cm * scale));
-			tripletes.push_back(Trip(i + ninner * 3, lv1, c1 * scale));
-			tripletes.push_back(Trip(i + ninner * 3, lv2, c2 * scale));
+		// 	// axis * ((v2 - v1)*fm+(vm-v2)*f1+(v1-vm)f2) = 0
+		// 	double cm = axis.dot(V.row(v2) - V.row(v1)) / dis0;
+		// 	double c1 = axis.dot(V.row(vm) - V.row(v2)) / dis0;
+		// 	double c2 = axis.dot(V.row(v1) - V.row(vm)) / dis0;
+		// 	tripletes.push_back(Trip(i + ninner * 3, lvm, cm * scale));
+		// 	tripletes.push_back(Trip(i + ninner * 3, lv1, c1 * scale));
+		// 	tripletes.push_back(Trip(i + ninner * 3, lv2, c2 * scale));
 
-			Energy[i + ninner * 3] = (cm * fm + c1 * f1 + c2 * f2) * scale;
+		// 	Energy[i + ninner * 3] = (cm * fm + c1 * f1 + c2 * f2) * scale;
 
-			// axis * ((v4 - v3) * fm + (vm-v4) * f3 + (v3-vm) * f4) = 0
-			cm = axis.dot(V.row(v4) - V.row(v3)) / dis1;
-			double c3 = axis.dot(V.row(vm) - V.row(v4)) / dis1;
-			double c4 = axis.dot(V.row(v3) - V.row(vm)) / dis1;
-			tripletes.push_back(Trip(i + ninner * 4, lvm, cm * scale));
-			tripletes.push_back(Trip(i + ninner * 4, lv3, c3 * scale));
-			tripletes.push_back(Trip(i + ninner * 4, lv4, c4 * scale));
+		// 	// axis * ((v4 - v3) * fm + (vm-v4) * f3 + (v3-vm) * f4) = 0
+		// 	cm = axis.dot(V.row(v4) - V.row(v3)) / dis1;
+		// 	double c3 = axis.dot(V.row(vm) - V.row(v4)) / dis1;
+		// 	double c4 = axis.dot(V.row(v3) - V.row(vm)) / dis1;
+		// 	tripletes.push_back(Trip(i + ninner * 4, lvm, cm * scale));
+		// 	tripletes.push_back(Trip(i + ninner * 4, lv3, c3 * scale));
+		// 	tripletes.push_back(Trip(i + ninner * 4, lv4, c4 * scale));
 
-			Energy[i + ninner * 4] = (cm * fm + c3 * f3 + c4 * f4) * scale;
-		}
+		// 	Energy[i + ninner * 4] = (cm * fm + c3 * f3 + c4 * f4) * scale;
+		// }
 
-		//////////////////////////////
-		// // ray * ray = 1
-		// tripletes.push_back(Trip(i + ninner * 5, lrayx, 2 * ray[0] * scale)); 
-		// tripletes.push_back(Trip(i + ninner * 5, lrayy, 2 * ray[1] * scale)); 
-		// tripletes.push_back(Trip(i + ninner * 5, lrayz, 2 * ray[2] * scale));
+		// //////////////////////////////
+		// // // ray * ray = 1
+		// // tripletes.push_back(Trip(i + ninner * 5, lrayx, 2 * ray[0] * scale)); 
+		// // tripletes.push_back(Trip(i + ninner * 5, lrayy, 2 * ray[1] * scale)); 
+		// // tripletes.push_back(Trip(i + ninner * 5, lrayz, 2 * ray[2] * scale));
 
-		// Energy[i + ninner * 5] = (ray.dot(ray) - 1) * scale;
+		// // Energy[i + ninner * 5] = (ray.dot(ray) - 1) * scale;
 
-		// ray_z * ray_z = sin(theta)^2
-		double sin_square = sin(target_theta) * sin(target_theta);
-		tripletes.push_back(Trip(i + ninner * 6, lrayz, 2 * ray[2] * scale));
-		Energy[i + ninner * 6] = (ray[2] * ray[2] - sin_square) * scale;
+		// // ray_z * ray_z = sin(theta)^2
+		// double sin_square = sin(target_theta) * sin(target_theta);
+		// tripletes.push_back(Trip(i + ninner * 6, lrayz, 2 * ray[2] * scale));
+		// Energy[i + ninner * 6] = (ray[2] * ray[2] - sin_square) * scale;
 
 		/////////////////////////////
 	}

@@ -519,7 +519,7 @@ public:
     double weight_pseudo_geodesic_energy;// weight of the pseudo-geodesic energy
     double weight_strip_width;
     double weight_geodesic; // For AAG and shading
-    double weight_smt_binormal = 0; // smooth the binormals
+    double weight_smt_binormal = 0; // smooth the binormals. Please only use it for shading system
     // double weight_shading; // For shading: the light is othogonal to the tangent direction 
     // Don't Use Strip Width Condition When Opt Multiple Functions
     double strip_width = 1;       // strip width, defined as h/w, h: level set function value difference. w: distance between two points on the surface
@@ -559,8 +559,13 @@ public:
     Eigen::VectorXd PGVariationalAngles;
     double angle_between_two_levelsets;
     double weight_fix_two_ls_angle;
+private:
+    std::vector<int> Fslope; // the faces of the marked slopes.
+    std::vector<Eigen::Vector3d> OrthoSlope; // the orthogonal vectors of the desired slopes
+    
 
-
+public:
+    void show_slopes(const double scaleing, Eigen::MatrixXd &E0, Eigen::MatrixXd &E1);
     double pseudo_geodesic_target_angle_degree; // the target pseudo-geodesic angle
     double pseudo_geodesic_target_angle_degree_2; // the target pseudo-geodesic angle
     double pseudo_geodesic_start_angle_degree; // the start angle
