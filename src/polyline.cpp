@@ -542,7 +542,7 @@ void PolyOpt::init_crease_opt(const std::vector<std::vector<Eigen::Vector3d>> &v
     }
     VerNbr = vnbr;
     // the variables are the coffecients alpha and beta on each vertex.
-    PlyVars = Eigen::VectorXd::Zero(vnbr * 2);
+    PlyVars = Eigen::VectorXd::Zero(vnbr * 5);
     PlyVars.segment(vnbr, vnbr) = Eigen::VectorXd::Ones(vnbr);
     Front.resize(vnbr);
     Back.resize(vnbr);
@@ -580,6 +580,27 @@ void PolyOpt::init_crease_opt(const std::vector<std::vector<Eigen::Vector3d>> &v
             counter++;
         }
     }
+    for (int i = 0; i < vnbr; i++)
+    {
+        int bk = Back[i];
+        if (bk == -1)
+        {
+            continue;
+        }
+        int lnx = i + vnbr * 2;
+        int lny = i + vnbr * 3;
+        int lnz = i + vnbr * 4;
+        Eigen::Vector3d Ver = vertices_cp.row(i);
+        Eigen::Vector3d Vbk = vertices_cp.row(bk);
+        Eigen::Vector3d Bver = binormal_cp.row(i);
+        if(abs(Ver.dot(Bver))>0.1){
+            std::cout<<"WARNING: The Binormal is super inaccurate!!!"<<std::endl;
+        }
+        Eigen::Vector3d norm = (Ver-Vbk).cross(Bver).normalized();
+        PlyVars[lnx] = norm[0];
+        PlyVars[lny] = norm[1];
+        PlyVars[lnz] = norm[2];
+    }
     ply_extracted = vertices;// to record the topology of the vers
     bin_extracted = binormals;
     OriVars = PlyVars;
@@ -591,10 +612,13 @@ void PolyOpt::force_smoothing_binormals(){
     int counter = 0;
     for (int i = 0; i < ply_extracted.size(); i++)
     {
-        int lnx = counter + VerNbr * 3;
-        int lny = counter + VerNbr * 4;
-        int lnz = counter + VerNbr * 5;
         
+        // counter is the first point. need to use the middle point as reference
+        int mid = counter + ply_extracted[i].size() / 2;
+        int lnx = mid + VerNbr * 3;
+        int lny = mid + VerNbr * 4;
+        int lnz = mid + VerNbr * 5;
+
         Eigen::Vector3d bin = Eigen::Vector3d(PlyVars[lnx], PlyVars[lny], PlyVars[lnz]);
         for (int j = 0; j < ply_extracted[i].size(); j++)
         {
@@ -722,50 +746,55 @@ void PolyOpt::assemble_polyline_smooth(spMat &H, Eigen::VectorXd &B, Eigen::Vect
 
         if (compute_line_smth)
         {
-            Eigen::Vector3d Over(OriVars[lx], OriVars[ly], OriVars[lz]);
-            Eigen::Vector3d Ovfr(OriVars[lfx], OriVars[lfy], OriVars[lfz]);
-            Eigen::Vector3d Ovbk(OriVars[lbx], OriVars[lby], OriVars[lbz]);
+            // Eigen::Vector3d Over(OriVars[lx], OriVars[ly], OriVars[lz]);
+            // Eigen::Vector3d Ovfr(OriVars[lfx], OriVars[lfy], OriVars[lfz]);
+            // Eigen::Vector3d Ovbk(OriVars[lbx], OriVars[lby], OriVars[lbz]);
 
-            double dis0 = (Over - Ovfr).norm();
-            double dis1 = (Over - Ovbk).norm();
-            double t = dis0 / (dis1 + dis0);
-            // x = (1-t) * x_front + t * x_back
-            tripletes.push_back(Trip(i, lx, 1));
-            tripletes.push_back(Trip(i, lfx, t - 1));
-            tripletes.push_back(Trip(i, lbx, -t));
+            // double dis0 = (Over - Ovfr).norm();
+            // double dis1 = (Over - Ovbk).norm();
 
-            energy[i] = ver[0] - (1 - t) * vfr[0] - t * vbk[0];
+            double dis0 = (ver - vfr).norm();
+            double dis1 = (ver - vbk).norm();
+            Eigen::Vector3d error = (ver - vfr) / dis0 + (ver - vbk) / dis1;
 
-            // y = (1-t) * y_front + t * y_back
-            tripletes.push_back(Trip(i + vnbr, ly, 1));
-            tripletes.push_back(Trip(i + vnbr, lfy, t - 1));
-            tripletes.push_back(Trip(i + vnbr, lby, -t));
+            // (v - fr)/||v-fr|| + (v-bk)/||v-bk|| = 0
 
-            energy[i + vnbr] = ver[1] - (1 - t) * vfr[1] - t * vbk[1];
+            // x
+            tripletes.push_back(Trip(i, lx, 1 / dis0 + 1 / dis1));
+            tripletes.push_back(Trip(i, lfx, -1 / dis0));
+            tripletes.push_back(Trip(i, lbx, -1 / dis1));
+            energy[i] = error[0];
 
-            // z = (1-t) * z_front + t * z_back
-            tripletes.push_back(Trip(i + vnbr * 2, lz, 1));
-            tripletes.push_back(Trip(i + vnbr * 2, lfz, t - 1));
-            tripletes.push_back(Trip(i + vnbr * 2, lbz, -t));
+            // y
+            tripletes.push_back(Trip(i + vnbr, ly, 1 / dis0 + 1 / dis1));
+            tripletes.push_back(Trip(i + vnbr, lfy, -1 / dis0));
+            tripletes.push_back(Trip(i + vnbr, lby, -1 / dis1));
 
-            energy[i + vnbr * 2] = ver[2] - (1 - t) * vfr[2] - t * vbk[2];
+            energy[i + vnbr] = error[1];
+
+            // z 
+            tripletes.push_back(Trip(i + vnbr * 2, lz, 1 / dis0 + 1 / dis1));
+            tripletes.push_back(Trip(i + vnbr * 2, lfz, -1 / dis0));
+            tripletes.push_back(Trip(i + vnbr * 2, lbz, -1 / dis1));
+
+            energy[i + vnbr * 2] = error[2];
         }
 
         double sign;
-        if (compute_front)
-        {
-            sign = nbi.dot(nfr) > 0 ? 1 : -1;
-            // nbi * nfr +- 1 = 0
-            tripletes.push_back(Trip(i + vnbr * 3, lnx, binormal_ratio * nfr[0]));
-            tripletes.push_back(Trip(i + vnbr * 3, lny, binormal_ratio * nfr[1]));
-            tripletes.push_back(Trip(i + vnbr * 3, lnz, binormal_ratio * nfr[2]));
+        // if (compute_front)
+        // {
+        //     sign = nbi.dot(nfr) > 0 ? 1 : -1;
+        //     // nbi * nfr +- 1 = 0
+        //     tripletes.push_back(Trip(i + vnbr * 3, lnx, binormal_ratio * nfr[0]));
+        //     tripletes.push_back(Trip(i + vnbr * 3, lny, binormal_ratio * nfr[1]));
+        //     tripletes.push_back(Trip(i + vnbr * 3, lnz, binormal_ratio * nfr[2]));
 
-            tripletes.push_back(Trip(i + vnbr * 3, lfnx, binormal_ratio * nbi[0]));
-            tripletes.push_back(Trip(i + vnbr * 3, lfny, binormal_ratio * nbi[1]));
-            tripletes.push_back(Trip(i + vnbr * 3, lfnz, binormal_ratio * nbi[2]));
+        //     tripletes.push_back(Trip(i + vnbr * 3, lfnx, binormal_ratio * nbi[0]));
+        //     tripletes.push_back(Trip(i + vnbr * 3, lfny, binormal_ratio * nbi[1]));
+        //     tripletes.push_back(Trip(i + vnbr * 3, lfnz, binormal_ratio * nbi[2]));
 
-            energy[i + vnbr * 3] = binormal_ratio * (nbi.dot(nfr) - sign);
-        }
+        //     energy[i + vnbr * 3] = binormal_ratio * (nbi.dot(nfr) - sign);
+        // }
 
         if (compute_back)
         {
@@ -1320,6 +1349,7 @@ void PolyOpt::opt()
         H += weight_angle * Hangle;
         B += weight_angle * Bangle;
     }
+    H += 1e-6 * spMat(Eigen::VectorXd::Ones(H.rows()).asDiagonal());
     Eigen::SimplicialLLT<Eigen::SparseMatrix<double>> solver(H);
 
     // assert(solver.info() == Eigen::Success);
@@ -1373,20 +1403,30 @@ void PolyOpt::assemble_crease_planarity(spMat &H, Eigen::VectorXd &B, Eigen::Vec
 {
     if (Front.size() == 0)
     {
-        std::cout << "please use assemble_polyline_smooth after init the PolyOpt" << std::endl;
+        std::cout << "Please correctly initialize the creases" << std::endl;
         return; 
     }
-
+    
     std::vector<Trip> tripletes;
     int vnbr = Front.size();
+    // Eigen::VectorXi Markers = Eigen::VectorXi::Zero(vnbr);
     energy = Eigen::VectorXd::Zero(vnbr * 2);
-    tripletes.reserve(vnbr * 6);
-    // std::cout<<"check 1"<<std::endl;
+    tripletes.reserve(vnbr * 10);
+    // extend the current values for end points processing
+    
+    std::vector<double> extend_energy;
+    int extend_count = vnbr * 2;
     for (int i = 0; i < vnbr; i++)
     {
         int vid = i;
         int bk = Back[vid];
+        int fr = Front[vid];
+        bool compute_front = true;
         bool compute_back = true;
+
+        if(fr == -1){
+            compute_front = false;
+        }
 
         if (bk == -1)
         {
@@ -1400,6 +1440,9 @@ void PolyOpt::assemble_crease_planarity(spMat &H, Eigen::VectorXd &B, Eigen::Vec
         int lbk = bk;
         int lar = bk;
         int lbr = bk + vnbr;
+        int lnx = vid + vnbr * 2;
+        int lny = vid + vnbr * 3;
+        int lnz = vid + vnbr * 4;
 
         Eigen::Vector3d vl = vertices_cp.row(loc);
         Eigen::Vector3d tanl = tangents_cp.row(loc);
@@ -1409,32 +1452,59 @@ void PolyOpt::assemble_crease_planarity(spMat &H, Eigen::VectorXd &B, Eigen::Vec
         Eigen::Vector3d tanr = tangents_cp.row(lbk);
         Eigen::Vector3d binr = binormal_cp.row(lbk);
 
+        
+
         double alpha_l = PlyVars[lal];
         double alpha_r = PlyVars[lar];
         double beta_l = PlyVars[lbl];
         double beta_r = PlyVars[lbr];
+        Eigen::Vector3d norm(PlyVars[lnx], PlyVars[lny], PlyVars[lnz]);
+
         Eigen::Vector3d vlr = (vl - vr).normalized();
-        Eigen::Vector3d c0 = tanl.cross(tanr);
-        Eigen::Vector3d c1 = tanl.cross(binr);
-        Eigen::Vector3d c2 = binl.cross(tanr);
-        Eigen::Vector3d c3 = binl.cross(binr);
-        // cross is the left crease X right crease
-        Eigen::Vector3d cross = alpha_l * alpha_r * c0 + alpha_l * beta_r * c1 + alpha_r * beta_l * c2 + beta_l * beta_r * c3;
-        double m0 = c0.dot(vlr);
-        double m1 = c1.dot(vlr);
-        double m2 = c2.dot(vlr);
-        double m3 = c3.dot(vlr);
+        // Eigen::Vector3d c0 = tanl.cross(tanr);
+        // Eigen::Vector3d c1 = tanl.cross(binr);
+        // Eigen::Vector3d c2 = binl.cross(tanr);
+        // Eigen::Vector3d c3 = binl.cross(binr);
+        // // cross is the left crease X right crease
+        // Eigen::Vector3d cross = alpha_l * alpha_r * c0 + alpha_l * beta_r * c1 + alpha_r * beta_l * c2 + beta_l * beta_r * c3;
+        // double m0 = c0.dot(vlr);
+        // double m1 = c1.dot(vlr);
+        // double m2 = c2.dot(vlr);
+        // double m3 = c3.dot(vlr);
 
         if (compute_back)
         {
-            // cross * vlr = 0
-            tripletes.push_back(Trip(i, lal, alpha_r * m0 + beta_r * m1));
-            tripletes.push_back(Trip(i, lar, alpha_l * m0 + beta_l * m2));
-            tripletes.push_back(Trip(i, lbl, alpha_r * m2 + beta_r * m3));
-            tripletes.push_back(Trip(i, lbr, alpha_l * m1 + beta_l * m3));
+            // // cross * vlr = 0
+            // tripletes.push_back(Trip(i, lal, alpha_r * m0 + beta_r * m1));
+            // tripletes.push_back(Trip(i, lar, alpha_l * m0 + beta_l * m2));
+            // tripletes.push_back(Trip(i, lbl, alpha_r * m2 + beta_r * m3));
+            // tripletes.push_back(Trip(i, lbr, alpha_l * m1 + beta_l * m3));
 
-            energy[i] = cross.dot(vlr);
+            // energy[i] = cross.dot(vlr);
+            // Markers[vid] = 1;
+            // Markers[bk] = 1;
+
+            // norm * vlr = 0
+            tripletes.push_back(Trip(i, lnx, vlr[0]));
+            tripletes.push_back(Trip(i, lny, vlr[1]));
+            tripletes.push_back(Trip(i, lnz, vlr[2]));
+            xx
         }
+        // double ratio = 0.1;
+        // if(!compute_front)
+        // { // the first segment, regard the right direction as constant
+        //     tripletes.push_back(Trip(extend_count, lal, (alpha_r * m0 + beta_r * m1) * ratio));
+        //     tripletes.push_back(Trip(extend_count, lbl, (alpha_r * m2 + beta_r * m3) * ratio));
+        //     extend_energy.push_back(cross.dot(vlr) * ratio);
+        //     extend_count++;
+        // }
+        // if (Back[bk] == -1)
+        // { // the last segment. regard the left direction as constant
+        //     tripletes.push_back(Trip(extend_count, lar, (alpha_l * m0 + beta_l * m2) * ratio));
+        //     tripletes.push_back(Trip(extend_count, lbr, (alpha_l * m1 + beta_l * m3) * ratio));
+        //     extend_energy.push_back(cross.dot(vlr) * ratio);
+        //     extend_count++;
+        // }
 
         // alpha_l^2 + beta_l^2 = 1
         tripletes.push_back(Trip(i + vnbr, lal, 2 * alpha_l));
@@ -1442,10 +1512,23 @@ void PolyOpt::assemble_crease_planarity(spMat &H, Eigen::VectorXd &B, Eigen::Vec
         energy[i + vnbr] = alpha_l * alpha_l + beta_l * beta_l - 1;
     }
     spMat J;
-    J.resize(energy.size(), PlyVars.size());
+    J.resize(energy.size()+extend_energy.size(), PlyVars.size());
     J.setFromTriplets(tripletes.begin(), tripletes.end());
     H = J.transpose() * J;
+
+    Eigen::VectorXd final_energy(energy.size() + extend_energy.size());
+    Eigen::VectorXd tmp_vec = vec_list_to_vector(extend_energy);
+
+    final_energy.segment(0, energy.size()) = energy;
+    final_energy.segment(energy.size(), tmp_vec.size()) = tmp_vec;
+    energy = final_energy;
+
     B = -J.transpose() * energy;
+    // for(int i=0;i<vnbr;i++){
+    //     if(Markers[i]==0){
+    //         std::cout<<"ERROR: Points are left out!!!"<<std::endl;
+    //     }
+    // }
 }
 
 void PolyOpt::opt_planarity(){
@@ -1469,6 +1552,7 @@ void PolyOpt::opt_planarity(){
         H += weight_angle * Hangle;
         B += weight_angle * Bangle;
     }
+    H += 1e-6 * spMat(Eigen::VectorXd::Ones(H.rows()).asDiagonal());
     Eigen::SimplicialLLT<Eigen::SparseMatrix<double>> solver(H);
 
     // assert(solver.info() == Eigen::Success);

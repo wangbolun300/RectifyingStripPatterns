@@ -1026,19 +1026,7 @@ void lsTools::calculate_shading_condition_inequivalent(Eigen::VectorXd &vars,
 void lsTools::calculate_shading_init(Eigen::VectorXd& vars,
 	const LSAnalizer &analizer, const int vars_start_loc, const int aux_start_loc, std::vector<Trip>& tripletes, Eigen::VectorXd& Energy) {
 	int vnbr = V.rows();
-	if (Binormals.rows() != vnbr)
-	{
-		Binormals = Eigen::MatrixXd::Zero(vnbr, 3);
-	}
 	int ninner = analizer.LocalActInner.size();
-
-	tripletes.clear();
-	tripletes.reserve(ninner * 60); //todo;
-	Energy = Eigen::VectorXd::Zero(ninner * 12);// todo;
-	if (Lights.rows() != vnbr)
-	{
-		Lights = Eigen::MatrixXd::Zero(vnbr, 3);
-	}
 	double latitude_radian = ShadingLatitude * LSC_PI / 180.;
 	// this is to give the correct sun height (in angle) of the architecture.
 	double rho = (LSC_PI / 2 - latitude_radian);
@@ -1054,262 +1042,40 @@ void lsTools::calculate_shading_init(Eigen::VectorXd& vars,
 			get_orthogonal_vector_of_selected_slope(V, F,
 													norm_f, Reference_phi - Phi_tol,
 													Reference_phi + Phi_tol, Fslope, OrthoSlope);
-			
 		}
 		
 	}
-	for (int i = 0; i < ninner; i++)
+	tripletes.clear();
+	tripletes.reserve(Fslope.size() * 3); //todo;
+	Energy = Eigen::VectorXd::Zero(Fslope.size());// todo;
+	for (int itr = 0; itr < Fslope.size(); itr++)
 	{
-		if (analizer.LocalActInner[i] == false) {
-			std::cout << "singularity" << std::endl;
-			continue;
-		}
-		int vm = IVids[i];
-		CGMesh::HalfedgeHandle inhd = analizer.heh0[i], outhd = analizer.heh1[i];
-		int v1 = lsmesh.from_vertex_handle(inhd).idx();
-		int v2 = lsmesh.to_vertex_handle(inhd).idx();
-		int v3 = lsmesh.from_vertex_handle(outhd).idx();
-		int v4 = lsmesh.to_vertex_handle(outhd).idx();
+		int fid = Fslope[itr];
+		Eigen::Vector3d otho = OrthoSlope[itr];
+		int v0 = F(fid, 0);
+		int v1 = F(fid, 1);
+		int v2 = F(fid, 2);
+		// locations
+		int loc0 = vars_start_loc + v0;
+		int loc1 = vars_start_loc + v1;
+		int loc2 = vars_start_loc + v2;
 		
-		double t1 = analizer.t1s[i];
-		double t2 = analizer.t2s[i];
-		
-		Eigen::Vector3d ver0 = V.row(v1) + (V.row(v2) - V.row(v1)) * t1;
-		Eigen::Vector3d ver1 = V.row(vm);
-		Eigen::Vector3d ver2 = V.row(v3) + (V.row(v4) - V.row(v3)) * t2;
-		
-		// the locations
-		int lvm = vars_start_loc + vm;
-		int lv1 = vars_start_loc + v1;
-		int lv2 = vars_start_loc + v2;
-		int lv3 = vars_start_loc + v3;
-		int lv4 = vars_start_loc + v4;
+		double f0 = Glob_lsvars[loc0];
+		double f1 = Glob_lsvars[loc1];
+		double f2 = Glob_lsvars[loc2];
+		Eigen::Vector3d ver0 = V.row(v0);
+		Eigen::Vector3d ver1 = V.row(v1);
+		Eigen::Vector3d ver2 = V.row(v2);
 
-		int lrx = i + aux_start_loc;
-		int lry = i + aux_start_loc + ninner;
-		int lrz = i + aux_start_loc + ninner * 2;
+		Eigen::Vector3d direction = f0 * (ver1 - ver2) + f2 * (ver0 - ver1) + f1 * (ver2 - ver0);
+		double scale = direction.norm();
+		// direction * otho / scale = 0;
+		tripletes.push_back(Trip(itr, loc0, (ver1 - ver2).dot(otho) / scale));
+		tripletes.push_back(Trip(itr, loc1, (ver2 - ver0).dot(otho) / scale));
+		tripletes.push_back(Trip(itr, loc2, (ver0 - ver1).dot(otho) / scale));
 
-		int lrayx = i + aux_start_loc + ninner * 3;
-		int lrayy = i + aux_start_loc + ninner * 4;
-		int lrayz = i + aux_start_loc + ninner * 5;
-	
-		int lnpx = i + aux_start_loc + ninner * 6;
-		int lnpy = i + aux_start_loc + ninner * 7;
-		int lnpz = i + aux_start_loc + ninner * 8;
-
-		Eigen::Vector3d norm = norm_v.row(vm);
-		Eigen::Vector3d v31 = V.row(v3) - V.row(v1);
-		Eigen::Vector3d v43 = V.row(v4) - V.row(v3);
-		Eigen::Vector3d v21 = V.row(v2) - V.row(v1);
-		double f1 = vars(lv1);
-		double f2 = vars(lv2);
-		double f3 = vars(lv3);
-		double f4 = vars(lv4);
-		double fm = vars(lvm);
-		int condition_type = 1; // 0: through, 1: block, 2: transition, 3: reflection
-		if(enable_reflection){
-			condition_type = 3;
-		}
-		if(enable_let_ray_through){// if the surface totally let the ray through,
-			condition_type = 0;
-		}
-		
-		if (analizer.Special.size() > 0)
-		{ // if we set multiple conditions on one surface
-			if (!enable_reflection)
-			{// consider about shading and through
-				if (analizer.Special[i] == 0)
-				{ // the unmarked vertices
-					condition_type = 1;
-				}
-				if (analizer.Special[i] == 1)
-				{ // the marked vertices
-					condition_type = 0;
-				}
-				if (analizer.Special[i] == 2)
-				{ // the transition part in between of marked/unmarked points
-					condition_type = 2;
-				}
-			}
-			else{// consider about reflection and transition
-				if (analizer.Special[i] == 0)
-				{ // the unmarked vertices
-					condition_type = 2;
-				}
-				if (analizer.Special[i] == 1)
-				{ // the marked vertices
-					condition_type = 3;
-				}
-				if (analizer.Special[i] == 2)
-				{ // the transition part in between of marked/unmarked points
-					condition_type = 2;
-				}
-			}
-		}
-		Eigen::Vector3d earth_axis = Eigen::Vector3d(0, 0, 1);
-		Eigen::Vector3d direction_ground = Eigen::Vector3d(0, 0, -1); // the ground direction
-		direction_ground = rotation * direction_ground;
-		Eigen::Vector3d main_light = angle_ray_converter(Reference_theta, Reference_phi);
-		if (analizer.Special.size() > 0 && condition_type == 0) // mix shading and through. set special condition for through
-		{
-			// std::cout<<"special,";
-			main_light = angle_ray_converter(Reference_theta1, Reference_phi1);
-		}
-		Eigen::Vector3d reflect_axis = (main_light - direction_ground).normalized();
-
-		// Eigen::Vector3d real_u = norm.cross(ver2 - ver0);
-		// real_u = real_u.normalized();
-		if (Compute_Auxiliaries) {
-			// std::cout<<"init auxiliaries"<<std::endl;
-			// Eigen::Vector3d real_s = v31 * (f4 - f3) * (f2 - f1) + v43 * (fm - f3) * (f2 - f1) - v21 * (fm - f1) * (f4 - f3);
-			Eigen::Vector3d real_r = (ver1 - ver0).normalized().cross((ver2 - ver1).normalized());
-			
-			real_r = real_r.normalized();
-			
-			// the binormal r
-			vars[lrx] = real_r[0];
-			vars[lry] = real_r[1];
-			vars[lrz] = real_r[2];
-
-			// the ray and theta, phi
-			Eigen::Vector3d real_ray = angle_ray_converter(Reference_theta, Reference_phi);
-
-			if (analizer.Special.size() > 0 && condition_type == 0) // mix shading and through. set special condition for through
-			{
-				real_ray = angle_ray_converter(Reference_theta1, Reference_phi1);
-			}
-
-			vars[lrayx] = real_ray[0];
-			vars[lrayy] = real_ray[1];
-			vars[lrayz] = real_ray[2];
-
-			Eigen::Vector3d real_np = real_r.cross(ver2 - ver0);
-			real_np = real_np.normalized();
-			vars[lnpx] = real_np[0];
-			vars[lnpy] = real_np[1];
-			vars[lnpz] = real_np[2];
-		}
-
-		// the weight of ray * tangent for the places who does not have solutions 
-		double weight_loose = weight_geodesic;
-		// if (analizer.HighEnergy.size() == ninner)
-		// {
-		// 	if (analizer.HighEnergy[i] == false)
-		// 	{
-		// 		weight_loose = weight_geodesic;
-		// 	}
-		// }
-		Eigen::Vector3d r = Eigen::Vector3d(vars[lrx], vars[lry], vars[lrz]);
-		Eigen::Vector3d ray = Eigen::Vector3d(vars[lrayx], vars[lrayy], vars[lrayz]);
-		Eigen::Vector3d np = Eigen::Vector3d(vars[lnpx], vars[lnpy], vars[lnpz]);
-		
-		double target_theta = Reference_theta * LSC_PI / 180.;
-
-		//std::cout<<"up_lower, "<<theta_upper<<", "<<theta_lower<<" "<<phi_upper<<" "<<phi_lower<<", ";
-		Binormals.row(vm) = r.dot(norm) < 0 ? -r : r; // orient the binormal
-		Lights.row(vm) = ray;
-		// the weights
-		double dis0 = ((V.row(v1) - V.row(v2)) * vars[lvm] + (V.row(v2) - V.row(vm)) * vars[lv1] + (V.row(vm) - V.row(v1)) * vars[lv2]).norm();
-		double dis1 = ((V.row(v3) - V.row(v4)) * vars[lvm] + (V.row(v4) - V.row(vm)) * vars[lv3] + (V.row(vm) - V.row(v3)) * vars[lv4]).norm();
-		double scale = mass_uniform.coeff(vm, vm);
-		// r dot (vm+(t1-1)*vf-t1*vt)
-		// vf = v1, vt = v2
-		tripletes.push_back(Trip(i, lrx, ((V(v1, 0) - V(v2, 0)) * vars[lvm] + (V(v2, 0) - V(vm, 0)) * vars[lv1] + (V(vm, 0) - V(v1, 0)) * vars[lv2]) / dis0 * scale));
-		tripletes.push_back(Trip(i, lry, ((V(v1, 1) - V(v2, 1)) * vars[lvm] + (V(v2, 1) - V(vm, 1)) * vars[lv1] + (V(vm, 1) - V(v1, 1)) * vars[lv2]) / dis0 * scale));
-		tripletes.push_back(Trip(i, lrz, ((V(v1, 2) - V(v2, 2)) * vars[lvm] + (V(v2, 2) - V(vm, 2)) * vars[lv1] + (V(vm, 2) - V(v1, 2)) * vars[lv2]) / dis0 * scale));
-
-		double r12 = (V.row(v1) - V.row(v2)).dot(r);
-		double rm1 = (V.row(vm) - V.row(v1)).dot(r);
-		double r2m = (V.row(v2) - V.row(vm)).dot(r);
-		tripletes.push_back(Trip(i, lvm, r12 / dis0 * scale));
-		tripletes.push_back(Trip(i, lv1, r2m / dis0 * scale));
-		tripletes.push_back(Trip(i, lv2, rm1 / dis0 * scale));
-		Energy[i] = (r12 * vars[lvm] + rm1 * vars[lv2] + r2m * vars[lv1]) / dis0 * scale;
-
-		// vf = v3, vt = v4
-		tripletes.push_back(Trip(i + ninner, lrx, ((V(v3, 0) - V(v4, 0)) * vars[lvm] + (V(v4, 0) - V(vm, 0)) * vars[lv3] + (V(vm, 0) - V(v3, 0)) * vars[lv4]) / dis1 * scale));
-		tripletes.push_back(Trip(i + ninner, lry, ((V(v3, 1) - V(v4, 1)) * vars[lvm] + (V(v4, 1) - V(vm, 1)) * vars[lv3] + (V(vm, 1) - V(v3, 1)) * vars[lv4]) / dis1 * scale));
-		tripletes.push_back(Trip(i + ninner, lrz, ((V(v3, 2) - V(v4, 2)) * vars[lvm] + (V(v4, 2) - V(vm, 2)) * vars[lv3] + (V(vm, 2) - V(v3, 2)) * vars[lv4]) / dis1 * scale));
-
-		r12 = (V.row(v3) - V.row(v4)).dot(r);
-		rm1 = (V.row(vm) - V.row(v3)).dot(r);
-		r2m = (V.row(v4) - V.row(vm)).dot(r);
-		tripletes.push_back(Trip(i + ninner, lvm, r12 / dis1 * scale));
-		tripletes.push_back(Trip(i + ninner, lv3, r2m / dis1 * scale));
-		tripletes.push_back(Trip(i + ninner, lv4, rm1 / dis1 * scale));
-
-		Energy[i + ninner] = (r12 * vars[lvm] + rm1 * vars[lv4] + r2m * vars[lv3]) / dis1 * scale;
-
-		// r*r=1
-		tripletes.push_back(Trip(i + ninner * 2, lrx, 2 * vars(lrx) * scale));
-		tripletes.push_back(Trip(i + ninner * 2, lry, 2 * vars(lry) * scale));
-		tripletes.push_back(Trip(i + ninner * 2, lrz, 2 * vars(lrz) * scale));
-
-		Energy[i + ninner * 2] = (r.dot(r) - 1) * scale;
-		// // std::cout<<"c3 got"<<std::endl;
-		// double weight_test = 1;
-		
-		// Eigen::Vector3d axis;
-		// if(condition_type == 1){//shading
-		// 	axis = earth_axis;
-		// }
-		// if(condition_type == 0){//through
-		// 	axis = main_light;
-		// }
-		// if(condition_type == 3){//reflection
-		// 	axis = reflect_axis;
-		// }
-		// if (condition_type != 2)
-		// {	// if it is not a transition point
-
-		// 	// axis * ((v2 - v1)*fm+(vm-v2)*f1+(v1-vm)f2) = 0
-		// 	double cm = axis.dot(V.row(v2) - V.row(v1)) / dis0;
-		// 	double c1 = axis.dot(V.row(vm) - V.row(v2)) / dis0;
-		// 	double c2 = axis.dot(V.row(v1) - V.row(vm)) / dis0;
-		// 	tripletes.push_back(Trip(i + ninner * 3, lvm, cm * scale));
-		// 	tripletes.push_back(Trip(i + ninner * 3, lv1, c1 * scale));
-		// 	tripletes.push_back(Trip(i + ninner * 3, lv2, c2 * scale));
-
-		// 	Energy[i + ninner * 3] = (cm * fm + c1 * f1 + c2 * f2) * scale;
-
-		// 	// axis * ((v4 - v3) * fm + (vm-v4) * f3 + (v3-vm) * f4) = 0
-		// 	cm = axis.dot(V.row(v4) - V.row(v3)) / dis1;
-		// 	double c3 = axis.dot(V.row(vm) - V.row(v4)) / dis1;
-		// 	double c4 = axis.dot(V.row(v3) - V.row(vm)) / dis1;
-		// 	tripletes.push_back(Trip(i + ninner * 4, lvm, cm * scale));
-		// 	tripletes.push_back(Trip(i + ninner * 4, lv3, c3 * scale));
-		// 	tripletes.push_back(Trip(i + ninner * 4, lv4, c4 * scale));
-
-		// 	Energy[i + ninner * 4] = (cm * fm + c3 * f3 + c4 * f4) * scale;
-		// }
-
-		// //////////////////////////////
-		// // // ray * ray = 1
-		// // tripletes.push_back(Trip(i + ninner * 5, lrayx, 2 * ray[0] * scale)); 
-		// // tripletes.push_back(Trip(i + ninner * 5, lrayy, 2 * ray[1] * scale)); 
-		// // tripletes.push_back(Trip(i + ninner * 5, lrayz, 2 * ray[2] * scale));
-
-		// // Energy[i + ninner * 5] = (ray.dot(ray) - 1) * scale;
-
-		// // ray_z * ray_z = sin(theta)^2
-		// double sin_square = sin(target_theta) * sin(target_theta);
-		// tripletes.push_back(Trip(i + ninner * 6, lrayz, 2 * ray[2] * scale));
-		// Energy[i + ninner * 6] = (ray[2] * ray[2] - sin_square) * scale;
-
-		/////////////////////////////
+		Energy[itr] = direction.dot(otho) / scale;
 	}
-	double max_e = 0;
-	int max_loc = -1;
-	for (int i = 0; i < Energy.size(); i++)
-	{
-		if (abs(Energy[i]) > max_e)
-		{
-			max_e = abs(Energy[i]);
-			max_loc = i;
-		}
-	}
-	int howmany = max_loc / ninner;
-	std::cout << "init, me, " << max_e << ", mloc, " << howmany << ", ";
 }
 // deal with asymptotic and geodesic, for using fewer auxiliary variables
 void lsTools::calculate_extreme_pseudo_geodesic_values(Eigen::VectorXd &vars, const bool asymptotic,

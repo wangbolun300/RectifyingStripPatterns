@@ -10,7 +10,7 @@ Efunc dense_vec_to_sparse_vec(const Eigen::VectorXd &vec);
 void mat_col_to_triplets(const spMat &mat, const int col, const int ref, const bool inverse, std::vector<Trip> &triplets);
 spMat dense_mat_list_as_sparse_diagnal(const std::vector<Eigen::MatrixXd> &mlist);
 Eigen::MatrixXd vec_list_to_matrix(const std::vector<Eigen::Vector3d> &vec);
-
+Eigen::VectorXd vec_list_to_vector(const std::vector<double>& vec);
 bool triangles_coplanar(const Eigen::Vector3d &t0, const Eigen::Vector3d &t1, const Eigen::Vector3d &t2,
                         const Eigen::Vector3d &p0, const Eigen::Vector3d &p1, const Eigen::Vector3d &p2);
 
