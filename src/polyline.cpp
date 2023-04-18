@@ -272,9 +272,10 @@ void get_polyline_rectifying_plane_on_inner_vers(const std::vector<Eigen::Vector
     lengths.resize(vnbr);
     for (int i = 0; i < vnbr; i++)
     {
-        Eigen::Vector3d dir0 = (ply_in[i + 1] - ply_in[i]).normalized();
-        Eigen::Vector3d dir1 = (ply_in[i + 2] - ply_in[i + 1]).normalized();
-        Eigen::Vector3d bisector = (dir0 + dir1).normalized();
+        // Eigen::Vector3d dir0 = (ply_in[i + 1] - ply_in[i]).normalized();
+        // Eigen::Vector3d dir1 = (ply_in[i + 2] - ply_in[i + 1]).normalized();
+        // Eigen::Vector3d bisector = (dir0 + dir1).normalized();
+        Eigen::Vector3d bisector = (ply_in[i + 2] - ply_in[i]).normalized();
         vertices[i] = ply_in[i + 1];
         binormals[i] = bnm_in[i + 1];
         tangents[i] = bisector;
@@ -366,6 +367,7 @@ void evaluate_and_print_strip_developability(const std::vector<std::vector<Eigen
     // std::cout << "Evaluate current polylines: planarity: " << planar_total << ", total angle changes of the strip, " << anglediff_total << ", maximal angle error, "
     //           << max_angle_error << std::endl;
 }
+// compute the rectifying planes on each inner vertex.
 void get_polyline_rectifying_planes(const std::vector<std::vector<Eigen::Vector3d>> &ply,
                                     const std::vector<std::vector<Eigen::Vector3d>> &bnm,
                                     std::vector<std::vector<Eigen::Vector3d>>& vertices,
@@ -580,6 +582,7 @@ void PolyOpt::init_crease_opt(const std::vector<std::vector<Eigen::Vector3d>> &v
             counter++;
         }
     }
+    int ncompu = 0;
     for (int i = 0; i < vnbr; i++)
     {
         int bk = Back[i];
@@ -593,19 +596,23 @@ void PolyOpt::init_crease_opt(const std::vector<std::vector<Eigen::Vector3d>> &v
         Eigen::Vector3d Ver = vertices_cp.row(i);
         Eigen::Vector3d Vbk = vertices_cp.row(bk);
         Eigen::Vector3d Bver = binormal_cp.row(i);
-        if(abs(Ver.dot(Bver))>0.1){
-            std::cout<<"WARNING: The Binormal is super inaccurate!!!"<<std::endl;
+        if (abs((Ver - Vbk).normalized().dot(Bver)) > 0.1)
+        {
+            std::cout<<"WARNING: The Binormal is inaccurate!!!"<<std::endl;
         }
         Eigen::Vector3d norm = (Ver-Vbk).cross(Bver).normalized();
         PlyVars[lnx] = norm[0];
         PlyVars[lny] = norm[1];
         PlyVars[lnz] = norm[2];
+        ncompu++;
     }
     ply_extracted = vertices;// to record the topology of the vers
     bin_extracted = binormals;
     OriVars = PlyVars;
     RecMesh = polyline_to_strip_mesh(vertices, binormals, strip_scale);
     opt_for_crease = true;
+    std::cout<<"Initialization done. Ver nbr: "<<vertices_cp.rows()<<", nbr of curves, "<<vertices.size()<<
+    ", nbr of faces, "<<ncompu<<std::endl;
 }
 // use this when avoiding flipping of the strips.
 void PolyOpt::force_smoothing_binormals(){
@@ -1410,12 +1417,8 @@ void PolyOpt::assemble_crease_planarity(spMat &H, Eigen::VectorXd &B, Eigen::Vec
     std::vector<Trip> tripletes;
     int vnbr = Front.size();
     // Eigen::VectorXi Markers = Eigen::VectorXi::Zero(vnbr);
-    energy = Eigen::VectorXd::Zero(vnbr * 2);
-    tripletes.reserve(vnbr * 10);
-    // extend the current values for end points processing
-    
-    std::vector<double> extend_energy;
-    int extend_count = vnbr * 2;
+    energy = Eigen::VectorXd::Zero(vnbr * 5);
+    tripletes.reserve(vnbr * 20);
     for (int i = 0; i < vnbr; i++)
     {
         int vid = i;
@@ -1459,6 +1462,8 @@ void PolyOpt::assemble_crease_planarity(spMat &H, Eigen::VectorXd &B, Eigen::Vec
         double beta_l = PlyVars[lbl];
         double beta_r = PlyVars[lbr];
         Eigen::Vector3d norm(PlyVars[lnx], PlyVars[lny], PlyVars[lnz]);
+        Eigen::Vector3d lcrs = alpha_l * tanl + beta_l * binl;
+        Eigen::Vector3d rcrs = alpha_r * tanr + beta_r * binr;
 
         Eigen::Vector3d vlr = (vl - vr).normalized();
         // Eigen::Vector3d c0 = tanl.cross(tanr);
@@ -1488,7 +1493,32 @@ void PolyOpt::assemble_crease_planarity(spMat &H, Eigen::VectorXd &B, Eigen::Vec
             tripletes.push_back(Trip(i, lnx, vlr[0]));
             tripletes.push_back(Trip(i, lny, vlr[1]));
             tripletes.push_back(Trip(i, lnz, vlr[2]));
-            xx
+            energy[i] = norm.dot(vlr);
+
+            // norm * lcrs = 0
+            double error = norm.dot(lcrs);
+            tripletes.push_back(Trip(i + vnbr, lnx, lcrs[0]));
+            tripletes.push_back(Trip(i + vnbr, lny, lcrs[1]));
+            tripletes.push_back(Trip(i + vnbr, lnz, lcrs[2]));
+            tripletes.push_back(Trip(i + vnbr, lal, tanl.dot(norm)));
+            tripletes.push_back(Trip(i + vnbr, lbl, binl.dot(norm)));
+            energy[i + vnbr] = error;
+
+            // norm * rcrs = 0
+            error = norm.dot(rcrs);
+            tripletes.push_back(Trip(i + vnbr * 2, lnx, rcrs[0]));
+            tripletes.push_back(Trip(i + vnbr * 2, lny, rcrs[1]));
+            tripletes.push_back(Trip(i + vnbr * 2, lnz, rcrs[2]));
+            tripletes.push_back(Trip(i + vnbr * 2, lar, tanr.dot(norm)));
+            tripletes.push_back(Trip(i + vnbr * 2, lbr, binr.dot(norm)));
+            energy[i + vnbr * 2] = error;
+
+            // norm * norm = 1
+            tripletes.push_back(Trip(i + vnbr * 3, lnx, 2 * norm[0]));
+            tripletes.push_back(Trip(i + vnbr * 3, lny, 2 * norm[1]));
+            tripletes.push_back(Trip(i + vnbr * 3, lnz, 2 * norm[2]));
+
+            energy[i + vnbr * 3] = norm.dot(norm) - 1;
         }
         // double ratio = 0.1;
         // if(!compute_front)
@@ -1507,28 +1537,15 @@ void PolyOpt::assemble_crease_planarity(spMat &H, Eigen::VectorXd &B, Eigen::Vec
         // }
 
         // alpha_l^2 + beta_l^2 = 1
-        tripletes.push_back(Trip(i + vnbr, lal, 2 * alpha_l));
-        tripletes.push_back(Trip(i + vnbr, lbl, 2 * beta_l));
-        energy[i + vnbr] = alpha_l * alpha_l + beta_l * beta_l - 1;
+        tripletes.push_back(Trip(i + vnbr * 4, lal, 2 * alpha_l));
+        tripletes.push_back(Trip(i + vnbr * 4, lbl, 2 * beta_l));
+        energy[i + vnbr * 4] = alpha_l * alpha_l + beta_l * beta_l - 1;
     }
     spMat J;
-    J.resize(energy.size()+extend_energy.size(), PlyVars.size());
+    J.resize(energy.size(), PlyVars.size());
     J.setFromTriplets(tripletes.begin(), tripletes.end());
     H = J.transpose() * J;
-
-    Eigen::VectorXd final_energy(energy.size() + extend_energy.size());
-    Eigen::VectorXd tmp_vec = vec_list_to_vector(extend_energy);
-
-    final_energy.segment(0, energy.size()) = energy;
-    final_energy.segment(energy.size(), tmp_vec.size()) = tmp_vec;
-    energy = final_energy;
-
     B = -J.transpose() * energy;
-    // for(int i=0;i<vnbr;i++){
-    //     if(Markers[i]==0){
-    //         std::cout<<"ERROR: Points are left out!!!"<<std::endl;
-    //     }
-    // }
 }
 
 void PolyOpt::opt_planarity(){

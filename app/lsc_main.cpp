@@ -2558,6 +2558,32 @@ int main(int argc, char *argv[])
 											lscif::tools.Ppro0 + lscif::vector_scaling * lscif::tools.Npro0, red);
 				}
 			}
+			ImGui::SameLine();
+			if (ImGui::Button("SmtMesh", ImVec2(ImGui::GetWindowSize().x * 0.25f, 0.0f)))
+			{
+				int id = viewer.selected_data_index;
+				CGMesh updatedMesh;
+				CGMesh inputMesh = lscif::Meshes[id];
+				MeshEnergyPrepare initializer;
+				initializer.Mesh_opt_max_step_length=lscif::Mesh_opt_max_step_length;
+				initializer.weight_Mesh_smoothness=lscif::weight_Mesh_smoothness;
+				initializer.weight_mass=lscif::weight_mass;
+				initializer.weight_Mesh_edgelength = lscif::weight_Mesh_edgelength;
+				lscif::tools.weight_Mesh_approximation = lscif::weight_Mesh_approximation;
+				lscif::tools.weight_Mesh_mass = lscif::weight_Mesh_mass;
+
+				lscif::tools.prepare_mesh_optimization_solving(initializer);
+				for(int i=0;i<lscif::Nbr_Iterations_Mesh_Opt;i++){
+					lscif::tools.Run_Mesh_Smoothness();
+				}
+				updatedMesh=lscif::tools.lsmesh;
+				lscif::updateMeshViewer(viewer, updatedMesh);
+				lscif::meshFileName.push_back("Smt_" + lscif::meshFileName[id]);
+				lscif::Meshes.push_back(updatedMesh);
+				
+				viewer.selected_data_index = id;
+				std::cout<<"waiting for instructions"<<std::endl;
+			}
 			// ImGui::InputInt("Iteration", &lscif::OpIter, 0, 0);
 			// ImGui::InputDouble("weight ls mass(big)", &lscif::weight_mass, 0, 0, "%.4f");
 			// ImGui::Checkbox("Fix Boundary", &lscif::fixBoundary_checkbox);

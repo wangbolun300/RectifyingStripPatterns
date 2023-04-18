@@ -660,6 +660,7 @@ public:
     void Run_Level_Set_Opt_interactive(const bool compute_pg);
     void Run_Level_Set_Opt_Angle_Variable();
     void Run_Mesh_Opt();
+    void Run_Mesh_Smoothness();
     void Run_AAG(Eigen::VectorXd& func0, Eigen::VectorXd& func1, Eigen::VectorXd& func2);
     void Run_AAG_Mesh_Opt(Eigen::VectorXd& func0, Eigen::VectorXd& func1, Eigen::VectorXd& func2);
     void Run_AGG(Eigen::VectorXd& func0, Eigen::VectorXd& func1, Eigen::VectorXd& func2);

@@ -1224,6 +1224,104 @@ void lsTools::Run_Mesh_Opt()
     update_mesh_properties();
     Last_Opt_Mesh = true;
 }
+
+void lsTools::Run_Mesh_Smoothness(){
+
+
+    int vnbr = V.rows();
+    int final_size = vnbr * 3; // Change this when using more auxilary vars
+
+    Eigen::VectorXd vars; // the variables feed to the energies without auxiliary variables
+    vars.resize(vnbr * 3);
+    if (Glob_Vars.size() == 0)
+    {
+        std::cout << "Initializing Global Variable For Mesh Opt ... " << std::endl;
+        Glob_Vars = Eigen::VectorXd::Zero(final_size); // We change the size if opt more than 1 level set
+        Glob_Vars.segment(0, vnbr) = V.col(0);
+        Glob_Vars.segment(vnbr, vnbr) = V.col(1);
+        Glob_Vars.segment(vnbr * 2, vnbr) = V.col(2);
+        std::cout << "Initialized Global Variable" << std::endl;
+    }
+    vars.topRows(vnbr) = V.col(0);
+    vars.middleRows(vnbr, vnbr) = V.col(1);
+    vars.bottomRows(vnbr) = V.col(2);
+
+    spMat H;
+    Eigen::VectorXd B;
+    H.resize(vnbr * 3, vnbr * 3);
+    B = Eigen::VectorXd::Zero(vnbr * 3);
+    spMat Happro;
+    Eigen::VectorXd Bappro, Eappro;
+    assemble_solver_approximate_original(Happro, Bappro, Eappro);
+    H += weight_Mesh_approximation * Happro;
+    B += weight_Mesh_approximation * Bappro;
+
+    spMat Hsmooth, HCsmt;
+    Eigen::VectorXd Bsmooth, BCsmt, ECsmt;
+    assemble_solver_mesh_smoothing(vars, Hsmooth, Bsmooth);
+    // assemble_solver_mean_value_laplacian(vars, Hsmooth, Bsmooth);
+    H += weight_Mesh_smoothness * Hsmooth;
+    B += weight_Mesh_smoothness * Bsmooth;
+
+    spMat Hel;
+    Eigen::VectorXd Bel;
+    Eigen::VectorXd ElEnergy;
+    assemble_solver_mesh_edge_length_part(vars, Hel, Bel, ElEnergy);
+    H += weight_Mesh_edgelength * Hel;
+    B += weight_Mesh_edgelength * Bel;
+
+    spMat Htotal(final_size, final_size);
+    Eigen::VectorXd Btotal = Eigen::VectorXd::Zero(final_size);
+    // first make the naive energies the correct size
+    Htotal = sum_uneven_spMats(H, Htotal);
+    Btotal = sum_uneven_vectors(B, Btotal);
+
+    Eigen::VectorXd gravity = Eigen::VectorXd::Zero(final_size);
+    gravity.segment(0, vnbr * 3) = Eigen::VectorXd::Ones(vnbr * 3);
+    Htotal += spMat(weight_mass * 1e-6 * (Eigen::VectorXd::Ones(final_size) + weight_Mesh_mass * gravity).asDiagonal());
+
+    if (vector_contains_NAN(Btotal))
+    {
+        std::cout << "energy contains NAN" << std::endl;
+    }
+
+    Eigen::SimplicialLLT<Eigen::SparseMatrix<double>> solver(Htotal);
+
+    if (solver.info() != Eigen::Success)
+    {
+        std::cout << "solver fail" << std::endl;
+        return;
+    }
+
+    Eigen::VectorXd dx = solver.solve(Btotal).eval();
+
+    dx *= 0.75;
+    double mesh_opt_step_length = dx.norm();
+    // double inf_norm=dx.cwiseAbs().maxCoeff();
+    if (mesh_opt_step_length > Mesh_opt_max_step_length)
+    {
+        dx *= Mesh_opt_max_step_length / mesh_opt_step_length;
+    }
+    vars += dx.topRows(vnbr * 3);
+    Glob_Vars += dx;
+    V.col(0) = vars.topRows(vnbr);
+    V.col(1) = vars.middleRows(vnbr, vnbr);
+    V.col(2) = vars.bottomRows(vnbr);
+    if (vars != Glob_Vars.topRows(vnbr * 3))
+    {
+        std::cout << "vars diff from glob vars" << std::endl;
+    }
+    double energy_smooth = (Hsmooth * Glob_Vars.topRows(vnbr * 3)).norm();
+    /*double energy_mvl = (MVLap * vars).norm();*/
+    std::cout << "Mesh Opt: smooth, " << energy_smooth << ", ls_smooth, "<<ECsmt.norm()<<", close, "<<Eappro.norm()<<", ";
+
+    double energy_el = ElEnergy.norm();
+    std::cout << "el, " << energy_el << ", maxloc, ";
+    step_length = dx.norm();
+    std::cout << "step " << step_length << std::endl;
+    update_mesh_properties();
+    Last_Opt_Mesh = true;
+}
 void levelset_unit_scale(Eigen::VectorXd &func, Eigen::MatrixXd &GradValueF, const double length)
 {
     int fnbr = GradValueF.rows();
