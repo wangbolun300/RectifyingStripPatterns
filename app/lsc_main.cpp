@@ -1082,6 +1082,17 @@ int main(int argc, char *argv[])
 				viewer.data().add_points(Vcout, lscif::hot_red);
 				viewer.data().add_points(Vlout, lscif::sea_green);
 			}
+			ImGui::SameLine();
+			if (ImGui::Button("DBG", ImVec2(ImGui::GetWindowSize().x * 0.23f, 0.0f)))
+			{
+				// read_pts_csv_and_write_xyz_files();
+				// recover_polyline_endpts();
+				// using intersections of the rectifying planes to get the developable.
+				// construct_single_developable_strips_by_intersect_rectifying(0); 
+				// write_unfold_single_strip();    
+				// draw_catenaries_on_cylinder();
+				lscif::tools.debug_tool();
+			}
 		}
 		if (ImGui::CollapsingHeader("LS Processing", ImGuiTreeNodeFlags_DefaultOpen))
 		{

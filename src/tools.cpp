@@ -4465,7 +4465,7 @@ void project_mesh_and_get_shading_info(CGMesh &ref, CGMesh &base, const int nbr_
             info[location] = 2;
             points2.push_back(bastool.V.row(i));
         }
-        if(mapping[i]>0){// this is a special condition point
+        if(mapping[i]>0){// this is a special condition point, corresponding to the reference
             info[location] = 1;
             points1.push_back(bastool.V.row(i));
         }
@@ -5106,9 +5106,10 @@ void slope_of_given_angle(const Eigen::Vector3d& norm, const double angle_radian
     slope = z;
 }
 // phi is in degree.
-// range is in radian
+// range is in radian, from small to large
 // active if false, skip
-void shading_slope_range_compute(const Eigen::MatrixXd& V, const Eigen::MatrixXi& F,
+// Fselect is either 1 or -1.
+void shading_slope_range_compute(const Eigen::MatrixXd& V, const Eigen::MatrixXi& F, const Eigen::VectorXi& Fselect,
     const Eigen::MatrixXd& norm_f, const double phi_min,
     const double phi_max, std::vector<std::array<double,2>>& range, std::vector<bool> &active){
     double phi0 = phi_min * LSC_PI / 180 - LSC_PI / 2;
@@ -5119,6 +5120,14 @@ void shading_slope_range_compute(const Eigen::MatrixXd& V, const Eigen::MatrixXi
     active.resize(fnbr);
     for (int i = 0; i < fnbr; i++)
     {
+        if (Fselect.size() > 0)
+        {
+            if (Fselect[i] < 0)
+            {
+                active[i] = false;
+                continue;
+            }
+        }
         active[i] = true;
         Eigen::Vector3d v0 = V.row(F(i, 0));
         Eigen::Vector3d v1 = V.row(F(i, 1));
@@ -5191,6 +5200,65 @@ void shading_slope_range_compute(const Eigen::MatrixXd& V, const Eigen::MatrixXi
         // }
     }
 }
+// theta, phi is in degree.
+// range is in radian
+// active if false, skip
+// Fselect is either 1 or -1.
+void lighting_slope_range_compute(const Eigen::MatrixXd &V, const Eigen::MatrixXi &F, const Eigen::VectorXi& Fselect,
+                                  const Eigen::MatrixXd &norm_f,  const double theta, const double phi,
+                                  std::vector<std::array<double, 2>> &range, std::vector<bool> &active)
+{
+    double phi_radian = phi * LSC_PI / 180;
+    double theta_radian = theta * LSC_PI / 180;
+    Eigen::Vector3d Refer_dir;
+    Refer_dir << cos(theta_radian) * sin(phi_radian), cos(theta_radian) * cos(phi_radian), sin(theta_radian);
+    std::cout << "The reference axis for lighting, " << Refer_dir.transpose() << "\n";
+    int fnbr = F.rows();
+    int vnbr = V.rows();
+    range.resize(fnbr);
+    active.resize(fnbr);
+    for (int i = 0; i < fnbr; i++)
+    {
+         if (Fselect.size() > 0)
+        {
+            if (Fselect[i] < 0)
+            {
+                active[i] = false;
+                continue;
+            }
+        }
+        active[i] = true;
+        Eigen::Vector3d v0 = V.row(F(i, 0));
+        Eigen::Vector3d v1 = V.row(F(i, 1));
+        Eigen::Vector3d v2 = V.row(F(i, 2));
+        Eigen::Vector3d norm = norm_f.row(i);
+        if (abs(abs(norm.dot(Refer_dir)) - 1) < 1e-4)
+        { // the triangle is almost horizontal.
+            active[i] = false;
+            continue;
+        }
+        
+        if (abs(norm.dot(Refer_dir)) < 1e-4) // the triangle is almost verticle, all slopes exist
+        {
+            range[i][0] = -LSC_PI / 2;
+            range[i][1] = LSC_PI / 2;
+            continue;
+        }
+        Eigen::Vector3d lxn = Refer_dir.cross(norm).normalized();
+
+        Eigen::Vector3d proj0 = norm.cross(lxn).normalized(); // corresponds to maximal angle
+        if (proj0.dot(Refer_dir) < 0)
+        {
+            proj0 *= -1;
+        }
+        double radian_max = LSC_PI / 2 - acos(proj0.dot(Refer_dir));
+        double radian_min = - radian_max;
+        range[i][0] = radian_min;
+        range[i][1] = radian_max;
+        assert(radian_min > - LSC_PI / 2);
+        assert(radian_max < LSC_PI / 2);
+    }
+}
 
 void vote_for_slope(const std::vector<std::array<double, 2>> &range, const std::vector<bool> &active,
                     std::vector<int> &flist, double &angle_degree)
@@ -5202,6 +5270,7 @@ void vote_for_slope(const std::vector<std::array<double, 2>> &range, const std::
     {
         candidates[i].reserve(100);
     }
+    assert(active.size()==fnbr);
     for (int i = 0; i < fnbr; i++)
     {
         if (active[i] == false)
@@ -5215,14 +5284,17 @@ void vote_for_slope(const std::vector<std::array<double, 2>> &range, const std::
         if (lower == upper)
         {
             int location = lower / 5 + 18;
+            assert(location >= 0);
             candidates[location].push_back(i);
             continue;
         }
         int lowid = lower / 5 + 18;
         int upid = upper / 5 + 18;
+        assert(lowid <= upid);
         for (int j = lowid; j <= upid; j++)
         {
             assert(j>=0);
+            assert(j<37);
             candidates[j].push_back(i);
         }
     }
@@ -5259,9 +5331,38 @@ bool validate_slope_root(const Eigen::Vector3d &norm, const double z, const doub
     }
     return true;
 }
+// the angle is between direc and the plane orthogonal to the axis
+// projection is the axis projected to the plane
+bool validate_slope_root_angle(const Eigen::Vector3d &norm, const Eigen::Vector3d &axis,
+                               const Eigen::Vector3d &direc, const Eigen::Vector3d &proj, const double angle_radian)
+{
+    // orthogonal to the normal vector
+    if (abs(norm.dot(direc)) > 1e-3)
+    {
+        return false;
+    }
+    // the angle_radian is the angle between direc and the plane orthogonal to axis
+    double angle_compute = LSC_PI / 2 - acos(axis.dot(direc));
+    if (abs(angle_compute - angle_radian) > 0.05)
+    {
+        return false;
+    }
+    // if the angel is 0, then only one solution.
+    if (angle_radian == 0)
+    {
+        return true;
+    }
+    // filter out the other solution
+    Eigen::Vector3d cross = direc.cross(proj).normalized();
+    if (cross.dot(norm) < 0)
+    {
+        return false;
+    }
+    return true;
+}
 
 // phi_min, phi_max are in degree.
-void get_orthogonal_vector_of_selected_slope(const Eigen::MatrixXd &V, const Eigen::MatrixXi &F,
+void get_orthogonal_vector_of_selected_slope_shading(const Eigen::MatrixXd &V, const Eigen::MatrixXi &F, Eigen::VectorXi &Fselect,
                                              const Eigen::MatrixXd &norm_f, const double phi_min,
                                              const double phi_max, std::vector<int> &fout, std::vector<Eigen::Vector3d> &ortho)
 {
@@ -5269,7 +5370,7 @@ void get_orthogonal_vector_of_selected_slope(const Eigen::MatrixXd &V, const Eig
     ortho.clear();
     std::vector<std::array<double, 2>> range;
     std::vector<bool> active;
-    shading_slope_range_compute(V, F, norm_f, phi_min, phi_max, range, active);
+    shading_slope_range_compute(V, F,Fselect, norm_f, phi_min, phi_max, range, active);
     std::vector<int> flist;
     double angle_degree;
     vote_for_slope(range, active, flist, angle_degree);
@@ -5317,9 +5418,202 @@ void get_orthogonal_vector_of_selected_slope(const Eigen::MatrixXd &V, const Eig
         Eigen::Vector3d oout = norm.cross(direction).normalized();
         ortho.push_back(oout);
     }
-    std::cout<<"The final face nbr of slopes: "<<fout.size()<<std::endl;
+    std::cout<<"For Shading: The final face nbr of slopes: "<<fout.size()<<std::endl;
     std::cout<<"No roots: "<<case1<<", 2 or 0 valid roots: "<<case2<<std::endl;
 }
+
+void print_validation_vector(const Eigen::Vector3d &norm, const Eigen::Vector3d &axis,
+                             const Eigen::Vector3d &direc, const Eigen::Vector3d& proj, const double angle_radian)
+{
+    double dot = direc.dot(axis);
+    double angle_compute = LSC_PI/2 - acos(dot);
+    Eigen::Vector3d cross = direc.cross(proj).normalized();
+    std::cout << "Target angle " << angle_radian << ", compute angle " << angle_compute << std::endl;
+    std::cout << "Orthongl to norm, " << norm.dot(direc) << ", orientation wrt norm "<<cross.dot(norm)<<"\n" ;
+
+}
+
+// phi_min, phi_max are in degree.
+void get_orthogonal_vector_of_selected_slope_lighting(const Eigen::MatrixXd &V, const Eigen::MatrixXi &F,Eigen::VectorXi &Fselect,
+                                             const Eigen::MatrixXd &norm_f, const double theta,
+                                             const double phi, std::vector<int> &fout, std::vector<Eigen::Vector3d> &ortho)
+{
+    fout.clear();
+    ortho.clear();
+    std::vector<std::array<double, 2>> range;
+    std::vector<bool> active;
+    lighting_slope_range_compute(V, F, Fselect, norm_f, theta, phi, range, active);
+    std::vector<int> flist;
+    double angle_degree;
+    vote_for_slope(range, active, flist, angle_degree);
+    double angle_radian = angle_degree * LSC_PI / 180;
+    int case1 = 0, case2 = 0, case3 = 0;
+    double phi_radian = phi * LSC_PI / 180;
+    double theta_radian = theta * LSC_PI / 180;
+    Eigen::Vector3d Refer_dir;
+    Refer_dir << cos(theta_radian) * sin(phi_radian), cos(theta_radian) * cos(phi_radian), sin(theta_radian);
+    for (int i = 0; i < flist.size(); i++)
+    {
+        int fid = flist[i];
+        Eigen::Vector3d norm = norm_f.row(fid);
+        
+        Eigen::Vector3d lxn = Refer_dir.cross(norm).normalized();
+        Eigen::Vector3d proj0 = norm.cross(lxn).normalized(); // corresponds to maximal angle
+        if (angle_radian == 0)
+        { // if angle is 0, there is only one solution
+            Eigen::Vector3d oout;
+
+            oout = proj0;
+            if (validate_slope_root_angle(norm, Refer_dir, oout, proj0, angle_radian))
+            {
+                ortho.push_back(oout);
+                fout.push_back(fid);
+            }
+            continue;
+        }
+        else{
+            // the vector is a * lxn + b * proj0
+            double t1 = lxn.dot(Refer_dir);
+            double t2 = proj0.dot(Refer_dir);
+            double c = cos(LSC_PI / 2 - angle_radian); // the angle between the axis and the vector direction
+            std::vector<double> coeffs(3);
+            coeffs[0] = c * c - t1 * t1;
+            coeffs[1] = -2 * c * t2;
+            coeffs[2] = t1 * t1 + t2 * t2;
+
+            std::array<double, 2> roots;
+            bool solve = quadratic_solver(coeffs, roots);
+            if (!solve)
+            {
+                case1++;
+                continue;
+            }
+            double b1 = roots[0], b2 = roots[0], b3 = roots[1], b4 = roots[1];
+            double a1 = sqrt(1 - b1 * b1), a2 = -sqrt(1 - b1 * b1), a3 = sqrt(1 - b3 * b3), a4 = -sqrt(1 - b3 * b3);
+            Eigen::Vector3d vec1 = a1 * lxn + b1 * proj0;
+            Eigen::Vector3d vec2 = a2 * lxn + b2 * proj0;
+            Eigen::Vector3d vec3 = a3 * lxn + b3 * proj0;
+            Eigen::Vector3d vec4 = a4 * lxn + b4 * proj0;
+            bool vali1 = validate_slope_root_angle(norm, Refer_dir, vec1, proj0, angle_radian);
+            bool vali2 = validate_slope_root_angle(norm, Refer_dir, vec2, proj0, angle_radian);
+            bool vali3 = validate_slope_root_angle(norm, Refer_dir, vec3, proj0, angle_radian);
+            bool vali4 = validate_slope_root_angle(norm, Refer_dir, vec4, proj0, angle_radian);
+            if(vali1)
+            {
+                ortho.push_back(vec1);
+                fout.push_back(fid);
+                continue;
+            }
+            if(vali2)
+            {
+                ortho.push_back(vec2);
+                fout.push_back(fid);
+                continue;
+            }
+            if(vali3)
+            {
+                ortho.push_back(vec3);
+                fout.push_back(fid);
+                continue;
+            }
+            if(vali4)
+            {
+                ortho.push_back(vec4);
+                fout.push_back(fid);
+                continue;
+            }
+            case2++;
+            std::cout<<"\nPrinting Four Roots"<<std::endl;
+            print_validation_vector(norm, Refer_dir, vec1, proj0, angle_radian);
+            print_validation_vector(norm, Refer_dir, vec2, proj0, angle_radian);
+            print_validation_vector(norm, Refer_dir, vec3, proj0, angle_radian);
+            print_validation_vector(norm, Refer_dir, vec4, proj0, angle_radian);
+            
+        }
+    }
+    std::cout<<"For Lighting: The final face nbr of slopes: "<<fout.size()<<std::endl;
+    std::cout<<"No roots: "<<case1<<", No valid roots: "<<case2<<std::endl;
+}
+
+// types: 0: shading. 1: light through. 2: partly shading. 3. mixing shading and light through
+// info is marked on each vertex: 2: transition, 1: reference patch, 0: ordinary points
+// theta2 and phi2 are for light through when type is 3.
+void orthogonal_slope_for_different_shading_types(const int whichtype, const Eigen::VectorXi &info,
+                                                  const Eigen::MatrixXd &V, const Eigen::MatrixXi &F,
+                                                  const Eigen::MatrixXd &norm_f, const double theta,
+                                                  const double phi, const double theta_tol, const double phi_tol,
+                                                  const double theta2, const double phi2,
+                                                  std::vector<int> &fout, std::vector<Eigen::Vector3d> &ortho)
+{
+    fout.clear();
+    ortho.clear();
+    int fnbr = F.rows();
+    if (whichtype == 0) // simply shading
+    {
+        Eigen::VectorXi Fselect; // this is empty, meaning not selecting
+        double phi_min = phi - phi_tol;
+        double phi_max = phi + phi_tol;
+        get_orthogonal_vector_of_selected_slope_shading(V, F, Fselect, norm_f, phi_min, phi_max, fout, ortho);
+    }
+    if (whichtype == 1) // simply light throughs
+    {
+        Eigen::VectorXi Fselect; // this is empty, meaning not selecting
+        get_orthogonal_vector_of_selected_slope_lighting(V, F, Fselect, norm_f, theta, phi, fout, ortho);
+    }
+    if (whichtype == 2)// partly shading
+    {
+        double phi_min = phi - phi_tol;
+        double phi_max = phi + phi_tol;
+
+        Eigen::VectorXi Fselect = -1 * Eigen::VectorXi::Ones(fnbr);
+        for(int i = 0;i<fnbr;i++){
+            int vid0 = F(i, 0);
+            int vid1 = F(i, 1);
+            int vid2 = F(i, 2);
+            bool active_face = info[vid0] == 1 && info[vid1] == 1 && info[vid2] == 1;
+            if(active_face){
+                Fselect[i] = 1;
+            }
+        }
+        get_orthogonal_vector_of_selected_slope_shading(V, F, Fselect, norm_f, phi_min, phi_max, fout, ortho);
+
+    }
+    if (whichtype == 3)
+    {
+        double phi_min = phi - phi_tol;
+        double phi_max = phi + phi_tol;
+        // 1 for shading, 2 for lighting
+        std::vector<int> fout1, fout2;
+        std::vector<Eigen::Vector3d> ortho1, ortho2;
+        Eigen::VectorXi Fselect1 = -1 * Eigen::VectorXi::Ones(fnbr), Fselect2 = -1 * Eigen::VectorXi::Ones(fnbr);
+        for (int i = 0; i < fnbr; i++)
+        {
+            int vid0 = F(i, 0);
+            int vid1 = F(i, 1);
+            int vid2 = F(i, 2);
+            bool active_face_shading = info[vid0] == 0 && info[vid1] == 0 && info[vid2] == 0;
+            bool active_face_through = info[vid0] == 1 && info[vid1] == 1 && info[vid2] == 1; // active for light through
+            if (active_face_shading)
+            {
+                Fselect1[i] = 1;
+            }
+            if(active_face_through){
+                Fselect2[i] = 1;
+            }
+        }
+        get_orthogonal_vector_of_selected_slope_shading(V, F, Fselect1, norm_f, phi_min, phi_max, fout1, ortho1);
+        get_orthogonal_vector_of_selected_slope_lighting(V, F, Fselect2, norm_f, theta2, phi2, fout2, ortho2);
+
+        fout = fout1;
+        ortho = ortho1;
+        for (int i = 0; i < fout2.size(); i++)
+        {
+            fout.push_back(fout2[i]);
+            ortho.push_back(ortho2[i]);
+        }
+    }
+}
+
 void lsTools::show_slopes(const double scaling, Eigen::MatrixXd& E0, Eigen::MatrixXd& E1){
     if(Fslope.size()==0){
         return;
@@ -5337,9 +5631,10 @@ void lsTools::show_slopes(const double scaling, Eigen::MatrixXd& E0, Eigen::Matr
         Eigen::Vector3d norm = norm_f.row(fid);
         Eigen::Vector3d ortho = OrthoSlope[i];
         Eigen::Vector3d direction = norm.cross(ortho).normalized();
-        E0.row(i)=center+scaling*direction;
-        E1.row(i)=center-scaling*direction;
+        E0.row(i) = center + scaling * direction;
+        E1.row(i) = center - scaling * direction;
     }
+    std::cout<<"The nbr of edges drawn "<<E0.rows()<<std::endl;
     // std::cout<<"Showing the slopes, printing "<<std::endl;
     // for (int i = 0; i < Fslope.size(); i++)
     // {
@@ -5365,4 +5660,10 @@ void lsTools::show_slopes(const double scaling, Eigen::MatrixXd& E0, Eigen::Matr
     // }
     // std::cout<<"\n";
 
+}
+void lsTools::debug_tool(){
+    Eigen::VectorXi info;
+
+    orthogonal_slope_for_different_shading_types(1, info, V, F, norm_f, 0, 180, 10,
+    30, 0,180, Fslope, OrthoSlope);
 }

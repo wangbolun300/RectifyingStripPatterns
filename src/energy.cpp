@@ -684,8 +684,16 @@ void lsTools::calculate_shading_condition_inequivalent(Eigen::VectorXd &vars,
 		if (analizer.Special.size() > 0)
 		{ // if we set multiple conditions on one surface
 			// std::cout<<"special vers";
-			if (!enable_reflection)
-			{// consider about shading and through
+			if(!enable_let_ray_through){// partly shading partly transition.
+				if (analizer.Special[i] == 1)
+				{ // the unmarked vertices
+					condition_type = 1;
+				}
+				else{
+					condition_type = 2;
+				}
+			}
+			else{ // shading, through and transition
 				if (analizer.Special[i] == 0)
 				{ // the unmarked vertices
 					condition_type = 1;
@@ -699,21 +707,7 @@ void lsTools::calculate_shading_condition_inequivalent(Eigen::VectorXd &vars,
 					condition_type = 2;
 				}
 			}
-			else{// consider about reflection and transition
-				if (analizer.Special[i] == 0)
-				{ // the unmarked vertices
-					condition_type = 2;
-				}
-				if (analizer.Special[i] == 1)
-				{ // the marked vertices
-					condition_type = 3;
-				}
-				if (analizer.Special[i] == 2)
-				{ // the transition part in between of marked/unmarked points
-					condition_type = 2;
-				}
-				// std::cout<<"considering reflection, ";
-			}
+			
 		}
 		angle_range_calculator(Reference_theta, Reference_phi, Theta_tol, Phi_tol, zmin, zmax, tanmin, tanmax);
 		if (analizer.Special.size() > 0 && condition_type == 0) // mix shading and through. set special condition for through
@@ -919,14 +913,14 @@ void lsTools::calculate_shading_condition_inequivalent(Eigen::VectorXd &vars,
 
 		Energy[i + ninner * 2] = (r.dot(r) - 1) * scale * weight_binormal;
 		// std::cout<<"c3 got"<<std::endl;
-		if (analizer.ShadSpecial.size() != ninner)
-		{
-			std::cout << "Please check the surface patches that are parallel to the light" << std::endl;
-		}
-		if (analizer.ShadSpecial[i] == 0 && !enable_let_ray_through && !enable_reflection) // if this patch is parallel to the light, skip
-		{
-			continue;
-		}
+		// if (analizer.ShadSpecial.size() != ninner)
+		// {
+		// 	std::cout << "Please check the surface patches that are parallel to the light" << std::endl;
+		// }
+		// if (analizer.ShadSpecial[i] == 0 && !enable_let_ray_through && !enable_reflection) // if this patch is parallel to the light, skip
+		// {
+		// 	continue;
+		// }
 		
 		
 		// np * r = 0
@@ -1035,15 +1029,26 @@ void lsTools::calculate_shading_init(Eigen::VectorXd& vars,
 		0, cos(rho), -sin(rho),
 		0, sin(rho), cos(rho);
 	// initialize the orthogonal vectors on the faces.
-	if(Fslope.size()==0){
-		// for pure shading cases
-		if (!enable_let_ray_through && !enable_reflection && analizer.Special.size() == 0)
+	if (Fslope.size() == 0)
+	{
+
+		int whichtype = 0; // shading
+		if (analizer.Special.size() > 0)
 		{
-			get_orthogonal_vector_of_selected_slope(V, F,
-													norm_f, Reference_phi - Phi_tol,
-													Reference_phi + Phi_tol, Fslope, OrthoSlope);
+			whichtype = 2; // partly shading
 		}
-		
+		if (enable_let_ray_through)
+		{
+			whichtype = 1; // through
+			if (analizer.Special.size() > 0)
+			{
+				whichtype = 3; // mixing shading and through
+			}
+		}
+		orthogonal_slope_for_different_shading_types(whichtype, analizer.Special,
+													 V, F, norm_f, Reference_theta, Reference_phi, Theta_tol, Phi_tol,
+													 Reference_theta1, Reference_phi1,
+													 Fslope, OrthoSlope);
 	}
 	tripletes.clear();
 	tripletes.reserve(Fslope.size() * 3); //todo;
@@ -2057,7 +2062,7 @@ void lsTools::Run_Level_Set_Opt() {
 
 			// mark the angles
 			Eigen::VectorXd diff;
-			analizers[0].ShadSpecial = shading_detect_parallel_patch(Reference_theta, Reference_phi, diff);
+			// analizers[0].ShadSpecial = shading_detect_parallel_patch(Reference_theta, Reference_phi, diff);
 
 			if (enable_max_energy_check && analizers[0].HighEnergy.size() == 0) // mark the max energy points
 			{

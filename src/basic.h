@@ -678,6 +678,7 @@ public:
                                           const std::vector<std::vector<Eigen::Vector3f>> &bclist);
     void clear_high_energy_markers_in_analizer();
     CGMesh write_parameterization_mesh();
+    void debug_tool();
 };
 
 // // partial derivate tools, regard level set function as variates.

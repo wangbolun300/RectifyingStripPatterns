@@ -164,6 +164,9 @@ void match_the_two_catenaries(const CGMesh &lsmesh, const std::vector<CGMesh::Ha
                               const Eigen::MatrixXi &F, const Eigen::VectorXd &ls,
                               Eigen::MatrixXd& Vcout, Eigen::MatrixXd& Vlout);
 bool quadratic_solver(const std::vector<double> &func, std::array<double, 2> &roots);    
-void get_orthogonal_vector_of_selected_slope(const Eigen::MatrixXd &V, const Eigen::MatrixXi &F,
-                                             const Eigen::MatrixXd &norm_f, const double phi_min,
-                                             const double phi_max, std::vector<int> &fout, std::vector<Eigen::Vector3d> &ortho);                          
+void orthogonal_slope_for_different_shading_types(const int whichtype, const Eigen::VectorXi &info,
+                                                  const Eigen::MatrixXd &V, const Eigen::MatrixXi &F,
+                                                  const Eigen::MatrixXd &norm_f, const double theta,
+                                                  const double phi, const double theta_tol, const double phi_tol,
+                                                  const double theta2, const double phi2,
+                                                  std::vector<int> &fout, std::vector<Eigen::Vector3d> &ortho);
