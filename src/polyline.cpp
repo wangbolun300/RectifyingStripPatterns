@@ -691,7 +691,7 @@ void PolyOpt::assemble_polyline_smooth(spMat &H, Eigen::VectorXd &B, Eigen::Vect
 
     std::vector<Trip> tripletes;
     int vnbr = Front.size();
-    energy = Eigen::VectorXd::Zero(vnbr * 5);
+    energy = Eigen::VectorXd::Zero(vnbr * 6);
     tripletes.reserve(vnbr * 25);
     // std::cout<<"check 1"<<std::endl;
     for (int i = 0; i < vnbr; i++)
@@ -753,71 +753,86 @@ void PolyOpt::assemble_polyline_smooth(spMat &H, Eigen::VectorXd &B, Eigen::Vect
 
         if (compute_line_smth)
         {
-            // Eigen::Vector3d Over(OriVars[lx], OriVars[ly], OriVars[lz]);
-            // Eigen::Vector3d Ovfr(OriVars[lfx], OriVars[lfy], OriVars[lfz]);
-            // Eigen::Vector3d Ovbk(OriVars[lbx], OriVars[lby], OriVars[lbz]);
+            int bbk = Back[bk];
+            if (bbk >= 0)// the last point exist
+            {
+                int lbbx = bbk;
+                int lbby = bbk + vnbr;
+                int lbbz = bbk + vnbr * 2;
+                // vfr - 3 * ver + 3 * vbk - bbk = 0
+                Eigen::Vector3d vbb(PlyVars[lbbx], PlyVars[lbby], PlyVars[lbbz]);
+                Eigen::Vector3d err = vfr - 3 * ver + 3 * vbk - vbb;
+                // x
+                tripletes.push_back(Trip(i, lfx, 1));
+                tripletes.push_back(Trip(i, lx, -3));
+                tripletes.push_back(Trip(i, lbx, 3));
+                tripletes.push_back(Trip(i, lbbx, -1));
+                energy[i] = err[0];
 
-            // double dis0 = (Over - Ovfr).norm();
-            // double dis1 = (Over - Ovbk).norm();
+                // y
+                tripletes.push_back(Trip(i + vnbr, lfy, 1));
+                tripletes.push_back(Trip(i + vnbr, ly, -3));
+                tripletes.push_back(Trip(i + vnbr, lby, 3));
+                tripletes.push_back(Trip(i + vnbr, lbby, -1));
+                energy[i + vnbr] = err[1];
 
-            double dis0 = (ver - vfr).norm();
-            double dis1 = (ver - vbk).norm();
-            Eigen::Vector3d error = (ver - vfr) / dis0 + (ver - vbk) / dis1;
+                // z
+                tripletes.push_back(Trip(i + vnbr * 2, lfz, 1));
+                tripletes.push_back(Trip(i + vnbr * 2, lz, -3));
+                tripletes.push_back(Trip(i + vnbr * 2, lbz, 3));
+                tripletes.push_back(Trip(i + vnbr * 2, lbbz, -1));
+                energy[i + vnbr * 2] = err[2];
 
-            // (v - fr)/||v-fr|| + (v-bk)/||v-bk|| = 0
+                // double dis0 = (ver - vfr).norm();
+                // double dis1 = (ver - vbk).norm();
+                // Eigen::Vector3d error = (ver - vfr) / dis0 + (ver - vbk) / dis1;
 
-            // x
-            tripletes.push_back(Trip(i, lx, 1 / dis0 + 1 / dis1));
-            tripletes.push_back(Trip(i, lfx, -1 / dis0));
-            tripletes.push_back(Trip(i, lbx, -1 / dis1));
-            energy[i] = error[0];
+                // // (v - fr)/||v-fr|| + (v-bk)/||v-bk|| = 0
 
-            // y
-            tripletes.push_back(Trip(i + vnbr, ly, 1 / dis0 + 1 / dis1));
-            tripletes.push_back(Trip(i + vnbr, lfy, -1 / dis0));
-            tripletes.push_back(Trip(i + vnbr, lby, -1 / dis1));
+                // // x
+                // tripletes.push_back(Trip(i, lx, 1 / dis0 + 1 / dis1));
+                // tripletes.push_back(Trip(i, lfx, -1 / dis0));
+                // tripletes.push_back(Trip(i, lbx, -1 / dis1));
+                // energy[i] = error[0];
 
-            energy[i + vnbr] = error[1];
+                // // y
+                // tripletes.push_back(Trip(i + vnbr, ly, 1 / dis0 + 1 / dis1));
+                // tripletes.push_back(Trip(i + vnbr, lfy, -1 / dis0));
+                // tripletes.push_back(Trip(i + vnbr, lby, -1 / dis1));
 
-            // z 
-            tripletes.push_back(Trip(i + vnbr * 2, lz, 1 / dis0 + 1 / dis1));
-            tripletes.push_back(Trip(i + vnbr * 2, lfz, -1 / dis0));
-            tripletes.push_back(Trip(i + vnbr * 2, lbz, -1 / dis1));
+                // energy[i + vnbr] = error[1];
 
-            energy[i + vnbr * 2] = error[2];
+                // // z
+                // tripletes.push_back(Trip(i + vnbr * 2, lz, 1 / dis0 + 1 / dis1));
+                // tripletes.push_back(Trip(i + vnbr * 2, lfz, -1 / dis0));
+                // tripletes.push_back(Trip(i + vnbr * 2, lbz, -1 / dis1));
+
+                // energy[i + vnbr * 2] = error[2];
+            }
         }
+        // the 2nd order smoothness of the binormals
+        if (compute_line_smth){
+            double sign1, sign2;
+            sign1 = nbi.dot(nfr) > 0 ? 1 : -1;
+            sign2 = nbi.dot(nbk) > 0 ? 1 : -1;
+            // sign1 * nfr + sign2 * nbk - 2 * nbi = 0
+            Eigen::Vector3d err = sign1 * nfr + sign2 * nbk - 2 * nbi;
+            tripletes.push_back(Trip(i + vnbr * 3, lfnx, binormal_ratio * sign1));
+            tripletes.push_back(Trip(i + vnbr * 3, lbnx, binormal_ratio * sign2));
+            tripletes.push_back(Trip(i + vnbr * 3, lnx, binormal_ratio * -2));
+            energy[i + vnbr * 3] = binormal_ratio * err[0];
 
-        double sign;
-        // if (compute_front)
-        // {
-        //     sign = nbi.dot(nfr) > 0 ? 1 : -1;
-        //     // nbi * nfr +- 1 = 0
-        //     tripletes.push_back(Trip(i + vnbr * 3, lnx, binormal_ratio * nfr[0]));
-        //     tripletes.push_back(Trip(i + vnbr * 3, lny, binormal_ratio * nfr[1]));
-        //     tripletes.push_back(Trip(i + vnbr * 3, lnz, binormal_ratio * nfr[2]));
+            tripletes.push_back(Trip(i + vnbr * 4, lfny, binormal_ratio * sign1));
+            tripletes.push_back(Trip(i + vnbr * 4, lbny, binormal_ratio * sign2));
+            tripletes.push_back(Trip(i + vnbr * 4, lny, binormal_ratio * -2));
+            energy[i + vnbr * 4] = binormal_ratio * err[1];
 
-        //     tripletes.push_back(Trip(i + vnbr * 3, lfnx, binormal_ratio * nbi[0]));
-        //     tripletes.push_back(Trip(i + vnbr * 3, lfny, binormal_ratio * nbi[1]));
-        //     tripletes.push_back(Trip(i + vnbr * 3, lfnz, binormal_ratio * nbi[2]));
-
-        //     energy[i + vnbr * 3] = binormal_ratio * (nbi.dot(nfr) - sign);
-        // }
-
-        if (compute_back)
-        {
-            // nbi * nbk +- 1 = 0
-            sign = nbi.dot(nbk) > 0 ? 1 : -1;
-
-            tripletes.push_back(Trip(i + vnbr * 4, lnx, binormal_ratio * nbk[0]));
-            tripletes.push_back(Trip(i + vnbr * 4, lny, binormal_ratio * nbk[1]));
-            tripletes.push_back(Trip(i + vnbr * 4, lnz, binormal_ratio * nbk[2]));
-
-            tripletes.push_back(Trip(i + vnbr * 4, lbnx, binormal_ratio * nbi[0]));
-            tripletes.push_back(Trip(i + vnbr * 4, lbny, binormal_ratio * nbi[1]));
-            tripletes.push_back(Trip(i + vnbr * 4, lbnz, binormal_ratio * nbi[2]));
-
-            energy[i + vnbr * 4] = binormal_ratio * (nbi.dot(nbk) - sign);
+            tripletes.push_back(Trip(i + vnbr * 5, lfnz, binormal_ratio * sign1));
+            tripletes.push_back(Trip(i + vnbr * 5, lbnz, binormal_ratio * sign2));
+            tripletes.push_back(Trip(i + vnbr * 5, lnz, binormal_ratio * -2));
+            energy[i + vnbr * 5] = binormal_ratio * err[2];
         }
+        
     }
 
     // std::cout<<"check 2"<<std::endl;
