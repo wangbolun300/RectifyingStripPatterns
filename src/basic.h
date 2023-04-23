@@ -451,6 +451,11 @@ private:
 
     std::vector<double> changed_angles;
     Eigen::VectorXd RawTargetAngles;
+    std::vector<int> PosFids;// the positive curved fids
+    std::vector<int> NegFids;// the nagative curved fids
+    std::vector<Eigen::Vector3d> OrthMinK;// the direction orthogonal to minimal curvature direction
+    std::vector<double> CosSqr; // the squared cosin value of the target direction to CurvatureDirections[i][0]
+    void assemble_solver_follow_min_abs_curvature(spMat &H, Eigen::VectorXd &B, Eigen::VectorXd& Eng);
     // disable changed angles and use the current version.
 public:
     bool Disable_Changed_Angles = false;
@@ -458,7 +463,11 @@ public:
     // if true, fit the angles as a polynormial curve, and approximate the curve values.
     bool Use_Fitting_Angles = false; 
     bool Use_Opt_Only_BNMS = false;
+    bool Init_ChagingAngles = false;
+    std::vector<std::vector<Eigen::Vector3d>> CurvatureDirections;
+    void RunInitAOAP();
     void write_fitting_data();
+    void show_minimal_curvature_directions(Eigen::MatrixXd& E0, Eigen::MatrixXd& E1, const double scaling);
     // void generate_
 private:
     

@@ -174,13 +174,18 @@ public:
   IGL_INLINE void fitQuadric(const Eigen::Vector3d&, const std::vector<Eigen::Vector3d>& ref, const std::vector<int>& , Quadric *);
    void applyProjOnPlane(const Eigen::Vector3d&, const std::vector<int>&, std::vector<int>&);
   IGL_INLINE void getSphere(const int, const double, std::vector<int>&, int min);
+  IGL_INLINE void getSphere(const Eigen::Vector3d &, const int,  const double, std::vector<int> &, int min);
+
   IGL_INLINE void getKRing(const int, const double,std::vector<int>&);
   IGL_INLINE Eigen::Vector3d project(const Eigen::Vector3d&, const Eigen::Vector3d&, const Eigen::Vector3d&);
   void computeReferenceFrame(int i, const Eigen::Vector3d& normal, std::vector<Eigen::Vector3d>& ref);
+  void computeReferenceFrame_face(const Eigen::Vector3d& mp, const int fid, const Eigen::Vector3d &normal, std::vector<Eigen::Vector3d> &ref);
   IGL_INLINE void getAverageNormal(int, const std::vector<int>&, Eigen::Vector3d&);
+  IGL_INLINE void getAverageNormal_face(const std::vector<int> &, Eigen::Vector3d &);
   IGL_INLINE void getProjPlane(int, const std::vector<int>&, Eigen::Vector3d&);
   IGL_INLINE void applyMontecarlo(const std::vector<int>&,std::vector<int>*);
   IGL_INLINE void computeCurvature();
+  void computeCurvature_faces();
   // get the derivates, get the second fundamental form, and get the corresponding normals
   IGL_INLINE void get_I_and_II(Eigen::MatrixXd& ru, Eigen::MatrixXd& rv, Eigen::MatrixXd& ruu, Eigen::MatrixXd& ruv,
 Eigen::MatrixXd& rvv, std::vector<double>& L_list,std::vector<double>& M_list, std::vector<double> &N_list,Eigen::MatrixXd &normals);

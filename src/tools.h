@@ -170,3 +170,7 @@ void orthogonal_slope_for_different_shading_types(const int whichtype, const Eig
                                                   const double phi, const double theta_tol, const double phi_tol,
                                                   const double theta2, const double phi2,
                                                   std::vector<int> &fout, std::vector<Eigen::Vector3d> &ortho);
+void get_orthogonal_direction_minimal_principle_curvature(const Eigen::MatrixXd &V, const Eigen::MatrixXi &F,
+                                                          std::vector<int> &idspos,
+                                                          std::vector<int> &idsneg, std::vector<Eigen::Vector3d> &ortho,
+                                                          std::vector<double> &coscos, std::vector<std::vector<Eigen::Vector3d>>& CurvDir);                                

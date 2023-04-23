@@ -218,7 +218,88 @@ void assign_angle_by_poly_fitting(const Eigen::VectorXd &func, const std::vector
     }
     std::cout<<"Fitting, "<<a<<", "<<b<<", "<<c<<", "<<d<<", ";
 }
+void lsTools::assemble_solver_follow_min_abs_curvature(spMat &H, Eigen::VectorXd &B, Eigen::VectorXd& Eng){
+    if(CurvatureDirections.empty()){
+        get_orthogonal_direction_minimal_principle_curvature(V, F, PosFids, NegFids, OrthMinK, CosSqr, CurvatureDirections);
+    }
+    int fnbr = F.rows();
+    std::vector<Trip> tripletes;
+    Eigen::VectorXd energy;
+    tripletes.reserve(3 * (PosFids.size() + NegFids.size()));
+    energy.resize(PosFids.size() + NegFids.size());
+    for (int itr = 0; itr < PosFids.size(); itr++) // positive areas, orthogonal to the direction
+	{
+        
+        int fid = PosFids[itr];
+		Eigen::Vector3d otho = OrthMinK[itr];
+		int v0 = F(fid, 0);
+		int v1 = F(fid, 1);
+		int v2 = F(fid, 2);
+		// locations
+		int loc0 = v0;
+		int loc1 = v1;
+		int loc2 = v2;
+		
+		double f0 = Glob_lsvars[loc0];
+		double f1 = Glob_lsvars[loc1];
+		double f2 = Glob_lsvars[loc2];
+		Eigen::Vector3d ver0 = V.row(v0);
+		Eigen::Vector3d ver1 = V.row(v1);
+		Eigen::Vector3d ver2 = V.row(v2);
 
+		Eigen::Vector3d direction = f0 * (ver1 - ver2) + f2 * (ver0 - ver1) + f1 * (ver2 - ver0);
+		double scale = direction.norm();
+		// direction * otho / scale = 0;
+		tripletes.push_back(Trip(itr, loc0, (ver1 - ver2).dot(otho) / scale));
+		tripletes.push_back(Trip(itr, loc1, (ver2 - ver0).dot(otho) / scale));
+		tripletes.push_back(Trip(itr, loc2, (ver0 - ver1).dot(otho) / scale));
+
+		energy[itr] = direction.dot(otho) / scale;
+
+    }
+    int condistart = PosFids.size();
+    for (int itr = 0; itr < NegFids.size(); itr++) // negative areas, the angle between the tangent direction and the 
+	{
+        
+        int fid = NegFids[itr];
+		Eigen::Vector3d reference = CurvatureDirections[fid][0].normalized();
+        double cc = CosSqr[itr];
+
+		int v0 = F(fid, 0);
+		int v1 = F(fid, 1);
+		int v2 = F(fid, 2);
+		// locations
+		int loc0 = v0;
+		int loc1 = v1;
+		int loc2 = v2;
+		
+		double f0 = Glob_lsvars[loc0];
+		double f1 = Glob_lsvars[loc1];
+		double f2 = Glob_lsvars[loc2];
+		Eigen::Vector3d ver0 = V.row(v0);
+		Eigen::Vector3d ver1 = V.row(v1);
+		Eigen::Vector3d ver2 = V.row(v2);
+
+		Eigen::Vector3d direction = f0 * (ver1 - ver2) + f2 * (ver0 - ver1) + f1 * (ver2 - ver0);
+		double scale = direction.norm();
+        double dot = direction.dot(reference);
+        double v12r = (ver1 - ver2).dot(reference);
+        double v20r = (ver2 - ver0).dot(reference);
+        double v01r = (ver0 - ver1).dot(reference);
+        // ((direction / scale) * reference)^2 = cc
+        tripletes.push_back(Trip(itr + condistart, loc0, 2 * v12r * dot));
+        tripletes.push_back(Trip(itr + condistart, loc1, 2 * v20r * dot));
+        tripletes.push_back(Trip(itr + condistart, loc2, 2 * v01r * dot));
+
+        energy[itr + condistart] = dot * dot - scale * scale * cc;
+    }
+    spMat J;
+    J.resize(energy.size(), Glob_lsvars.size());
+    J.setFromTriplets(tripletes.begin(), tripletes.end());
+    H = J.transpose() * J;
+    B = -J.transpose() * energy;
+    Eng = energy;
+}
 void  lsTools::Run_AsOrthAsPossible_LS(){
     Analyze_Optimized_LS_Angles = true;
     Eigen::MatrixXd GradValueF, GradValueV;
@@ -244,12 +325,7 @@ void  lsTools::Run_AsOrthAsPossible_LS(){
 		return;
 	}
 	get_gradient_hessian_values(func, GradValueV, GradValueF);
-	// if (Glob_lsvars.size() == 0 && trace_hehs.size() == 0)// In this case we don't unit scale the level set
-	// {
-	// 	levelset_unit_scale(func, GradValueF, strip_width);
-	// 	std::cout<<"Unit Scale Levelset"<<std::endl;
-	// }
-	// std::cout<<"check "<<func.norm()<<std::endl;
+
 	analysis_pseudo_geodesic_on_vertices(func, analizers[0]);
 	int ninner = analizers[0].LocalActInner.size();
     // the logic: 1. For the first iteration, we compute the real angles, and terminate.
@@ -433,8 +509,6 @@ void  lsTools::Run_AsOrthAsPossible_LS(){
         double max_energy_ls = PGEnergy.lpNorm<Eigen::Infinity>();
         std::cout << "pg, " << energy_pg << ", "
                   << "lsmax," << max_energy_ls << ",";
-        double max_ls_angle_energy = PGEnergy.bottomRows(ninner).norm();
-        std::cout << "total angle energy, " << max_ls_angle_energy << ", ";
     }
 
     if (enable_strip_width_energy)
@@ -461,6 +535,155 @@ void  lsTools::Run_AsOrthAsPossible_LS(){
 
 	std::cout << std::endl;
 	Last_Opt_Mesh = false;
+}
+void lsTools::RunInitAOAP(){
+    Eigen::MatrixXd GradValueF, GradValueV;
+    Eigen::VectorXd PGEnergy;
+    // initial fvalues already computed using the strokes
+    Eigen::VectorXd func = fvalues;
+
+    int vnbr = V.rows();
+    int fnbr = F.rows();
+    if(func.size()==0){
+        std::cout<<"Please init the level set using the interactive curves before solving optimizations"<<std::endl;
+        return;
+    }
+    get_gradient_hessian_values(func, GradValueV, GradValueF);
+
+    // std::cout<<"check "<<func.norm()<<std::endl;
+    analysis_pseudo_geodesic_on_vertices(func, analizers[0]);
+    int ninner = analizers[0].LocalActInner.size();
+    int final_size;
+    final_size = vnbr;
+    
+
+	if (Glob_lsvars.size() != final_size) {
+        Compute_Auxiliaries = true;
+		if (Glob_lsvars.size() == 0)
+		{
+			std::cout << "Initializing Global Variable For LevelSet Opt ... " << std::endl;
+			Glob_lsvars = Eigen::VectorXd::Zero(final_size); // We change the size if opt more than 1 level set
+			Glob_lsvars.segment(0, vnbr) = func;
+            std::cout << "Global Variable For LevelSet is initialized " << std::endl;
+		}
+		else{
+			if (Glob_lsvars.size() > final_size)
+			{ // need to truncate
+				Eigen::VectorXd tmp = Glob_lsvars.segment(0, final_size);
+				Glob_lsvars = tmp;
+				if (Glob_lsvars.size() != final_size)
+				{
+					std::cout << "size error" << std::endl
+							  << std::endl;
+				}
+			}
+			else// need to extend, and re-compute the auxiliaries
+			{
+				Eigen::VectorXd tmp = Glob_lsvars;
+				Glob_lsvars = Eigen::VectorXd::Zero(final_size); // We change the size if opt more than 1 level set
+				Glob_lsvars.segment(0, tmp.size()) = tmp;
+				
+			}
+		}
+	}
+
+	spMat H;
+	H.resize(vnbr, vnbr);
+    Eigen::VectorXd B = Eigen::VectorXd::Zero(vnbr);
+
+    spMat LTL;  // left of laplacian
+	Eigen::VectorXd mLTF; // right of laplacian
+	assemble_solver_biharmonic_smoothing(func, LTL, mLTF);
+	H += weight_laplacian * LTL;
+	B += weight_laplacian * mLTF;
+	assert(mass.rows() == vnbr);
+
+
+    // strip width condition
+    spMat sw_JTJ;
+    Eigen::VectorXd sw_mJTF;
+    assemble_solver_strip_width_part(GradValueF, sw_JTJ, sw_mJTF); // by default the strip width is 1. Unless tracing info updated the info
+    H += weight_strip_width * sw_JTJ;
+    B += weight_strip_width * sw_mJTF;
+
+    assert(H.rows() == vnbr);
+	assert(H.cols() == vnbr);
+	// pseudo geodesic
+	spMat Hlarge;
+	Eigen::VectorXd Blarge;
+	Hlarge.resize(final_size, final_size);
+	Blarge = Eigen::VectorXd::Zero(final_size);
+	
+	Hlarge = sum_uneven_spMats(H, Hlarge);
+    Blarge = sum_uneven_vectors(B, Blarge);
+    // std::cout<<"check 4"<<std::endl;
+
+    spMat pg_JTJ;
+    Eigen::VectorXd pg_mJTF;
+    
+    assemble_solver_follow_min_abs_curvature(pg_JTJ, pg_mJTF, PGEnergy);
+
+    Hlarge = sum_uneven_spMats(Hlarge, weight_pseudo_geodesic_energy * pg_JTJ);
+    Blarge = sum_uneven_vectors(Blarge, weight_pseudo_geodesic_energy * pg_mJTF);
+    // std::cout<<"weight_pseudo_geodesic_energy, "<<weight_pseudo_geodesic_energy<<std::endl;
+    Compute_Auxiliaries = false;
+
+    if (vector_contains_NAN(Blarge))
+    {
+        std::cout<<"energy contains NAN"<<std::endl;
+		return;
+    }
+    // std::cout<<"check 5"<<std::endl;
+	Hlarge += 1e-6 * weight_mass * spMat(Eigen::VectorXd::Ones(final_size).asDiagonal());
+
+	Eigen::SimplicialLLT<Eigen::SparseMatrix<double>> solver(Hlarge);
+
+	// assert(solver.info() == Eigen::Success);
+	if (solver.info() != Eigen::Success)
+	{
+		// solving failed
+		std::cout << "solver fail" << std::endl;
+		return;
+	}
+	// std::cout<<"solved successfully"<<std::endl;
+	Eigen::VectorXd dx = solver.solve(Blarge).eval();
+	dx *= 0.75;
+	// std::cout << "step length " << dx.norm() << std::endl;
+	double level_set_step_length = dx.norm();
+	// double inf_norm=dx.cwiseAbs().maxCoeff();
+	// if (enable_boundary_angles || enable_pseudo_geodesic_energy)// only pg energy and boundary angles requires step length
+	// {
+	// 	if (level_set_step_length > max_step_length)
+	// 	{
+	// 		dx *= max_step_length / level_set_step_length;
+	// 	}
+	// }
+
+	func += dx.topRows(vnbr);
+	fvalues = func;
+	Glob_lsvars += dx;
+    double energy_biharmonic = (QcH * func).norm();
+    std::cout << "INIT AOAP: energy: harm " << energy_biharmonic << ", ";
+    // std::cout<<"check 5.5"<<std::endl;
+
+    double energy_pg = PGEnergy.norm();
+    double max_energy_ls = PGEnergy.lpNorm<Eigen::Infinity>();
+    std::cout << "pg, " << energy_pg << ", "
+              << "lsmax," << max_energy_ls << ",";
+
+    // std::cout<<"check 6"<<std::endl;
+    Eigen::VectorXd ener = GradValueF.rowwise().norm();
+    ener = ener.asDiagonal() * ener;
+    Eigen::VectorXd wds = Eigen::VectorXd::Ones(fnbr) * strip_width * strip_width;
+
+    ener -= wds;
+    double stp_energy = Eigen::VectorXd(ener).dot(ener);
+    std::cout << "strip, " << stp_energy << ", ";
+
+    step_length = dx.norm();
+	std::cout << "step " << step_length;
+    std::cout<<"\n";
+    Last_Opt_Mesh = false;
 }
 #include<igl/file_dialog_save.h>
 void lsTools::write_fitting_data(){

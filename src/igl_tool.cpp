@@ -240,6 +240,63 @@ IGL_INLINE void QuadricCalculator::getSphere(const int start, const double r, st
   }
 }
 
+IGL_INLINE void QuadricCalculator::getSphere(const Eigen::Vector3d& start_pt, const int fid, const double r, std::vector<int> &vv, int min)
+{
+  int bufsize = vertices.rows();
+  vv.reserve(bufsize);
+  std::list<int> queue;
+  std::vector<bool> visited(bufsize, false);
+  int v0 = faces(fid, 0);
+  int v1 = faces(fid, 1);
+  int v2 = faces(fid, 2);
+  visited[v0] = true;
+  visited[v1] = true;
+  visited[v2] = true;
+  queue.push_back(v0);
+  queue.push_back(v1);
+  queue.push_back(v2);
+
+  Eigen::Vector3d me = start_pt;
+  std::priority_queue<std::pair<int, double>, std::vector<std::pair<int, double>>, comparer> extra_candidates;
+  while (!queue.empty())
+  {
+    int toVisit = queue.front();
+    queue.pop_front();
+    vv.push_back(toVisit);
+    for (unsigned int i = 0; i < vertex_to_vertices[toVisit].size(); ++i)
+    {
+      int neighbor = vertex_to_vertices[toVisit][i];
+      if (!visited[neighbor])
+      {
+        Eigen::Vector3d neigh = vertices.row(neighbor);
+        double distance = (me - neigh).norm();
+        if (distance < r)
+          queue.push_back(neighbor);
+        else if ((int)vv.size() < min)
+          extra_candidates.push(std::pair<int, double>(neighbor, distance));
+        visited[neighbor] = true;
+      }
+    }
+  }
+  while (!extra_candidates.empty() && (int)vv.size() < min)
+  {
+    std::pair<int, double> cand = extra_candidates.top();
+    extra_candidates.pop();
+    vv.push_back(cand.first);
+    for (unsigned int i = 0; i < vertex_to_vertices[cand.first].size(); ++i)
+    {
+      int neighbor = vertex_to_vertices[cand.first][i];
+      if (!visited[neighbor])
+      {
+        Eigen::Vector3d neigh = vertices.row(neighbor);
+        double distance = (me - neigh).norm();
+        extra_candidates.push(std::pair<int, double>(neighbor, distance));
+        visited[neighbor] = true;
+      }
+    }
+  }
+}
+
 IGL_INLINE Eigen::Vector3d QuadricCalculator::project(const Eigen::Vector3d &v, const Eigen::Vector3d &vp, const Eigen::Vector3d &ppn)
 {
   return (vp - (ppn * ((vp - v).dot(ppn))));
@@ -251,6 +308,22 @@ void QuadricCalculator::computeReferenceFrame(int i, const Eigen::Vector3d &norm
   Eigen::Vector3d longest_v = Eigen::Vector3d(vertices.row(vertex_to_vertices[i][0]));
 
   longest_v = (project(vertices.row(i), longest_v, normal) - Eigen::Vector3d(vertices.row(i))).normalized();
+
+  /* L'ultimo asse si ottiene come prodotto vettoriale tra i due
+   * calcolati */
+  Eigen::Vector3d y_axis = (normal.cross(longest_v)).normalized();
+  ref[0] = longest_v;
+  ref[1] = y_axis;
+  ref[2] = normal;
+}
+
+// mp is the center of face with index fid.
+void QuadricCalculator::computeReferenceFrame_face(const Eigen::Vector3d& mp, const int fid, const Eigen::Vector3d &normal, std::vector<Eigen::Vector3d> &ref)
+{
+  // one vertex on the plane
+  Eigen::Vector3d longest_v = vertices.row(faces(fid, 0));
+  // one direction on the plane
+  longest_v = (longest_v - mp).normalized();
 
   /* L'ultimo asse si ottiene come prodotto vettoriale tra i due
    * calcolati */
@@ -272,7 +345,18 @@ IGL_INLINE void QuadricCalculator::getAverageNormal(int j, const std::vector<int
   }
   normal.normalize();
 }
+IGL_INLINE void QuadricCalculator::getAverageNormal_face(const std::vector<int> &vv, Eigen::Vector3d &normal)
+{
+  normal = Eigen::Vector3d(0, 0, 0);
+  if (localMode)
+    return;
 
+  for (unsigned int i = 0; i < vv.size(); ++i)
+  {
+    normal += vertex_normals.row(vv[i]).normalized();
+  }
+  normal.normalize();
+}
 IGL_INLINE void QuadricCalculator::getProjPlane(int j, const std::vector<int> &vv, Eigen::Vector3d &ppn)
 {
   int nr;
@@ -451,6 +535,121 @@ IGL_INLINE void QuadricCalculator::computeCurvature()
 
   lastRadius = sphereRadius;
   curvatureComputed = true;
+}
+
+// compute on each face. the sphere center is the triangle center.
+void QuadricCalculator::computeCurvature_faces()
+{
+  // CHECK che esista la mesh
+  const size_t face_count = faces.rows();
+
+  if (face_count == 0)
+    return;
+
+  curvDir = std::vector<std::vector<Eigen::Vector3d>>(face_count);
+  curv = std::vector<std::vector<double>>(face_count);
+
+  scaledRadius = getAverageEdge() * sphereRadius;
+
+  std::vector<int> vv;
+  std::vector<int> vvtmp;
+  Eigen::Vector3d normal;
+
+  // double time_spent;
+  // double searchtime=0, ref_time=0, fit_time=0, final_time=0;
+  int count0 = 0, count1 = 0, count2 = 0;
+  for (size_t i = 0; i < face_count; ++i)
+  {
+    int id0 = faces(i, 0);
+    int id1 = faces(i, 1);
+    int id2 = faces(i, 2);
+    vv.clear();
+    vvtmp.clear();
+    Eigen::Vector3d me = (vertices.row(id0) + vertices.row(id1) + vertices.row(id2)) / 3;
+    switch (st)
+    {
+    case SPHERE_SEARCH:
+      getSphere(me, i, scaledRadius, vv, 6);
+      break;
+    // case K_RING_SEARCH:
+    //   getKRing(i, kRing, vv);
+    //   break;
+    default:
+      fprintf(stderr, "Error: please use the spherical search");
+      return;
+    }
+
+    if (vv.size() < 6)
+    {
+      // std::cerr << "Could not compute curvature of radius " << scaledRadius << std::endl;
+      count0++;
+      continue;
+    }
+
+    if (projectionPlaneCheck)
+    {
+      vvtmp.reserve(vv.size());
+      applyProjOnPlane(face_normals.row(i), vv, vvtmp);
+      if (vvtmp.size() >= 6 && vvtmp.size() < vv.size())
+        vv = vvtmp;
+    }
+    normal = face_normals.row(i);
+    // switch (nt)
+    // {
+    // case AVERAGE:
+    //   getAverageNormal_face(vv, normal);
+    //   break;
+    // // case PROJ_PLANE:
+    // //   getProjPlane(i, vv, normal);
+    // //   break;
+    // default:
+    //   fprintf(stderr, "Error: normal type not recognized, please use AVERAGE");
+    //   return;
+    // }
+    if (vv.size() < 6)
+    {
+      // std::cerr << "Could not compute curvature of radius " << scaledRadius << std::endl;
+      count1++;
+      continue;
+    }
+    if (montecarlo)
+    {
+      if (montecarloN < 6)
+        break;
+      vvtmp.reserve(vv.size());
+      applyMontecarlo(vv, &vvtmp);
+      vv = vvtmp;
+    }
+
+    if (vv.size() < 6)
+      return;
+    std::vector<Eigen::Vector3d> ref(3);
+    computeReferenceFrame_face(me, i, normal, ref);
+
+    Quadric q;
+    fitQuadric(me, ref, vv, &q);
+    finalEigenStuff(i, ref, q);
+    // std::cout<<"i, "<<i<<", q, "<<q.a()<<", "<<q.b()<<", "<<q.c()<<", "<<q.d()<<", \ncurvature, "<<curv[i][0]<<", "<<curv[i][1]<<std::endl;
+    // for(int j=0;j<vv.size();j++){
+    //   std::cout << "vid, " << vv[j] << ", pt, " << vertices.row(vv[j]) << std::endl;
+    // }
+    // for (int j = 0; j < 3; j++)
+    // {
+    //   std::cout << "axis, " << ref[j].transpose() << std::endl;
+    // }
+  }
+  int count_valid = 0;
+  for (size_t i = 0; i < face_count; ++i)
+  {
+    if(curv[i].size()==2){
+      count_valid++;
+    }
+
+  }
+  // std::cout << "Total Face Nbr " << face_count << ", curvature computed face nbr, " << count_valid << ", too less neighbours " << count0
+  // <<", "<<count1 << std::endl;
+  lastRadius = sphereRadius;
+  // curvatureComputed = true;
 }
 
 IGL_INLINE void QuadricCalculator::get_I_and_II(Eigen::MatrixXd &ru, Eigen::MatrixXd &rv, Eigen::MatrixXd &ruu, Eigen::MatrixXd &ruv,

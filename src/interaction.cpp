@@ -782,8 +782,6 @@ void lsTools::Run_Level_Set_Opt_interactive(const bool compute_pg)
         double max_energy_ls = PGEnergy.lpNorm<Eigen::Infinity>();
         std::cout << "pg, " << energy_pg << ", "
                   << "lsmax," << max_energy_ls << ",";
-        double max_ls_angle_energy = PGEnergy.bottomRows(ninner).norm();
-        std::cout << "total angle energy, " << max_ls_angle_energy << ", ";
     }
     // std::cout<<"check 6"<<std::endl;
     Eigen::VectorXd ener = GradValueF.rowwise().norm();

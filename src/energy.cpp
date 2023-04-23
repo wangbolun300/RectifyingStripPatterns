@@ -2133,8 +2133,6 @@ void lsTools::Run_Level_Set_Opt() {
 			double energy_pg = PGEnergy.norm();
 			double max_energy_ls = PGEnergy.lpNorm<Eigen::Infinity>();
 			std::cout << "pg, " << energy_pg << ", " << "lsmax," << max_energy_ls << ",";
-			double max_ls_angle_energy = PGEnergy.bottomRows(ninner).norm();
-			std::cout << "total angle energy, " << max_ls_angle_energy << ", ";
 		}
 		else {
 			double planar_energy = PGEnergy.norm();
@@ -2386,22 +2384,6 @@ void lsTools::Run_Level_Set_Opt_Angle_Variable() {
 	std::cout << "energy: harm " << energy_biharmonic << ", ";
 	if (enable_pseudo_geodesic_energy)
 	{
-		// if (!enable_extreme_cases) {
-		// 	double energy_pg = PGEnergy.norm();
-		// 	double max_energy_ls = PGEnergy.lpNorm<Eigen::Infinity>();
-		// 	std::cout << "pg, " << energy_pg << ", " << "lsmax," << max_energy_ls << ",";
-		// 	double max_ls_angle_energy = PGEnergy.bottomRows(ninner).norm();
-		// 	std::cout << "total angle energy, " << max_ls_angle_energy << ", ";
-		// }
-		// else {
-		// 	double planar_energy = PGEnergy.norm();
-		// 	double max_energy_ls = PGEnergy.lpNorm<Eigen::Infinity>();
-		// 	std::cout << "extreme_pg, " << planar_energy << " lsmax," << max_energy_ls<<", ";
-		// 	if(e_smbi.size()>0){
-		// 		std::cout<< "smbi, "<<e_smbi.norm()<<", ";
-		// 	}
-			 
-		// }
 		std::cout<<"pg, "<<PGEnergy[0].norm()<<", ";
 		if(enable_extreme_cases){
 			std::cout << PGEnergy[1].norm() << ", ";

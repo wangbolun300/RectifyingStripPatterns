@@ -1208,8 +1208,6 @@ void lsTools::Run_Mesh_Opt()
         double energy_ls = MTEnergy.norm();
         double max_energy_ls = MTEnergy.lpNorm<Eigen::Infinity>();
         std::cout << "pg, " << energy_ls << ", MaxEnergy, " << max_energy_ls << ", ";
-        // double max_ls_angle_energy = MTEnergy.bottomRows(ninner).norm();
-        // std::cout << "total angle energy, " << max_ls_angle_energy << ", ";
     }
     else
     {

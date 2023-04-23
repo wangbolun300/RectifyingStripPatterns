@@ -5661,6 +5661,108 @@ void lsTools::show_slopes(const double scaling, Eigen::MatrixXd& E0, Eigen::Matr
     // std::cout<<"\n";
 
 }
+// if positively curved, compute the direction orthogonal to the smallest curvature.
+// if negatively curved, compute the cos^2. cos is between curvDir[i][0] and the target direction
+void orth_smallest_curvature_and_c2(const std::vector<std::vector<double>> &curv,
+                                        const std::vector<std::vector<Eigen::Vector3d>> &curvDir, 
+                                        std::vector<int> &idspos, 
+                                        std::vector<int> & idsneg, std::vector<Eigen::Vector3d> &ortho, 
+                                        std::vector<double>& coscos)
+{
+    assert(curv.size() == curvDir.size());
+    idspos.clear();
+    idsneg.clear();
+    ortho.clear();
+    coscos.clear();
+    int fnbr = curv.size();
+    for (int i = 0; i < fnbr; i++)
+    {
+        assert(curvDir[i].size() == 2);
+        double c1 = curv[i][0];
+        double c2 = curv[i][1];
+        
+        if (c1 * c2 > 0) // same sign, directly pick the smallest absolute curvature
+        {
+            idspos.push_back(i);
+            if (abs(c1) < abs(c2)) // c1 is smallest, pick the direction of c2
+            {
+                ortho.push_back(curvDir[i][1].normalized());
+            }
+            else
+            {
+                ortho.push_back(curvDir[i][0].normalized());
+            }
+        }
+        else
+        {
+            idsneg.push_back(i);
+            
+            double cc = -c2 / (c1 - c2);
+            double ss = c1 / (c1 - c2);
+            coscos.push_back(cc);
+        }
+    }
+}
+
+void get_orthogonal_direction_minimal_principle_curvature(const Eigen::MatrixXd &V, const Eigen::MatrixXi &F,
+                                                          std::vector<int> &idspos,
+                                                          std::vector<int> &idsneg, std::vector<Eigen::Vector3d> &ortho,
+                                                          std::vector<double> &coscos, std::vector<std::vector<Eigen::Vector3d>>& CurvDir)
+{
+    int vnbr = V.rows();
+    int fnbr = F.rows();
+    // Precomputation
+    QuadricCalculator cc;
+    cc.init(V, F);
+    cc.computeCurvature_faces();
+    // get the vectors orthogonal to the directions of the smallest absolute curvature value
+    orth_smallest_curvature_and_c2(cc.curv, cc.curvDir, idspos, idsneg, ortho, coscos);
+    assert(idspos.size() == ortho.size() && idsneg.size() == coscos.size());
+    CurvDir = cc.curvDir;
+}
+void lsTools::show_minimal_curvature_directions(Eigen::MatrixXd& E0, Eigen::MatrixXd& E1, const double scaling){
+    std::vector<int> idspos;
+    std::vector<int> idsneg;
+    std::vector<Eigen::Vector3d> ortho;
+    std::vector<double> coscos;
+    std::vector<std::vector<Eigen::Vector3d>> CurvDir;
+    get_orthogonal_direction_minimal_principle_curvature(V, F, idspos, idsneg, ortho, coscos, CurvDir);
+    int fnbr = F.rows();
+    E0.resize(fnbr + idsneg.size(), 3);
+    E1.resize(fnbr + idsneg.size(), 3);
+    for (int i = 0; i < idspos.size(); i++)
+    {
+        int fid = idspos[i];
+        Eigen::Vector3d v0 = V.row(F(fid, 0));
+        Eigen::Vector3d v1 = V.row(F(fid, 1));
+        Eigen::Vector3d v2 = V.row(F(fid, 2));
+        Eigen::Vector3d vm = (v0 + v1 + v2) / 3;
+        Eigen::Vector3d direction = ortho[i].cross(Eigen::Vector3d(norm_f.row(fid))).normalized();
+        E0.row(fid) = vm + direction * scaling;
+        E1.row(fid) = vm - direction * scaling;
+    }
+    for (int itr = 0; itr < idsneg.size(); itr++)
+    {
+        int fid = idsneg[itr];
+        Eigen::Vector3d v0 = V.row(F(fid, 0));
+        Eigen::Vector3d v1 = V.row(F(fid, 1));
+        Eigen::Vector3d v2 = V.row(F(fid, 2));
+        Eigen::Vector3d vm = (v0 + v1 + v2) / 3;
+        double cos_angle = sqrt(coscos[itr]);
+        double sin_angle = sqrt(1 - coscos[itr]);
+        Eigen::Vector3d axis1 = CurvDir[fid][0].normalized();
+        Eigen::Vector3d axis2 = CurvDir[fid][1].normalized();
+        Eigen::Vector3d direction1 = axis1 * cos_angle + axis2 * sin_angle;
+        Eigen::Vector3d direction2 = -axis1 * cos_angle + axis2 * sin_angle;
+        E0.row(fid) = vm + direction1 * scaling;
+        E1.row(fid) = vm - direction1 * scaling;
+        
+        E0.row(fnbr + itr) = vm + direction2 * scaling;
+        E1.row(fnbr + itr) = vm - direction2 * scaling;
+        
+    }
+
+}
 void lsTools::debug_tool(){
     Eigen::VectorXi info;
 
