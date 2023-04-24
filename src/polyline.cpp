@@ -1942,8 +1942,8 @@ void push_fairness_conditions(std::vector<Trip> &tripletes, Eigen::VectorXd &ene
                               const int cid, const double scale0, const double scale1)
 {
     tripletes.push_back(Trip(cid, lv, 1 / scale0 + 1 / scale1));
-    tripletes.push_back(Trip(cid, lf, -scale0));
-    tripletes.push_back(Trip(cid, lb, -scale1));
+    tripletes.push_back(Trip(cid, lf, -1 / scale0));
+    tripletes.push_back(Trip(cid, lb, -1 / scale1));
     energy[cid] = (vval - fval) / scale0 + (vval - bval) / scale1;
 }
 
@@ -2858,6 +2858,10 @@ void QuadOpt::assemble_normal_conditions(spMat& H, Eigen::VectorXd& B, Eigen::Ve
 }
 
 void QuadOpt::opt(){
+    if(Ftri.rows()==0){
+        std::cout<<"The AABB Tree is NOT Loaded. Please Load the Tree"<<std::endl;
+        return;
+    }
     int vnbr = V.rows();
     if (GlobVars.size() != varsize)
     {
@@ -3112,7 +3116,7 @@ void QuadOpt::opt(){
         }
     }
     real_step_length = dx.norm();
-    std::cout << ", stp, " << dx.norm() << ", ";
+    std::cout << ", stp, " << dx.norm() << ", diagonal types, "<<d0_type<<", "<<d1_type<<", ";
     std::cout << "\n";
 
     // convert the data to the mesh format
