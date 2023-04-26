@@ -158,13 +158,14 @@ void recover_polyline_endpts();
 void write_unfold_single_strip(int which_curve = 0);
 // the first version of straight strips: not exactly straight.    
 void construct_single_developable_strips_by_intersect_rectifying(const int which);         
+void construct_developable_strips_by_intersect_rectifying();
 void draw_catenaries_on_cylinder();           
 
 void match_the_two_catenaries(const CGMesh &lsmesh, const std::vector<CGMesh::HalfedgeHandle> &loop, const Eigen::MatrixXd &V,
                               const Eigen::MatrixXi &F, const Eigen::VectorXd &ls,
                               Eigen::MatrixXd& Vcout, Eigen::MatrixXd& Vlout);
 bool quadratic_solver(const std::vector<double> &func, std::array<double, 2> &roots);    
-void orthogonal_slope_for_different_shading_types(const int whichtype, const Eigen::VectorXi &info,
+void orthogonal_slope_for_different_shading_types(const int whichtype, Eigen::VectorXi InnerV, const Eigen::VectorXi &info,
                                                   const Eigen::MatrixXd &V, const Eigen::MatrixXi &F,
                                                   const Eigen::MatrixXd &norm_f, const double theta,
                                                   const double phi, const double theta_tol, const double phi_tol,

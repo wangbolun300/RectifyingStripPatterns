@@ -1045,10 +1045,21 @@ void lsTools::calculate_shading_init(Eigen::VectorXd& vars,
 				whichtype = 3; // mixing shading and through
 			}
 		}
-		orthogonal_slope_for_different_shading_types(whichtype, analizer.Special,
+		orthogonal_slope_for_different_shading_types(whichtype, InnerV, analizer.Special,
 													 V, F, norm_f, Reference_theta, Reference_phi, Theta_tol, Phi_tol,
 													 Reference_theta1, Reference_phi1,
 													 Fslope, OrthoSlope);
+		std::cout<<"####3Shading Type: "<<whichtype<<"\n";
+		int count1 = 0, count2 = 0;
+		for(int i=0;i<analizer.Special.size();i++){
+			if(analizer.Special[i]==1){
+				count1++;
+			}
+			else{
+				count2++;
+			}
+		}
+		std::cout<<"Special ver nbr "<<count1<<" out of "<<count2<<" vertices\n";
 	}
 	tripletes.clear();
 	tripletes.reserve(Fslope.size() * 3); //todo;

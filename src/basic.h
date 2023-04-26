@@ -199,7 +199,7 @@ public:
     double weight_pg;
     double weight_gravity;
     double weight_mass = 1;
-    double pg_ratio = 1;// the ratio of pg energy to weight_pg
+    double pg_ratio = 1;// the ratio of diagonal (geodesic) energy to weight_pg
     double max_step = 1;
     // int pg1_type = 0;//by default disabled. 1 means asymptotic, 2 means geodesic, 3 pseudo-geodesic
     // int pg2_type = 0;

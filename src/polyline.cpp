@@ -1792,6 +1792,20 @@ void QuadOpt::reset()
             d1_type = 1;
         }
     }
+    if (OptType == 3) // PPG
+    {                         
+        std::cout << "Set Up GGA Diagonals" << std::endl;
+        if (WhichDiagonal == 0)
+        {
+            d0_type = 2;
+            d1_type = 0;
+        }
+        if (WhichDiagonal == 1)
+        { 
+            d0_type = 0;
+            d1_type = 2;
+        }
+    }
     MP.mesh2Matrix(mesh_original, V, F);
     std::cout<<"Get V and F of the quads: "<<V.rows()<<", "<<F.rows()<<std::endl;
     int vnbr = V.rows();

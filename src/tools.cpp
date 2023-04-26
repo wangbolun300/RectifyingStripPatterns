@@ -4969,6 +4969,107 @@ void construct_single_developable_strips_by_intersect_rectifying(const int which
     write_polyline_xyz(bout, fname + "_b");
     std::cout << "files get saved" << std::endl;
 }
+void construct_single_developable_strips_by_intersect_rectifying(
+    const std::vector<Eigen::Vector3d> &vertices, const std::vector<Eigen::Vector3d> &binormals,
+    std::vector<Eigen::Vector3d> &vout, std::vector<Eigen::Vector3d> &bout)
+{
+
+    int vnbr = vertices.size();
+    // the creases lines are constructed by foot points and creases
+    // the foot is the intersection of the line and the right plane. vout and crease construct the strip
+    std::vector<Eigen::Vector3d> tangents, creases, foot;
+    tangents.resize(vnbr);
+    creases.resize(vnbr);
+    foot.resize(vnbr);
+
+
+    tangents.front() = (vertices[1] - vertices[0]).normalized();
+    tangents.back() = (vertices[vnbr - 1] - vertices[vnbr - 2]).normalized();
+    tangents[1] = ((vertices[1] - vertices[0]).normalized() + (vertices[2] - vertices[1]).normalized()).normalized();
+    
+
+    foot.front() = vertices.front();
+    foot[1] = vertices[1];
+    foot.back() = vertices.back();
+
+    creases[0] = binormals[0];
+    creases[1] = binormals[1];
+    creases[vnbr - 1] = binormals[vnbr - 1];
+
+    for (int i = 2; i < vnbr - 1; i++)
+    {
+        Eigen::Vector3d dirl = (vertices[i] - vertices[i-1]).normalized();
+        Eigen::Vector3d dirr = (vertices[i+1] - vertices[i]).normalized();
+
+        // tangents
+        Eigen::Vector3d tleft = tangents[i - 1];
+        Eigen::Vector3d tright = (dirl + dirr).normalized();
+        // binormals
+        Eigen::Vector3d bleft = binormals[i - 1];
+        Eigen::Vector3d bright = binormals[i];
+        // normals of the both planes
+        Eigen::Vector3d nleft = tleft.cross(bleft).normalized();
+        Eigen::Vector3d nright = tright.cross(bright).normalized();
+        // this crease direction is the intersection of the both planes. if the planes are parallel, use the binormal.
+        Eigen::Vector3d c = nleft.cross(nright);
+        bool parallel = false;
+        if (c.norm() < 1e-4)
+        {
+            c = bleft;
+            parallel = true;
+        }
+        c.normalize();
+        if (c.dot(bleft) < 0)
+        {
+            c *= -1;
+        }
+        double scale = 1 / c.dot(bleft);
+        c *= scale;
+        // the foot point is the intersection of the left tangent with the right plane
+        Eigen::Vector3d f;
+        if(parallel){
+            f = (vertices[i - 1] + vertices[i]) / 2;
+        }
+        else{
+            // (vleft + alpha * tleft - v).dot(nright) = 0
+            double alpha = (vertices[i] - vertices[i - 1]).dot(nright) / tleft.dot(nright);
+            f = vertices[i - 1] + alpha * tleft;
+        }
+        tright = (vertices[i] - f).normalized();
+        tangents[i] = tright;
+        foot[i] = f;
+        creases[i] = c;
+    }
+
+    vout = foot;
+    bout = creases;
+}
+void construct_developable_strips_by_intersect_rectifying(){
+    std::vector<std::vector<Eigen::Vector3d>> vertices_in, vertices_out;
+    std::vector<std::vector<Eigen::Vector3d>> binormals_in, binormals_out;
+    std::cout
+        << "Read the plyline and binormal files" << std::endl;
+    
+    read_plylines_and_binormals(vertices_in, binormals_in);
+    int cnbr = vertices_in.size();
+    for (int i = 0; i < cnbr; i++)
+    {
+        std::vector<Eigen::Vector3d> vers, bnms;
+        construct_single_developable_strips_by_intersect_rectifying(vertices_in[i], binormals_in[i], vers, bnms);
+        vertices_out.push_back(vers);
+        binormals_out.push_back(bnms);
+    }
+    std::string fname = igl::file_dialog_save();
+    if (fname.length() == 0)
+    {
+        std::cout<<"Please type something "<<std::endl;
+        return;
+    }
+
+    write_polyline_xyz(vertices_out, fname);
+    write_polyline_xyz(binormals_out, fname + "_b");
+    std::cout << "files get saved" << std::endl;
+}
 
 void draw_catenaries_on_cylinder(){
     double radius = 5;
@@ -5538,7 +5639,7 @@ void get_orthogonal_vector_of_selected_slope_lighting(const Eigen::MatrixXd &V, 
 // types: 0: shading. 1: light through. 2: partly shading. 3. mixing shading and light through
 // info is marked on each vertex: 2: transition, 1: reference patch, 0: ordinary points
 // theta2 and phi2 are for light through when type is 3.
-void orthogonal_slope_for_different_shading_types(const int whichtype, const Eigen::VectorXi &info,
+void orthogonal_slope_for_different_shading_types(const int whichtype, Eigen::VectorXi InnerV, const Eigen::VectorXi &info,
                                                   const Eigen::MatrixXd &V, const Eigen::MatrixXi &F,
                                                   const Eigen::MatrixXd &norm_f, const double theta,
                                                   const double phi, const double theta_tol, const double phi_tol,
@@ -5566,11 +5667,19 @@ void orthogonal_slope_for_different_shading_types(const int whichtype, const Eig
         double phi_max = phi + phi_tol;
 
         Eigen::VectorXi Fselect = -1 * Eigen::VectorXi::Ones(fnbr);
-        for(int i = 0;i<fnbr;i++){
+        for (int i = 0; i < fnbr; i++)
+        {
             int vid0 = F(i, 0);
             int vid1 = F(i, 1);
             int vid2 = F(i, 2);
-            bool active_face = info[vid0] == 1 && info[vid1] == 1 && info[vid2] == 1;
+            int vi0 = InnerV[vid0];
+            int vi1 = InnerV[vid1];
+            int vi2 = InnerV[vid2];
+            if (vi0 < 0 || vi1 < 0 || vi2 < 0)
+            {
+                continue;
+            }
+            bool active_face = info[vi0] == 1 && info[vi1] == 1 && info[vi2] == 1;
             if(active_face){
                 Fselect[i] = 1;
             }
@@ -5591,8 +5700,15 @@ void orthogonal_slope_for_different_shading_types(const int whichtype, const Eig
             int vid0 = F(i, 0);
             int vid1 = F(i, 1);
             int vid2 = F(i, 2);
-            bool active_face_shading = info[vid0] == 0 && info[vid1] == 0 && info[vid2] == 0;
-            bool active_face_through = info[vid0] == 1 && info[vid1] == 1 && info[vid2] == 1; // active for light through
+            int vi0 = InnerV[vid0];
+            int vi1 = InnerV[vid1];
+            int vi2 = InnerV[vid2];
+            if (vi0 < 0 || vi1 < 0 || vi2 < 0)
+            {
+                continue;
+            }
+            bool active_face_shading = info[vi0] == 0 && info[vi1] == 0 && info[vi2] == 0;
+            bool active_face_through = info[vi0] == 1 && info[vi1] == 1 && info[vi2] == 1; // active for light through
             if (active_face_shading)
             {
                 Fselect1[i] = 1;
@@ -5680,27 +5796,35 @@ void orth_smallest_curvature_and_c2(const std::vector<std::vector<double>> &curv
         assert(curvDir[i].size() == 2);
         double c1 = curv[i][0];
         double c2 = curv[i][1];
-        
-        if (c1 * c2 > 0) // same sign, directly pick the smallest absolute curvature
+        idspos.push_back(i);
+        if (abs(c1) < abs(c2)) // c1 is smallest, pick the direction of c2
         {
-            idspos.push_back(i);
-            if (abs(c1) < abs(c2)) // c1 is smallest, pick the direction of c2
-            {
-                ortho.push_back(curvDir[i][1].normalized());
-            }
-            else
-            {
-                ortho.push_back(curvDir[i][0].normalized());
-            }
+            ortho.push_back(curvDir[i][1].normalized());
         }
         else
         {
-            idsneg.push_back(i);
-            
-            double cc = -c2 / (c1 - c2);
-            double ss = c1 / (c1 - c2);
-            coscos.push_back(cc);
+            ortho.push_back(curvDir[i][0].normalized());
         }
+        // if (c1 * c2 > 0) // same sign, directly pick the smallest absolute curvature
+        // {
+        //     idspos.push_back(i);
+        //     if (abs(c1) < abs(c2)) // c1 is smallest, pick the direction of c2
+        //     {
+        //         ortho.push_back(curvDir[i][1].normalized());
+        //     }
+        //     else
+        //     {
+        //         ortho.push_back(curvDir[i][0].normalized());
+        //     }
+        // }
+        // else
+        // {
+        //     idsneg.push_back(i);
+            
+        //     double cc = -c2 / (c1 - c2);
+        //     double ss = c1 / (c1 - c2);
+        //     coscos.push_back(cc);
+        // }
     }
 }
 
@@ -5766,6 +5890,6 @@ void lsTools::show_minimal_curvature_directions(Eigen::MatrixXd& E0, Eigen::Matr
 void lsTools::debug_tool(){
     Eigen::VectorXi info;
 
-    orthogonal_slope_for_different_shading_types(1, info, V, F, norm_f, 0, 180, 10,
-    30, 0,180, Fslope, OrthoSlope);
+    orthogonal_slope_for_different_shading_types(1, InnerV, info, V, F, norm_f, 0, 180, 10,
+                                                 30, 0, 180, Fslope, OrthoSlope);
 }

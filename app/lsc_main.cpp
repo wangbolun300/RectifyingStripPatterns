@@ -27,7 +27,7 @@ namespace lscif
 
 	const Eigen::RowVector3d sea_green(70. / 255., 252. / 255., 167. / 255.);
 	const Eigen::RowVector3d hot_red(255. / 255., 12. / 255., 17. / 255.);
-	const Eigen::RowVector3d pure_blk(0,0,0);
+	const Eigen::RowVector3d pure_blk(0, 0, 0);
 	MeshProcessing MP;
 
 	// This V and F are only for visulization of the default mesh
@@ -50,8 +50,8 @@ namespace lscif
 	double weight_laplacian = 10;
 	double weight_pseudo_geodesic = 10;
 	double weight_strip_width = 1;
-	double weight_geodesic= 3;
-    // double weight_shading = 0.01; // For shading: the light is othogonal to the tangent direction 
+	double weight_geodesic = 3;
+	// double weight_shading = 0.01; // For shading: the light is othogonal to the tangent direction
 
 	double maximal_step_length = 0.5;
 	bool enable_inner_vers_fixed = false;
@@ -65,8 +65,8 @@ namespace lscif
 	// Tracing Parameters
 	int which_seg_id = 0; // the face id of which we will assign value to
 	int nbr_of_intervals = 3;
-	int start_bnd_he = 0;// start boundary halfedge, for init the values by assign values on some edges
-    int nbr_edges = 20;
+	int start_bnd_he = 0; // start boundary halfedge, for init the values by assign values on some edges
+	int nbr_edges = 20;
 	int id_debug_global = 5;
 	double target_angle = 60;
 	double target_angle_2 = 60;
@@ -88,7 +88,6 @@ namespace lscif
 	int TracingType = 0;
 	// int QuadOptType = 0;
 
-
 	int OpIter = 10;
 	CGMesh mesh;
 	CGMesh RefMesh;
@@ -104,14 +103,13 @@ namespace lscif
 	Eigen::VectorXd readed_LS3;
 	std::vector<CGMesh> readed_mesh1;
 	CGMesh readed_mesh2;
-	int Nbr_Iterations_Mesh_Opt=10;
+	int Nbr_Iterations_Mesh_Opt = 10;
 	double weight_Mesh_mass = 100;
-	double weight_Mesh_smoothness=0.001;
+	double weight_Mesh_smoothness = 0.001;
 	double weight_Mesh_edgelength = 0.01;
-    double weight_Mesh_pesudo_geodesic=30;
-    double Mesh_opt_max_step_length=0.1;
+	double weight_Mesh_pesudo_geodesic = 30;
+	double Mesh_opt_max_step_length = 0.1;
 	double weight_Mesh_approximation = 0.01;
-
 
 	int update_ver_id;
 	int ring_nbr;
@@ -124,16 +122,16 @@ namespace lscif
 	PolyOpt poly_tool;
 	QuadOpt quad_tool;
 	double weight_angle = 0;
-	double InputPx = 0; // theta
+	double InputPx = 0;	  // theta
 	double InputPy = 180; // phi
 
 	double InputPx1 = 0;
 	double InputPy1 = 180;
-	
-	double InputThetaTol = 23.5; // give 10 degrees of tolerance
+
+	double InputThetaTol = 23.5;  // give 10 degrees of tolerance
 	double InputThetaTol1 = 23.5; // give 10 degrees of tolerance
-	double InputPhiTol = 45; // give 10 degrees of tolerance
-	double InputPhiTol1 = 45; // give 10 degrees of tolerance
+	double InputPhiTol = 45;	  // give 10 degrees of tolerance
+	double InputPhiTol1 = 45;	  // give 10 degrees of tolerance
 
 	double Shading_Latitude = 34;
 	bool enable_max_energy_check = false;
@@ -170,11 +168,8 @@ namespace lscif
 
 	// functional angles stuff.
 	bool Disable_Changed_Angles = false;
-    bool Use_Fitting_Angles = false; 
+	bool Use_Fitting_Angles = false;
 	bool Use_Opt_Only_BNMS = false;
-
-
-
 
 	// add a new mesh into the mesh lists, and show the new mesh along with previous showed meshes
 	void updateMeshViewer(igl::opengl::glfw::Viewer &viewer, CGMesh &mesh)
@@ -351,7 +346,6 @@ namespace lscif
 				if (lscif::tools.fvalues.rows() > 0)
 				{
 					std::cout << "level set value " << lscif::tools.fvalues[vid] << std::endl;
-					
 				}
 				Eigen::VectorXd energy;
 				lscif::tools.show_max_pg_energy(energy);
@@ -365,8 +359,9 @@ namespace lscif
 				{
 					std::cout << energy_all.row(vid) << std::endl;
 				}
-				else{
-					std::cout<<"the size of energy_all, "<<energy_all.rows()<<std::endl;
+				else
+				{
+					std::cout << "the size of energy_all, " << energy_all.rows() << std::endl;
 				}
 
 				std::cout << "point position: (" << viewer.data().V(vid, 0) << ", " << viewer.data().V(vid, 1) << ", " << viewer.data().V(vid, 2) << ")\n\n";
@@ -452,7 +447,7 @@ namespace lscif
 				return true;
 			}
 		}
-		
+
 		left_button_down = true;
 		return false;
 	}
@@ -478,30 +473,29 @@ namespace lscif
 		return true;
 		return false;
 	}
-	bool mouse_move(igl::opengl::glfw::Viewer & viewer, int mouse_x, int mouse_y){
+	bool mouse_move(igl::opengl::glfw::Viewer &viewer, int mouse_x, int mouse_y)
+	{
 		if (draw_strokes && left_button_down)
 		{
 			// Eigen::Vector3d posEnd = igl::unproject(
-            //      Eigen::Vector3f(viewer.current_mouse_x,
-            //                      viewer.core().viewport[3] -
-            //                        static_cast<float>(viewer.current_mouse_y),
-            //                      viewer.down_mouse_z),
-            //      viewer.core().view,
-            //      viewer.core().proj,
-            //      viewer.core().viewport)
-            //      .template cast<double>();
+			//      Eigen::Vector3f(viewer.current_mouse_x,
+			//                      viewer.core().viewport[3] -
+			//                        static_cast<float>(viewer.current_mouse_y),
+			//                      viewer.down_mouse_z),
+			//      viewer.core().view,
+			//      viewer.core().proj,
+			//      viewer.core().viewport)
+			//      .template cast<double>();
 			// 	 std::cout<<"posend, "<<posEnd.transpose()<<std::endl;
-				
 
-				double x = viewer.current_mouse_x;
-				double y = viewer.core().viewport(3) - viewer.current_mouse_y;
-				lscif::project_x_tmp.push_back(x);
-				lscif::project_y_tmp.push_back(y);
-				
-				// sleep(0.05);
-				
+			double x = viewer.current_mouse_x;
+			double y = viewer.core().viewport(3) - viewer.current_mouse_y;
+			lscif::project_x_tmp.push_back(x);
+			lscif::project_y_tmp.push_back(y);
 
-				 return true;
+			// sleep(0.05);
+
+			return true;
 		}
 		return false;
 	}
@@ -641,18 +635,17 @@ int main(int argc, char *argv[])
 			{
 				std::cout << "\nlevel set saved" << std::endl;
 			}
-			
 		}
 		if (ImGui::Button("Read Binormals", ImVec2(ImGui::GetWindowSize().x * 0.25f, 0.0f)))
 		{
-			std::cout<<"Select a Bi-normal file for visulization"<<std::endl;
+			std::cout << "Select a Bi-normal file for visulization" << std::endl;
 			read_bi_normals(lscif::tools.Binormals);
-			std::cout<<"bi-normals got readed"<<std::endl;
+			std::cout << "bi-normals got readed" << std::endl;
 		}
 		ImGui::SameLine();
 		if (ImGui::Button("Debug", ImVec2(ImGui::GetWindowSize().x * 0.25f, 0.0f)))
 		{
-			
+
 			//  Eigen::Vector3d light =  get_light_rotated_back_from_earth_axis(lscif::Shading_Latitude, lscif::InputPx, lscif::InputPy);
 			//  std::cout<<"The light direction rotated back is\n "<<light<<std::endl;
 			// std::cout<<"checking the angle between the light and the target light"<<std::endl;
@@ -667,12 +660,11 @@ int main(int argc, char *argv[])
 			// std::cout<<"ploting the angle between the light and the surface"<<std::endl;
 			// lscif::tools.shading_detect_parallel_patch(lscif::InputPx, lscif::InputPy, diff);
 			// viewer.data().set_colors(diff);
-
 		}
 		ImGui::SameLine();
 		if (ImGui::Button("UseUnitScaleMesh", ImVec2(ImGui::GetWindowSize().x * 0.25f, 0.0f)))
 		{
-			std::cout<<"Mesh Unit Scale According to Edge Length"<<std::endl;
+			std::cout << "Mesh Unit Scale According to Edge Length" << std::endl;
 			int id = viewer.selected_data_index;
 			CGMesh updatedMesh;
 			CGMesh inputMesh = lscif::Meshes[id];
@@ -683,8 +675,6 @@ int main(int argc, char *argv[])
 			viewer.selected_data_index = id;
 			lscif::mesh = updatedMesh;
 			lscif::tools.init(updatedMesh);
-
-
 		}
 
 		// Add new group
@@ -696,7 +686,6 @@ int main(int argc, char *argv[])
 			ImGui::InputDouble("second angle", &lscif::target_angle_2, 0, 0, "%.4f");
 			ImGui::InputInt("Which Levelset", &lscif::which_levelset, 0, 0);
 			ImGui::InputDouble("weight_geodesic", &lscif::weight_geodesic, 0, 0, "%.4f");
-			
 		}
 
 		if (ImGui::CollapsingHeader("Energy Solving", ImGuiTreeNodeFlags_CollapsingHeader))
@@ -731,24 +720,22 @@ int main(int argc, char *argv[])
 			ImGui::Checkbox("Enable Smooth Boundary", &lscif::enable_inner_vers_fixed);
 			ImGui::SameLine();
 			ImGui::Checkbox("Enable Boundary Angles", &lscif::enable_boundary_angles);
-			
 		}
 
 		// ImGui::Checkbox("Fix Boundary", &lscif::fixBoundary_checkbox);
-	
 
-	if (ImGui::CollapsingHeader("Tracing", ImGuiTreeNodeFlags_DefaultOpen))
-	{
-		ImGui::Combo("TracingType", &lscif::TracingType,
-                 "SegTrace\0OneEdgeTrace\0SegDrctn\0\0"), 
+		if (ImGui::CollapsingHeader("Tracing", ImGuiTreeNodeFlags_DefaultOpen))
+		{
+			ImGui::Combo("TracingType", &lscif::TracingType,
+						 "SegTrace\0OneEdgeTrace\0SegDrctn\0\0"),
 
-		ImGui::InputInt("Select 1 boundary", &lscif::which_seg_id, 0, 0);
-		ImGui::InputInt("every i segments", &lscif::nbr_of_intervals, 0, 0);
-		ImGui::InputInt("start bnd edge ", &lscif::start_bnd_he, 0, 0);
-		ImGui::InputInt("nbr bnd edges ", &lscif::nbr_edges, 0, 0);
-		ImGui::InputDouble("start angle", &lscif::start_angle, 0, 0, "%.4f");
-		ImGui::InputDouble("corner angle", &lscif::threadshold_angel_degree, 0, 0, "%.4f");
-		if (ImGui::Button("Trace Curves", ImVec2(ImGui::GetWindowSize().x * 0.23f, 0.0f)))
+				ImGui::InputInt("Select 1 boundary", &lscif::which_seg_id, 0, 0);
+			ImGui::InputInt("every i segments", &lscif::nbr_of_intervals, 0, 0);
+			ImGui::InputInt("start bnd edge ", &lscif::start_bnd_he, 0, 0);
+			ImGui::InputInt("nbr bnd edges ", &lscif::nbr_edges, 0, 0);
+			ImGui::InputDouble("start angle", &lscif::start_angle, 0, 0, "%.4f");
+			ImGui::InputDouble("corner angle", &lscif::threadshold_angel_degree, 0, 0, "%.4f");
+			if (ImGui::Button("Trace Curves", ImVec2(ImGui::GetWindowSize().x * 0.23f, 0.0f)))
 			{
 				int id = viewer.selected_data_index;
 				CGMesh updatedMesh;
@@ -761,18 +748,19 @@ int main(int argc, char *argv[])
 				Tracing_initializer.which_boundary_segment = lscif::which_seg_id;
 				Tracing_initializer.start_bnd_he = lscif::start_bnd_he;
 				Tracing_initializer.nbr_edges = lscif::nbr_edges;
-				if(lscif::TracingType==0){
+				if (lscif::TracingType == 0)
+				{
 					lscif::tools.initialize_level_set_by_select_boundary_segment(Tracing_initializer, true);
 				}
-				if(lscif::TracingType==1){
+				if (lscif::TracingType == 1)
+				{
 					lscif::tools.initialize_level_set_by_tracing(Tracing_initializer);
-				}	
-				if(lscif::TracingType==2){
+				}
+				if (lscif::TracingType == 2)
+				{
 					lscif::tools.initialize_level_set_by_select_boundary_segment(Tracing_initializer, false);
 				}
-				
-				
-				
+
 				std::cout << "finish tracing" << std::endl;
 				lscif::updateMeshViewer(viewer, inputMesh);
 				lscif::meshFileName.push_back("dbg_" + lscif::meshFileName[id]);
@@ -816,7 +804,7 @@ int main(int argc, char *argv[])
 				const Eigen::RowVector3d black(0, 0, 0);
 				const Eigen::RowVector3d green(0.2, 0.8, 0.2);
 				Eigen::MatrixXd bE0, bE1, nE0, nE1;
-				lscif::tools.show_traced_binormals(bE0,bE1,nE0,nE1, lscif::vector_scaling);
+				lscif::tools.show_traced_binormals(bE0, bE1, nE0, nE1, lscif::vector_scaling);
 
 				viewer.data().add_edges(bE0, bE1, green);
 				viewer.data().add_edges(nE0, nE1, blue);
@@ -835,17 +823,19 @@ int main(int argc, char *argv[])
 				Tracing_initializer.which_boundary_segment = lscif::which_seg_id;
 				Tracing_initializer.start_bnd_he = lscif::start_bnd_he;
 				Tracing_initializer.nbr_edges = lscif::nbr_edges;
-				if(lscif::TracingType==0){
+				if (lscif::TracingType == 0)
+				{
 					lscif::tools.initialize_level_set_by_select_boundary_segment(Tracing_initializer, true);
 				}
-				if(lscif::TracingType==1){
+				if (lscif::TracingType == 1)
+				{
 					lscif::tools.initialize_level_set_by_tracing(Tracing_initializer);
-				}	
-				if(lscif::TracingType==2){
+				}
+				if (lscif::TracingType == 2)
+				{
 					lscif::tools.initialize_level_set_by_select_boundary_segment(Tracing_initializer, false);
 				}
-				
-				
+
 				std::cout << "finish tracing" << std::endl;
 				lscif::updateMeshViewer(viewer, inputMesh);
 				lscif::meshFileName.push_back("dbg_" + lscif::meshFileName[id]);
@@ -877,19 +867,19 @@ int main(int argc, char *argv[])
 					viewer.data().add_points(pts, red);
 				}
 				viewer.selected_data_index = id;
-				std::cout<<"SAVING The Traced Vertices, please provide the prefix..."<<std::endl;
+				std::cout << "SAVING The Traced Vertices, please provide the prefix..." << std::endl;
 				std::string fname = igl::file_dialog_save();
 				// std::ofstream file;
 				// file.open(fname);
 				lscif::tools.save_traced_curves(fname);
-				
+
 				// file.close();
 
 				std::cout << "Traced Data SAVED" << std::endl;
 
 				// std::cout<<"acos(1) "<<acos(1.)<<std::endl;
 			}
-			
+
 			if (ImGui::Button("LoadTracedCurves", ImVec2(ImGui::GetWindowSize().x * 0.23f, 0.0f)))
 			{
 				lscif::tools.load_one_traced_curve();
@@ -913,17 +903,19 @@ int main(int argc, char *argv[])
 				Tracing_initializer.which_boundary_segment = lscif::which_seg_id;
 				Tracing_initializer.start_bnd_he = lscif::start_bnd_he;
 				Tracing_initializer.nbr_edges = lscif::nbr_edges;
-				if(lscif::TracingType==0){
+				if (lscif::TracingType == 0)
+				{
 					lscif::tools.initialize_level_set_by_select_boundary_segment(Tracing_initializer, true);
 				}
-				if(lscif::TracingType==1){
+				if (lscif::TracingType == 1)
+				{
 					lscif::tools.initialize_level_set_by_tracing(Tracing_initializer);
-				}	
-				if(lscif::TracingType==2){
+				}
+				if (lscif::TracingType == 2)
+				{
 					lscif::tools.initialize_level_set_by_select_boundary_segment(Tracing_initializer, false);
 				}
-				
-				
+
 				std::cout << "finish tracing" << std::endl;
 				lscif::updateMeshViewer(viewer, inputMesh);
 				lscif::meshFileName.push_back("dbg_" + lscif::meshFileName[id]);
@@ -955,10 +947,10 @@ int main(int argc, char *argv[])
 					viewer.data().add_points(pts, red);
 				}
 				viewer.selected_data_index = id;
-				std::cout<<"SAVING The Traced Vertices, Binormals and Normals into obj format, please provide prefix"<<std::endl;
+				std::cout << "SAVING The Traced Vertices, Binormals and Normals into obj format, please provide prefix" << std::endl;
 				std::string fname = igl::file_dialog_save();
 				std::ofstream file;
-				file.open(fname+".obj");
+				file.open(fname + ".obj");
 				for (int i = 0; i < pts.rows(); i++)
 				{
 					file << "v " << pts(i, 0) << " " << pts(i, 1) << " " << pts(i, 2) << std::endl;
@@ -969,8 +961,7 @@ int main(int argc, char *argv[])
 				Eigen::MatrixXd bE0, bE1, nE0, nE1;
 				lscif::tools.show_traced_binormals(bE0, bE1, nE0, nE1, lscif::vector_scaling);
 
-				
-				file.open(fname+"_start.obj");
+				file.open(fname + "_start.obj");
 				assert(bE0.rows() == pts.rows() - 2 && "Please Trace only one curve so we can save the correct data");
 				for (int i = 0; i < bE0.rows(); i++)
 				{
@@ -979,7 +970,7 @@ int main(int argc, char *argv[])
 
 				file.close();
 
-				file.open(fname+"_binormal_end.obj");
+				file.open(fname + "_binormal_end.obj");
 				for (int i = 0; i < bE1.rows(); i++)
 				{
 					file << "v " << bE1(i, 0) << " " << bE1(i, 1) << " " << bE1(i, 2) << std::endl;
@@ -987,8 +978,7 @@ int main(int argc, char *argv[])
 
 				file.close();
 
-
-				file.open(fname+"_normal_end.obj");
+				file.open(fname + "_normal_end.obj");
 				for (int i = 0; i < nE1.rows(); i++)
 				{
 					file << "v " << nE1(i, 0) << " " << nE1(i, 1) << " " << nE1(i, 2) << std::endl;
@@ -996,15 +986,13 @@ int main(int argc, char *argv[])
 
 				file.close();
 
-				
-
 				std::cout << "Traced Data SAVED" << std::endl;
 
 				// std::cout<<"acos(1) "<<acos(1.)<<std::endl;
 			}
 			ImGui::SameLine();
 			if (ImGui::Button("SaveCurveParam", ImVec2(ImGui::GetWindowSize().x * 0.23f, 0.0f)))
-			{// this is to save the parametrized tracing results.
+			{ // this is to save the parametrized tracing results.
 
 				const Eigen::RowVector3d red(0.8, 0.2, 0.2);
 				const Eigen::RowVector3d blue(0.2, 0.2, 0.8);
@@ -1016,13 +1004,14 @@ int main(int argc, char *argv[])
 				std::cout << "Load one curve, convert it into 2d, then save it as an obj file" << std::endl;
 
 				lscif::tools.show_traced_curve_params(pts);
-				if(pts.rows()==0){
-					std::cout<<"Please follow the instructions before using this button"<<std::endl;
+				if (pts.rows() == 0)
+				{
+					std::cout << "Please follow the instructions before using this button" << std::endl;
 					ImGui::End();
 					return;
 				}
 				viewer.data().add_points(pts, red);
-				std::cout<<"Saving the curve points in parametrization domain..."<<std::endl;
+				std::cout << "Saving the curve points in parametrization domain..." << std::endl;
 				std::string fname = igl::file_dialog_save();
 				std::ofstream file;
 				file.open(fname);
@@ -1032,11 +1021,9 @@ int main(int argc, char *argv[])
 				}
 
 				file.close();
-
-				
 			}
-		// ImGui::SameLine();
-		// ImGui::Checkbox("Fix Boundary", &lscif::fixBoundary_checkbox);
+			// ImGui::SameLine();
+			// ImGui::Checkbox("Fix Boundary", &lscif::fixBoundary_checkbox);
 		}
 		ImGui::Separator();
 
@@ -1058,8 +1045,8 @@ int main(int argc, char *argv[])
 			ImGui::SameLine();
 			if (ImGui::Button("drawPt", ImVec2(ImGui::GetWindowSize().x * 0.23f, 0.0f)))
 			{
-				Eigen::MatrixXd pts(1,3);
-				pts.row(0)<<lscif::ptInx,lscif::ptIny,lscif::ptInz;
+				Eigen::MatrixXd pts(1, 3);
+				pts.row(0) << lscif::ptInx, lscif::ptIny, lscif::ptInz;
 				viewer.data().add_points(pts, lscif::hot_red);
 			}
 			if (ImGui::Button("ReadVers&Write", ImVec2(ImGui::GetWindowSize().x * 0.23f, 0.0f)))
@@ -1072,10 +1059,10 @@ int main(int argc, char *argv[])
 				// read_pts_csv_and_write_xyz_files();
 				// recover_polyline_endpts();
 				// using intersections of the rectifying planes to get the developable.
-				// construct_single_developable_strips_by_intersect_rectifying(0); 
-				// write_unfold_single_strip();    
+				// construct_single_developable_strips_by_intersect_rectifying(0);
+				// write_unfold_single_strip();
 				// draw_catenaries_on_cylinder();
-				Eigen::MatrixXd Vcout; 
+				Eigen::MatrixXd Vcout;
 				Eigen::MatrixXd Vlout;
 				match_the_two_catenaries(lscif::tools.lsmesh, lscif::tools.Boundary_Edges, lscif::tools.V,
 										 lscif::tools.F, lscif::tools.fvalues, Vcout, Vlout);
@@ -1088,21 +1075,18 @@ int main(int argc, char *argv[])
 				// read_pts_csv_and_write_xyz_files();
 				// recover_polyline_endpts();
 				// using intersections of the rectifying planes to get the developable.
-				// construct_single_developable_strips_by_intersect_rectifying(0); 
-				// write_unfold_single_strip();    
+				// construct_single_developable_strips_by_intersect_rectifying(0);
+				// write_unfold_single_strip();
 				// draw_catenaries_on_cylinder();
 				lscif::tools.debug_tool();
 			}
 		}
 		if (ImGui::CollapsingHeader("LS Processing", ImGuiTreeNodeFlags_DefaultOpen))
 		{
-			
-
 
 			if (ImGui::Button("LvSet Opt", ImVec2(ImGui::GetWindowSize().x * 0.23f, 0.0f)))
 			{
 
-				
 				EnergyPrepare einit;
 				einit.weight_gravity = lscif::weight_mass;
 				einit.weight_lap = lscif::weight_laplacian;
@@ -1133,7 +1117,7 @@ int main(int argc, char *argv[])
 				lscif::tools.Phi_tol = lscif::InputPhiTol;
 				lscif::tools.Theta_tol1 = lscif::InputThetaTol1;
 				lscif::tools.Phi_tol1 = lscif::InputPhiTol1;
-				lscif::tools.weight_geodesic=lscif::weight_geodesic;
+				lscif::tools.weight_geodesic = lscif::weight_geodesic;
 				lscif::tools.enable_max_energy_check = lscif::enable_max_energy_check;
 				lscif::tools.max_energy_percentage = lscif::max_e_percentage;
 				lscif::tools.enable_shading_init = lscif::shading_init;
@@ -1143,7 +1127,6 @@ int main(int argc, char *argv[])
 				lscif::tools.ShadingLatitude = lscif::Shading_Latitude;
 				lscif::tools.enable_reflection = lscif::let_ray_reflect;
 				lscif::tools.recompute_auxiliaries = lscif::recompute_auxiliaries;
-				
 
 				for (int i = 0; i < lscif::OpIter; i++)
 				{
@@ -1164,7 +1147,8 @@ int main(int argc, char *argv[])
 
 				Eigen::VectorXd level_set_values;
 				lscif::tools.show_level_set(level_set_values);
-				if(level_set_values.size()==0){
+				if (level_set_values.size() == 0)
+				{
 					ImGui::End();
 					return;
 				}
@@ -1186,8 +1170,9 @@ int main(int argc, char *argv[])
 			ImGui::SameLine();
 			if (ImGui::Button("Mesh Opt", ImVec2(ImGui::GetWindowSize().x * 0.25f, 0.0f)))
 			{
-				if(lscif::tools.fvalues.size()==0){
-					std::cout<<"Please load or initialize the level-set before opt the mesh"<<std::endl;
+				if (lscif::tools.fvalues.size() == 0)
+				{
+					std::cout << "Please load or initialize the level-set before opt the mesh" << std::endl;
 					ImGui::End();
 					return;
 				}
@@ -1195,13 +1180,13 @@ int main(int argc, char *argv[])
 				CGMesh updatedMesh;
 				CGMesh inputMesh = lscif::Meshes[id];
 				MeshEnergyPrepare initializer;
-				initializer.Mesh_opt_max_step_length=lscif::Mesh_opt_max_step_length;
-				initializer.weight_Mesh_pesudo_geodesic=lscif::weight_Mesh_pesudo_geodesic;
-				initializer.weight_Mesh_smoothness=lscif::weight_Mesh_smoothness;
-				initializer.weight_mass=lscif::weight_mass;
-				initializer.target_angle=lscif::target_angle;
+				initializer.Mesh_opt_max_step_length = lscif::Mesh_opt_max_step_length;
+				initializer.weight_Mesh_pesudo_geodesic = lscif::weight_Mesh_pesudo_geodesic;
+				initializer.weight_Mesh_smoothness = lscif::weight_Mesh_smoothness;
+				initializer.weight_mass = lscif::weight_mass;
+				initializer.target_angle = lscif::target_angle;
 				initializer.weight_Mesh_edgelength = lscif::weight_Mesh_edgelength;
-				initializer.enable_extreme_cases=lscif::enable_extreme_cases;
+				initializer.enable_extreme_cases = lscif::enable_extreme_cases;
 				initializer.Given_Const_Direction = lscif::Given_Const_Direction;
 				lscif::tools.weight_Mesh_approximation = lscif::weight_Mesh_approximation;
 				lscif::tools.weight_Mesh_mass = lscif::weight_Mesh_mass;
@@ -1215,17 +1200,17 @@ int main(int argc, char *argv[])
 				// lscif::tools.Theta_tol2 = lscif::InputPhiTol;
 				// lscif::tools.Phi_tol2 = lscif::InputPhiTol1;
 				lscif::tools.prepare_mesh_optimization_solving(initializer);
-				for(int i=0;i<lscif::Nbr_Iterations_Mesh_Opt;i++){
+				for (int i = 0; i < lscif::Nbr_Iterations_Mesh_Opt; i++)
+				{
 					lscif::tools.Run_Mesh_Opt();
 				}
-				updatedMesh=lscif::tools.lsmesh;
+				updatedMesh = lscif::tools.lsmesh;
 				lscif::updateMeshViewer(viewer, updatedMesh);
 				lscif::meshFileName.push_back("mso_" + lscif::meshFileName[id]);
 				lscif::Meshes.push_back(updatedMesh);
-				
+
 				viewer.selected_data_index = id;
-				std::cout<<"waiting for instructions"<<std::endl;
-				
+				std::cout << "waiting for instructions" << std::endl;
 			}
 			ImGui::SameLine();
 			if (ImGui::Button("Orthogonal LS", ImVec2(ImGui::GetWindowSize().x * 0.25f, 0.0f)))
@@ -1254,8 +1239,9 @@ int main(int argc, char *argv[])
 				lscif::tools.weight_fix_two_ls_angle = lscif::weight_fix_two_ls_angle;
 				// lscif::tools.weight_shading = lscif::weight_shading;
 				lscif::tools.prepare_level_set_solving(einit);
-				if(lscif::readed_LS1.size()==0){
-					std::cout<<"Please load LevelSet 1 as a reference"<<std::endl;
+				if (lscif::readed_LS1.size() == 0)
+				{
+					std::cout << "Please load LevelSet 1 as a reference" << std::endl;
 					ImGui::End();
 					return;
 				}
@@ -1276,7 +1262,8 @@ int main(int argc, char *argv[])
 
 				Eigen::VectorXd level_set_values;
 				lscif::tools.show_level_set(level_set_values);
-				if(level_set_values.size()==0){
+				if (level_set_values.size() == 0)
+				{
 					ImGui::End();
 					return;
 				}
@@ -1294,13 +1281,11 @@ int main(int argc, char *argv[])
 				const Eigen::RowVector3d blue(0.2, 0.2, 0.8);
 
 				viewer.selected_data_index = id;
-				
 			}
 			ImGui::SameLine();
 			if (ImGui::Button("AngleVariable", ImVec2(ImGui::GetWindowSize().x * 0.23f, 0.0f)))
 			{
 
-				
 				EnergyPrepare einit;
 				einit.weight_gravity = lscif::weight_mass;
 				einit.weight_lap = lscif::weight_laplacian;
@@ -1332,7 +1317,7 @@ int main(int argc, char *argv[])
 				lscif::tools.Phi_tol = lscif::InputPhiTol;
 				lscif::tools.Theta_tol1 = lscif::InputThetaTol1;
 				lscif::tools.Phi_tol1 = lscif::InputPhiTol1;
-				lscif::tools.weight_geodesic=lscif::weight_geodesic;
+				lscif::tools.weight_geodesic = lscif::weight_geodesic;
 				lscif::tools.enable_max_energy_check = lscif::enable_max_energy_check;
 				lscif::tools.max_energy_percentage = lscif::max_e_percentage;
 				lscif::tools.enable_shading_init = lscif::shading_init;
@@ -1342,7 +1327,6 @@ int main(int argc, char *argv[])
 				lscif::tools.ShadingLatitude = lscif::Shading_Latitude;
 				lscif::tools.enable_reflection = lscif::let_ray_reflect;
 				lscif::tools.recompute_auxiliaries = lscif::recompute_auxiliaries;
-				
 
 				for (int i = 0; i < lscif::OpIter; i++)
 				{
@@ -1363,7 +1347,8 @@ int main(int argc, char *argv[])
 
 				Eigen::VectorXd level_set_values;
 				lscif::tools.show_level_set(level_set_values);
-				if(level_set_values.size()==0){
+				if (level_set_values.size() == 0)
+				{
 					ImGui::End();
 					return;
 				}
@@ -1384,8 +1369,9 @@ int main(int argc, char *argv[])
 			}
 			if (ImGui::Button("AAG LvSet", ImVec2(ImGui::GetWindowSize().x * 0.25f, 0.0f)))
 			{
-				if(lscif::readed_LS1.size()==0|| lscif::readed_LS2.size()==0){
-					std::cout<<"Please Read the correct levelset 1 and levelset 2"<<std::endl;
+				if (lscif::readed_LS1.size() == 0 || lscif::readed_LS2.size() == 0)
+				{
+					std::cout << "Please Read the correct levelset 1 and levelset 2" << std::endl;
 					ImGui::End();
 					return;
 				}
@@ -1408,10 +1394,10 @@ int main(int argc, char *argv[])
 				einit.target_max_angle = lscif::target_max_angle;
 				einit.start_angle = lscif::start_angle;
 				einit.enable_boundary_angles = lscif::enable_boundary_angles;
-				
+
 				lscif::tools.prepare_level_set_solving(einit);
-				lscif::tools.weight_geodesic=lscif::weight_geodesic;
-				
+				lscif::tools.weight_geodesic = lscif::weight_geodesic;
+
 				for (int i = 0; i < lscif::OpIter; i++)
 				{
 					lscif::tools.Run_AAG(lscif::readed_LS1, lscif::readed_LS2, lscif::readed_LS3);
@@ -1428,14 +1414,14 @@ int main(int argc, char *argv[])
 				lscif::Meshes.push_back(inputMesh);
 
 				viewer.selected_data_index = id;
-				
 			}
 			ImGui::SameLine();
 
 			if (ImGui::Button("AAG MshOpt", ImVec2(ImGui::GetWindowSize().x * 0.25f, 0.0f)))
 			{
-				if(lscif::readed_LS1.size()==0|| lscif::readed_LS2.size()==0){
-					std::cout<<"Please Read the correct levelset 1 and levelset 2"<<std::endl;
+				if (lscif::readed_LS1.size() == 0 || lscif::readed_LS2.size() == 0)
+				{
+					std::cout << "Please Read the correct levelset 1 and levelset 2" << std::endl;
 					ImGui::End();
 					return;
 				}
@@ -1443,14 +1429,14 @@ int main(int argc, char *argv[])
 				CGMesh updatedMesh;
 				CGMesh inputMesh = lscif::Meshes[id];
 				MeshEnergyPrepare initializer;
-				initializer.Mesh_opt_max_step_length=lscif::Mesh_opt_max_step_length;
-				initializer.weight_Mesh_pesudo_geodesic=lscif::weight_Mesh_pesudo_geodesic;
-				initializer.weight_Mesh_smoothness=lscif::weight_Mesh_smoothness;
-				initializer.weight_mass=lscif::weight_mass;
+				initializer.Mesh_opt_max_step_length = lscif::Mesh_opt_max_step_length;
+				initializer.weight_Mesh_pesudo_geodesic = lscif::weight_Mesh_pesudo_geodesic;
+				initializer.weight_Mesh_smoothness = lscif::weight_Mesh_smoothness;
+				initializer.weight_mass = lscif::weight_mass;
 				initializer.target_angle = lscif::target_angle;
 				initializer.weight_Mesh_edgelength = lscif::weight_Mesh_edgelength;
 				initializer.enable_extreme_cases = lscif::enable_extreme_cases;
-				lscif::tools.weight_geodesic=lscif::weight_geodesic;
+				lscif::tools.weight_geodesic = lscif::weight_geodesic;
 				lscif::tools.weight_Mesh_mass = lscif::weight_Mesh_mass;
 				lscif::tools.weight_Mesh_approximation = lscif::weight_Mesh_approximation;
 				lscif::tools.prepare_mesh_optimization_solving(initializer);
@@ -1469,8 +1455,9 @@ int main(int argc, char *argv[])
 			ImGui::SameLine();
 			if (ImGui::Button("AGG LvSet", ImVec2(ImGui::GetWindowSize().x * 0.23f, 0.0f)))
 			{
-				if(lscif::readed_LS1.size()==0|| lscif::readed_LS2.size()==0){
-					std::cout<<"Please Read the correct levelset 1 and levelset 2"<<std::endl;
+				if (lscif::readed_LS1.size() == 0 || lscif::readed_LS2.size() == 0)
+				{
+					std::cout << "Please Read the correct levelset 1 and levelset 2" << std::endl;
 					ImGui::End();
 					return;
 				}
@@ -1496,10 +1483,10 @@ int main(int argc, char *argv[])
 				lscif::tools.fix_angle_of_two_levelsets = lscif::fix_angle_of_two_levelsets;
 				lscif::tools.angle_between_two_levelsets = lscif::angle_between_two_levelsets;
 				lscif::tools.weight_fix_two_ls_angle = lscif::weight_fix_two_ls_angle;
-				
+
 				lscif::tools.prepare_level_set_solving(einit);
-				lscif::tools.weight_geodesic=lscif::weight_geodesic;
-				
+				lscif::tools.weight_geodesic = lscif::weight_geodesic;
+
 				for (int i = 0; i < lscif::OpIter; i++)
 				{
 					lscif::tools.Run_AGG(lscif::readed_LS1, lscif::readed_LS2, lscif::readed_LS3);
@@ -1520,8 +1507,9 @@ int main(int argc, char *argv[])
 			ImGui::SameLine();
 			if (ImGui::Button("AGG MshOpt", ImVec2(ImGui::GetWindowSize().x * 0.23f, 0.0f)))
 			{
-				if(lscif::readed_LS1.size()==0|| lscif::readed_LS2.size()==0){
-					std::cout<<"Please Read the correct levelset 1 and levelset 2"<<std::endl;
+				if (lscif::readed_LS1.size() == 0 || lscif::readed_LS2.size() == 0)
+				{
+					std::cout << "Please Read the correct levelset 1 and levelset 2" << std::endl;
 					ImGui::End();
 					return;
 				}
@@ -1529,14 +1517,14 @@ int main(int argc, char *argv[])
 				CGMesh updatedMesh;
 				CGMesh inputMesh = lscif::Meshes[id];
 				MeshEnergyPrepare initializer;
-				initializer.Mesh_opt_max_step_length=lscif::Mesh_opt_max_step_length;
-				initializer.weight_Mesh_pesudo_geodesic=lscif::weight_Mesh_pesudo_geodesic;
-				initializer.weight_Mesh_smoothness=lscif::weight_Mesh_smoothness;
-				initializer.weight_mass=lscif::weight_mass;
+				initializer.Mesh_opt_max_step_length = lscif::Mesh_opt_max_step_length;
+				initializer.weight_Mesh_pesudo_geodesic = lscif::weight_Mesh_pesudo_geodesic;
+				initializer.weight_Mesh_smoothness = lscif::weight_Mesh_smoothness;
+				initializer.weight_mass = lscif::weight_mass;
 				initializer.target_angle = lscif::target_angle;
 				initializer.weight_Mesh_edgelength = lscif::weight_Mesh_edgelength;
 				initializer.enable_extreme_cases = lscif::enable_extreme_cases;
-				lscif::tools.weight_geodesic=lscif::weight_geodesic;
+				lscif::tools.weight_geodesic = lscif::weight_geodesic;
 				lscif::tools.weight_Mesh_mass = lscif::weight_Mesh_mass;
 				lscif::tools.weight_Mesh_approximation = lscif::weight_Mesh_approximation;
 				lscif::tools.prepare_mesh_optimization_solving(initializer);
@@ -1552,11 +1540,12 @@ int main(int argc, char *argv[])
 				viewer.selected_data_index = id;
 				std::cout << "waiting for instructions" << std::endl;
 			}
-			
+
 			if (ImGui::Button("PPG LvSet", ImVec2(ImGui::GetWindowSize().x * 0.23f, 0.0f)))
 			{
-				if(lscif::readed_LS1.size()==0|| lscif::readed_LS2.size()==0){
-					std::cout<<"Please Read the correct levelset 1 and levelset 2"<<std::endl;
+				if (lscif::readed_LS1.size() == 0 || lscif::readed_LS2.size() == 0)
+				{
+					std::cout << "Please Read the correct levelset 1 and levelset 2" << std::endl;
 					ImGui::End();
 					return;
 				}
@@ -1582,13 +1571,12 @@ int main(int argc, char *argv[])
 				lscif::tools.fix_angle_of_two_levelsets = lscif::fix_angle_of_two_levelsets;
 				lscif::tools.angle_between_two_levelsets = lscif::angle_between_two_levelsets;
 				lscif::tools.weight_fix_two_ls_angle = lscif::weight_fix_two_ls_angle;
-				lscif::tools.weight_geodesic=lscif::weight_geodesic;
+				lscif::tools.weight_geodesic = lscif::weight_geodesic;
 				lscif::tools.pseudo_geodesic_target_angle_degree = lscif::target_angle;
 				lscif::tools.pseudo_geodesic_target_angle_degree_2 = lscif::target_angle_2;
 
 				lscif::tools.prepare_level_set_solving(einit);
-				
-				
+
 				for (int i = 0; i < lscif::OpIter; i++)
 				{
 					lscif::tools.Run_PPG(lscif::readed_LS1, lscif::readed_LS2, lscif::readed_LS3);
@@ -1609,8 +1597,9 @@ int main(int argc, char *argv[])
 			ImGui::SameLine();
 			if (ImGui::Button("draw AAG", ImVec2(ImGui::GetWindowSize().x * 0.23f, 0.0f)))
 			{
-				if(lscif::readed_LS1.size()==0){
-					std::cout<<"Please Read the correct levelset 1 and levelset 2"<<std::endl;
+				if (lscif::readed_LS1.size() == 0)
+				{
+					std::cout << "Please Read the correct levelset 1 and levelset 2" << std::endl;
 					ImGui::End();
 					return;
 				}
@@ -1653,8 +1642,9 @@ int main(int argc, char *argv[])
 
 			if (ImGui::Button("draw extracted", ImVec2(ImGui::GetWindowSize().x * 0.23f, 0.0f)))
 			{
-				if(lscif::tools.fvalues.size()==0){
-					std::cout<<"Please init the levelset or load a correct levelset"<<std::endl;
+				if (lscif::tools.fvalues.size() == 0)
+				{
+					std::cout << "Please init the levelset or load a correct levelset" << std::endl;
 					ImGui::End();
 					return;
 				}
@@ -1724,8 +1714,9 @@ int main(int argc, char *argv[])
 			{
 				Eigen::VectorXd level_set_values;
 				lscif::tools.show_level_set(level_set_values);
-				if(level_set_values.size()==0){
-					std::cout<<"Please init the levelset or load a correct levelset"<<std::endl;
+				if (level_set_values.size() == 0)
+				{
+					std::cout << "Please init the levelset or load a correct levelset" << std::endl;
 					ImGui::End();
 					return;
 				}
@@ -1740,7 +1731,7 @@ int main(int argc, char *argv[])
 			{
 				const Eigen::RowVector3d red(0.8, 0.2, 0.2);
 				const Eigen::RowVector3d blue(0.2, 0.2, 0.8);
-				const Eigen::RowVector3d yellow(241./255, 196./255, 15./255);
+				const Eigen::RowVector3d yellow(241. / 255, 196. / 255, 15. / 255);
 
 				const Eigen::RowVector3d black(0, 0, 0);
 				const Eigen::RowVector3d green(0.2, 0.8, 0.2);
@@ -1759,16 +1750,15 @@ int main(int argc, char *argv[])
 					{
 						Eigen::Vector3d direction;
 						direction = angle_ray_converter(lscif::InputPx, lscif::InputPy);
-						
+
 						for (int i = 0; i < light.rows(); i++)
 						{
 							light.row(i) = direction;
 						}
-						
 					}
-					else{
+					else
+					{
 						light = lscif::tools.Lights;
-
 					}
 					Eigen::MatrixXd E2, E3;
 					E2 = lscif::tools.V + lscif::vector_scaling * light;
@@ -1781,33 +1771,32 @@ int main(int argc, char *argv[])
 			{
 				Eigen::VectorXd error;
 				lscif::tools.show_max_pg_energy(error);
-				if(error.size()==0){
-					std::cout<<"Please run Levelset Opt to get the pseudo-geodesic error"<<std::endl;
+				if (error.size() == 0)
+				{
+					std::cout << "Please run Levelset Opt to get the pseudo-geodesic error" << std::endl;
 					ImGui::End();
 					return;
 				}
-				
+
 				viewer.data().set_data(error);
 			}
 			ImGui::SameLine();
 			if (ImGui::Button("draw RefPts", ImVec2(ImGui::GetWindowSize().x * 0.23f, 0.0f)))
 			{
-				std::cout<<"drawing the reference points in yellow"<<std::endl;
+				std::cout << "drawing the reference points in yellow" << std::endl;
 				Eigen::MatrixXd pts;
 				lscif::tools.show_current_reference_points(pts);
-				const Eigen::RowVector3d yellow(241./255, 196./255, 15./255);
+				const Eigen::RowVector3d yellow(241. / 255, 196. / 255, 15. / 255);
 				viewer.data().add_points(pts, yellow);
-				
 			}
 			ImGui::SameLine();
 			if (ImGui::Button("draw Gauss", ImVec2(ImGui::GetWindowSize().x * 0.23f, 0.0f)))
 			{
-				std::cout<<"drawing the sign of Gaussian curvature"<<std::endl;
-				
+				std::cout << "drawing the sign of Gaussian curvature" << std::endl;
+
 				Eigen::MatrixXd pts, color;
 				lscif::tools.show_posi_negt_curvature(color);
 				viewer.data().add_points(lscif::tools.V, color);
-				
 			}
 			ImGui::SameLine();
 			if (ImGui::Button("draw Paramtrztn", ImVec2(ImGui::GetWindowSize().x * 0.23f, 0.0f)))
@@ -1822,8 +1811,9 @@ int main(int argc, char *argv[])
 
 				Eigen::VectorXd level_set_values;
 				lscif::tools.show_level_set(level_set_values);
-				if(level_set_values.size()==0){
-					std::cout<<"Please init the levelset or load a correct levelset"<<std::endl;
+				if (level_set_values.size() == 0)
+				{
+					std::cout << "Please init the levelset or load a correct levelset" << std::endl;
 					ImGui::End();
 					return;
 				}
@@ -1832,7 +1822,6 @@ int main(int argc, char *argv[])
 				igl::isolines_map(Eigen::MatrixXd(CM), CM);
 				viewer.data().set_colormap(CM);
 				viewer.data().set_data(level_set_values);
-				
 			}
 			if (ImGui::Button("SaveUnitScaleMesh", ImVec2(ImGui::GetWindowSize().x * 0.23f, 0.0f)))
 			{
@@ -1909,10 +1898,12 @@ int main(int argc, char *argv[])
 				viewer.data().set_points(igl::slice(viewer.data().V, vids, 1), lscif::hot_red);
 			}
 
-			if (ImGui::Button("ReadPlylines", ImVec2(ImGui::GetWindowSize().x * 0.23f, 0.0f))){
+			if (ImGui::Button("ReadPlylines", ImVec2(ImGui::GetWindowSize().x * 0.23f, 0.0f)))
+			{
 				int id = viewer.selected_data_index;
 				read_plylines_and_binormals(lscif::Poly_readed, lscif::Bino_readed);
-				if(lscif::Poly_readed.empty()){
+				if (lscif::Poly_readed.empty())
+				{
 					std::cout << "ERROR, Please load the polylines first" << std::endl;
 					ImGui::End();
 					return;
@@ -1922,17 +1913,19 @@ int main(int argc, char *argv[])
 				lscif::meshFileName.push_back("ply_" + lscif::meshFileName[id]);
 				lscif::Meshes.push_back(updatemesh);
 				lscif::poly_tool.init(lscif::Poly_readed, lscif::Bino_readed, lscif::nbr_lines_first_ls);
-				std::cout<<"Sample nbr: "<<lscif::nbr_lines_first_ls<<std::endl;
+				std::cout << "Sample nbr: " << lscif::nbr_lines_first_ls << std::endl;
 				viewer.selected_data_index = id;
 			}
 			ImGui::SameLine();
-			if (ImGui::Button("OptiPolylines", ImVec2(ImGui::GetWindowSize().x * 0.23f, 0.0f))){
-				if(lscif::Poly_readed.empty()){
+			if (ImGui::Button("OptiPolylines", ImVec2(ImGui::GetWindowSize().x * 0.23f, 0.0f)))
+			{
+				if (lscif::Poly_readed.empty())
+				{
 					std::cout << "ERROR, Please load the polylines first" << std::endl;
 					ImGui::End();
 					return;
 				}
-				lscif::poly_tool.weight_smooth= lscif::weight_laplacian;
+				lscif::poly_tool.weight_smooth = lscif::weight_laplacian;
 				lscif::poly_tool.weight_mass = lscif::weight_mass;
 				lscif::poly_tool.weight_binormal = lscif::weight_pseudo_geodesic;
 				lscif::poly_tool.max_step = lscif::maximal_step_length;
@@ -1943,7 +1936,6 @@ int main(int argc, char *argv[])
 				lscif::poly_tool.ratio_endpts = lscif::weight_endpoint_ratio;
 				lscif::poly_tool.pick_single_line = lscif::pick_single_ply;
 				lscif::poly_tool.pick_line_id = lscif::pick_line_id;
-
 
 				for (int i = 0; i < lscif::OpIter; i++)
 				{
@@ -1959,163 +1951,167 @@ int main(int argc, char *argv[])
 				lscif::meshFileName.push_back("ply_" + lscif::meshFileName[id]);
 				lscif::Meshes.push_back(updatemesh);
 				viewer.selected_data_index = id;
-				std::cout<<"waiting for instructions"<<std::endl;
+				std::cout << "waiting for instructions" << std::endl;
+			}
 
-			}
-		}
-		ImGui::SameLine();
-		if (ImGui::Button("SavePolylines", ImVec2(ImGui::GetWindowSize().x * 0.23f, 0.0f)))
-		{
-			if (lscif::poly_tool.ply_extracted.empty())
+			ImGui::SameLine();
+			if (ImGui::Button("SavePolylines", ImVec2(ImGui::GetWindowSize().x * 0.23f, 0.0f)))
 			{
-				std::cout << "ERROR, Please opt the polyline first" << std::endl;
-				ImGui::End();
-				return;
+				if (lscif::poly_tool.ply_extracted.empty())
+				{
+					std::cout << "ERROR, Please opt the polyline first" << std::endl;
+					ImGui::End();
+					return;
+				}
+				lscif::poly_tool.save_polyline_and_binormals_as_files(false); // true means save the rotated polylines
 			}
-			lscif::poly_tool.save_polyline_and_binormals_as_files(false); // true means save the rotated polylines
-		}
-		ImGui::SameLine();
-		if (ImGui::Button("Orient&SavePlys", ImVec2(ImGui::GetWindowSize().x * 0.23f, 0.0f)))
+			ImGui::SameLine();
+			if (ImGui::Button("Orient&SavePlys", ImVec2(ImGui::GetWindowSize().x * 0.23f, 0.0f)))
 
-		{
-			std::cout<<"this function is to orient binormals if there are inverted ones"<<std::endl;
-			int id = viewer.selected_data_index;
-			read_plylines_and_binormals(lscif::Poly_readed, lscif::Bino_readed);
-			std::vector<std::vector<Eigen::Vector3d>> biout;
-			lscif::poly_tool.orient_binormals_of_plyline(lscif::Bino_readed, biout);
-			CGMesh updatemesh = polyline_to_strip_mesh(lscif::Poly_readed, biout, lscif::vector_scaling);
-			lscif::updateMeshViewer(viewer, updatemesh);
-			lscif::meshFileName.push_back("ply_" + lscif::meshFileName[id]);
-			lscif::Meshes.push_back(updatemesh);
-			viewer.selected_data_index = id;
-			lscif::poly_tool.save_polyline_and_binormals_as_files(lscif::Poly_readed, biout); // true means save the rotated polylines
-		}
-		if (ImGui::Button("RotateBackPly", ImVec2(ImGui::GetWindowSize().x * 0.23f, 0.0f)))
-		{
-			if (lscif::poly_tool.ply_extracted.empty())
 			{
-				std::cout << "ERROR, Please opt the polyline first" << std::endl;
-				ImGui::End();
-				return;
+				std::cout << "this function is to orient binormals if there are inverted ones" << std::endl;
+				int id = viewer.selected_data_index;
+				read_plylines_and_binormals(lscif::Poly_readed, lscif::Bino_readed);
+				std::vector<std::vector<Eigen::Vector3d>> biout;
+				lscif::poly_tool.orient_binormals_of_plyline(lscif::Bino_readed, biout);
+				CGMesh updatemesh = polyline_to_strip_mesh(lscif::Poly_readed, biout, lscif::vector_scaling);
+				lscif::updateMeshViewer(viewer, updatemesh);
+				lscif::meshFileName.push_back("ply_" + lscif::meshFileName[id]);
+				lscif::Meshes.push_back(updatemesh);
+				viewer.selected_data_index = id;
+				lscif::poly_tool.save_polyline_and_binormals_as_files(lscif::Poly_readed, biout); // true means save the rotated polylines
 			}
-			std::cout<<"Rotating the mesh to the coordinate system computed by latitude"<<std::endl;
-			lscif::poly_tool.rotate_back_the_model_to_horizontal_coordinates(lscif::Shading_Latitude);
-			lscif::poly_tool.save_polyline_and_binormals_as_files(true); // true means save the rotated polylines
-		}
-		ImGui::SameLine();
-		if (ImGui::Button("ForcePlyBinm", ImVec2(ImGui::GetWindowSize().x * 0.23f, 0.0f)))
-		{
-			if (lscif::poly_tool.ply_extracted.empty())
+			if (ImGui::Button("RotateBackPly", ImVec2(ImGui::GetWindowSize().x * 0.23f, 0.0f)))
 			{
-				std::cout << "ERROR, Please opt the polyline first" << std::endl;
-				ImGui::End();
-				return;
+				if (lscif::poly_tool.ply_extracted.empty())
+				{
+					std::cout << "ERROR, Please opt the polyline first" << std::endl;
+					ImGui::End();
+					return;
+				}
+				std::cout << "Rotating the mesh to the coordinate system computed by latitude" << std::endl;
+				lscif::poly_tool.rotate_back_the_model_to_horizontal_coordinates(lscif::Shading_Latitude);
+				lscif::poly_tool.save_polyline_and_binormals_as_files(true); // true means save the rotated polylines
 			}
-			lscif::poly_tool.force_smoothing_binormals();
-			std::cout<<"The binormals are forced to be smoothed"<<std::endl;
+			ImGui::SameLine();
+			if (ImGui::Button("ForcePlyBinm", ImVec2(ImGui::GetWindowSize().x * 0.23f, 0.0f)))
+			{
+				if (lscif::poly_tool.ply_extracted.empty())
+				{
+					std::cout << "ERROR, Please opt the polyline first" << std::endl;
+					ImGui::End();
+					return;
+				}
+				lscif::poly_tool.force_smoothing_binormals();
+				std::cout << "The binormals are forced to be smoothed" << std::endl;
 
-			CGMesh updatemesh = lscif::poly_tool.RecMesh;
-			int id = viewer.selected_data_index;
-			lscif::updateMeshViewer(viewer, updatemesh);
-			lscif::meshFileName.push_back("Smt_" + lscif::meshFileName[id]);
-			lscif::Meshes.push_back(updatemesh);
-			viewer.selected_data_index = id;
-			std::cout << "waiting for instructions" << std::endl;
-		}
-		ImGui::SameLine();
-		if (ImGui::Button("DevelopableStrips", ImVec2(ImGui::GetWindowSize().x * 0.23f, 0.0f)))
-		{
-			if (lscif::Poly_readed.empty())
-			{
-				std::cout << "ERROR, Please read the polyline first" << std::endl;
-				ImGui::End();
-				return;
+				CGMesh updatemesh = lscif::poly_tool.RecMesh;
+				int id = viewer.selected_data_index;
+				lscif::updateMeshViewer(viewer, updatemesh);
+				lscif::meshFileName.push_back("Smt_" + lscif::meshFileName[id]);
+				lscif::Meshes.push_back(updatemesh);
+				viewer.selected_data_index = id;
+				std::cout << "waiting for instructions" << std::endl;
 			}
-			// lscif::Poly_readed, lscif::Bino_readed
-			std::vector<std::vector<Eigen::Vector3d>> dev_crease;
-			for (int i = 0; i < lscif::Poly_readed.size(); i++)
+			ImGui::SameLine();
+			if (ImGui::Button("DevelopableStrips", ImVec2(ImGui::GetWindowSize().x * 0.23f, 0.0f)))
 			{
-				std::vector<Eigen::Vector3d> creases;
-				convert_polyline_to_developable_strips_reflection_method(lscif::Poly_readed[i], lscif::Bino_readed[i], creases);
-				dev_crease.push_back(creases);
+				if (lscif::Poly_readed.empty())
+				{
+					std::cout << "ERROR, Please read the polyline first" << std::endl;
+					ImGui::End();
+					return;
+				}
+				// lscif::Poly_readed, lscif::Bino_readed
+				std::vector<std::vector<Eigen::Vector3d>> dev_crease;
+				for (int i = 0; i < lscif::Poly_readed.size(); i++)
+				{
+					std::vector<Eigen::Vector3d> creases;
+					convert_polyline_to_developable_strips_reflection_method(lscif::Poly_readed[i], lscif::Bino_readed[i], creases);
+					dev_crease.push_back(creases);
+				}
+				int id = viewer.selected_data_index;
+				CGMesh updatemesh = polyline_to_strip_mesh(lscif::Poly_readed, dev_crease, lscif::vector_scaling);
+				lscif::updateMeshViewer(viewer, updatemesh);
+				lscif::meshFileName.push_back("Dev_" + lscif::meshFileName[id]);
+				lscif::Meshes.push_back(updatemesh);
+				viewer.selected_data_index = id;
+				lscif::poly_tool.save_polyline_and_binormals_as_files(lscif::Poly_readed, dev_crease);
+				std::cout << "waiting for instructions" << std::endl;
 			}
-			int id = viewer.selected_data_index;
-			CGMesh updatemesh = polyline_to_strip_mesh(lscif::Poly_readed, dev_crease, lscif::vector_scaling);
-			lscif::updateMeshViewer(viewer, updatemesh);
-			lscif::meshFileName.push_back("Dev_" + lscif::meshFileName[id]);
-			lscif::Meshes.push_back(updatemesh);
-			viewer.selected_data_index = id;
-			lscif::poly_tool.save_polyline_and_binormals_as_files(lscif::Poly_readed, dev_crease);
-			std::cout << "waiting for instructions" << std::endl;
-		}
-		ImGui::SameLine();
-		if (ImGui::Button("EvltDvlp", ImVec2(ImGui::GetWindowSize().x * 0.23f, 0.0f)))
-		{
-			std::cout<<"evaluate developable of the loaded strips ..."<<std::endl;
-			// get_polyline_rectifying_plane_on_inner_vers(const std::vector<Eigen::Vector3d> &ply_in, const std::vector<Eigen::Vector3d> &bnm_in,
-            //                                      std::vector<Eigen::Vector3d> &vertices, std::vector<Eigen::Vector3d> &tangents, std::vector<Eigen::Vector3d> &binormals);
-			evaluate_and_print_strip_developability(lscif::Poly_readed, lscif::Bino_readed);
+			ImGui::SameLine();
+			if (ImGui::Button("EvltDvlp", ImVec2(ImGui::GetWindowSize().x * 0.23f, 0.0f)))
+			{
+				std::cout << "evaluate developable of the loaded strips ..." << std::endl;
+				// get_polyline_rectifying_plane_on_inner_vers(const std::vector<Eigen::Vector3d> &ply_in, const std::vector<Eigen::Vector3d> &bnm_in,
+				//                                      std::vector<Eigen::Vector3d> &vertices, std::vector<Eigen::Vector3d> &tangents, std::vector<Eigen::Vector3d> &binormals);
+				evaluate_and_print_strip_developability(lscif::Poly_readed, lscif::Bino_readed);
+			}
+			if (ImGui::Button("ReadCreases", ImVec2(ImGui::GetWindowSize().x * 0.23f, 0.0f)))
+			{
+				int id = viewer.selected_data_index;
+				read_plylines_and_binormals(lscif::Poly_readed, lscif::Bino_readed);
+				if (lscif::Poly_readed.empty())
+				{
+					std::cout << "ERROR, Please load the polylines first" << std::endl;
+					ImGui::End();
+					return;
+				}
+				CGMesh updatemesh = polyline_to_strip_mesh(lscif::Poly_readed, lscif::Bino_readed, lscif::vector_scaling);
+				lscif::updateMeshViewer(viewer, updatemesh);
+				lscif::meshFileName.push_back("ply_" + lscif::meshFileName[id]);
+				lscif::Meshes.push_back(updatemesh);
 
-		}
-		if (ImGui::Button("ReadCreases", ImVec2(ImGui::GetWindowSize().x * 0.23f, 0.0f)))
-		{
-			int id = viewer.selected_data_index;
-			read_plylines_and_binormals(lscif::Poly_readed, lscif::Bino_readed);
-			if (lscif::Poly_readed.empty())
-			{
-				std::cout << "ERROR, Please load the polylines first" << std::endl;
-				ImGui::End();
-				return;
-			}
-			CGMesh updatemesh = polyline_to_strip_mesh(lscif::Poly_readed, lscif::Bino_readed, lscif::vector_scaling);
-			lscif::updateMeshViewer(viewer, updatemesh);
-			lscif::meshFileName.push_back("ply_" + lscif::meshFileName[id]);
-			lscif::Meshes.push_back(updatemesh);
+				std::vector<std::vector<Eigen::Vector3d>> vertices;
+				std::vector<std::vector<Eigen::Vector3d>> tangents;
+				std::vector<std::vector<Eigen::Vector3d>> binormals;
+				get_polyline_rectifying_planes(lscif::Poly_readed, lscif::Bino_readed, vertices, tangents, binormals);
+				lscif::poly_tool.init_crease_opt(vertices, tangents, binormals);
 
-			std::vector<std::vector<Eigen::Vector3d>> vertices;
-			std::vector<std::vector<Eigen::Vector3d>> tangents;
-			std::vector<std::vector<Eigen::Vector3d>> binormals;
-			get_polyline_rectifying_planes(lscif::Poly_readed, lscif::Bino_readed, vertices, tangents, binormals);
-			lscif::poly_tool.init_crease_opt(vertices, tangents, binormals);
-
-			viewer.selected_data_index = id;
-		}
-		ImGui::SameLine();
-		if (ImGui::Button("OptCrease", ImVec2(ImGui::GetWindowSize().x * 0.23f, 0.0f)))
-		{
-			if (lscif::Poly_readed.empty())
-			{
-				std::cout << "ERROR, Please load the polylines first" << std::endl;
-				ImGui::End();
-				return;
+				viewer.selected_data_index = id;
 			}
-			lscif::poly_tool.weight_smooth = lscif::weight_laplacian;
-			lscif::poly_tool.weight_mass = lscif::weight_mass;
-			lscif::poly_tool.weight_binormal = lscif::weight_pseudo_geodesic;
-			lscif::poly_tool.max_step = lscif::maximal_step_length;
-			lscif::poly_tool.strip_scale = lscif::vector_scaling;
-			lscif::poly_tool.binormal_ratio = lscif::weight_geodesic;
-			lscif::poly_tool.weight_angle = lscif::weight_angle;
-			lscif::poly_tool.target_angle = lscif::target_angle;
-			lscif::poly_tool.ratio_endpts = lscif::weight_endpoint_ratio;
-			lscif::poly_tool.pick_single_line = lscif::pick_single_ply;
-			lscif::poly_tool.pick_line_id = lscif::pick_line_id;
-
-			for (int i = 0; i < lscif::OpIter; i++)
+			ImGui::SameLine();
+			if (ImGui::Button("OptCrease", ImVec2(ImGui::GetWindowSize().x * 0.23f, 0.0f)))
 			{
-				// if (lscif::weight_angle > 0)
-				// {
-				// 	lscif::poly_tool.get_normal_vector_from_reference(lscif::tools.V, lscif::tools.F, lscif::tools.norm_v);
-				// }
-				lscif::poly_tool.opt_planarity();
+				if (lscif::Poly_readed.empty())
+				{
+					std::cout << "ERROR, Please load the polylines first" << std::endl;
+					ImGui::End();
+					return;
+				}
+				lscif::poly_tool.weight_smooth = lscif::weight_laplacian;
+				lscif::poly_tool.weight_mass = lscif::weight_mass;
+				lscif::poly_tool.weight_binormal = lscif::weight_pseudo_geodesic;
+				lscif::poly_tool.max_step = lscif::maximal_step_length;
+				lscif::poly_tool.strip_scale = lscif::vector_scaling;
+				lscif::poly_tool.binormal_ratio = lscif::weight_geodesic;
+				lscif::poly_tool.weight_angle = lscif::weight_angle;
+				lscif::poly_tool.target_angle = lscif::target_angle;
+				lscif::poly_tool.ratio_endpts = lscif::weight_endpoint_ratio;
+				lscif::poly_tool.pick_single_line = lscif::pick_single_ply;
+				lscif::poly_tool.pick_line_id = lscif::pick_line_id;
+
+				for (int i = 0; i < lscif::OpIter; i++)
+				{
+					// if (lscif::weight_angle > 0)
+					// {
+					// 	lscif::poly_tool.get_normal_vector_from_reference(lscif::tools.V, lscif::tools.F, lscif::tools.norm_v);
+					// }
+					lscif::poly_tool.opt_planarity();
+				}
+				CGMesh updatemesh = lscif::poly_tool.RecMesh;
+				int id = viewer.selected_data_index;
+				lscif::updateMeshViewer(viewer, updatemesh);
+				lscif::meshFileName.push_back("ply_" + lscif::meshFileName[id]);
+				lscif::Meshes.push_back(updatemesh);
+				viewer.selected_data_index = id;
+				std::cout << "waiting for instructions" << std::endl;
 			}
-			CGMesh updatemesh = lscif::poly_tool.RecMesh;
-			int id = viewer.selected_data_index;
-			lscif::updateMeshViewer(viewer, updatemesh);
-			lscif::meshFileName.push_back("ply_" + lscif::meshFileName[id]);
-			lscif::Meshes.push_back(updatemesh);
-			viewer.selected_data_index = id;
-			std::cout << "waiting for instructions" << std::endl;
+			ImGui::SameLine();
+			if (ImGui::Button("DevV1", ImVec2(ImGui::GetWindowSize().x * 0.23f, 0.0f)))
+			{
+				construct_developable_strips_by_intersect_rectifying();
+			}
 		}
 		ImGui::SetNextItemOpen(true);
 		if (ImGui::TreeNode("Mesh Management"))
@@ -2204,14 +2200,14 @@ int main(int argc, char *argv[])
 			{
 
 				read_levelset(lscif::readed_LS1);
-				std::cout<<"Levelset 1 get readed "<<std::endl;
+				std::cout << "Levelset 1 get readed " << std::endl;
 			}
 			ImGui::SameLine();
 			if (ImGui::Button("Load Second Level Set", ImVec2(ImGui::GetWindowSize().x * 0.25f, 0.0f)))
 			{
 
 				read_levelset(lscif::readed_LS2);
-				std::cout<<"Levelset 2 get readed "<<std::endl;
+				std::cout << "Levelset 2 get readed " << std::endl;
 			}
 			ImGui::SameLine();
 			if (ImGui::Button("Clear Readed Level Sets", ImVec2(ImGui::GetWindowSize().x * 0.25f, 0.0f)))
@@ -2232,7 +2228,7 @@ int main(int argc, char *argv[])
 				CGMesh readed_mesh;
 				OpenMesh::IO::read_mesh(readed_mesh, fname);
 				lscif::readed_mesh1.push_back(readed_mesh);
-				std::cout << "mesh 1 get readed, current mesh nbr: "<< lscif::readed_mesh1.size() << std::endl;
+				std::cout << "mesh 1 get readed, current mesh nbr: " << lscif::readed_mesh1.size() << std::endl;
 			}
 			ImGui::SameLine();
 			if (ImGui::Button("Load Second mesh", ImVec2(ImGui::GetWindowSize().x * 0.25f, 0.0f)))
@@ -2269,7 +2265,7 @@ int main(int argc, char *argv[])
 				std::cout << "Nbr first, " << P1.rows() << std::endl;
 				std::cout << "Nbr second, " << P2.rows() << std::endl;
 
-				std::cout<<"Passing the info to the level-set system"<<std::endl;
+				std::cout << "Passing the info to the level-set system" << std::endl;
 				lscif::tools.shading_condition_info = info;
 			}
 			ImGui::SameLine();
@@ -2303,7 +2299,6 @@ int main(int argc, char *argv[])
 				// ImGui::Checkbox("Fix Boundary", &lscif::fixBoundary_checkbox);
 			}
 
-			
 			// Add a button
 			if (ImGui::Button("Otho Fields Quads", ImVec2(ImGui::GetWindowSize().x * 0.25f, 0.0f)))
 			{
@@ -2323,7 +2318,7 @@ int main(int argc, char *argv[])
 					ImGui::End();
 					return;
 				}
-				std::cout<<"Saving the quad mesh"<<std::endl;
+				std::cout << "Saving the quad mesh" << std::endl;
 				std::string fname = igl::file_dialog_save();
 				if (fname.length() == 0)
 				{
@@ -2336,19 +2331,18 @@ int main(int argc, char *argv[])
 				}
 				Eigen::MatrixXd E0, E1, E2, E3;
 				visual_extract_levelset_web(lscif::tools.lsmesh, lscif::tools.V, lscif::tools.F, lscif::readed_LS1, lscif::readed_LS2, lscif::nbr_lines_first_ls,
-										 lscif::nbr_lines_second_ls,E0, E1, E2, E3,false);
+											lscif::nbr_lines_second_ls, E0, E1, E2, E3, false);
 				const Eigen::RowVector3d red(0.8, 0.2, 0.2);
 				const Eigen::RowVector3d blue(0.2, 0.2, 0.8);
 				const Eigen::RowVector3d black(0, 0, 0);
 				const Eigen::RowVector3d green(0.2, 0.8, 0.2);
 				viewer.data().add_edges(E0, E1, red);
 				viewer.data().add_edges(E2, E3, green);
-
 			}
 			ImGui::SameLine();
 			if (ImGui::Button("Extr Pace Quad", ImVec2(ImGui::GetWindowSize().x * 0.25f, 0.0f)))
 			{
-				std::cout<<"This code is to extract AAG quads"<<std::endl;
+				std::cout << "This code is to extract AAG quads" << std::endl;
 				int id = viewer.selected_data_index;
 				CGMesh inputMesh = lscif::Meshes[id];
 				Eigen::MatrixXd VER;
@@ -2359,7 +2353,7 @@ int main(int argc, char *argv[])
 					{
 						int filter_nbr = 3;
 						extract_levelset_web_stable(lscif::tools.lsmesh, lscif::tools.Boundary_Edges, lscif::tools.V, lscif::tools.F, lscif::readed_LS1, lscif::readed_LS2, lscif::nbr_lines_first_ls,
-											 lscif::nbr_lines_second_ls, filter_nbr, VER, FAC, true);
+													lscif::nbr_lines_second_ls, filter_nbr, VER, FAC, true);
 					}
 					else
 					{
@@ -2378,8 +2372,8 @@ int main(int argc, char *argv[])
 				}
 
 				Eigen::MatrixXd E0, E1, E2, E3;
-				visual_extract_levelset_web_stable(lscif::tools.lsmesh,lscif::tools.Boundary_Edges, lscif::tools.V, lscif::tools.F, lscif::readed_LS1, lscif::readed_LS2, lscif::nbr_lines_first_ls,
-											lscif::nbr_lines_second_ls, E0, E1, E2, E3, true, lscif::debug_flag, lscif::dbg_int, lscif::dbg_int2);
+				visual_extract_levelset_web_stable(lscif::tools.lsmesh, lscif::tools.Boundary_Edges, lscif::tools.V, lscif::tools.F, lscif::readed_LS1, lscif::readed_LS2, lscif::nbr_lines_first_ls,
+												   lscif::nbr_lines_second_ls, E0, E1, E2, E3, true, lscif::debug_flag, lscif::dbg_int, lscif::dbg_int2);
 				const Eigen::RowVector3d red(0.8, 0.2, 0.2);
 				const Eigen::RowVector3d blue(0.2, 0.2, 0.8);
 				const Eigen::RowVector3d black(0, 0, 0);
@@ -2392,15 +2386,15 @@ int main(int argc, char *argv[])
 				viewer.data().add_edges(E0, E1, red);
 				viewer.data().add_edges(E2, E3, green);
 				viewer.selected_data_index = id;
-				
 			}
 			ImGui::SameLine();
 			if (ImGui::Button("Extr Shading Lines", ImVec2(ImGui::GetWindowSize().x * 0.25f, 0.0f)))
 			{
 				int id = viewer.selected_data_index;
-				
-				if(lscif::readed_LS1.size()!=lscif::tools.V.rows()){
-					std::cout<<"Please load a correct Level Set 1"<<std::endl;
+
+				if (lscif::readed_LS1.size() != lscif::tools.V.rows())
+				{
+					std::cout << "Please load a correct Level Set 1" << std::endl;
 					ImGui::End();
 					return;
 				}
@@ -2422,10 +2416,10 @@ int main(int argc, char *argv[])
 			{
 				int id = viewer.selected_data_index;
 				CGMesh updatedMesh;
-				
+
 				Eigen::MatrixXd VER;
 				Eigen::MatrixXi FAC;
-				std::cout<<"reading Quad obj"<<std::endl;
+				std::cout << "reading Quad obj" << std::endl;
 				std::string fname = igl::file_dialog_open();
 				if (fname.length() == 0)
 				{
@@ -2434,31 +2428,30 @@ int main(int argc, char *argv[])
 					return;
 				}
 				igl::readOBJ(fname, VER, FAC);
-				std::cout<<"OBJ readed, ver in face "<<FAC.cols()<<std::endl;
-				std::cout<<"Reading Bi-normals of triangle mesh"<<std::endl;
+				std::cout << "OBJ readed, ver in face " << FAC.cols() << std::endl;
+				std::cout << "Reading Bi-normals of triangle mesh" << std::endl;
 				Eigen::MatrixXd bn;
 				read_bi_normals(bn);
-				std::cout<<"Binormals readed"<<std::endl;
-				std::cout<<"generating mesh with bi-normals"<<std::endl;
+				std::cout << "Binormals readed" << std::endl;
+				std::cout << "generating mesh with bi-normals" << std::endl;
 				fname = igl::file_dialog_save();
-				
+
 				if (fname.length() == 0)
 				{
 					ImGui::End();
-					
 				}
-				
-				write_quad_mesh_with_binormal(fname,lscif::tools.V, lscif::tools.F, bn, VER, FAC );
-				
+
+				write_quad_mesh_with_binormal(fname, lscif::tools.V, lscif::tools.F, bn, VER, FAC);
 			}
 			if (ImGui::Button("ExtrtQuad&IsoLines", ImVec2(ImGui::GetWindowSize().x * 0.25f, 0.0f)))
 			{
 				int id = viewer.selected_data_index;
-				
+
 				Eigen::MatrixXd VER;
 				Eigen::MatrixXi FAC;
-				if(lscif::readed_LS1.size()!=lscif::tools.V.rows()){
-					std::cout<<"Please load a correct Level Set 1"<<std::endl;
+				if (lscif::readed_LS1.size() != lscif::tools.V.rows())
+				{
+					std::cout << "Please load a correct Level Set 1" << std::endl;
 					ImGui::End();
 					return;
 				}
@@ -2528,7 +2521,7 @@ int main(int argc, char *argv[])
 			CGMesh updatemesh = polyline_to_strip_mesh(lscif::Poly_readed, lscif::Bino_readed, lscif::vector_scaling);
 			// std::cout<<"get the strip mesh"<<std::endl;
 			lscif::updateMeshViewer(viewer, updatemesh);
-			
+
 			// std::cout<<"get the strip mesh"<<std::endl;
 			lscif::meshFileName.push_back("ply_" + lscif::meshFileName[id]);
 			lscif::Meshes.push_back(updatemesh);
@@ -2576,24 +2569,25 @@ int main(int argc, char *argv[])
 				CGMesh updatedMesh;
 				CGMesh inputMesh = lscif::Meshes[id];
 				MeshEnergyPrepare initializer;
-				initializer.Mesh_opt_max_step_length=lscif::Mesh_opt_max_step_length;
-				initializer.weight_Mesh_smoothness=lscif::weight_Mesh_smoothness;
-				initializer.weight_mass=lscif::weight_mass;
+				initializer.Mesh_opt_max_step_length = lscif::Mesh_opt_max_step_length;
+				initializer.weight_Mesh_smoothness = lscif::weight_Mesh_smoothness;
+				initializer.weight_mass = lscif::weight_mass;
 				initializer.weight_Mesh_edgelength = lscif::weight_Mesh_edgelength;
 				lscif::tools.weight_Mesh_approximation = lscif::weight_Mesh_approximation;
 				lscif::tools.weight_Mesh_mass = lscif::weight_Mesh_mass;
 
 				lscif::tools.prepare_mesh_optimization_solving(initializer);
-				for(int i=0;i<lscif::Nbr_Iterations_Mesh_Opt;i++){
+				for (int i = 0; i < lscif::Nbr_Iterations_Mesh_Opt; i++)
+				{
 					lscif::tools.Run_Mesh_Smoothness();
 				}
-				updatedMesh=lscif::tools.lsmesh;
+				updatedMesh = lscif::tools.lsmesh;
 				lscif::updateMeshViewer(viewer, updatedMesh);
 				lscif::meshFileName.push_back("Smt_" + lscif::meshFileName[id]);
 				lscif::Meshes.push_back(updatedMesh);
-				
+
 				viewer.selected_data_index = id;
-				std::cout<<"waiting for instructions"<<std::endl;
+				std::cout << "waiting for instructions" << std::endl;
 			}
 			// ImGui::InputInt("Iteration", &lscif::OpIter, 0, 0);
 			// ImGui::InputDouble("weight ls mass(big)", &lscif::weight_mass, 0, 0, "%.4f");
@@ -2617,7 +2611,7 @@ int main(int argc, char *argv[])
 			ImGui::SameLine();
 			if (ImGui::Button("LoadVertexID", ImVec2(ImGui::GetWindowSize().x * 0.25f, 0.0f)))
 			{
-				std::cout<<"Read Vertex ID file row by row"<<std::endl;
+				std::cout << "Read Vertex ID file row by row" << std::endl;
 				std::string fname = igl::file_dialog_open();
 				if (fname.length() == 0)
 				{
@@ -2638,7 +2632,6 @@ int main(int argc, char *argv[])
 					std::cout << lscif::update_verlist[i] << ",";
 				}
 				std::cout << "\n";
-
 			}
 			ImGui::SameLine();
 			if (ImGui::Button("ClearVertexList", ImVec2(ImGui::GetWindowSize().x * 0.25f, 0.0f)))
@@ -2704,17 +2697,19 @@ int main(int argc, char *argv[])
 				Eigen::MatrixXd E0, E1;
 				lscif::tools.show_slopes(lscif::vector_scaling, E0, E1);
 				viewer.data().add_edges(E0, E1, lscif::sea_green);
-				std::cout<<"Drawing the slopes"<<std::endl;
+				std::cout << "Drawing the slopes" << std::endl;
 			}
 		}
 
 		ImGui::PushItemWidth(50);
-		if (ImGui::CollapsingHeader("PickOnePolyline", ImGuiTreeNodeFlags_DefaultOpen)){
+		if (ImGui::CollapsingHeader("PickOnePolyline", ImGuiTreeNodeFlags_DefaultOpen))
+		{
 			ImGui::Checkbox("pickPly", &lscif::pick_single_ply);
 			ImGui::SameLine();
 			ImGui::InputInt("pickID", &lscif::pick_line_id, 0, 0);
 		}
-		if (ImGui::CollapsingHeader("TwoLvlStAngle", ImGuiTreeNodeFlags_DefaultOpen)){
+		if (ImGui::CollapsingHeader("TwoLvlStAngle", ImGuiTreeNodeFlags_DefaultOpen))
+		{
 			ImGui::Checkbox("2LvStAngle", &lscif::fix_angle_of_two_levelsets);
 			ImGui::SameLine();
 			ImGui::InputDouble("AngleOfLSs", &lscif::angle_between_two_levelsets, 0, 0, "%.4f");
@@ -2890,12 +2885,11 @@ int main(int argc, char *argv[])
 			// ImGui::InputInt("Ring nbr", &lscif::ring_nbr, 0, 0);
 			// ImGui::InputDouble("Latitude", &lscif::Shading_Latitude, 0, 0, "%.4f");
 			ImGui::Combo("QuadType", &lscif::quad_tool.OptType,
-                 "AAG\0GGA\0PP\0PPG\0\0");
+						 "AAG\0GGA\0PP\0PPG\0\0");
 			ImGui::SameLine();
-			
+
 			ImGui::Combo("FamilyOfDiag", &lscif::quad_tool.WhichDiagonal,
-                 "D0\0D1\0\0");
-			
+						 "D0\0D1\0\0");
 
 			if (ImGui::Button("LoadQuads", ImVec2(ImGui::GetWindowSize().x * 0.25f, 0.0f)))
 			{
@@ -2945,7 +2939,7 @@ int main(int argc, char *argv[])
 				lscif::updateMeshViewer(viewer, quadmesh);
 			}
 			ImGui::SameLine();
-			
+
 			if (ImGui::Button("Set&Reset", ImVec2(ImGui::GetWindowSize().x * 0.25f, 0.0f)))
 			{
 				lscif::quad_tool.reset();
@@ -2960,15 +2954,16 @@ int main(int argc, char *argv[])
 				const Eigen::RowVector3d black(0, 0, 0);
 				const Eigen::RowVector3d green(0.2, 0.8, 0.2);
 
-				viewer.data().add_points(Edges[0], red);// show rows 
-				viewer.data().add_points(Edges[1], green);// cols
-				viewer.data().add_points(Edges[2], blue);// diagonals
+				viewer.data().add_points(Edges[0], red);   // show rows
+				viewer.data().add_points(Edges[1], green); // cols
+				viewer.data().add_points(Edges[2], blue);  // diagonals
 				// std::cout<<"Visualing Rows Cols and Diagonals : "<<Edges[0]<<",\n\n "<<Edges[1]<<",\n\n "<<Edges[2]<<"\n";
-				std::cout<<"The rows, columns and the diagonals are marked in red, green and blue"<<std::endl;;
+				std::cout << "The rows, columns and the diagonals are marked in red, green and blue" << std::endl;
+				;
 				viewer.selected_data_index = id;
 			}
 			ImGui::SameLine();
-			
+
 			if (ImGui::Button("Opt", ImVec2(ImGui::GetWindowSize().x * 0.25f, 0.0f)))
 			{
 				lscif::quad_tool.weight_fairness = lscif::weight_laplacian;
@@ -2979,7 +2974,7 @@ int main(int argc, char *argv[])
 				lscif::quad_tool.pg_ratio = lscif::weight_geodesic;
 				lscif::quad_tool.weight_mass = lscif::weight_mass;
 				lscif::quad_tool.max_step = lscif::maximal_step_length;
-				if (lscif::quad_tool.V.rows()==0)
+				if (lscif::quad_tool.V.rows() == 0)
 				{
 					std::cout << "\nEmpty quad, please load a quad mesh first" << std::endl;
 					ImGui::End();
@@ -3004,12 +2999,12 @@ int main(int argc, char *argv[])
 				viewer.selected_data_index = id;
 			}
 			ImGui::SameLine();
-			
+
 			if (ImGui::Button("DrawNormal", ImVec2(ImGui::GetWindowSize().x * 0.25f, 0.0f)))
 			{
 				const Eigen::RowVector3d red(0.8, 0.2, 0.2);
 				const Eigen::RowVector3d blue(0.2, 0.2, 0.8);
-				const Eigen::RowVector3d yellow(241./255, 196./255, 15./255);
+				const Eigen::RowVector3d yellow(241. / 255, 196. / 255, 15. / 255);
 
 				const Eigen::RowVector3d black(0, 0, 0);
 				const Eigen::RowVector3d green(0.2, 0.8, 0.2);
@@ -3049,10 +3044,10 @@ int main(int argc, char *argv[])
 			ImGui::Checkbox("UseFittingAngles", &lscif::Use_Fitting_Angles);
 			ImGui::SameLine();
 			ImGui::Checkbox("Opt_Only_BNMS", &lscif::Use_Opt_Only_BNMS);
-			
+
 			if (ImGui::Button("InitAOAP", ImVec2(ImGui::GetWindowSize().x * 0.25f, 0.0f)))
 			{
-				//binormals as orthogonal as possible.
+				// binormals as orthogonal as possible.
 				EnergyPrepare einit;
 				einit.weight_gravity = lscif::weight_mass;
 				einit.weight_lap = lscif::weight_laplacian;
@@ -3083,7 +3078,7 @@ int main(int argc, char *argv[])
 				lscif::tools.Phi_tol = lscif::InputPhiTol;
 				lscif::tools.Theta_tol1 = lscif::InputThetaTol1;
 				lscif::tools.Phi_tol1 = lscif::InputPhiTol1;
-				lscif::tools.weight_geodesic=lscif::weight_geodesic;
+				lscif::tools.weight_geodesic = lscif::weight_geodesic;
 				lscif::tools.enable_max_energy_check = lscif::enable_max_energy_check;
 				lscif::tools.max_energy_percentage = lscif::max_e_percentage;
 				lscif::tools.enable_shading_init = lscif::shading_init;
@@ -3116,7 +3111,8 @@ int main(int argc, char *argv[])
 
 				Eigen::VectorXd level_set_values;
 				lscif::tools.show_level_set(level_set_values);
-				if(level_set_values.size()==0){
+				if (level_set_values.size() == 0)
+				{
 					ImGui::End();
 					return;
 				}
@@ -3138,7 +3134,7 @@ int main(int argc, char *argv[])
 			ImGui::SameLine();
 			if (ImGui::Button("OrthoAsPsblOpt", ImVec2(ImGui::GetWindowSize().x * 0.25f, 0.0f)))
 			{
-				//binormals as orthogonal as possible.
+				// binormals as orthogonal as possible.
 				EnergyPrepare einit;
 				einit.weight_gravity = lscif::weight_mass;
 				einit.weight_lap = lscif::weight_laplacian;
@@ -3169,7 +3165,7 @@ int main(int argc, char *argv[])
 				lscif::tools.Phi_tol = lscif::InputPhiTol;
 				lscif::tools.Theta_tol1 = lscif::InputThetaTol1;
 				lscif::tools.Phi_tol1 = lscif::InputPhiTol1;
-				lscif::tools.weight_geodesic=lscif::weight_geodesic;
+				lscif::tools.weight_geodesic = lscif::weight_geodesic;
 				lscif::tools.enable_max_energy_check = lscif::enable_max_energy_check;
 				lscif::tools.max_energy_percentage = lscif::max_e_percentage;
 				lscif::tools.enable_shading_init = lscif::shading_init;
@@ -3202,7 +3198,8 @@ int main(int argc, char *argv[])
 
 				Eigen::VectorXd level_set_values;
 				lscif::tools.show_level_set(level_set_values);
-				if(level_set_values.size()==0){
+				if (level_set_values.size() == 0)
+				{
 					ImGui::End();
 					return;
 				}
@@ -3232,7 +3229,6 @@ int main(int argc, char *argv[])
 				Eigen::MatrixXd E0, E1;
 				lscif::tools.show_minimal_curvature_directions(E0, E1, lscif::vector_scaling);
 				viewer.data().add_edges(E0, E1, lscif::hot_red);
-
 			}
 		}
 		ImGui::PushStyleColor(ImGuiCol_Button, (ImVec4)ImColor::HSV(0.0f, 0.6f, 0.6f));
