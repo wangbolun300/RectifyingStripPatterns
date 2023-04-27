@@ -5565,7 +5565,7 @@ void get_orthogonal_vector_of_selected_slope_lighting(const Eigen::MatrixXd &V, 
             Eigen::Vector3d oout;
 
             oout = proj0;
-            if (validate_slope_root_angle(norm, Refer_dir, oout, proj0, angle_radian))
+            if (validate_slope_root_angle(norm, Refer_dir, lxn, proj0, angle_radian))
             {
                 ortho.push_back(oout);
                 fout.push_back(fid);

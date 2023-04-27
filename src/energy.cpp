@@ -736,11 +736,11 @@ void lsTools::calculate_shading_condition_inequivalent(Eigen::VectorXd &vars,
 			double x = real_ray[0];
 			double y = real_ray[1];
 			double z = real_ray[2];
-			double zl = sqrt(z - zmin);
-			double zr = sqrt(zmax - z);
-			double xl = sqrt(x / y - tanmin);
-			double xr = sqrt(tanmax - x / y);
-			double yr = sqrt(-y);
+			double zl = sqrt(std::max(z - zmin, 0.0));
+			double zr = sqrt(std::max(zmax - z, 0.0));
+			double xl = sqrt(std::max(x / y - tanmin, 0.0));
+			double xr = sqrt(std::max(tanmax - x / y, 0.0));
+			double yr = sqrt(std::max(-y, 0.0));
 			if (y > 0 && !recompute_auxiliaries)
 			{
 				std::cout << "Error, Please Check Here: calculate_shading_condition_inequivalent" << std::endl;
@@ -877,7 +877,6 @@ void lsTools::calculate_shading_condition_inequivalent(Eigen::VectorXd &vars,
 			// std::cout<<"skip transition, ";
 			continue;
 		}
-
 		// r dot (vm+(t1-1)*vf-t1*vt)
 		// vf = v1, vt = v2
 		tripletes.push_back(Trip(i, lrx, ((V(v1, 0) - V(v2, 0)) * vars[lvm] + (V(v2, 0) - V(vm, 0)) * vars[lv1] + (V(vm, 0) - V(v1, 0)) * vars[lv2]) / dis0 * scale * weight_binormal));

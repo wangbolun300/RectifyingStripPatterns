@@ -17,6 +17,18 @@ bool vector_contains_NAN(Eigen::VectorXd &B)
     }
     return false;
 }
+bool vector_contains_NAN(Eigen::VectorXd &B, int& loc)
+{
+    for (int i = 0; i < B.size(); i++)
+    {
+        if (isnan(B[i]))
+        {
+            loc = i;
+            return true;
+        }
+    }
+    return false;
+}
 // the variables are sorted as v0x, v1x, ...vnx, v0y, v1y,...,vny, v0z, v1z, ..., vnz
 // xyz is 0, 1, or 2
 void location_in_sparse_matrix(const int vnbr, const int vderivate, const int dxyz, const int vcoff, const int cxyz, int &row, int &col)
