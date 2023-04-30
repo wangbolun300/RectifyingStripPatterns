@@ -4131,41 +4131,38 @@ std::vector<int> sort_indices(const std::vector<Tn> &v)
               { return v[i1] > v[i2]; });
     return idx;
 }
-// mark the high energy vertices as 0 in the "he" vector
-void mark_high_energy_vers(const Eigen::VectorXd &energy, const int ninner, const double percentage,
-                           const std::vector<int> &IVids, Eigen::VectorXi &he, std::vector<int>& refid)
-{
-    he.resize(ninner);
-    refid.clear();
-    // first get all the energy on each ver
-    int rep = energy.size() / ninner;
-    Eigen::MatrixXd emat = Eigen::MatrixXd::Zero(ninner, rep);
-    std::vector<double> evec(ninner);
-    for (int i = 0; i < ninner; i++)
-    {
-        for (int j = 0; j < rep; j++)
-        {
-            emat(i, j) = energy[i + j * ninner];
-        }
-        evec[i] = emat.row(i).norm();
-    }
-    std::vector<int> order = sort_indices(evec);
-    std::cout << "first and last of sorting " << evec[order.front()] << ", " << evec[order.back()] << std::endl;
-    he = Eigen::VectorXi::Ones(ninner);
-    int npick = ninner * percentage / 100;
-    std::cout << "Marking Points\n";
-    for (int i = 0; i < npick; i++)
-    {
-        he[order[i]] = 0;
-        int vm = IVids[order[i]];
-        std::cout << "id, " << vm << ", energy, " << evec[order[i]] << std::endl;
-        refid.push_back(vm);
-    }
+// // mark the high energy vertices as 0 in the "he" vector
+// void mark_high_energy_vers(const Eigen::VectorXd &energy, const int ninner, const double percentage,
+//                            const std::vector<int> &IVids, Eigen::VectorXi &he, std::vector<int>& refid)
+// {
+//     he.resize(ninner);
+//     refid.clear();
+//     // first get all the energy on each ver
+//     int rep = energy.size() / ninner;
+//     Eigen::MatrixXd emat = Eigen::MatrixXd::Zero(ninner, rep);
+//     std::vector<double> evec(ninner);
+//     for (int i = 0; i < ninner; i++)
+//     {
+//         for (int j = 0; j < rep; j++)
+//         {
+//             emat(i, j) = energy[i + j * ninner];
+//         }
+//         evec[i] = emat.row(i).norm();
+//     }
+//     std::vector<int> order = sort_indices(evec);
+//     std::cout << "first and last of sorting " << evec[order.front()] << ", " << evec[order.back()] << std::endl;
+//     he = Eigen::VectorXi::Ones(ninner);
+//     int npick = ninner * percentage / 100;
+//     std::cout << "Marking Points\n";
+//     for (int i = 0; i < npick; i++)
+//     {
+//         he[order[i]] = 0;
+//         int vm = IVids[order[i]];
+//         std::cout << "id, " << vm << ", energy, " << evec[order[i]] << std::endl;
+//         refid.push_back(vm);
+//     }
 
-}
-void lsTools::clear_high_energy_markers_in_analizer(){
-    analizers[0].HighEnergy.resize(0);
-}
+// }
 
 
 
@@ -5887,6 +5884,62 @@ void lsTools::show_minimal_curvature_directions(Eigen::MatrixXd& E0, Eigen::Matr
     }
 
 }
+
+void get_overlap_ver_correspondance(CGMesh& mesh, std::vector<std::array<int, 2>>& list)
+{   
+    lsTools tools;
+    tools.init(mesh);
+    int vnbr = tools.V.rows();
+    std::vector<int> binv; // boundary vertices in vertex list
+    binv.resize(vnbr, 0);
+    std::vector<int> bvers; // boundary vertices
+    bvers.reserve(vnbr);
+
+    for (CGMesh::HalfedgeHandle hd : tools.Boundary_Edges)
+    {
+        int vfr = tools.lsmesh.from_vertex_handle(hd).idx();
+        int vto = tools.lsmesh.to_vertex_handle(hd).idx();
+        binv[vfr] = 1;
+        binv[vto] = 1;
+    }
+    for (int i = 0; i < vnbr; i++)
+    {
+        if(binv[i])
+        {
+            bvers.push_back(i);
+        }
+    }
+    int bsize = bvers.size();
+    std::vector<bool> checked(bsize, false);
+    std::vector<std::array<int, 2>> pairs;
+    pairs.reserve(100);
+    for (int i = 0; i < bsize; i++)
+    {
+        if (checked[i])
+        {
+            continue;
+        }
+        for (int j = 0; j < bsize; j++)
+        {
+            if (i == j || checked[j])
+            {
+                continue;
+            }
+            Eigen::Vector3d p0 = tools.V.row(bvers[i]);
+            Eigen::Vector3d p1 = tools.V.row(bvers[j]);
+            double distance = (p0 - p1).norm();
+            if (distance < 1e-6)
+            {
+                checked[i] = true;
+                checked[j] = true;
+                pairs.push_back({bvers[i],bvers[j]});
+            }
+        }
+    }
+    list = pairs;
+    std::cout << "the nbr of overlap boundary vertex pairx: " << list.size() << std::endl;
+}
+
 void lsTools::debug_tool(){
     Eigen::VectorXi info;
 

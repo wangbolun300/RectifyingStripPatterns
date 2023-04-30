@@ -2,6 +2,7 @@
 #include <lsc/tools.h>
 #include<igl/file_dialog_open.h>
 #include<igl/file_dialog_save.h>
+#include <igl/point_mesh_squared_distance.h>
 bool print_info = false;
 void solve_project_vector_on_plane(const Eigen::Vector3d &vec, const Eigen::Vector3d &a1, const Eigen::Vector3d &a2,
                                    Eigen::Vector3d &v2d)
@@ -465,8 +466,13 @@ void PolyOpt::init(const std::vector<std::vector<Eigen::Vector3d>> &ply_in, cons
     Front.resize(vnbr);
     Back.resize(vnbr);
     int counter = 0;
+    int csize = 0;
     for (int i = 0; i < ply.size(); i++)
     {
+        if (csize < ply[i].size())
+        {
+            csize = ply[i].size();
+        }
         for (int j = 0; j < ply[i].size(); j++)
         {
             int lpx = counter;
@@ -528,6 +534,8 @@ void PolyOpt::init(const std::vector<std::vector<Eigen::Vector3d>> &ply_in, cons
     bin_extracted = bi;
     endpts_signs = endpts.asDiagonal();
     opt_for_polyline = true;
+    MaxNbrPinC = csize;
+    
 }
 void PolyOpt::init_crease_opt(const std::vector<std::vector<Eigen::Vector3d>> &vertices,
                               const std::vector<std::vector<Eigen::Vector3d>> &tangents,
@@ -654,32 +662,132 @@ void PolyOpt::force_smoothing_binormals(){
 }
 void PolyOpt::assemble_gravity(spMat &H, Eigen::VectorXd &B, Eigen::VectorXd &energy)
 {
-    if (Front.size() == 0)
-    {
-        std::cout << "please use assemble_gravity after init the PolyOpt" << std::endl;
-        return;
-    }
+    int vnbr = VerNbr;
+    std::vector<Eigen::Vector3d> vprojs(vnbr);
+    std::vector<Eigen::Vector3d> Nlocal(vnbr);
+    Eigen::MatrixXd C;
+    Eigen::VectorXi I;
+    Eigen::VectorXd D;
+    int nq = vnbr;
+    Eigen::MatrixXd vers(vnbr, 3);
+    vers.col(0) = PlyVars.segment(0, vnbr);
+    vers.col(1) = PlyVars.segment(vnbr, vnbr);
+    vers.col(2) = PlyVars.segment(vnbr * 2, vnbr);
+    igl::point_mesh_squared_distance(vers, Vref, Fref, D, I, C);
 
-    // std::vector<Trip> tripletes;
-    int vnbr = Front.size();
-    H = spMat(Eigen::VectorXd::Ones(vnbr * 6).asDiagonal()) + endpts_signs * (ratio_endpts - 1);
-    energy = Eigen::VectorXd::Zero(vnbr * 6);
-    energy.segment(0, vnbr * 3) = (PlyVars - OriVars).segment(0, vnbr * 3);
-
-    // pick the selected one.
-    if (pick_single_line)
+    for (int i = 0; i < vnbr; i++)
     {
-        for (int i = 0; i < VinPly.size(); i++)
+        int f = I(i);
+
+        Eigen::Vector3d p = C.row(i);
+        Eigen::Vector3d v0 = Vref.row(Fref(f, 0));
+        Eigen::Vector3d v1 = Vref.row(Fref(f, 1));
+        Eigen::Vector3d v2 = Vref.row(Fref(f, 2));
+        std::array<double, 3> coor = barycenter_coordinate(v0, v1, v2, p);
+        Eigen::Vector3d norm = coor[0] * Nref.row(Fref(f, 0)) + coor[1] * Nref.row(Fref(f, 1)) + coor[2] * Nref.row(Fref(f, 2));
+        assert(Nref.row(Fref(f, 0)).dot(Nref.row(Fref(f, 1))) > 0 && Nref.row(Fref(f, 0)).dot(Nref.row(Fref(f, 2))) > 0);
+        norm.normalize();
+        vprojs[i] = p;
+        Nlocal[i] = norm;
+
+        // debug
+        Eigen::Vector3d rec_pro = coor[0] * v0 + coor[1] * v1 + coor[2] * v2;
+        if ((rec_pro - p).norm() > 0.5)
         {
-            if (VinPly[i] != pick_line_id)
-            {
-                H.coeffRef(i, i) = 0;
-                energy[i] = 0;
-            }
+            std::cout<<"INACCURATE SOLVING: coor: "<<coor[0]<<", "<<coor[1]<<", "<<coor[2]<<std::endl;
+            std::cout<<"v0, "<<v0.transpose()<<std::endl;
+            std::cout<<"v1, "<<v1.transpose()<<std::endl;
+            std::cout<<"v2, "<<v2.transpose()<<std::endl;
+            std::cout<<"p "<<p.transpose()<<std::endl;
+            std::cout<<"p_compute "<<rec_pro.transpose()<<std::endl;
         }
     }
+    // Ppro0 = vec_list_to_matrix(vprojs);
+    // Npro0 = vec_list_to_matrix(Nlocal);
+    std::vector<Trip> tripletes;
+    tripletes.reserve(vnbr * 6);
+    energy = Eigen::VectorXd::Zero(vnbr * 2);
+    for (int i = 0; i < vnbr; i++)
+    {
+        int vid = i;
+        int lx = vid;
+        int ly = vid + vnbr;
+        int lz = vid + vnbr * 2;
+        int lnx = vid + vnbr * 3;
+        int lny = vid + vnbr * 4;
+        int lnz = vid + vnbr * 5;
 
-    B = -H * energy;
+        Eigen::Vector3d normal = Nlocal[vid]; // the normal vector
+        Eigen::Vector3d closest = vprojs[vid]; // the closest point
+        Eigen::Vector3d ver(PlyVars[lx], PlyVars[ly], PlyVars[lz]);
+
+        // ver.dot(n^*) - ver^*.dot(n^*) = 0
+        tripletes.push_back(Trip(i, lx, normal[0]));
+        tripletes.push_back(Trip(i, ly, normal[1]));
+        tripletes.push_back(Trip(i, lz, normal[2]));
+
+        energy[i] = ver.dot(normal) - closest.dot(normal);
+
+        // vertices not far away from the original ones
+        // (ver - ver^*)^2 = 0
+        double scale = 1;
+        Eigen::Vector3d verori;
+        // verori = closest;
+        // Eigen::Vector3d normal_local = normal;
+        verori[0] = OriVars[lx];
+        verori[1] = OriVars[ly];
+        verori[2] = OriVars[lz];
+        Eigen::Vector3d vdiff = ver - verori;
+        // if (vdiff.dot(normal_local) < 0)
+        // {
+        //     normal_local *= -1;
+        // }
+        // double cos_angle = vdiff.normalized().dot(normal_local);
+        // double angle_radian = acos(cos_angle);
+        // if (angle_radian > 30)
+        // {
+        //     continue;
+        // }
+        // std::cout<<"Through here"<<std::endl;
+        tripletes.push_back(Trip(i + vnbr, lx, 2 * vdiff[0] * scale));
+        tripletes.push_back(Trip(i + vnbr, ly, 2 * vdiff[1] * scale));
+        tripletes.push_back(Trip(i + vnbr, lz, 2 * vdiff[2] * scale));
+
+        energy[i + vnbr] = vdiff.dot(vdiff) * scale;
+    }
+    int nvars = PlyVars.size();
+    int ncondi = energy.size();
+    spMat J;
+    J.resize(ncondi, nvars);
+    J.setFromTriplets(tripletes.begin(), tripletes.end());
+    H = J.transpose() * J;
+    B = -J.transpose() * energy;
+    // if (Front.size() == 0)
+    // {
+    //     std::cout << "please use assemble_gravity after init the PolyOpt" << std::endl;
+    //     return;
+    // }
+
+    // // std::vector<Trip> tripletes;
+    // int vnbr = Front.size();
+    // H = spMat(Eigen::VectorXd::Ones(vnbr * 6).asDiagonal()) + endpts_signs * (ratio_endpts - 1);
+    // energy = Eigen::VectorXd::Zero(vnbr * 6);
+    // energy.segment(0, vnbr * 3) = (PlyVars - OriVars).segment(0, vnbr * 3);
+
+    // // pick the selected one.
+    // if (pick_single_line)
+    // {
+    //     for (int i = 0; i < VinPly.size(); i++)
+    //     {
+    //         if (VinPly[i] != pick_line_id)
+    //         {
+    //             H.coeffRef(i, i) = 0;
+    //             energy[i] = 0;
+    //         }
+    //     }
+    // }
+
+    // B = -H * energy;
 }
 void PolyOpt::assemble_polyline_smooth(spMat &H, Eigen::VectorXd &B, Eigen::VectorXd &energy)
 {
@@ -856,6 +964,7 @@ void PolyOpt::assemble_binormal_condition(spMat &H, Eigen::VectorXd &B, Eigen::V
     int vnbr = Front.size();
     energy = Eigen::VectorXd::Zero(vnbr * 3);
     tripletes.reserve(vnbr * 25);
+    
     for (int i = 0; i < vnbr; i++)
     {
         int vid = i;
@@ -961,6 +1070,31 @@ void PolyOpt::assemble_binormal_condition(spMat &H, Eigen::VectorXd &B, Eigen::V
     H = J.transpose() * J;
     B = -J.transpose() * energy;
 }
+
+// k is from 1.
+bool within_k_pts_to_bnd(const Eigen::VectorXi &Front, const Eigen::VectorXi &Back, const int vid, const int k)
+{
+    int tid = vid;
+    for (int i = 0; i < k; i++)
+    {
+        tid = Front[tid];
+        if (tid == -1)
+        {
+            return true;
+        }
+    }
+    tid = vid;
+    for (int i = 0; i < k; i++)
+    {
+        tid = Back[tid];
+        if (tid == -1)
+        {
+            return true;
+        }
+    }
+    return false;
+}
+
 // the binormals has an angle theta with surface normals
 void PolyOpt::assemble_angle_condition(spMat& H, Eigen::VectorXd& B, Eigen::VectorXd &energy){
     
@@ -977,9 +1111,17 @@ void PolyOpt::assemble_angle_condition(spMat& H, Eigen::VectorXd& B, Eigen::Vect
     double angle_radian = target_angle * LSC_PI / 180.;
     double cos_angle = cos(angle_radian);
     double sin_angle = sin(angle_radian);
+    double percent_filter = 5;//filter 5% of the points close to the end points
+    int nfilter = std::max(MaxNbrPinC * percent_filter / 100 / 2, 1.0); // filter n points on each side.
+
     for (int i = 0; i < vnbr; i++)
     {
         int vid = i;
+        if (within_k_pts_to_bnd(Front, Back, vid, nfilter))
+        {
+            continue;
+        }
+
         if (pick_single_line)
         {
             if (pick_line_id != VinPly[vid])
@@ -1070,11 +1212,17 @@ void PolyOpt::assemble_angle_condition(spMat& H, Eigen::VectorXd& B, Eigen::Vect
     H = J.transpose() * J;
     B = -J.transpose() * energy;
 }
-#include <igl/point_mesh_squared_distance.h>
+
 // please use me after initializing the polylines
 // Vr, Fr and nr are for the reference surfaces
 void PolyOpt::get_normal_vector_from_reference(const Eigen::MatrixXd &Vr, const Eigen::MatrixXi &Fr, const Eigen::MatrixXd &nr)
 {
+    if(Vref.rows()==0){
+        Vref = Vr;
+        Fref = Fr;
+        Nref = nr;
+    }
+    
     Eigen::MatrixXd C;
     Eigen::VectorXi I;
     Eigen::VectorXd D;
@@ -1897,7 +2045,7 @@ void QuadOpt::assemble_gravity(spMat& H, Eigen::VectorXd& B, Eigen::VectorXd &en
         Eigen::Vector3d closest = vprojs[vid]; // the closest point
         Eigen::Vector3d ver = V.row(vid);
 
-        // ver.dot(n^*) - ver^*.dot(v^*) = 0
+        // ver.dot(n^*) - ver^*.dot(n^*) = 0
         tripletes.push_back(Trip(i, lx, normal[0]));
         tripletes.push_back(Trip(i, ly, normal[1]));
         tripletes.push_back(Trip(i, lz, normal[2]));

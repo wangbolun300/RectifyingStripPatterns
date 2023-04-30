@@ -79,13 +79,16 @@ class LSAnalizer {
 public:
     LSAnalizer() {};
     Eigen::VectorXi LocalActInner;
+    Eigen::VectorXi LocalActBpair;
+    std::vector<bool> Correspondance;
     Eigen::VectorXi Special; // record if we apply the second condition in shading
-    Eigen::VectorXi ShadSpecial; // detect if parallel to the light
-    Eigen::VectorXi HighEnergy; // detect high energy vertices
+    // Eigen::VectorXi ShadSpecial; // detect if parallel to the light
+    // Eigen::VectorXi HighEnergy; // detect high energy vertices
     std::vector<CGMesh::HalfedgeHandle> heh0; 
     std::vector<CGMesh::HalfedgeHandle> heh1;
     std::vector<double> t1s;
     std::vector<double> t2s;
+
 };
 class NeighbourInfo
 {
@@ -139,6 +142,10 @@ public:
     // if opt for polyline, then don't opt for crease.
     bool opt_for_polyline = false;
     bool opt_for_crease = false;
+    Eigen::MatrixXd Vref;
+    Eigen::MatrixXi Fref;
+    Eigen::MatrixXd Nref;
+    int MaxNbrPinC = 0;
 
     void opt();
     // make the values not far from original data
@@ -340,7 +347,15 @@ private:
     void analysis_pseudo_geodesic_on_vertices(const Eigen::VectorXd& func_values, Eigen::VectorXi& LocalActInner,
         std::vector<CGMesh::HalfedgeHandle>& heh0, std::vector<CGMesh::HalfedgeHandle>& heh1,
         std::vector<double>& t1s, std::vector<double>& t2s);
+    void analysis_pseudo_geodesic_on_vertices(const Eigen::VectorXd &func_values,
+                                              const std::vector<std::array<int, 2>> boundary_pairs,
+                                              Eigen::VectorXi &LocalActInner,
+                                              Eigen::VectorXi &LocalActBpair,
+                                              std::vector<bool> &correspondance,
+                                              std::vector<CGMesh::HalfedgeHandle> &heh0, std::vector<CGMesh::HalfedgeHandle> &heh1,
+                                              std::vector<double> &t1s, std::vector<double> &t2s);
     void analysis_pseudo_geodesic_on_vertices(const Eigen::VectorXd& func_values, LSAnalizer& analizer);
+    void analysis_pseudo_geodesic_on_vertices(const Eigen::VectorXd& func_values,const std::vector<std::array<int, 2>> boundary_pairs, LSAnalizer& analizer);
     void calculate_pseudo_geodesic_opt_expanded_function_values(Eigen::VectorXd &vars, const std::vector<double> &angle_degree,
                                                                 const LSAnalizer &analizer, const int vars_start_loc, const int aux_start_loc, std::vector<Trip> &tripletes, Eigen::VectorXd &Energy);
     void calculate_extreme_pseudo_geodesic_values(Eigen::VectorXd &vars, const bool asymptotic,
@@ -363,6 +378,8 @@ private:
                                            const Eigen::VectorXd &func, spMat &H, Eigen::VectorXd &B, Eigen::VectorXd &bcfvalue);
     void assemble_solver_pesudo_geodesic_energy_part_vertex_based(Eigen::VectorXd &vars, const std::vector<double> &angle_degree,
                                                                   const LSAnalizer &analizer, const int vars_start_loc, const int aux_start_loc, spMat &H, Eigen::VectorXd &B, Eigen::VectorXd &energy);
+    void assemble_solver_pesudo_geodesic_energy_part_stitch_boundary(Eigen::VectorXd &vars, const std::vector<double> &angle_degree,
+                                                                  const LSAnalizer &analizer, const int vars_start_loc, const int aux_start_loc, spMat &H, Eigen::VectorXd &B, Eigen::VectorXd &energy);                                                                  
     void assemble_solver_strip_width_part(const Eigen::MatrixXd& GradValue,  spMat& H, Eigen::VectorXd& B);
     void assemble_solver_extreme_cases_part_vertex_based(Eigen::VectorXd &vars, const bool asymptotic, const bool use_given_direction, 
                                                          const LSAnalizer &analizer, const int vars_start_loc, spMat &H, Eigen::VectorXd &B, Eigen::VectorXd &energy);
@@ -530,7 +547,6 @@ public:
     double weight_geodesic; // For AAG and shading
     double weight_smt_binormal = 0; // smooth the binormals. Please only use it for shading system
     // double weight_shading; // For shading: the light is othogonal to the tangent direction 
-    // Don't Use Strip Width Condition When Opt Multiple Functions
     double strip_width = 1;       // strip width, defined as h/w, h: level set function value difference. w: distance between two points on the surface
     double max_step_length;
     double step_length;
@@ -568,6 +584,8 @@ public:
     Eigen::VectorXd PGVariationalAngles;
     double angle_between_two_levelsets;
     double weight_fix_two_ls_angle;
+    std::vector<std::array<int, 2>> BndPairs; // pairs of overlapping boundary vertices.
+
 private:
     std::vector<int> Fslope; // the faces of the marked slopes.
     std::vector<Eigen::Vector3d> OrthoSlope; // the orthogonal vectors of the desired slopes
@@ -685,7 +703,7 @@ public:
     void extract_levelset_curves(const int nbr, std::vector<Eigen::MatrixXd> &E0, std::vector<Eigen::MatrixXd> &E1);
     bool receive_interactive_strokes_and_init_ls(const std::vector<std::vector<int>> &flist,
                                           const std::vector<std::vector<Eigen::Vector3f>> &bclist);
-    void clear_high_energy_markers_in_analizer();
+    // void clear_high_energy_markers_in_analizer();
     CGMesh write_parameterization_mesh();
     void debug_tool();
 };

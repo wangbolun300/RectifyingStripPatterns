@@ -16,6 +16,7 @@ src/mesh_opt.h
 src/polyline.cpp
 src/interaction.cpp
 src/interaction.h
+src/topology.cpp
 )
 ################################################################################
 # Subfolders

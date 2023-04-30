@@ -141,7 +141,7 @@ void lsTools::get_mesh_normals_per_face()
         double lp = (le0 + le1 + le2) / 2;
         areaPF(i) = sqrt(lp * (lp - le0) * (lp - le1) * (lp - le2));
     }
-    igl::massmatrix(V, F, igl::MASSMATRIX_TYPE_BARYCENTRIC, mass);
+    igl::massmatrix(V, F, igl::MASSMATRIX_TYPE_VORONOI, mass);
     mass_uniform = get_uniformed_mass(mass);
 }
 

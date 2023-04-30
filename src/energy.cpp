@@ -5,8 +5,7 @@
 // handles are the two halfedges opposite to the point. 
 // l2s shows if the value is from large to small along the halfedge direction
 bool find_active_faces_and_directions_around_ver(CGMesh& lsmesh, const Eigen::VectorXd& fvalues,
-	const Eigen::MatrixXd& V,
-	const Eigen::Vector3d& normal, const int vid,
+	const Eigen::MatrixXd& V, const int vid,
 	std::array<Eigen::Vector3d, 2>& directions,
 	std::array<bool, 2>& l2s,// if the halfedge handle is from large to small
 	std::array<CGMesh::HalfedgeHandle, 2>& handles)
@@ -219,7 +218,7 @@ void lsTools::analysis_pseudo_geodesic_on_vertices(const Eigen::VectorXd& func_v
 		std::array<Eigen::Vector3d, 2> directions;
 		std::array<bool, 2> l2s; // if the halfedge handle is from large to small
 		std::array<CGMesh::HalfedgeHandle, 2> handles;
-		bool active = find_active_faces_and_directions_around_ver(lsmesh, func_values, V, norm_v.row(vid), vid, directions,
+		bool active = find_active_faces_and_directions_around_ver(lsmesh, func_values, V, vid, directions,
 			l2s, handles);
 		if (active)
 		{
@@ -765,13 +764,6 @@ void lsTools::calculate_shading_condition_inequivalent(Eigen::VectorXd &vars,
 
 		// the weight of ray * tangent for the places who does not have solutions
 		double weight_loose = 1;
-		if (analizer.HighEnergy.size() == ninner)
-		{
-			if (analizer.HighEnergy[i] == false)
-			{
-				weight_loose = weight_geodesic;
-			}
-		}
 		Eigen::Vector3d r = Eigen::Vector3d(vars[lrx], vars[lry], vars[lrz]);
 		Eigen::Vector3d ray = Eigen::Vector3d(vars[lrayx], vars[lrayy], vars[lrayz]);
 		Eigen::Vector3d np = Eigen::Vector3d(vars[lnpx], vars[lnpy], vars[lnpz]);
@@ -979,7 +971,7 @@ void lsTools::calculate_shading_condition_inequivalent(Eigen::VectorXd &vars,
 		tripletes.push_back(Trip(i + ninner * 7, lxl, (2 * xl) * scale));
 
 		Energy[i + ninner * 7] = (ray[0] - tanmin * ray[1] + xl * xl) * scale;
-		
+
 		// x/y <= tanmax -> x - tanmax * y - xr^2 = 0, since y < 0
 		tripletes.push_back(Trip(i + ninner * 8, lrayx, 1 * scale));
 		tripletes.push_back(Trip(i + ninner * 8, lrayy, -tanmax * scale));
@@ -2073,11 +2065,6 @@ void lsTools::Run_Level_Set_Opt() {
 			// mark the angles
 			Eigen::VectorXd diff;
 			// analizers[0].ShadSpecial = shading_detect_parallel_patch(Reference_theta, Reference_phi, diff);
-
-			if (enable_max_energy_check && analizers[0].HighEnergy.size() == 0) // mark the max energy points
-			{
-				mark_high_energy_vers(PGE, ninner, max_energy_percentage, IVids, analizers[0].HighEnergy, refids);
-			}
 
 			// std::cout<<"extreme before"<<std::endl;
 			assemble_solver_extreme_cases_part_vertex_based(Glob_lsvars, asymptotic, Given_Const_Direction,

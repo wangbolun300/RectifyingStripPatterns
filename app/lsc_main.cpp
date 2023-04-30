@@ -2679,14 +2679,14 @@ int main(int argc, char *argv[])
 			ImGui::InputDouble("Ttol1", &lscif::InputThetaTol1, 0, 0, "%.6f");
 			ImGui::SameLine();
 			ImGui::InputDouble("Ptol1", &lscif::InputPhiTol1, 0, 0, "%.6f");
-			ImGui::Checkbox("MarkMaxEnergy", &lscif::enable_max_energy_check);
-			ImGui::SameLine();
-			if (ImGui::Button("ClearMaxEnergy", ImVec2(ImGui::GetWindowSize().x * 0.23f, 0.0f)))
-			{
-				lscif::tools.clear_high_energy_markers_in_analizer();
-			}
-			ImGui::SameLine();
-			ImGui::InputDouble("MaxEnergyPercent", &lscif::max_e_percentage, 0, 0, "%.6f");
+			// ImGui::Checkbox("MarkMaxEnergy", &lscif::enable_max_energy_check);
+			// ImGui::SameLine();
+			// if (ImGui::Button("ClearMaxEnergy", ImVec2(ImGui::GetWindowSize().x * 0.23f, 0.0f)))
+			// {
+			// 	std::cout<<"This "
+			// }
+			// ImGui::SameLine();
+			// ImGui::InputDouble("MaxEnergyPercent", &lscif::max_e_percentage, 0, 0, "%.6f");
 			ImGui::Checkbox("ShadingInit", &lscif::shading_init);
 			ImGui::SameLine();
 			ImGui::InputDouble("weight binormal", &lscif::weight_binormal, 0, 0, "%.4f");
