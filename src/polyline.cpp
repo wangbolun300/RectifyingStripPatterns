@@ -586,9 +586,7 @@ void PolyOpt::init_crease_opt(const std::vector<std::vector<Eigen::Vector3d>> &v
         }
     }
     VerNbr = vnbr;
-    // the variables are the coffecients alpha and beta on each vertex.
-    PlyVars = Eigen::VectorXd::Zero(vnbr * 5);
-    PlyVars.segment(vnbr, vnbr) = Eigen::VectorXd::Ones(vnbr);
+    
     Front.resize(vnbr);
     Back.resize(vnbr);
     vertices_cp.resize(vnbr, 3);
@@ -625,12 +623,27 @@ void PolyOpt::init_crease_opt(const std::vector<std::vector<Eigen::Vector3d>> &v
             counter++;
         }
     }
+    // the variables are the vertices, creases, normals of the faces, binormals, principle normals.
+    PlyVars = Eigen::VectorXd::Zero(vnbr * 15);
+    // vertices
+    PlyVars.segment(0, vnbr) = vertices_cp.col(0);
+    PlyVars.segment(vnbr, vnbr) = vertices_cp.col(1);
+    PlyVars.segment(vnbr * 2, vnbr) = vertices_cp.col(2);
+    // creases
+    PlyVars.segment(vnbr * 3, vnbr) = binormal_cp.col(0);
+    PlyVars.segment(vnbr * 4, vnbr) = binormal_cp.col(1);
+    PlyVars.segment(vnbr * 5, vnbr) = binormal_cp.col(2);
+    // binormals
+    PlyVars.segment(vnbr * 9, vnbr) = binormal_cp.col(0);
+    PlyVars.segment(vnbr * 10, vnbr) = binormal_cp.col(1);
+    PlyVars.segment(vnbr * 11, vnbr) = binormal_cp.col(2);
+    
     int ncompu = 0;
 
     // to record the curvature on each point.
     AngCollector = Eigen::VectorXd::Ones(vnbr) * -1;
     Inflecs = Eigen::VectorXd::Ones(vnbr) * -1;
-    std::vector<bool> skips(vnbr, false);
+    // std::vector<bool> skips(vnbr, false);
     for (int i = 0; i < vnbr; i++)
     {
         int bk = Back[i];
@@ -638,9 +651,12 @@ void PolyOpt::init_crease_opt(const std::vector<std::vector<Eigen::Vector3d>> &v
         {
             continue;
         }
-        int lnx = i + vnbr * 2;
-        int lny = i + vnbr * 3;
-        int lnz = i + vnbr * 4;
+        int lnx = i + vnbr * 6;
+        int lny = i + vnbr * 7;
+        int lnz = i + vnbr * 8;
+        int lpx = i + vnbr * 12;
+        int lpy = i + vnbr * 13;
+        int lpz = i + vnbr * 14;
         Eigen::Vector3d Ver = vertices_cp.row(i);
         Eigen::Vector3d Vbk = vertices_cp.row(bk);
         Eigen::Vector3d Bver = binormal_cp.row(i);
@@ -652,50 +668,57 @@ void PolyOpt::init_crease_opt(const std::vector<std::vector<Eigen::Vector3d>> &v
         PlyVars[lnx] = norm[0];
         PlyVars[lny] = norm[1];
         PlyVars[lnz] = norm[2];
+
+        Eigen::Vector3d tangent = tangents_cp.row(i);
+        Eigen::Vector3d pnormal = tangent.cross(Bver).normalized();
+        PlyVars[lpx] = tangent[0];
+        PlyVars[lpy] = tangent[1];
+        PlyVars[lpz] = tangent[2];
+
         ncompu++;
-        // compute the curvature, and predicate inflation points
-        int fr = Front[i];
-        if(fr == -1){
-            continue;
-        }
-        // curvature
-        Eigen::Vector3d Vfr = vertices_cp.row(fr);
-        Eigen::Vector3d tleft = (Ver - Vfr).normalized();
-        Eigen::Vector3d tright = (Vbk - Ver).normalized();
-        double lleft = (Ver - Vfr).norm();
-        double lright = (Vbk - Ver).norm();
-        double length = (lleft + lright) / 2;
-        Eigen::Vector3d cvector = (tright - tleft) / length;
-        double curvature = cvector.norm();
-        AngCollector[i] = curvature;
-        // inflection point
-        if (Back[bk] == -1)
-        {
-            continue;
-        }
-        Eigen::Vector3d Vbb = vertices_cp.row(Back[bk]);
-        Eigen::Vector3d Bfr = (Ver - Vfr).cross(Vbk - Ver);
-        Eigen::Vector3d Bbk = (Vbk - Ver).cross(Vbb - Vbk);
-        if (Bfr.dot(Bbk) < 0) // check inflection points using the binormals
-        {
-            // Inflecs[i] = 1;
-            // Inflecs[bk] = 1;
-            skips[i] = true;
-            skips[bk] = true;
-            continue;
+        // // compute the curvature, and predicate inflation points
+        // int fr = Front[i];
+        // if(fr == -1){
+        //     continue;
+        // }
+        // // curvature
+        // Eigen::Vector3d Vfr = vertices_cp.row(fr);
+        // Eigen::Vector3d tleft = (Ver - Vfr).normalized();
+        // Eigen::Vector3d tright = (Vbk - Ver).normalized();
+        // double lleft = (Ver - Vfr).norm();
+        // double lright = (Vbk - Ver).norm();
+        // double length = (lleft + lright) / 2;
+        // Eigen::Vector3d cvector = (tright - tleft) / length;
+        // double curvature = cvector.norm();
+        // AngCollector[i] = curvature;
+        // // inflection point
+        // if (Back[bk] == -1)
+        // {
+        //     continue;
+        // }
+        // Eigen::Vector3d Vbb = vertices_cp.row(Back[bk]);
+        // Eigen::Vector3d Bfr = (Ver - Vfr).cross(Vbk - Ver);
+        // Eigen::Vector3d Bbk = (Vbk - Ver).cross(Vbb - Vbk);
+        // if (Bfr.dot(Bbk) < 0) // check inflection points using the binormals
+        // {
+        //     // Inflecs[i] = 1;
+        //     // Inflecs[bk] = 1;
+        //     skips[i] = true;
+        //     skips[bk] = true;
+        //     continue;
             
-        }
+        // }
         
 
-        // Eigen::Vector3d Bfr = binormal_cp.row(fr);
-        // Eigen::Vector3d Bbk = binormal_cp.row(bk);
-        // Eigen::Vector3d bcross0 = Bver.cross(Bfr);
-        // Eigen::Vector3d bcross1 = Bbk.cross(Bver);
-        // if (bcross0.dot(bcross1) < 0) // check inflection points using the binormals
-        // {
-        //     Inflecs[i] = 1;
-        //     ninflc++;
-        // }
+        // // Eigen::Vector3d Bfr = binormal_cp.row(fr);
+        // // Eigen::Vector3d Bbk = binormal_cp.row(bk);
+        // // Eigen::Vector3d bcross0 = Bver.cross(Bfr);
+        // // Eigen::Vector3d bcross1 = Bbk.cross(Bver);
+        // // if (bcross0.dot(bcross1) < 0) // check inflection points using the binormals
+        // // {
+        // //     Inflecs[i] = 1;
+        // //     ninflc++;
+        // // }
     }
     ply_extracted = vertices;// to record the topology of the vers
     bin_extracted = binormals;
@@ -703,7 +726,8 @@ void PolyOpt::init_crease_opt(const std::vector<std::vector<Eigen::Vector3d>> &v
     RecMesh = polyline_to_strip_mesh(vertices, binormals, strip_scale);
     opt_for_crease = true;
     double cthreadshold;
-    statics_for_curvatures(AngCollector, FlatPts, cthreadshold);
+    FlatPts.resize(vnbr, false);
+    // statics_for_curvatures(AngCollector, FlatPts, cthreadshold);
     int ninflc = 0;
     // for (int i = 0; i < vnbr; i++)
     // {
@@ -749,7 +773,7 @@ void PolyOpt::init_crease_opt(const std::vector<std::vector<Eigen::Vector3d>> &v
     //     PlyVars[i] = tortion / tocu;
     //     PlyVars[i + vnbr] = AngCollector[i] / tocu;
     // }
-    std::cout<<"Nbr of Inflection Points: "<<ninflc<<std::endl;
+    // std::cout<<"Nbr of Inflection Points: "<<ninflc<<std::endl;
    
     
     std::cout<<"Initialization done. Ver nbr: "<<vertices_cp.rows()<<", nbr of curves, "<<vertices.size()<<
@@ -1722,7 +1746,7 @@ void PolyOpt::assemble_gravity_crease(spMat &H, Eigen::VectorXd &B, Eigen::Vecto
     }
     int vnbr = Front.size();
     H = Eigen::VectorXd::Ones(PlyVars.size()).asDiagonal();
-    energy = PlyVars - OriVars;
+    energy.segment(0, vnbr * 3) = (PlyVars - OriVars).segment(0, vnbr * 3);// appriximate of the vertices
     B = -energy;
 
 }
@@ -1749,6 +1773,7 @@ void PolyOpt::assemble_crease_planarity(spMat &H, Eigen::VectorXd &B, Eigen::Vec
 
         if(fr == -1){
             compute_front = false;
+            fr = vid;
         }
 
         if (bk == -1)
@@ -1756,16 +1781,108 @@ void PolyOpt::assemble_crease_planarity(spMat &H, Eigen::VectorXd &B, Eigen::Vec
             compute_back = false;
             bk = vid;
         }
-        // locations
-        int loc = vid;
-        int lal = vid;
-        int lbl = vid + vnbr;
-        int lbk = bk;
-        int lar = bk;
-        int lbr = bk + vnbr;
-        int lnx = vid + vnbr * 2;
-        int lny = vid + vnbr * 3;
-        int lnz = vid + vnbr * 4;
+        // locations: vertices, creases, normals of the faces, binormals, principle normals.
+        int lvx = vid;
+        int lvy = vid + vnbr;
+        int lvz = vid + vnbr * 2;
+        int lfrx = fr;
+        int lfry = fr + vnbr;
+        int lfrz = fr + vnbr * 2;
+        int lbkx = bk;
+        int lbky = bk + vnbr;
+        int lbkz = bk + vnbr * 2;
+
+        
+        int lcx = vid + vnbr * 3;
+        int lcy = vid + vnbr * 4;
+        int lcz = vid + vnbr * 5;
+        
+        int lnx = vid + vnbr * 6;
+        int lny = vid + vnbr * 7;
+        int lnz = vid + vnbr * 8;
+
+        int lbx = vid + vnbr * 9;
+        int lby = vid + vnbr * 10;
+        int lbz = vid + vnbr * 11;
+
+        int lpx = vid + vnbr * 12;
+        int lpy = vid + vnbr * 13;
+        int lpz = vid + vnbr * 14;
+
+        Eigen::Vector3d bnm(PlyVars[lbx],PlyVars[lby],PlyVars[lbz]);
+        Eigen::Vector3d pnm(PlyVars[lpx],PlyVars[lpy],PlyVars[lpz]);
+        Eigen::Vector3d crs(PlyVars[lcx],PlyVars[lcy],PlyVars[lcz]);
+        Eigen::Vector3d ver(PlyVars[lvx],PlyVars[lvy],PlyVars[lvz]);
+        Eigen::Vector3d norm(PlyVars[lnx],PlyVars[lny],PlyVars[lnz]);
+        Eigen::Vector3d vfr(PlyVars[lfrx],PlyVars[lfry],PlyVars[lfrz]);
+        Eigen::Vector3d vbk(PlyVars[lbkx],PlyVars[lbky],PlyVars[lbkz]);
+
+
+        if(compute_front){
+            // binormal * (ver - vfr) = 0
+            double err = bnm.dot((ver-vfr).normalized());
+            double scale = (ver - vfr).norm();
+            tripletes.push_back(Trip(i, lbx, (ver - vfr)[0] / scale));
+            tripletes.push_back(Trip(i, lby, (ver - vfr)[1] / scale));
+            tripletes.push_back(Trip(i, lbz, (ver - vfr)[2] / scale));
+
+            tripletes.push_back(Trip(i, lvx, bnm[0] / scale));
+            tripletes.push_back(Trip(i, lvy, bnm[1] / scale));
+            tripletes.push_back(Trip(i, lvz, bnm[2] / scale));
+
+            tripletes.push_back(Trip(i, lfrx, -bnm[0] / scale));
+            tripletes.push_back(Trip(i, lfry, -bnm[1] / scale));
+            tripletes.push_back(Trip(i, lfrz, -bnm[2] / scale));
+
+            energy[i] = err;
+
+        }
+        if(compute_back){
+            // binormal * (ver - vbk) = 0
+            double err = bnm.dot((ver - vbk).normalized());
+            double scale = (ver - vbk).norm();
+            tripletes.push_back(Trip(i + vnbr, lbx, (ver - vbk)[0] / scale));
+            tripletes.push_back(Trip(i + vnbr, lby, (ver - vbk)[1] / scale));
+            tripletes.push_back(Trip(i + vnbr, lbz, (ver - vbk)[2] / scale));
+
+            tripletes.push_back(Trip(i + vnbr, lvx, bnm[0] / scale));
+            tripletes.push_back(Trip(i + vnbr, lvy, bnm[1] / scale));
+            tripletes.push_back(Trip(i + vnbr, lvz, bnm[2] / scale));
+
+            tripletes.push_back(Trip(i + vnbr, lbkx, -bnm[0] / scale));
+            tripletes.push_back(Trip(i + vnbr, lbky, -bnm[1] / scale));
+            tripletes.push_back(Trip(i + vnbr, lbkz, -bnm[2] / scale));
+
+            energy[i + vnbr] = err;
+        }
+        // binormal * binormal = 1
+        tripletes.push_back(Trip(i + vnbr * 2, lbx, 2 * bnm[0]));
+        tripletes.push_back(Trip(i + vnbr * 2, lby, 2 * bnm[1]));
+        tripletes.push_back(Trip(i + vnbr * 2, lbz, 2 * bnm[2]));
+
+        energy[i + vnbr * 2] = bnm.dot(bnm) - 1;
+
+
+        // norm * lcrs = 0
+
+        // norm * rcrs = 0
+
+        // norm * norm = 1
+
+        // crease * tleft + crease * tright = 0
+
+
+        // pnm * bnm = 0?
+
+        // pnm * (vfr - vbk) = 0?
+
+        // pnm * pnm = 1?
+
+        // crease * pnm = 0?
+
+
+
+        
 
         Eigen::Vector3d vl = vertices_cp.row(loc);
         Eigen::Vector3d tanl = tangents_cp.row(loc);
