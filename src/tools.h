@@ -137,7 +137,8 @@ void get_polyline_rectifying_planes(const std::vector<std::vector<Eigen::Vector3
                                     std::vector<std::vector<Eigen::Vector3d>>& tangents,
                                     std::vector<std::vector<Eigen::Vector3d>>& binormals);
 
-void save_strokes(const std::vector<std::vector<int>> &flist, const std::vector<std::vector<Eigen::Vector3f>> &bclist);
+void save_strokes(const std::vector<std::vector<int>> &flist, const std::vector<std::vector<Eigen::Vector3f>> &bclist, 
+const Eigen::MatrixXd& V, const Eigen::MatrixXi& F);
 void read_strokes( std::vector<std::vector<int>> &flist,  std::vector<std::vector<Eigen::Vector3f>> &bclist);
 void get_geodesic_distance(const Eigen::MatrixXd &V, const Eigen::MatrixXi &F, const std::vector<int> &IVids,
                            const std::vector<int> &idinner, Eigen::VectorXd &D);

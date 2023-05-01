@@ -537,6 +537,42 @@ void PolyOpt::init(const std::vector<std::vector<Eigen::Vector3d>> &ply_in, cons
     MaxNbrPinC = csize;
     
 }
+
+// flat points: where franet frame is not properly defined. including: low curvature points, inflection points
+void statics_for_curvatures(const Eigen::VectorXd &cvec, std::vector<bool>& flat)
+{
+    Eigen::VectorXd curvatures = cvec;
+    int nend = 0;
+    int nlv0 = 0, nlv1 = 0, nlv2 = 0, nlv3 = 0;
+    double cmax = curvatures.maxCoeff();
+    flat.resize(curvatures.size(), false);
+    for (int i = 0; i < cvec.size(); i++)
+    {
+        if (cvec[i] < 0)
+        {
+            curvatures[i] = 0;
+            nend++;
+        }
+        else{
+            if(curvatures[i]<0.01*cmax){
+                nlv0++;
+                flat[i] = true;
+            }
+            if(curvatures[i]<0.005*cmax){
+                nlv1++;
+            }
+            if(curvatures[i]<0.001*cmax){
+                nlv2++;
+            }
+            
+        }
+        
+    }
+
+    std::cout << "Curvature Statics: Max curvature, " << cmax << ", below 1%, " << nlv0 << ", 5e-3, " << nlv1 << ", 1e-4, " << nlv2 << ", out of, "
+              << curvatures.size() << "\n";
+}
+
 void PolyOpt::init_crease_opt(const std::vector<std::vector<Eigen::Vector3d>> &vertices,
                               const std::vector<std::vector<Eigen::Vector3d>> &tangents,
                               const std::vector<std::vector<Eigen::Vector3d>> &binormals)
@@ -591,6 +627,8 @@ void PolyOpt::init_crease_opt(const std::vector<std::vector<Eigen::Vector3d>> &v
         }
     }
     int ncompu = 0;
+    // to record the curvature on each point.
+    AngCollector = Eigen::VectorXd::Ones(vnbr) * -1;
     for (int i = 0; i < vnbr; i++)
     {
         int bk = Back[i];
@@ -613,14 +651,31 @@ void PolyOpt::init_crease_opt(const std::vector<std::vector<Eigen::Vector3d>> &v
         PlyVars[lny] = norm[1];
         PlyVars[lnz] = norm[2];
         ncompu++;
+        // compute the curvature.
+        int fr = Front[i];
+        if(fr == -1){
+            continue;
+        }
+        Eigen::Vector3d Vfr = vertices_cp.row(fr);
+        Eigen::Vector3d tleft = (Ver - Vfr).normalized();
+        Eigen::Vector3d tright = (Vbk - Ver).normalized();
+        double lleft = (Ver - Vfr).norm();
+        double lright = (Vbk - Ver).norm();
+        double length = (lleft + lright) / 2;
+        Eigen::Vector3d cvector = (tright - tleft) / length;
+        double curvature = cvector.norm();
+        AngCollector[i] = curvature;
     }
     ply_extracted = vertices;// to record the topology of the vers
     bin_extracted = binormals;
     OriVars = PlyVars;
     RecMesh = polyline_to_strip_mesh(vertices, binormals, strip_scale);
     opt_for_crease = true;
+    statics_for_curvatures(AngCollector, FlatPts);
     std::cout<<"Initialization done. Ver nbr: "<<vertices_cp.rows()<<", nbr of curves, "<<vertices.size()<<
     ", nbr of faces, "<<ncompu<<std::endl;
+    
+
 }
 // use this when avoiding flipping of the strips.
 void PolyOpt::force_smoothing_binormals(){
@@ -705,8 +760,8 @@ void PolyOpt::assemble_gravity(spMat &H, Eigen::VectorXd &B, Eigen::VectorXd &en
     // Ppro0 = vec_list_to_matrix(vprojs);
     // Npro0 = vec_list_to_matrix(Nlocal);
     std::vector<Trip> tripletes;
-    tripletes.reserve(vnbr * 6);
-    energy = Eigen::VectorXd::Zero(vnbr * 2);
+    tripletes.reserve(vnbr * 9);
+    energy = Eigen::VectorXd::Zero(vnbr * 3);
     for (int i = 0; i < vnbr; i++)
     {
         int vid = i;
@@ -732,11 +787,11 @@ void PolyOpt::assemble_gravity(spMat &H, Eigen::VectorXd &B, Eigen::VectorXd &en
         // (ver - ver^*)^2 = 0
         double scale = 1;
         Eigen::Vector3d verori;
-        // verori = closest;
+        verori = closest;
         // Eigen::Vector3d normal_local = normal;
-        verori[0] = OriVars[lx];
-        verori[1] = OriVars[ly];
-        verori[2] = OriVars[lz];
+        // verori[0] = OriVars[lx];
+        // verori[1] = OriVars[ly];
+        // verori[2] = OriVars[lz];
         Eigen::Vector3d vdiff = ver - verori;
         // if (vdiff.dot(normal_local) < 0)
         // {
@@ -754,6 +809,19 @@ void PolyOpt::assemble_gravity(spMat &H, Eigen::VectorXd &B, Eigen::VectorXd &en
         tripletes.push_back(Trip(i + vnbr, lz, 2 * vdiff[2] * scale));
 
         energy[i + vnbr] = vdiff.dot(vdiff) * scale;
+
+        // close to the original position
+        verori[0] = OriVars[lx];
+        verori[1] = OriVars[ly];
+        verori[2] = OriVars[lz];
+        vdiff = ver - verori;
+        scale = 0.1;
+
+        tripletes.push_back(Trip(i + vnbr * 2, lx, 2 * vdiff[0] * scale));
+        tripletes.push_back(Trip(i + vnbr * 2, ly, 2 * vdiff[1] * scale));
+        tripletes.push_back(Trip(i + vnbr * 2, lz, 2 * vdiff[2] * scale));
+
+        energy[i + vnbr * 2] = vdiff.dot(vdiff) * scale;
     }
     int nvars = PlyVars.size();
     int ncondi = energy.size();
@@ -1651,7 +1719,9 @@ void PolyOpt::assemble_crease_planarity(spMat &H, Eigen::VectorXd &B, Eigen::Vec
             // energy[i] = cross.dot(vlr);
             // Markers[vid] = 1;
             // Markers[bk] = 1;
-
+            if(FlatPts[loc] && FlatPts[lbk]){
+                continue;
+            }
             // norm * vlr = 0
             tripletes.push_back(Trip(i, lnx, vlr[0]));
             tripletes.push_back(Trip(i, lny, vlr[1]));
@@ -1663,8 +1733,11 @@ void PolyOpt::assemble_crease_planarity(spMat &H, Eigen::VectorXd &B, Eigen::Vec
             tripletes.push_back(Trip(i + vnbr, lnx, lcrs[0]));
             tripletes.push_back(Trip(i + vnbr, lny, lcrs[1]));
             tripletes.push_back(Trip(i + vnbr, lnz, lcrs[2]));
-            tripletes.push_back(Trip(i + vnbr, lal, tanl.dot(norm)));
-            tripletes.push_back(Trip(i + vnbr, lbl, binl.dot(norm)));
+            if (!FlatPts[loc]) // if the point is not flat, regard it as variables
+            {
+                tripletes.push_back(Trip(i + vnbr, lal, tanl.dot(norm)));
+                tripletes.push_back(Trip(i + vnbr, lbl, binl.dot(norm)));
+            }
             energy[i + vnbr] = error;
 
             // norm * rcrs = 0
@@ -1672,8 +1745,12 @@ void PolyOpt::assemble_crease_planarity(spMat &H, Eigen::VectorXd &B, Eigen::Vec
             tripletes.push_back(Trip(i + vnbr * 2, lnx, rcrs[0]));
             tripletes.push_back(Trip(i + vnbr * 2, lny, rcrs[1]));
             tripletes.push_back(Trip(i + vnbr * 2, lnz, rcrs[2]));
-            tripletes.push_back(Trip(i + vnbr * 2, lar, tanr.dot(norm)));
-            tripletes.push_back(Trip(i + vnbr * 2, lbr, binr.dot(norm)));
+            if (!FlatPts[lbk]) // if the point is not flat, regard it as variables
+            {
+                tripletes.push_back(Trip(i + vnbr * 2, lar, tanr.dot(norm)));
+                tripletes.push_back(Trip(i + vnbr * 2, lbr, binr.dot(norm)));
+            }
+
             energy[i + vnbr * 2] = error;
 
             // norm * norm = 1

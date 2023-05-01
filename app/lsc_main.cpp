@@ -2850,7 +2850,7 @@ int main(int argc, char *argv[])
 			if (ImGui::Button("SaveStrokes", ImVec2(ImGui::GetWindowSize().x * 0.25f, 0.0f)))
 
 			{
-				save_strokes(lscif::flist, lscif::bclist);
+				save_strokes(lscif::flist, lscif::bclist, lscif::tools.V, lscif::tools.F);
 			}
 			ImGui::SameLine();
 			if (ImGui::Button("ReadStrokes", ImVec2(ImGui::GetWindowSize().x * 0.25f, 0.0f)))

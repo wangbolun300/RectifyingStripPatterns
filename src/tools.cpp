@@ -2338,7 +2338,8 @@ void save_quad_left_right_info(const std::string &namebase, std::vector<Eigen::V
     current = vc;
     write_one_info_file(fname, current, file);
 }
-void save_strokes(const std::vector<std::vector<int>> &flist, const std::vector<std::vector<Eigen::Vector3f>> &bclist)
+void save_strokes(const std::vector<std::vector<int>> &flist, const std::vector<std::vector<Eigen::Vector3f>> &bclist, 
+const Eigen::MatrixXd& V, const Eigen::MatrixXi& F)
 {
     std::cout << "Saving the info for the strokes, please provide the prefix: " << std::endl;
     std::string fname = igl::file_dialog_save();
@@ -2363,6 +2364,37 @@ void save_strokes(const std::vector<std::vector<int>> &flist, const std::vector<
         file << bclist[i].back()[0] << "," << bclist[i].back()[1] << "," << bclist[i].back()[2] << "," << std::endl;
     }
     file.close();
+    std::ofstream filex, filey, filez;
+    for (int i = 0; i < flist.size(); i++)
+    {
+        filex.open(fname + "_" + std::to_string(i) + "x.csv");
+        filey.open(fname + "_" + std::to_string(i) + "y.csv");
+        filez.open(fname + "_" + std::to_string(i) + "z.csv");
+        for (int j = 0; j < flist[i].size(); j++)
+        {
+            Eigen::Vector3f bc = bclist[i][j];
+            int fid = flist[i][j];
+            Eigen::Vector3d v0 = V.row(F(fid,0));
+            Eigen::Vector3d v1 = V.row(F(fid,1));
+            Eigen::Vector3d v2 = V.row(F(fid,2));
+            Eigen::Vector3d pt = bc[0] * v0 + bc[1] * v1 + bc[2] * v2;
+            filex << pt[0];
+            filey << pt[1];
+            filez << pt[2];
+            if (j < flist[i].size() - 1)
+            {
+                filex << ",";
+                filey << ",";
+                filez << ",";
+            }
+        }
+        filex << "\n";
+        filey << "\n";
+        filez << "\n";
+        filex.close();
+        filey.close();
+        filez.close();
+    }
     std::cout<<"files saved"<<std::endl;
 }
 void read_strokes( std::vector<std::vector<int>> &flist,  std::vector<std::vector<Eigen::Vector3f>> &bclist){
