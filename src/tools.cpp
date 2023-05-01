@@ -5972,6 +5972,24 @@ void get_overlap_ver_correspondance(CGMesh& mesh, std::vector<std::array<int, 2>
     std::cout << "the nbr of overlap boundary vertex pairx: " << list.size() << std::endl;
 }
 
+void obj2csv()
+{
+    std::cout << "Reading curve obj file" << std::endl;
+    std::string fname = igl::file_dialog_open();
+    Eigen::MatrixXd V;
+    Eigen::MatrixXi F;
+    igl::readOBJ(fname, V, F);
+    fname = igl::file_dialog_save();
+    std::ofstream fout;
+    fout.open(fname);
+    for (int i = 0; i < V.rows(); i++)
+    {
+        Eigen::Vector3d xyz = V.row(i);
+        fout << xyz[0] << "," << xyz[1] << "," << xyz[2] << "\n";
+    }
+    fout.close();
+}
+
 void lsTools::debug_tool(){
     Eigen::VectorXi info;
 

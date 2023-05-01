@@ -171,6 +171,7 @@ public:
     Eigen::MatrixXd tangents_cp;
     Eigen::MatrixXd binormal_cp;
     Eigen::VectorXd AngCollector;
+    Eigen::VectorXd Inflecs;
     std::vector<bool> FlatPts;
     // Eigen::MatrixXd normalve_cp;
 void init_crease_opt(const std::vector<std::vector<Eigen::Vector3d>> &vertices,
@@ -182,6 +183,7 @@ void extract_rectifying_plane_mesh_from_crease();
 void extract_polylines_and_binormals_from_creases();
 
 void opt_planarity();
+void draw_inflections(Eigen::MatrixXd& pts);
 };
 
 

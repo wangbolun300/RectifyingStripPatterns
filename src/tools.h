@@ -176,4 +176,5 @@ void orthogonal_slope_for_different_shading_types(const int whichtype, Eigen::Ve
 void get_orthogonal_direction_minimal_principle_curvature(const Eigen::MatrixXd &V, const Eigen::MatrixXi &F,
                                                           std::vector<int> &idspos,
                                                           std::vector<int> &idsneg, std::vector<Eigen::Vector3d> &ortho,
-                                                          std::vector<double> &coscos, std::vector<std::vector<Eigen::Vector3d>>& CurvDir);                                
+                                                          std::vector<double> &coscos, std::vector<std::vector<Eigen::Vector3d>>& CurvDir);
+void obj2csv();                                

@@ -539,7 +539,7 @@ void PolyOpt::init(const std::vector<std::vector<Eigen::Vector3d>> &ply_in, cons
 }
 
 // flat points: where franet frame is not properly defined. including: low curvature points, inflection points
-void statics_for_curvatures(const Eigen::VectorXd &cvec, std::vector<bool>& flat)
+void statics_for_curvatures(const Eigen::VectorXd &cvec, std::vector<bool>& flat, double &cthreadshold)
 {
     Eigen::VectorXd curvatures = cvec;
     int nend = 0;
@@ -566,9 +566,8 @@ void statics_for_curvatures(const Eigen::VectorXd &cvec, std::vector<bool>& flat
             }
             
         }
-        
     }
-
+    cthreadshold = 0.01 * cmax;
     std::cout << "Curvature Statics: Max curvature, " << cmax << ", below 1%, " << nlv0 << ", 5e-3, " << nlv1 << ", 1e-4, " << nlv2 << ", out of, "
               << curvatures.size() << "\n";
 }
@@ -627,8 +626,11 @@ void PolyOpt::init_crease_opt(const std::vector<std::vector<Eigen::Vector3d>> &v
         }
     }
     int ncompu = 0;
+
     // to record the curvature on each point.
     AngCollector = Eigen::VectorXd::Ones(vnbr) * -1;
+    Inflecs = Eigen::VectorXd::Ones(vnbr) * -1;
+    std::vector<bool> skips(vnbr, false);
     for (int i = 0; i < vnbr; i++)
     {
         int bk = Back[i];
@@ -651,11 +653,12 @@ void PolyOpt::init_crease_opt(const std::vector<std::vector<Eigen::Vector3d>> &v
         PlyVars[lny] = norm[1];
         PlyVars[lnz] = norm[2];
         ncompu++;
-        // compute the curvature.
+        // compute the curvature, and predicate inflation points
         int fr = Front[i];
         if(fr == -1){
             continue;
         }
+        // curvature
         Eigen::Vector3d Vfr = vertices_cp.row(fr);
         Eigen::Vector3d tleft = (Ver - Vfr).normalized();
         Eigen::Vector3d tright = (Vbk - Ver).normalized();
@@ -665,16 +668,102 @@ void PolyOpt::init_crease_opt(const std::vector<std::vector<Eigen::Vector3d>> &v
         Eigen::Vector3d cvector = (tright - tleft) / length;
         double curvature = cvector.norm();
         AngCollector[i] = curvature;
+        // inflection point
+        if (Back[bk] == -1)
+        {
+            continue;
+        }
+        Eigen::Vector3d Vbb = vertices_cp.row(Back[bk]);
+        Eigen::Vector3d Bfr = (Ver - Vfr).cross(Vbk - Ver);
+        Eigen::Vector3d Bbk = (Vbk - Ver).cross(Vbb - Vbk);
+        if (Bfr.dot(Bbk) < 0) // check inflection points using the binormals
+        {
+            // Inflecs[i] = 1;
+            // Inflecs[bk] = 1;
+            skips[i] = true;
+            skips[bk] = true;
+            continue;
+            
+        }
+        
+
+        // Eigen::Vector3d Bfr = binormal_cp.row(fr);
+        // Eigen::Vector3d Bbk = binormal_cp.row(bk);
+        // Eigen::Vector3d bcross0 = Bver.cross(Bfr);
+        // Eigen::Vector3d bcross1 = Bbk.cross(Bver);
+        // if (bcross0.dot(bcross1) < 0) // check inflection points using the binormals
+        // {
+        //     Inflecs[i] = 1;
+        //     ninflc++;
+        // }
     }
     ply_extracted = vertices;// to record the topology of the vers
     bin_extracted = binormals;
     OriVars = PlyVars;
     RecMesh = polyline_to_strip_mesh(vertices, binormals, strip_scale);
     opt_for_crease = true;
-    statics_for_curvatures(AngCollector, FlatPts);
+    double cthreadshold;
+    statics_for_curvatures(AngCollector, FlatPts, cthreadshold);
+    int ninflc = 0;
+    // for (int i = 0; i < vnbr; i++)
+    // {
+    //     if (Inflecs[i] == 1)
+    //     {
+    //         ninflc++;
+    //     }
+    //     if(skips[i]){
+    //         continue;
+    //     }
+    //     int bk = Back[i];
+    //     if (bk == -1)
+    //     {
+    //         continue;
+    //     }
+    //     int fr = Front[i];
+    //     if(fr == -1){
+    //         continue;
+    //     }
+    //     if(AngCollector[i]<cthreadshold){
+    //         continue;
+    //     }
+    //     Eigen::Vector3d Ver = vertices_cp.row(i);
+    //     Eigen::Vector3d Vbk = vertices_cp.row(bk);
+    //     Eigen::Vector3d Bver = binormal_cp.row(i);
+    //     Eigen::Vector3d Vfr = vertices_cp.row(fr);
+    //     Eigen::Vector3d tleft = (Ver - Vfr).normalized();
+    //     Eigen::Vector3d tright = (Vbk - Ver).normalized();
+    //     double lleft = (Ver - Vfr).norm();
+    //     double lright = (Vbk - Ver).norm();
+    //     double length = (lleft + lright) / 2;
+    //     // use the tortion to 
+    //     Eigen::Vector3d Bbk = binormal_cp.row(bk); 
+    //     Eigen::Vector3d Bfr = binormal_cp.row(fr);
+
+    //     Eigen::Vector3d Bbm = (Bbk + Bver).normalized();
+    //     Eigen::Vector3d Bfm = (Bfr + Bver).normalized();
+
+    //     Eigen::Vector3d Bdiff = (Bbm - Bfm) / length;
+    //     double tortion = Bdiff.norm();
+    //     // normalize tortion and curvature
+    //     double tocu = sqrt(tortion * tortion + AngCollector[i] * AngCollector[i]);
+    //     PlyVars[i] = tortion / tocu;
+    //     PlyVars[i + vnbr] = AngCollector[i] / tocu;
+    // }
+    std::cout<<"Nbr of Inflection Points: "<<ninflc<<std::endl;
+   
+    
     std::cout<<"Initialization done. Ver nbr: "<<vertices_cp.rows()<<", nbr of curves, "<<vertices.size()<<
     ", nbr of faces, "<<ncompu<<std::endl;
-    
+
+}
+void PolyOpt::draw_inflections(Eigen::MatrixXd& pts){
+    std::vector<Eigen::Vector3d> tmp;
+    for(int i=0;i<vertices_cp.rows();i++){
+        if(Inflecs[i]>0){
+            tmp.push_back(vertices_cp.row(i));
+        }
+    }
+    pts = vec_list_to_matrix(tmp);
 
 }
 // use this when avoiding flipping of the strips.
@@ -1719,7 +1808,14 @@ void PolyOpt::assemble_crease_planarity(spMat &H, Eigen::VectorXd &B, Eigen::Vec
             // energy[i] = cross.dot(vlr);
             // Markers[vid] = 1;
             // Markers[bk] = 1;
+            
+             // if two points are all flat points, skip. 
             if(FlatPts[loc] && FlatPts[lbk]){
+                continue;
+            }
+            // if this face contains iflection points, skip
+            if (Inflecs[loc] == 1 || Inflecs[lbk] == 1)
+            {
                 continue;
             }
             // norm * vlr = 0

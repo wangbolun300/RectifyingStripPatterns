@@ -1062,12 +1062,15 @@ int main(int argc, char *argv[])
 				// construct_single_developable_strips_by_intersect_rectifying(0);
 				// write_unfold_single_strip();
 				// draw_catenaries_on_cylinder();
-				Eigen::MatrixXd Vcout;
-				Eigen::MatrixXd Vlout;
-				match_the_two_catenaries(lscif::tools.lsmesh, lscif::tools.Boundary_Edges, lscif::tools.V,
-										 lscif::tools.F, lscif::tools.fvalues, Vcout, Vlout);
-				viewer.data().add_points(Vcout, lscif::hot_red);
-				viewer.data().add_points(Vlout, lscif::sea_green);
+				// Eigen::MatrixXd Vcout;
+				// Eigen::MatrixXd Vlout;
+				// match_the_two_catenaries(lscif::tools.lsmesh, lscif::tools.Boundary_Edges, lscif::tools.V,
+				// 						 lscif::tools.F, lscif::tools.fvalues, Vcout, Vlout);
+				// viewer.data().add_points(Vcout, lscif::hot_red);
+				// viewer.data().add_points(Vlout, lscif::sea_green);
+				Eigen::MatrixXd Vout;
+				lscif::poly_tool.draw_inflections(Vout);
+				viewer.data().add_points(Vout, lscif::hot_red);
 			}
 			ImGui::SameLine();
 			if (ImGui::Button("DBG", ImVec2(ImGui::GetWindowSize().x * 0.23f, 0.0f)))
@@ -1079,6 +1082,11 @@ int main(int argc, char *argv[])
 				// write_unfold_single_strip();
 				// draw_catenaries_on_cylinder();
 				lscif::tools.debug_tool();
+			}
+			ImGui::SameLine();
+			if (ImGui::Button("OBJ2CSV", ImVec2(ImGui::GetWindowSize().x * 0.23f, 0.0f)))
+			{
+				obj2csv();
 			}
 		}
 		if (ImGui::CollapsingHeader("LS Processing", ImGuiTreeNodeFlags_DefaultOpen))
