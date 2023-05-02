@@ -150,7 +150,7 @@ public:
     void opt();
     // make the values not far from original data
     void assemble_gravity(spMat& H, Eigen::VectorXd& B, Eigen::VectorXd &energy);
-    void assemble_polyline_smooth(spMat& H, Eigen::VectorXd& B, Eigen::VectorXd &energy);
+    void assemble_polyline_smooth(const bool crease,  spMat& H, Eigen::VectorXd& B, Eigen::VectorXd &energy);
     void assemble_binormal_condition(spMat& H, Eigen::VectorXd& B, Eigen::VectorXd &energy);
     void assemble_angle_condition(spMat& H, Eigen::VectorXd& B, Eigen::VectorXd &energy);
     void extract_rectifying_plane_mesh();
@@ -173,6 +173,7 @@ public:
     Eigen::VectorXd AngCollector;
     Eigen::VectorXd Inflecs;
     std::vector<bool> FlatPts;
+    Eigen::VectorXd FlatDeterm;
     // Eigen::MatrixXd normalve_cp;
 void init_crease_opt(const std::vector<std::vector<Eigen::Vector3d>> &vertices,
                      const std::vector<std::vector<Eigen::Vector3d>> &tangents,
