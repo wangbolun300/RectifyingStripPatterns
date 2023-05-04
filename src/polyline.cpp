@@ -841,6 +841,10 @@ void PolyOpt::assemble_gravity(spMat &H, Eigen::VectorXd &B, Eigen::VectorXd &en
     vers.col(0) = PlyVars.segment(0, vnbr);
     vers.col(1) = PlyVars.segment(vnbr, vnbr);
     vers.col(2) = PlyVars.segment(vnbr * 2, vnbr);
+    if(Vref.cols() != vers.cols()){
+        std::cout<<"In PolyOpt::assemble_gravity: Vref.cols() "<<Vref.cols()<<std::endl;
+    }
+    assert(Vref.cols() == vers.cols());
     igl::point_mesh_squared_distance(vers, Vref, Fref, D, I, C);
 
     for (int i = 0; i < vnbr; i++)
@@ -1122,22 +1126,49 @@ void PolyOpt::assemble_polyline_smooth(const bool crease, spMat &H, Eigen::Vecto
             Eigen::Vector3d err = sign1 * nfr + sign2 * nbk - 2 * nbi;
             tripletes.push_back(Trip(i + vnbr * 3, lfnx, binormal_ratio * sign1));
             tripletes.push_back(Trip(i + vnbr * 3, lbnx, binormal_ratio * sign2));
-            tripletes.push_back(Trip(i + vnbr * 3, lnx, binormal_ratio * -2));
+            tripletes.push_back(Trip(i + vnbr * 3, lnx, -2 * binormal_ratio));
             energy[i + vnbr * 3] = binormal_ratio * err[0];
 
             tripletes.push_back(Trip(i + vnbr * 4, lfny, binormal_ratio * sign1));
             tripletes.push_back(Trip(i + vnbr * 4, lbny, binormal_ratio * sign2));
-            tripletes.push_back(Trip(i + vnbr * 4, lny, binormal_ratio * -2));
+            tripletes.push_back(Trip(i + vnbr * 4, lny, -2 * binormal_ratio));
             energy[i + vnbr * 4] = binormal_ratio * err[1];
 
             tripletes.push_back(Trip(i + vnbr * 5, lfnz, binormal_ratio * sign1));
             tripletes.push_back(Trip(i + vnbr * 5, lbnz, binormal_ratio * sign2));
-            tripletes.push_back(Trip(i + vnbr * 5, lnz, binormal_ratio * -2));
+            tripletes.push_back(Trip(i + vnbr * 5, lnz, -2 * binormal_ratio));
             energy[i + vnbr * 5] = binormal_ratio * err[2];
+            if(isnan(binormal_ratio)){
+                std::cout<<"binormal_ratio is nan"<<std::endl;
+            }
+            if(isnan(sign1)){
+                std::cout<<"sign1 is nan"<<std::endl;
+            }
+            if(isnan(sign2)){
+                std::cout<<"sign2 is nan"<<std::endl;
+            }
+            if(isnan(err[0])){
+                std::cout<<"err[0] is nan"<<std::endl;
+                std::cout<<"error, "<<err<<std::endl;
+                std::cout << "sign1, " << sign1 << std::endl;
+                std::cout << "sign2, " << sign2 << std::endl;
+                std::cout << "nfr, " << nfr << std::endl;
+                std::cout << "nbk, " << nbk << std::endl;
+                std::cout << "nbi, " << nbi << std::endl;
+                
+            }
+            if (vector_contains_NAN(PlyVars))
+            {
+                std::cout << "Polyvars has nan" << std::endl;
+            }
         }
         
     }
-
+    assert(!vector_contains_NAN(energy));
+    int nanposition;
+    if(vector_contains_NAN(energy, nanposition)){
+        std::cout<<"NAN in Ply smooth, location: "<<nanposition<<", with vnbr "<<vnbr<<std::endl;
+    }
     // std::cout<<"check 2"<<std::endl;
     spMat J;
     J.resize(energy.size(), PlyVars.size());
@@ -1412,7 +1443,7 @@ void PolyOpt::assemble_angle_condition(spMat& H, Eigen::VectorXd& B, Eigen::Vect
 // Vr, Fr and nr are for the reference surfaces
 void PolyOpt::get_normal_vector_from_reference(const Eigen::MatrixXd &Vr, const Eigen::MatrixXi &Fr, const Eigen::MatrixXd &nr)
 {
-    if(Vref.rows()==0){
+    if(Vref.rows() != Vr.rows()){
         Vref = Vr;
         Fref = Fr;
         Nref = nr;
@@ -1675,10 +1706,10 @@ void PolyOpt::orient_binormals_of_plyline(const std::vector<std::vector<Eigen::V
 {
     std::vector<std::vector<Eigen::Vector3d>> bilist = bi;
     // int counter = 0;
-    Eigen::Vector3d bbase = bi[0][0];
+    Eigen::Vector3d bbase = OrientEndPts ? bi[0].back() : bi[0][0];
     for (int i = 0; i < bi.size(); i++)
     {
-        Eigen::Vector3d base = bi[i][0];
+        Eigen::Vector3d base = OrientEndPts ? bi[i].back() : bi[i][0];
         if (base.dot(bbase) < 0)
         {
             base *= -1;
@@ -1693,6 +1724,7 @@ void PolyOpt::orient_binormals_of_plyline(const std::vector<std::vector<Eigen::V
         }
     }
     bout = bilist;
+    OrientEndPts = !OrientEndPts;
 }
 void PolyOpt::opt()
 {
@@ -1774,18 +1806,97 @@ void PolyOpt::opt()
 // try to make the variable to 0
 void PolyOpt::assemble_gravity_crease(spMat &H, Eigen::VectorXd &B, Eigen::VectorXd &energy)
 {
-    if (Front.size() == 0)
-    {
-        std::cout << "please use assemble_binormal_condition after init the PolyOpt" << std::endl;
-        return;
-    }
+    std::vector<Trip> tripletes;
     int vnbr = Front.size();
-    H = Eigen::VectorXd::Ones(PlyVars.size()).asDiagonal();
-    energy = Eigen::VectorXd::Zero(PlyVars.size());
-    energy.segment(0, vnbr * 3) = (PlyVars - OriVars).segment(0, vnbr * 3);// approiximate of the vertices
-    energy.segment(vnbr * 9, vnbr * 3) = (PlyVars - OriVars).segment(vnbr * 9, vnbr * 3);// approiximate of the binormals
-    B = -energy;
+    tripletes.reserve(vnbr * 15);
+    energy = Eigen::VectorXd::Zero(vnbr * 5);
+    
+    for(int i = 0;i<vnbr;i++){
+        int vid = i;
+        int bk = Back[vid];
+        int fr = Front[vid];
+        bool compute_front = true;
+        bool compute_back = true;
 
+        if(fr == -1){
+            compute_front = false;
+            fr = vid;
+        }
+
+        if (bk == -1)
+        {
+            compute_back = false;
+            bk = vid;
+        }
+        // locations: vertices, creases, normals of the faces, binormals, principle normals.
+        int lvx = vid;
+        int lvy = vid + vnbr;
+        int lvz = vid + vnbr * 2;
+        int lfrx = fr;
+        int lfry = fr + vnbr;
+        int lfrz = fr + vnbr * 2;
+        int lbkx = bk;
+        int lbky = bk + vnbr;
+        int lbkz = bk + vnbr * 2;
+
+        int lbx = vid + vnbr * 9;
+        int lby = vid + vnbr * 10;
+        int lbz = vid + vnbr * 11;
+
+        double xo = OriVars[lvx];
+        double yo = OriVars[lvy];
+        double zo = OriVars[lvz];
+        Eigen::Vector3d bio(OriVars[lbx],OriVars[lby],OriVars[lbz]);
+
+        Eigen::Vector3d ver(PlyVars[lvx],PlyVars[lvy],PlyVars[lvz]);
+        Eigen::Vector3d vfr(PlyVars[lfrx],PlyVars[lfry],PlyVars[lfrz]);
+        Eigen::Vector3d vbk(PlyVars[lbkx],PlyVars[lbky],PlyVars[lbkz]);
+        
+        // ver[0] - xo = 0
+        tripletes.push_back(Trip(i, lvx, 1));
+        energy[i] = ver[0] - xo;
+        
+        // ver[1] - yo = 0
+        tripletes.push_back(Trip(i + vnbr, lvy, 1));
+        energy[i + vnbr] = ver[1] - yo;
+
+        // ver[2] - zo = 0
+        tripletes.push_back(Trip(i + vnbr * 2, lvz, 1));
+        energy[i + vnbr * 2] = ver[2] - zo;
+
+        if (compute_front && compute_back)
+        { 
+            // bio * (ver - vfr) / scale = 0
+            double scale = (ver - vfr).norm();
+            tripletes.push_back(Trip(i + vnbr * 3, lvx, binormal_ratio * bio[0] / scale));
+            tripletes.push_back(Trip(i + vnbr * 3, lvy, binormal_ratio * bio[1] / scale));
+            tripletes.push_back(Trip(i + vnbr * 3, lvz, binormal_ratio * bio[2] / scale));
+
+            tripletes.push_back(Trip(i + vnbr * 3, lfrx, - binormal_ratio * bio[0] / scale));
+            tripletes.push_back(Trip(i + vnbr * 3, lfry, - binormal_ratio * bio[1] / scale));
+            tripletes.push_back(Trip(i + vnbr * 3, lfrz, - binormal_ratio * bio[2] / scale));
+
+            energy[i + vnbr * 3] = binormal_ratio * bio.dot(ver - vfr) / scale;
+
+            // bio * (ver - vbk) / scale = 0;
+            scale = (ver - vbk).norm();
+            tripletes.push_back(Trip(i + vnbr * 4, lvx, binormal_ratio * bio[0] / scale));
+            tripletes.push_back(Trip(i + vnbr * 4, lvy, binormal_ratio * bio[1] / scale));
+            tripletes.push_back(Trip(i + vnbr * 4, lvz, binormal_ratio * bio[2] / scale));
+
+            tripletes.push_back(Trip(i + vnbr * 4, lbkx, - binormal_ratio * bio[0] / scale));
+            tripletes.push_back(Trip(i + vnbr * 4, lbky, - binormal_ratio * bio[1] / scale));
+            tripletes.push_back(Trip(i + vnbr * 4, lbkz, - binormal_ratio * bio[2] / scale));
+
+            energy[i + vnbr * 4] = binormal_ratio * bio.dot(ver - vbk) / scale;
+        }
+    }
+
+    spMat J;
+    J.resize(energy.size(), PlyVars.size());
+    J.setFromTriplets(tripletes.begin(), tripletes.end());
+    H = J.transpose() * J;
+    B = -J.transpose() * energy;
 }
 void PolyOpt::assemble_crease_planarity(spMat &H, Eigen::VectorXd &B, Eigen::VectorXd &energy)
 {
@@ -2335,8 +2446,8 @@ void QuadOpt::assemble_gravity(spMat& H, Eigen::VectorXd& B, Eigen::VectorXd &en
     // Ppro0 = vec_list_to_matrix(vprojs);
     // Npro0 = vec_list_to_matrix(Nlocal);
     std::vector<Trip> tripletes;
-    tripletes.reserve(vnbr * 6);
-    energy = Eigen::VectorXd::Zero(vnbr * 2);
+    tripletes.reserve(vnbr * 9);
+    energy = Eigen::VectorXd::Zero(vnbr * 3);
     for (int i = 0; i < vnbr; i++)
     {
         int vid = i;
@@ -2358,11 +2469,11 @@ void QuadOpt::assemble_gravity(spMat& H, Eigen::VectorXd& B, Eigen::VectorXd &en
         // (ver - ver^*)^2 = 0
         double scale = 1;
         Eigen::Vector3d verori;
-        // verori = closest;
+        verori = closest;
         // Eigen::Vector3d normal_local = normal;
-        verori[0] = OrigVars[lx];
-        verori[1] = OrigVars[ly];
-        verori[2] = OrigVars[lz];
+        // verori[0] = OrigVars[lx];
+        // verori[1] = OrigVars[ly];
+        // verori[2] = OrigVars[lz];
         Eigen::Vector3d vdiff = Eigen::Vector3d(V.row(vid)) - verori;
         // if (vdiff.dot(normal_local) < 0)
         // {
@@ -2380,6 +2491,19 @@ void QuadOpt::assemble_gravity(spMat& H, Eigen::VectorXd& B, Eigen::VectorXd &en
         tripletes.push_back(Trip(i + vnbr, lz, 2 * vdiff[2] * scale));
 
         energy[i + vnbr] = vdiff.dot(vdiff) * scale;
+
+        // verori[0] = OrigVars[lx];
+        // verori[1] = OrigVars[ly];
+        // verori[2] = OrigVars[lz];
+        // scale = 0.1;
+        // vdiff = Eigen::Vector3d(V.row(vid)) - verori;
+
+        // tripletes.push_back(Trip(i + vnbr * 2, lx, 2 * vdiff[0] * scale));
+        // tripletes.push_back(Trip(i + vnbr * 2, ly, 2 * vdiff[1] * scale));
+        // tripletes.push_back(Trip(i + vnbr * 2, lz, 2 * vdiff[2] * scale));
+
+        // energy[i + vnbr * 2] = vdiff.dot(vdiff) * scale;
+
     }
     int nvars = GlobVars.size();
     int ncondi = energy.size();
@@ -3653,7 +3777,22 @@ void QuadOpt::show_curve_families(std::array<Eigen::MatrixXd, 3>& edges){
     }
     edges[2] = vec_list_to_matrix(vtp);
     
+}
+void QuadOpt::get_Bnd(Eigen::VectorXi& Bnd){
+    int vnbr = V.rows();
+    Bnd = Eigen::VectorXi::Zero(vnbr);
+    for(int i=0;i<vnbr;i++){
+        int vid = i;
+        int rf = row_front[vid];
+        int rb = row_back[vid];
+        int cf = col_front[vid];
+        int cb = col_back[vid];
 
+        if (rf == -1 || rb == -1 || cf == -1 || cb == -1)
+        {
+            Bnd[i] = 1;
+        }
+    }
 }
 void QuadOpt::extract_binormals(const int family, const int bnm_start, const int vid, Eigen::Vector3d &bi)
 {
@@ -3677,6 +3816,10 @@ void QuadOpt::extract_binormals(const int family, const int bnm_start, const int
     int lrx = bnm_start + vid;
     int lry = bnm_start + vid + vnbr;
     int lrz = bnm_start + vid + vnbr * 2;
+
+    int lnx = vnbr * 3 + vid;
+    int lny = vnbr * 4 + vid;
+    int lnz = vnbr * 5 + vid;
     bool compute = true;
     if (family == 0) // rows
     {
@@ -3720,24 +3863,158 @@ void QuadOpt::extract_binormals(const int family, const int bnm_start, const int
         lby = d1b + vnbr;
         lbz = d1b + vnbr * 2;
     }
-    if (lfx < 0 || lbx < 0)// this is an end point
+    if (lfx < 0 || lbx < 0)// this is an end point, we use the neighbouring binormal vector
     {
         compute = false;
     }
-
-    if (compute == false)
-    { // the vertex is on the boundary
-        bi = Eigen::Vector3d(0, 0, 0);
-        return;
+    if (OptType == 2 || OptType == 3) // if it is pseudo-geodesic, then use the optimized values
+    {
+        if (compute == false)
+        { // the vertex is on the boundary
+            bi = Eigen::Vector3d(0, 0, 0);
+            return;
+        }
+    }
+    if (lfx < 0)
+    {
+        lfx = lvx;
+        lfy = lvx + vnbr;
+        lfz = lvx + vnbr * 2;
+    }
+    if (lbx < 0)
+    {
+        lbx = lvx;
+        lby = lvx + vnbr;
+        lbz = lvx + vnbr * 2;
     }
     Eigen::Vector3d Ver(GlobVars[lvx], GlobVars[lvy], GlobVars[lvz]);
     Eigen::Vector3d Vf(GlobVars[lfx], GlobVars[lfy], GlobVars[lfz]);
     Eigen::Vector3d Vb(GlobVars[lbx], GlobVars[lby], GlobVars[lbz]);
     Eigen::Vector3d r(GlobVars[lrx], GlobVars[lry], GlobVars[lrz]);
-    bi = r;
+    Eigen::Vector3d n(GlobVars[lnx], GlobVars[lny], GlobVars[lnz]);
+    Eigen::Vector3d tangent = (Vf - Vb).normalized();
+    if (OptType == 2 || OptType == 3)
+    { // PP or PPG
+        if (family == 0 || family == 1)// not the diagonal
+        {
+            bi = r;
+        }
+        else // the diagonal is G
+        {
+            bi = n.cross(tangent).normalized();
+        }
+    }
+    if (OptType == 0)
+    { // AAG
+        if (family == 0 || family == 1) // A
+        {
+            bi = n;
+        }
+        else // G
+        {
+            bi = n.cross(tangent).normalized();
+        }
+    }
+    if (OptType == 1) // GGA
+    {
+        if (family == 0 || family == 1) // G
+        {
+            bi = n.cross(tangent).normalized();
+        }
+        else // A
+        {
+            bi = n;
+        }
+    }
+}
+void QuadOpt::extract_diagonals(const int family, std::vector<std::vector<int>> &digs){
+    std::vector<std::vector<int>> curves;
+    int vnbr = V.rows();
+    Eigen::VectorXi checked = Eigen::VectorXi::Zero(vnbr);
+    Eigen::VectorXi starts = Eigen::VectorXi::Zero(vnbr);
+    assert(family == 2 || family == 3);
+    for (int i = 0; i < vnbr; i++) // get all the start points
+    {
+        int d0f = d0_front[i];
+        int d0b = d0_back[i];
+        int d1f = d1_front[i];
+        int d1b = d1_back[i];
+        int fr, bk;
+        if (family == 2) // d0
+        {
+            fr = d0f;
+            bk = d0b;
+        }
+
+        if (family == 3) // d1
+        {
+
+            fr = d1f;
+            bk = d1b;
+        }
+        if(fr == -1){
+            starts[i] = 1;
+        }
+    }
+
+    for (int itr = 0; itr < vnbr; itr++)
+    {
+        if (starts[itr] == 0)
+        {
+            continue;
+        }
+        std::vector<int> tmpc;
+        tmpc.push_back(itr);
+        int vcurrent = itr;
+        for (int j = 0; j < vnbr; j++)
+        {
+            int d0b = d0_back[vcurrent];
+            int d1b = d1_back[vcurrent];
+            int bk;
+            if (family == 2) // d0
+            {
+                bk = d0b;
+            }
+
+            if (family == 3) // d1
+            {
+                bk = d1b;
+            }
+            if (bk >= 0)
+            {
+                tmpc.push_back(bk);
+                vcurrent = bk;
+            }
+            else{
+                break;
+            }
+        }
+        if (tmpc.size() > 0)
+        {
+            curves.push_back(tmpc);
+        }
+    }
+    digs = curves;
 }
 
+// void assign_bnd_ver_bnms(const Eigen::VectorXi &Bnd, const std::vector<std::vector<int>> ids, std::vector<std::vector<Eigen::Vector3d>> &bnm)
+// {
+//     assert(ids.size() == bnm.size());
+//     for (int i = 0; i < ids.size(); i++)
+//     {
+//         assert(ids[i].size() == bnm[i].size());
+//         for (int j = 0; j < ids[i].size(); i++)
+//         {
+            
+//         }
+//     }
+// }
+
 void QuadOpt::write_polyline_info(){
+    // the iterations might look weird, because in our data the info are in the form of 0, 1, 2, -1, -1, 3, 4, ...
+    PolyOpt plytool;
+    Eigen::VectorXi Bnd;
+    get_Bnd(Bnd);
     std::string fname = igl::file_dialog_save();
     if (fname.length() == 0)
     {
@@ -3746,53 +4023,57 @@ void QuadOpt::write_polyline_info(){
     }
     std::vector<std::vector<Eigen::Vector3d>> lines_rows, lines_cols,
         bi_rows, bi_cols;
-
+    std::vector<std::vector<int>> idrows, idcols, iddiags;
     int vnbr = V.rows();
     // extract the family 0
     int family = 0;
     int bnm_start = vnbr * 6;
     std::cout<<"Row: ";
     std::vector<Eigen::Vector3d> line, binormal;
+    std::vector<int> ids;
     for (int i = 0; i < rowinfo.size(); i++)
     {
         line.clear();
         binormal.clear();
+        ids.clear();
 
         for (int j = 0; j < rowinfo[i].size(); j++)
         {
             int vid = rowinfo[i][j];
-            if (vid < 0)
+            if (vid < 0 || Bnd[vid] == 1)
             {
                 if (line.size() > 0)
                 {
                     int real_size = line.size();
                     if (real_size > 2)
                     {
-                        binormal[0] = binormal[1];
-                        binormal[real_size - 1] = binormal[real_size - 2];
                         lines_rows.push_back(line);
                         bi_rows.push_back(binormal);
+                        idrows.push_back(ids);
                     }
                     line.clear();
                     binormal.clear();
+                    ids.clear();
                 }
                 continue;
             }
-
-            Eigen::Vector3d b_local;
-            extract_binormals(family, bnm_start, vid, b_local);
-            line.push_back(V.row(vid));
-            binormal.push_back(b_local);
+            if (Bnd[vid] != 1)
+            {
+                Eigen::Vector3d b_local;
+                extract_binormals(family, bnm_start, vid, b_local);
+                line.push_back(V.row(vid));
+                binormal.push_back(b_local);
+                ids.push_back(vid);
+            }
         }
         if (line.size() > 0)
         {
             int real_size = line.size();
             if (real_size > 2)
             {
-                binormal[0] = binormal[1];
-                binormal[real_size - 1] = binormal[real_size - 2];
                 lines_rows.push_back(line);
                 bi_rows.push_back(binormal);
+                idrows.push_back(ids);
             }
         }
     }
@@ -3803,51 +4084,100 @@ void QuadOpt::write_polyline_info(){
     {
         line.clear();
         binormal.clear();
+        ids.clear();
 
         for (int j = 0; j < colinfo[i].size(); j++)
         {
             int vid = colinfo[i][j];
-            if (vid < 0)
+            if (vid < 0 || Bnd[vid] == 1)
             {
                 if (line.size() > 0)
                 {
                     int real_size = line.size();
                     if (real_size > 2)
                     {
-                        binormal[0] = binormal[1];
-                        binormal[real_size - 1] = binormal[real_size - 2];
                         lines_cols.push_back(line);
                         bi_cols.push_back(binormal);
+                        idcols.push_back(ids);
                     }
 
                     line.clear();
                     binormal.clear();
+                    ids.clear();
                 }
                 continue;
             }
-  
-            Eigen::Vector3d b_local;
-            extract_binormals(family, bnm_start, vid, b_local);
-            line.push_back(V.row(vid));
-            binormal.push_back(b_local);
+            if (Bnd[vid] != 1)
+            {
+                Eigen::Vector3d b_local;
+                extract_binormals(family, bnm_start, vid, b_local);
+                line.push_back(V.row(vid));
+                binormal.push_back(b_local);
+                ids.push_back(vid);
+            }
         }
         if (line.size() > 0)
         {
             int real_size = line.size();
             if (real_size > 2)
             {
-                binormal[0] = binormal[1];
-                binormal[real_size - 1] = binormal[real_size - 2];
                 lines_cols.push_back(line);
                 bi_cols.push_back(binormal);
+                idcols.push_back(ids);
             }
         }
     }
 
-    write_polyline_xyz(lines_rows, fname+"_r");
-    write_polyline_xyz(bi_rows, fname + "_r_b");
-    write_polyline_xyz(lines_cols, fname+"_c");
-    write_polyline_xyz(bi_cols, fname + "_c_b");
-    std::cout << "files get saved" << std::endl;
     
+    std::vector<std::vector<Eigen::Vector3d>> bout0, bout1, bout2;
+    if (OptType == 0 || OptType == 1 || OptType == 3) // AAG, GGA, PPG diagonals
+    {
+        std::vector<std::vector<int>> diagonals;
+        int family = WhichDiagonal == 0 ? 2 : 3;
+        extract_diagonals(family, diagonals);
+        std::vector<std::vector<Eigen::Vector3d>> cv, bn;
+        for (int i = 0; i < diagonals.size(); i++)
+        {
+            std::vector<Eigen::Vector3d> tmpc, tmpb;
+            std::vector<int> tmpi;
+            for (int j = 0; j < diagonals[i].size(); j++)
+            {
+                int vid = diagonals[i][j];
+                if (Bnd[vid] == 1)
+                {
+                    if (!tmpc.empty())
+                    {
+                        cv.push_back(tmpc);
+                        bn.push_back(tmpb);
+                        iddiags.push_back(tmpi);
+                    }
+                    tmpc.clear();
+                    tmpb.clear();
+                    tmpi.clear();
+                    continue;
+                }
+                tmpc.push_back(V.row(diagonals[i][j]));
+                Eigen::Vector3d localb;
+                extract_binormals(family, 0, diagonals[i][j], localb);
+                tmpb.push_back(localb);
+                tmpi.push_back(diagonals[i][j]);
+            }
+            if (!tmpc.empty())
+            {
+                cv.push_back(tmpc);
+                bn.push_back(tmpb);
+                iddiags.push_back(tmpi);
+            }
+        }
+        plytool.orient_binormals_of_plyline(bn, bout0);
+        write_polyline_xyz(cv, fname + "_d");
+        write_polyline_xyz(bout0, fname + "_d_b");
+    }
+    plytool.orient_binormals_of_plyline(bi_rows, bout1);
+    write_polyline_xyz(lines_rows, fname+"_r");
+    write_polyline_xyz(bout1, fname + "_r_b");
+    plytool.orient_binormals_of_plyline(bi_cols, bout2);
+    write_polyline_xyz(lines_cols, fname+"_c");
+    write_polyline_xyz(bout2, fname + "_c_b");
+    std::cout << "files get saved" << std::endl;
 }

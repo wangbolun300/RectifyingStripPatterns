@@ -536,10 +536,16 @@ double polynomial_integration(const std::vector<double> &poly, const double lowe
 Eigen::MatrixXd vec_list_to_matrix(const std::vector<Eigen::Vector3d> &vec)
 {
     Eigen::MatrixXd mat;
-    mat.resize(vec.size(), 3);
-    for (int i = 0; i < mat.rows(); i++)
+    if (vec.size() > 0)
     {
-        mat.row(i) = vec[i];
+        mat.resize(vec.size(), 3);
+        for (int i = 0; i < mat.rows(); i++)
+        {
+            mat.row(i) = vec[i];
+        }
+    }
+    else{
+        std::cout<<"The vertex vector is empty"<<std::endl;
     }
     return mat;
 }
@@ -1055,6 +1061,43 @@ bool read_levelset(Eigen::VectorXd &ls){
     return true;
 }
 
+std::vector<std::vector<Eigen::Vector3d>> xyz_to_vec_list(const std::vector<std::vector<double>> &x, const std::vector<std::vector<double>> &y, const std::vector<std::vector<double>> &z)
+{
+    std::vector<std::vector<Eigen::Vector3d>> result;
+    result.reserve(x.size());
+    for (int i = 0; i < x.size(); i++)
+    {
+        std::vector<Eigen::Vector3d> line;
+        for (int j = 0; j < x[i].size(); j++)
+        {
+            Eigen::Vector3d ver;
+            ver[0] = x[i][j];
+            ver[1] = y[i][j];
+            ver[2] = z[i][j];
+            line.push_back(ver);
+        }
+        result.push_back(line);
+    }
+    return result;
+}
+bool read_polylines(std::vector<std::vector<Eigen::Vector3d>>& ply){
+    ply.clear();
+    std::cout<<"Reading the binormal files and polyline files. Please type down the prefix"<<std::endl;
+    std::string fname = igl::file_dialog_save();
+    if (fname.length() == 0)
+    {
+        std::cout<<"Please type something "<<std::endl;
+        return false;
+    }
+    std::vector<std::vector<double>> vx, vy, vz;
+    read_csv_data_lbl(fname+"_x.csv", vx);
+    read_csv_data_lbl(fname+"_y.csv", vy);
+    read_csv_data_lbl(fname + "_z.csv", vz);
+    ply = xyz_to_vec_list(vx, vy, vz);
+    if (ply.size() > 0)
+        return true;
+    return false;
+}
 
 bool read_bi_normals(Eigen::MatrixXd &bn){
     std::string fname = igl::file_dialog_open();
@@ -3254,7 +3297,7 @@ std::array<double, 3> barycenter_coordinate(const Eigen::Vector3d &v0, const Eig
 #include <igl/point_mesh_squared_distance.h>
 void extract_shading_lines(const CGMesh &lsmesh, const Eigen::MatrixXd &V, const std::vector<CGMesh::HalfedgeHandle> &loop,
                            const Eigen::MatrixXi &F, const Eigen::VectorXd &ls,
-                           const int expect_nbr_ls)
+                           const int expect_nbr_ls, const bool write_binormals)
 {
     Eigen::VectorXd lsv0;
     int nbr_ls0;
@@ -3282,7 +3325,11 @@ void extract_shading_lines(const CGMesh &lsmesh, const Eigen::MatrixXd &V, const
     std::cout << "Writing the Polylines, please provide the file prefix" << std::endl;
     std::string fname = igl::file_dialog_save();
     write_polyline_xyz(lines, fname);
-    std::cout << "Reading Bi-normals of triangle mesh" << std::endl;
+    if (!write_binormals)
+    {
+        return;
+    }
+    std::cout << "Reading Bi-normals of triangle mesh. If you don't want to write binormal files, esc here" << std::endl;
     for (int i = 0; i < lines.size(); i++)
     {
         for (int j = 0; j < lines[i].size(); j++)
@@ -3291,7 +3338,10 @@ void extract_shading_lines(const CGMesh &lsmesh, const Eigen::MatrixXd &V, const
         }
     }
     Eigen::MatrixXd bn;
-    read_bi_normals(bn);
+    bool bireaded = read_bi_normals(bn);
+    if(!bireaded){
+        return;
+    }
     std::cout << "Binormals readed" << std::endl;
     Eigen::MatrixXd C;
     Eigen::VectorXi I;
@@ -4246,25 +4296,6 @@ CGMesh polyline_to_strip_mesh(const std::vector<std::vector<Eigen::Vector3d>> &p
     return mesh;
 }
 
-std::vector<std::vector<Eigen::Vector3d>> xyz_to_vec_list(const std::vector<std::vector<double>> &x, const std::vector<std::vector<double>> &y, const std::vector<std::vector<double>> &z)
-{
-    std::vector<std::vector<Eigen::Vector3d>> result;
-    result.reserve(x.size());
-    for (int i = 0; i < x.size(); i++)
-    {
-        std::vector<Eigen::Vector3d> line;
-        for (int j = 0; j < x[i].size(); j++)
-        {
-            Eigen::Vector3d ver;
-            ver[0] = x[i][j];
-            ver[1] = y[i][j];
-            ver[2] = z[i][j];
-            line.push_back(ver);
-        }
-        result.push_back(line);
-    }
-    return result;
-}
 
 void read_plylines_and_binormals(std::vector<std::vector<Eigen::Vector3d>>& ply, std::vector<std::vector<Eigen::Vector3d>>& bin){
     ply.clear();
@@ -4740,11 +4771,18 @@ void recover_end_pt_direction_from_crease(const Eigen::Vector3d &crease, const E
 
 void recover_polyline_endpts(){
     std::vector<std::vector<Eigen::Vector3d>> ply0, ply1, bin0, bin1, ply2, bin2;
-    std::cout<<"First read the crease plyline"<<std::endl;
+    std::cout<<"\nFirst read the plyline with creases"<<std::endl;
     read_plylines_and_binormals(ply0, bin0);
-    std::cout<<"second read the plyline with accurate binormals"<<std::endl;
+    std::cout<<"second read the plyline with binormals"<<std::endl;
     read_plylines_and_binormals(ply1, bin1);
+    if(ply0.empty() || ply1.empty()){
+        std::cout<<"Please type down correct prefixes for the files"<<std::endl;
+        return;
+    }
     int ncurve = ply0.size();
+    if(ncurve != ply1.size()){
+        std::cout<<"The sizes of the curves not match: "<<ncurve<<", "<<ply1.size()<<std::endl;
+    }
     int crease_cid = 0;
     for (int i = 0; i < ncurve; i++)
     {
@@ -4762,7 +4800,7 @@ void recover_polyline_endpts(){
         std::vector<Eigen::Vector3d> current_crease = bin0[crease_cid];
         if (vnbr - vnbr_crease != 2)
         {
-            std::cout << "ERROR in recover_polyline_endpts(): polyline size not match" << std::endl;
+            std::cout << "ERROR in recover_polyline_endpts(): polyline size not match: "<< vnbr - vnbr_crease<< std::endl;
             return;
         }
         // recover the first pt
@@ -5995,4 +6033,173 @@ void lsTools::debug_tool(){
 
     orthogonal_slope_for_different_shading_types(1, InnerV, info, V, F, norm_f, 0, 180, 10,
                                                  30, 0, 180, Fslope, OrthoSlope);
+}
+
+bool project_1_plyline_on_1_curve(const std::vector<Eigen::Vector3d>& ply, const std::vector<Eigen::Vector3d>& curve, 
+    Eigen::Vector3d& proj){
+    
+    double dis_min = 1e20;
+    double clsu, clsv;
+    Eigen::Vector3d closest;
+    for (int i = 0; i < ply.size() - 1; i++)
+    {
+        Eigen::Vector3d v0s = ply[i];
+        Eigen::Vector3d v0e = ply[i + 1];
+        Eigen::Vector3d dir0 = (v0e - v0s);
+        for (int j = 0; j < curve.size() - 1; j++)
+        {
+            Eigen::Vector3d v1s = ply[j];
+            Eigen::Vector3d v1e = ply[j + 1];
+            Eigen::Vector3d dir1 = (v1e - v1s);
+
+            double u, v;
+            igl::segment_segment_intersect(v0s, dir0, v1s, dir1, u, v);
+            if (u > 1)
+            {
+                u = 1;
+            }
+            if (u < 0)
+            {
+                u = 0;
+            }
+            if (v > 1)
+            {
+                v = 1;
+            }
+            if (v < 0)
+            {
+                v = 0;
+            }
+            Eigen::Vector3d p0 = v0s + dir0 * u;
+            Eigen::Vector3d p1 = v1s + dir1 * v;
+            double distance = (p0 - p1).norm();
+            if (dis_min > distance)
+            {
+                dis_min = distance;
+                closest = p1;
+            }
+            // the four end points
+            p0 = v0s;
+            p1 = v1s;
+            distance = (p0 - p1).norm();
+            if (dis_min > distance)
+            {
+                dis_min = distance;
+                closest = p1;
+            }
+
+            p0 = v0e;
+            p1 = v1s;
+            distance = (p0 - p1).norm();
+            if (dis_min > distance)
+            {
+                dis_min = distance;
+                closest = p1;
+            }
+
+            p0 = v0s;
+            p1 = v1e;
+            distance = (p0 - p1).norm();
+            if (dis_min > distance)
+            {
+                dis_min = distance;
+                closest = p1;
+            }
+            p0 = v0e;
+            p1 = v1e;
+            distance = (p0 - p1).norm();
+            if (dis_min > distance)
+            {
+                dis_min = distance;
+                closest = p1;
+            }
+        }
+    }
+    double threads = 1e-3;
+    bool c1 = (closest - curve.front()).norm() < threads;
+    bool c2 = (closest - curve.back()).norm() < threads;
+    bool c3 = (closest - ply.front()).norm() < threads;
+    bool c4 = (closest - ply.back()).norm() < threads;
+    if (c1 || c2 || c3 || c4)
+    {
+        std::cout<<"wrong pt: cloest: "<<closest.transpose()<<"\nv1, "<<curve.front().transpose()
+        <<"\nv2, "<<curve.back().transpose()
+        <<"\nv3, "<<ply.front().transpose()
+        <<"\nv4, "<<ply.back().transpose()<<std::endl;
+
+        return false;
+    }
+    proj = closest;
+    return true;
+}
+
+void project_polylines_on_shading_curves_and_save_results()
+{
+    std::vector<std::vector<Eigen::Vector3d>> plys, curs, pros;
+    std::cout << "Reading orthogonal curves first, then reading reference shading curves" << std::endl;
+    read_polylines(plys);
+    read_polylines(curs);
+    if (plys.size() == 0 || curs.size() == 0)
+    {
+        return;
+    }
+
+    for (int i = 0; i < plys[i].size(); i++)
+    {
+        std::vector<Eigen::Vector3d> pts;
+        for (int j = 0; j < curs.size(); j++)
+        {
+            Eigen::Vector3d p;
+            bool intersect =
+                project_1_plyline_on_1_curve(plys[i], curs[j], p);
+            if (intersect)
+            {
+                pts.push_back(p);
+                // std::cout << "find one intersection point " << std::endl;
+            }
+            else
+            {
+                std::cout << "ply " << i << " and curve " <<j<<" has no closest point"<<std::endl;
+            }
+        }
+        if (!pts.empty())
+        {
+            pros.push_back(pts);
+        }
+
+        else
+        {
+            std::cout << "Ply " << i << " has 0 curves " << std::endl;
+        }
+    }
+    // write_polyline_xyz()
+    std::string fname = igl::file_dialog_save();
+    if (fname.length() == 0)
+    {
+        std::cout << "Please type down the prefix" << std::endl;
+        return;
+    }
+    for (int i = 0; i < pros.size(); i++)
+    {
+        Eigen::MatrixXd V = vec_list_to_matrix(pros[i]);
+        Eigen::MatrixXi F;
+        igl::writeOBJ(fname + std::to_string(i) + ".obj", V, F);
+        std::cout<<fname + std::to_string(i) + ".obj"<<" got written"<<std::endl;
+    }
+    std::cout << "All the files are saved" << std::endl;
+}
+
+void read_draw_pts_from_plylines(Eigen::MatrixXd &ver)
+{
+    std::vector<std::vector<Eigen::Vector3d>> plys;
+    read_polylines(plys);
+    std::vector<Eigen::Vector3d> vlist;
+    for (auto line : plys)
+    {
+        for (auto pt : line)
+        {
+            vlist.push_back(pt);
+        }
+    }
+    ver = vec_list_to_matrix(vlist);
 }

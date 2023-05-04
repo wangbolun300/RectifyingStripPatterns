@@ -61,7 +61,7 @@ void extract_levelset_web_stable(const CGMesh &lsmesh, const std::vector<CGMesh:
                           Eigen::MatrixXd &vers, Eigen::MatrixXi &Faces, bool even_pace);
 void extract_shading_lines(const CGMesh &lsmesh, const Eigen::MatrixXd &V, const std::vector<CGMesh::HalfedgeHandle> &loop,
                            const Eigen::MatrixXi &F, const Eigen::VectorXd &ls,
-                           const int expect_nbr_ls);
+                           const int expect_nbr_ls, const bool write_binormals);
 double get_mat_max_diag(spMat& M);
 void solve_mean_value_laplacian_mat(CGMesh& lsmesh, const std::vector<int>& IVids, spMat& mat);
 spMat sum_uneven_spMats(const spMat& mat_small, const spMat& mat_large);
@@ -102,6 +102,7 @@ void mesh_unit_scale(const Eigen::MatrixXd &V, Eigen::MatrixXd &Vout);
 void mark_high_energy_vers(const Eigen::VectorXd &energy, const int ninner, const double percentage,
                            const std::vector<int> &IVids, Eigen::VectorXi &he, std::vector<int>& refid);
 void read_plylines_and_binormals(std::vector<std::vector<Eigen::Vector3d>>& ply, std::vector<std::vector<Eigen::Vector3d>>& bin);
+bool read_polylines(std::vector<std::vector<Eigen::Vector3d>>& ply);
 CGMesh polyline_to_strip_mesh(const std::vector<std::vector<Eigen::Vector3d>> &ply, const std::vector<std::vector<Eigen::Vector3d>> &bi, const double ratio);
 
 std::vector<Eigen::Vector3d> sample_one_polyline_based_on_length(const std::vector<Eigen::Vector3d>& polyline, const double avg);
@@ -177,4 +178,6 @@ void get_orthogonal_direction_minimal_principle_curvature(const Eigen::MatrixXd 
                                                           std::vector<int> &idspos,
                                                           std::vector<int> &idsneg, std::vector<Eigen::Vector3d> &ortho,
                                                           std::vector<double> &coscos, std::vector<std::vector<Eigen::Vector3d>>& CurvDir);
-void obj2csv();                                
+void obj2csv();    
+void project_polylines_on_shading_curves_and_save_results();     
+void read_draw_pts_from_plylines(Eigen::MatrixXd &ver);                       

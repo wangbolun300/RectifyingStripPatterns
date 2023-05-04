@@ -1944,13 +1944,16 @@ int main(int argc, char *argv[])
 				lscif::poly_tool.ratio_endpts = lscif::weight_endpoint_ratio;
 				lscif::poly_tool.pick_single_line = lscif::pick_single_ply;
 				lscif::poly_tool.pick_line_id = lscif::pick_line_id;
-
+				if(lscif::poly_tool.Vref.rows()==0){	
+					lscif::poly_tool.get_normal_vector_from_reference(lscif::tools.V, lscif::tools.F, lscif::tools.norm_v);
+					std::cout<<"Reading Reference Triangle Mesh ... "<<std::endl;
+				}
+				
 				for (int i = 0; i < lscif::OpIter; i++)
 				{
-					if (lscif::weight_angle > 0)
-					{
-						lscif::poly_tool.get_normal_vector_from_reference(lscif::tools.V, lscif::tools.F, lscif::tools.norm_v);
-					}
+
+					
+
 					lscif::poly_tool.opt();
 				}
 				CGMesh updatemesh = lscif::poly_tool.RecMesh;
@@ -2119,6 +2122,11 @@ int main(int argc, char *argv[])
 			if (ImGui::Button("DevV1", ImVec2(ImGui::GetWindowSize().x * 0.23f, 0.0f)))
 			{
 				construct_developable_strips_by_intersect_rectifying();
+			}
+			ImGui::SameLine();
+			if (ImGui::Button("RecoverEndPts", ImVec2(ImGui::GetWindowSize().x * 0.23f, 0.0f)))
+			{
+				recover_polyline_endpts();
 			}
 		}
 		ImGui::SetNextItemOpen(true);
@@ -2396,7 +2404,7 @@ int main(int argc, char *argv[])
 				viewer.selected_data_index = id;
 			}
 			ImGui::SameLine();
-			if (ImGui::Button("Extr Shading Lines", ImVec2(ImGui::GetWindowSize().x * 0.25f, 0.0f)))
+			if (ImGui::Button("ExtrLines&Binormals", ImVec2(ImGui::GetWindowSize().x * 0.25f, 0.0f)))
 			{
 				int id = viewer.selected_data_index;
 
@@ -2407,7 +2415,7 @@ int main(int argc, char *argv[])
 					return;
 				}
 				extract_shading_lines(lscif::tools.lsmesh, lscif::tools.V, lscif::tools.Boundary_Edges,
-									  lscif::tools.F, lscif::readed_LS1, lscif::nbr_lines_first_ls);
+									  lscif::tools.F, lscif::readed_LS1, lscif::nbr_lines_first_ls, true);
 				// std::string fname = igl::file_dialog_save();
 				// if (fname.length() == 0)
 				// {
@@ -2451,7 +2459,7 @@ int main(int argc, char *argv[])
 
 				write_quad_mesh_with_binormal(fname, lscif::tools.V, lscif::tools.F, bn, VER, FAC);
 			}
-			if (ImGui::Button("ExtrtQuad&IsoLines", ImVec2(ImGui::GetWindowSize().x * 0.25f, 0.0f)))
+			if (ImGui::Button("ExtractLines", ImVec2(ImGui::GetWindowSize().x * 0.25f, 0.0f)))
 			{
 				int id = viewer.selected_data_index;
 
@@ -2463,18 +2471,18 @@ int main(int argc, char *argv[])
 					ImGui::End();
 					return;
 				}
-				extract_Quad_Mesh_Zigzag(lscif::tools.lsmesh, lscif::tools.Boundary_Edges, lscif::tools.V, lscif::tools.F, lscif::readed_LS1,
-										 lscif::nbr_lines_first_ls, lscif::nbr_lines_second_ls, 3, VER, FAC);
-				std::string fname = igl::file_dialog_save();
-				if (fname.length() == 0)
-				{
-					ImGui::End();
-				}
-				else
-				{
-					igl::writeOBJ(fname, VER, FAC);
-					std::cout << "Quad mesh saved" << std::endl;
-				}
+				extract_shading_lines(lscif::tools.lsmesh, lscif::tools.V, lscif::tools.Boundary_Edges,
+									  lscif::tools.F, lscif::readed_LS1, lscif::nbr_lines_first_ls, false);
+				// std::string fname = igl::file_dialog_save();
+				// if (fname.length() == 0)
+				// {
+				// 	ImGui::End();
+				// }
+				// else
+				// {
+				// 	igl::writeOBJ(fname, VER, FAC);
+				// 	std::cout << "Quad mesh saved" << std::endl;
+				// }
 			}
 			ImGui::SameLine();
 			if (ImGui::Button("ShadingUnitScale", ImVec2(ImGui::GetWindowSize().x * 0.25f, 0.0f)))
@@ -2541,6 +2549,21 @@ int main(int argc, char *argv[])
 
 		{
 			update_qd_mesh_with_plylines();
+		}
+		if (ImGui::Button("ShadingProjLines", ImVec2(ImGui::GetWindowSize().x * 0.25f, 0.0f)))
+
+		{
+			project_polylines_on_shading_curves_and_save_results();
+		}
+		ImGui::SameLine();
+		if (ImGui::Button("ReadDrawPlyPts", ImVec2(ImGui::GetWindowSize().x * 0.25f, 0.0f)))
+
+		{
+			Eigen::MatrixXd ver;
+
+			read_draw_pts_from_plylines(ver);
+			const Eigen::RowVector3d red(0.8, 0.2, 0.2);
+			viewer.data().add_points(ver, red); // show rows
 		}
 		if (ImGui::CollapsingHeader("Mesh Optimization", ImGuiTreeNodeFlags_CollapsingHeader))
 		{
