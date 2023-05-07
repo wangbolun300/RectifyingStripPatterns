@@ -557,8 +557,18 @@ Eigen::VectorXd vec_list_to_vector(const std::vector<double>& vec){
     }
     return result;
 }
+std::vector<Eigen::Vector3d> mat_to_vec_list(const Eigen::MatrixXd &m)
+{
+    std::vector<Eigen::Vector3d> result(m.rows());
+    for (int i = 0; i < m.rows(); i++)
+    {
+        result[i] = m.row(i);
+    }
+    return result;
+}
 
-CGMesh::HalfedgeHandle boundary_halfedge(const CGMesh& lsmesh, const CGMesh::HalfedgeHandle& boundary_edge){
+CGMesh::HalfedgeHandle boundary_halfedge(const CGMesh &lsmesh, const CGMesh::HalfedgeHandle &boundary_edge)
+{
     assert(lsmesh.is_boundary(lsmesh.from_vertex_handle(boundary_edge)));
     assert(lsmesh.is_boundary(lsmesh.to_vertex_handle(boundary_edge)));
     CGMesh::HalfedgeHandle result = boundary_edge;
@@ -4248,7 +4258,8 @@ std::vector<int> sort_indices(const std::vector<Tn> &v)
 
 
 
-CGMesh polyline_to_strip_mesh(const std::vector<std::vector<Eigen::Vector3d>> &ply, const std::vector<std::vector<Eigen::Vector3d>> &bi, const double ratio)
+CGMesh polyline_to_strip_mesh(const std::vector<std::vector<Eigen::Vector3d>> &ply, const std::vector<std::vector<Eigen::Vector3d>> &bi, 
+const double ratio, const double ratio_back)
 {
     CGMesh mesh;
     if (ply.empty())
@@ -4273,8 +4284,8 @@ CGMesh polyline_to_strip_mesh(const std::vector<std::vector<Eigen::Vector3d>> &p
         std::vector<CGMesh::VertexHandle> vhd0, vhd1;
         for (int j = 0; j < ply[i].size(); j++)
         {
-            Eigen::Vector3d p0 = ply[i][j];
-            Eigen::Vector3d p1 = p0 + bi[i][j] * ratio;
+            Eigen::Vector3d p0 = ply[i][j] - bi[i][j] * ratio_back;
+            Eigen::Vector3d p1 = ply[i][j] + bi[i][j] * ratio;
             vhd0.push_back(mesh.add_vertex(CGMesh::Point(p0[0], p0[1], p0[2])));
             vhd1.push_back(mesh.add_vertex(CGMesh::Point(p1[0], p1[1], p1[2])));
         }
@@ -5144,9 +5155,9 @@ void draw_catenaries_on_cylinder(){
     double angle_degree = 60;
 
     double angle_radian = angle_degree * LSC_PI / 180.;
-    int vnbr = 100;
-    double tmin = -LSC_PI / 2;
-    double tmax = LSC_PI / 2;
+    int vnbr = 133;
+    double tmin = -LSC_PI / 2 - 0.288514;
+    double tmax = LSC_PI / 2 - 0.288514;
     double titv = (tmax - tmin) / (vnbr - 1);
     
     std::string fname = igl::file_dialog_save();
@@ -5200,13 +5211,88 @@ void get_single_isoline(const CGMesh &lsmesh, const std::vector<CGMesh::Halfedge
     }
 }
 
+void write_curve_into_xyz_file(const Eigen::MatrixXd &V, const Eigen::MatrixXi &F, const Eigen::MatrixXd &normals,
+                               const Eigen::MatrixXd &pts, const std::string &prefix)
+{
+    
+    Eigen::MatrixXd C;
+    Eigen::VectorXi I;
+    Eigen::VectorXd D;
+    int nq = pts.rows();
+
+    igl::point_mesh_squared_distance(pts, V, F, D, I, C);
+    std::ofstream fout;
+    fout.open(prefix + ".xyz");
+    for (int i = 0; i < nq; i++)
+    {
+        int f = I(i);
+        Eigen::Vector3d p = C.row(i);
+        Eigen::Vector3d v0 = V.row(F(f, 0));
+        Eigen::Vector3d v1 = V.row(F(f, 1));
+        Eigen::Vector3d v2 = V.row(F(f, 2));
+        std::array<double, 3> coor = barycenter_coordinate(v0, v1, v2, p);
+        Eigen::Vector3d norm = coor[0] * normals.row(F(f, 0)) + coor[1] * normals.row(F(f, 1)) + coor[2] * normals.row(F(f, 2));
+        assert(normals.row(F(f, 0)).dot(normals.row(F(f, 1))) > 0 && normals.row(F(f, 0)).dot(normals.row(F(f, 2))) > 0);
+        norm.normalize();
+        fout << pts(i, 0) << " " << pts(i, 1) << " " << pts(i, 2) << " " << norm(0) << " " << norm(1) << " " << norm(2) << "\n";
+    }
+    fout.close();
+}
+
+// unfinished
+// ply is the moving one, curve is the fixed one
+bool ply_ply_distance(const std::vector<Eigen::Vector3d> &ply, const std::vector<Eigen::Vector3d> &curve,
+                      double &distance)
+{
+
+    double dis_max = 0;
+    double clsu, clsv;
+    Eigen::Vector3d closest;
+    for (int i = 1; i < ply.size() - 1; i++)// skip boundary vertices
+    {
+        Eigen::Vector3d v = ply[i];
+        double local_min = 1e6;
+        int idmin = 0;
+        for (int j = 0; j < curve.size() - 1; j++) // skip boundary vertices
+        {
+            Eigen::Vector3d vs = curve[j];
+            Eigen::Vector3d ve = curve[j + 1];
+            Eigen::Vector3d vsv = vs - v;
+            Eigen::Vector3d ves = ve - vs;
+            double t = -vsv.dot(ves) / ves.dot(ves);
+            if (t < 0)
+            {
+                continue;
+            }
+            if (t > 1)
+            {
+                continue;
+            }
+            Eigen::Vector3d pjp = vs + (ve - vs) * t;
+            double dis = (v - pjp).norm();
+            if (dis < local_min)
+            {
+                local_min = dis;
+            }
+        }
+        if (dis_max < local_min)
+        {
+            dis_max = local_min;
+        }
+    }
+    distance = dis_max;
+
+}
+
+
 void match_the_two_catenaries(const CGMesh &lsmesh, const std::vector<CGMesh::HalfedgeHandle> &loop, const Eigen::MatrixXd &V,
-                              const Eigen::MatrixXi &F, const Eigen::VectorXd &ls,
+                              const Eigen::MatrixXi &F, const Eigen::MatrixXd &normals, const Eigen::VectorXd &ls,
                               Eigen::MatrixXd& Vcout, Eigen::MatrixXd& Vlout)
 {
+    // get the lowest point
     double x = 0;
     double y = 5;
-    double tangent = tan(60*LSC_PI/180);
+    double tangent = tan(60 * LSC_PI / 180);
     double z = 5 * tangent * cosh(0) - 5; // minus 5 to make a transportation.
     std::cout<<"middle point is actually "<<x<<" "<<y<<" "<<z<<std::endl;
     Eigen::MatrixXd pts;
@@ -5244,8 +5330,20 @@ void match_the_two_catenaries(const CGMesh &lsmesh, const std::vector<CGMesh::Ha
             lowest_l = i;
         }
     }
+    // int lowest_l1;
+    // double d0 = abs(pts(lowest_l, 2) - pts(lowest_l - 1, 2));
+    // double d1 = abs(pts(lowest_l, 2) - pts(lowest_l + 1, 2));
+    // if (d0 < d1)
+    // {
+    //     lowest_l1 = lowest_l - 1;
+    // }
+    // else
+    // {
+    //     lowest_l1 = lowest_l + 1;
+    // }
     std::cout<<"The lowest point of ls: "<<pts.row(lowest_l)<<", caten: "<<Vc.row(lowest_c)<<std::endl;
-    Eigen::Vector3d pl=pts.row(lowest_l);
+    // Eigen::Vector3d pl = (pts.row(lowest_l) + pts.row(lowest_l1)) / 2;
+     Eigen::Vector3d pl = pts.row(lowest_l);
     Eigen::Vector3d pc = Eigen::Vector3d(x, y, z);
 
     Eigen::Vector3d nl(pl[0], pl[1], 0), nc(pc[0], pc[1], 0);
@@ -5256,6 +5354,7 @@ void match_the_two_catenaries(const CGMesh &lsmesh, const std::vector<CGMesh::Ha
     {
         angle *= -1;
     }
+    std::cout << "Roughly rotated by angle " << angle << std::endl;
     // counterclockwise rotate angle
     Eigen::Matrix3d rot;
     rot << cos(angle), -sin(angle), 0,
@@ -5265,6 +5364,12 @@ void match_the_two_catenaries(const CGMesh &lsmesh, const std::vector<CGMesh::Ha
     Vcout = (rot * Vc.transpose()).transpose();
     Vcout.rowwise() += Eigen::Vector3d(0, 0, trans).transpose();
     Vlout = pts;
+    std::cout<<"Writing curves into xyz format. type down the prefix:"<<std::endl;
+    fname = igl::file_dialog_save();
+    write_curve_into_xyz_file(V, F, normals, Vcout, fname + "_c");
+    write_curve_into_xyz_file(V, F, normals, Vlout, fname + "_l");
+    std::cout<<"finished writing xyz files"<<std::endl;
+
 }
 // angle is from 0 to pi
 void slope_of_given_angle(const Eigen::Vector3d& norm, const double angle_radian, double &slope){
@@ -6038,7 +6143,7 @@ void lsTools::debug_tool(){
 bool project_1_plyline_on_1_curve(const std::vector<Eigen::Vector3d>& ply, const std::vector<Eigen::Vector3d>& curve, 
     Eigen::Vector3d& proj){
     
-    double dis_min = 1e20;
+    double dis_min = 1e6;
     double clsu, clsv;
     Eigen::Vector3d closest;
     for (int i = 0; i < ply.size() - 1; i++)
@@ -6048,8 +6153,8 @@ bool project_1_plyline_on_1_curve(const std::vector<Eigen::Vector3d>& ply, const
         Eigen::Vector3d dir0 = (v0e - v0s);
         for (int j = 0; j < curve.size() - 1; j++)
         {
-            Eigen::Vector3d v1s = ply[j];
-            Eigen::Vector3d v1e = ply[j + 1];
+            Eigen::Vector3d v1s = curve[j];
+            Eigen::Vector3d v1e = curve[j + 1];
             Eigen::Vector3d dir1 = (v1e - v1s);
 
             double u, v;
@@ -6122,16 +6227,56 @@ bool project_1_plyline_on_1_curve(const std::vector<Eigen::Vector3d>& ply, const
     bool c4 = (closest - ply.back()).norm() < threads;
     if (c1 || c2 || c3 || c4)
     {
-        std::cout<<"wrong pt: cloest: "<<closest.transpose()<<"\nv1, "<<curve.front().transpose()
-        <<"\nv2, "<<curve.back().transpose()
-        <<"\nv3, "<<ply.front().transpose()
-        <<"\nv4, "<<ply.back().transpose()<<std::endl;
+        // std::cout<<"wrong pt: cloest: "<<closest.transpose()<<"\nv1, "<<curve.front().transpose()
+        // <<"\nv2, "<<curve.back().transpose()
+        // <<"\nv3, "<<ply.front().transpose()
+        // <<"\nv4, "<<ply.back().transpose()<<std::endl;
 
         return false;
     }
     proj = closest;
     return true;
 }
+
+// std::vector<Eigen::Vector3d> filter_projection_pts(const std::vector<std::vector<Eigen::Vector3d>> &plys,
+//                                                    const std::vector<Eigen::Vector3d> &pts)
+// {
+//     Eigen::Vector3d vmin = plys[0][0], vmax = plys[0][0];
+//     for (auto ply : plys)
+//     {
+//         for (auto p : ply)
+//         {
+//             if (p[0] < vmin[0])
+//             {
+//                 vmin[0] = p[0];
+//             }
+//             if (p[1] < vmin[1])
+//             {
+//                 vmin[1] = p[1];
+//             }
+//             if (p[2] < vmin[2])
+//             {
+//                 vmin[2] = p[2];
+//             }
+//             if (p[0] > vmax[0])
+//             {
+//                 vmax[0] = p[0];
+//             }
+//             if (p[1] > vmax[1])
+//             {
+//                 vmax[1] = p[1];
+//             }
+//             if (p[2] > vmax[2])
+//             {
+//                 vmax[2] = p[2];
+//             }
+//         }
+//     }
+//     double diag = (vmax - vmin).norm();
+//     double threadshold = 0.1;
+//     std::vector<Eigen::Vector3d> result;
+//     for(int i=0;i<)
+// }
 
 void project_polylines_on_shading_curves_and_save_results()
 {
@@ -6144,8 +6289,9 @@ void project_polylines_on_shading_curves_and_save_results()
         return;
     }
 
-    for (int i = 0; i < plys[i].size(); i++)
+    for (int i = 0; i < plys.size(); i++)
     {
+        std::cout<<"Processing ply "<<i<<std::endl;
         std::vector<Eigen::Vector3d> pts;
         for (int j = 0; j < curs.size(); j++)
         {
@@ -6159,7 +6305,7 @@ void project_polylines_on_shading_curves_and_save_results()
             }
             else
             {
-                std::cout << "ply " << i << " and curve " <<j<<" has no closest point"<<std::endl;
+                // std::cout << "ply " << i << " and curve " <<j<<" has no closest point"<<std::endl;
             }
         }
         if (!pts.empty())
@@ -6173,6 +6319,7 @@ void project_polylines_on_shading_curves_and_save_results()
         }
     }
     // write_polyline_xyz()
+    std::cout << "Saving the projections" << std::endl;
     std::string fname = igl::file_dialog_save();
     if (fname.length() == 0)
     {
@@ -6181,10 +6328,14 @@ void project_polylines_on_shading_curves_and_save_results()
     }
     for (int i = 0; i < pros.size(); i++)
     {
-        Eigen::MatrixXd V = vec_list_to_matrix(pros[i]);
-        Eigen::MatrixXi F;
-        igl::writeOBJ(fname + std::to_string(i) + ".obj", V, F);
-        std::cout<<fname + std::to_string(i) + ".obj"<<" got written"<<std::endl;
+        if (pros[i].size() > 0)
+        {
+            Eigen::MatrixXd V = vec_list_to_matrix(pros[i]);
+            Eigen::MatrixXi F;
+            igl::writeOBJ(fname + std::to_string(i) + ".obj", V, F);
+            std::cout << fname + std::to_string(i) + ".obj"
+                      << " got written" << std::endl;
+        }
     }
     std::cout << "All the files are saved" << std::endl;
 }
@@ -6202,4 +6353,115 @@ void read_draw_pts_from_plylines(Eigen::MatrixXd &ver)
         }
     }
     ver = vec_list_to_matrix(vlist);
+}
+
+// take polylines as input, offset to both sides of the creases, and save as mesh
+void read_plylines_extract_offset_mesh(const double scale_front, const double scale_back, CGMesh& mesh){
+    std::vector<std::vector<Eigen::Vector3d>> plys, bnms;
+    read_plylines_and_binormals(plys, bnms);
+    mesh = polyline_to_strip_mesh(plys, bnms, scale_front, scale_back);
+}
+
+void make_example_comparing_two_plylines_distance(){
+    Eigen::MatrixXd ply_move, ply_fix;
+    Eigen::MatrixXi F;
+    igl::readOBJ("/Users/wangb0d/Desktop/tmp/angle/cylinder_p/test/continuous.obj", ply_move, F);
+    igl::readOBJ("/Users/wangb0d/Desktop/tmp/angle/cylinder_p/test/discrete.obj", ply_fix, F);
+
+    std::vector<Eigen::Vector3d> pm = mat_to_vec_list(ply_move), pf = mat_to_vec_list(ply_fix);
+    double dis;
+    ply_ply_distance(pm, pf, dis);
+    std::cout<<"maximal distance is "<<dis<<std::endl;
+}
+
+
+std::vector<int> sort_plylines_based_on_midpts(const std::vector<std::vector<Eigen::Vector3d>> &ply)
+{
+    int cnbr = ply.size();
+    std::vector<std::pair<Eigen::Vector3d, int>> pairs(cnbr);
+    double largest_dis = 0;
+    double pid1, pid2;
+    // get the mid pts to represent the lines
+    std::vector<Eigen::Vector3d> midpts(cnbr);
+    for (int i = 0; i < cnbr; i++)
+    {
+        int pnbr = ply[i].size();
+        Eigen::Vector3d midpt = ply[i][pnbr / 2];
+        midpts[i] = midpt;
+    }
+    // get the two corner polylines.
+    for (int i = 0; i < cnbr; i++)
+    {
+        for (int j = i; j < cnbr; j++)
+        {
+            double distance = (midpts[i] - midpts[j]).norm();
+            if (distance > largest_dis)
+            {
+                largest_dis = distance;
+                pid1 = i;
+                pid2 = j;
+            }
+        }
+    }
+    // distances from pid1
+    std::vector<double> dislist(cnbr);
+    for(int i=0;i<cnbr;i++)
+    {
+        dislist[i] = (midpts[i] - midpts[pid1]).norm();
+    }
+    std::vector<int> checked(cnbr, false);
+    checked[pid1] = true;
+    int pushed = 0;
+    std::vector<int> order;
+    order.push_back(pid1);
+    for (int i = 0; i < cnbr; i++)
+    {
+        double mindis = 1e3;
+        int minid = -1;
+        for (int j = 0; j < cnbr; j++)
+        {
+            if (checked[j])
+            {
+                continue;
+            }
+            double dis = dislist[j];
+            if (dis < mindis)
+            {
+                mindis = dis;
+                minid = j;
+            }
+        }
+        if(minid<0){
+            break;
+        }
+        order.push_back(minid);
+        checked[minid] = true;
+    }
+    return order;
+}
+
+void run_sort_polylines()
+{
+    std::cout<<"sorting the polylines"<<std::endl;
+    std::vector<std::vector<Eigen::Vector3d>> ply, bnm;
+    read_plylines_and_binormals(ply, bnm);
+    std::cout << "Saving the binormal files, please provide the prefix" << std::endl;
+    std::string fname = igl::file_dialog_save();
+    if (fname.length() == 0)
+    {
+        std::cout << "\nLSC: save mesh failed, please type down the correct name" << std::endl;
+        return;
+    }
+    std::vector<int> order = sort_plylines_based_on_midpts(ply);
+
+    std::vector<std::vector<Eigen::Vector3d>> lines, binormals;
+    for (int i = 0; i < ply.size(); i++)
+    {
+        lines.push_back(ply[order[i]]);
+        binormals.push_back(bnm[order[i]]);
+    }
+
+    write_polyline_xyz(lines, fname);
+    write_polyline_xyz(binormals, fname + "_b");
+    std::cout << "files get saved" << std::endl;
 }

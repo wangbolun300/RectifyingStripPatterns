@@ -534,6 +534,7 @@ void PolyOpt::init(const std::vector<std::vector<Eigen::Vector3d>> &ply_in, cons
     bin_extracted = bi;
     endpts_signs = endpts.asDiagonal();
     opt_for_polyline = true;
+    opt_for_crease = false;
     MaxNbrPinC = csize;
     
 }
@@ -725,6 +726,7 @@ void PolyOpt::init_crease_opt(const std::vector<std::vector<Eigen::Vector3d>> &v
     OriVars = PlyVars;
     RecMesh = polyline_to_strip_mesh(vertices, binormals, strip_scale);
     opt_for_crease = true;
+    opt_for_polyline = false;
     double cthreadshold;
     FlatPts.resize(vnbr, false);
     // statics_for_curvatures(AngCollector, FlatPts, cthreadshold);
@@ -1864,31 +1866,46 @@ void PolyOpt::assemble_gravity_crease(spMat &H, Eigen::VectorXd &B, Eigen::Vecto
         tripletes.push_back(Trip(i + vnbr * 2, lvz, 1));
         energy[i + vnbr * 2] = ver[2] - zo;
 
-        if (compute_front && compute_back)
-        { 
-            // bio * (ver - vfr) / scale = 0
-            double scale = (ver - vfr).norm();
-            tripletes.push_back(Trip(i + vnbr * 3, lvx, binormal_ratio * bio[0] / scale));
-            tripletes.push_back(Trip(i + vnbr * 3, lvy, binormal_ratio * bio[1] / scale));
-            tripletes.push_back(Trip(i + vnbr * 3, lvz, binormal_ratio * bio[2] / scale));
+        // if (compute_front && compute_back)
+        if (1)
+        {
+            int lcx = vid + vnbr * 3;
+            int lcy = vid + vnbr * 4;
+            int lcz = vid + vnbr * 5;
+            Eigen::Vector3d crease(PlyVars[lcx],PlyVars[lcy],PlyVars[lcz]);
 
-            tripletes.push_back(Trip(i + vnbr * 3, lfrx, - binormal_ratio * bio[0] / scale));
-            tripletes.push_back(Trip(i + vnbr * 3, lfry, - binormal_ratio * bio[1] / scale));
-            tripletes.push_back(Trip(i + vnbr * 3, lfrz, - binormal_ratio * bio[2] / scale));
+            // (bio x tangent) * crease = 0
+            Eigen::Vector3d tangent = (vbk - vfr).normalized();
+            Eigen::Vector3d bxt = bio.cross(tangent);
+            double err = bxt.dot(crease);
+            tripletes.push_back(Trip(i + vnbr * 3, lcx, bxt[0]));
+            tripletes.push_back(Trip(i + vnbr * 3, lcy, bxt[1]));
+            tripletes.push_back(Trip(i + vnbr * 3, lcz, bxt[2]));
+            energy[i + vnbr * 3] = err;
 
-            energy[i + vnbr * 3] = binormal_ratio * bio.dot(ver - vfr) / scale;
+            // // bio * (ver - vfr) / scale = 0
+            // double scale = (ver - vfr).norm();
+            // tripletes.push_back(Trip(i + vnbr * 3, lvx, binormal_ratio * bio[0] / scale));
+            // tripletes.push_back(Trip(i + vnbr * 3, lvy, binormal_ratio * bio[1] / scale));
+            // tripletes.push_back(Trip(i + vnbr * 3, lvz, binormal_ratio * bio[2] / scale));
 
-            // bio * (ver - vbk) / scale = 0;
-            scale = (ver - vbk).norm();
-            tripletes.push_back(Trip(i + vnbr * 4, lvx, binormal_ratio * bio[0] / scale));
-            tripletes.push_back(Trip(i + vnbr * 4, lvy, binormal_ratio * bio[1] / scale));
-            tripletes.push_back(Trip(i + vnbr * 4, lvz, binormal_ratio * bio[2] / scale));
+            // tripletes.push_back(Trip(i + vnbr * 3, lfrx, - binormal_ratio * bio[0] / scale));
+            // tripletes.push_back(Trip(i + vnbr * 3, lfry, - binormal_ratio * bio[1] / scale));
+            // tripletes.push_back(Trip(i + vnbr * 3, lfrz, - binormal_ratio * bio[2] / scale));
 
-            tripletes.push_back(Trip(i + vnbr * 4, lbkx, - binormal_ratio * bio[0] / scale));
-            tripletes.push_back(Trip(i + vnbr * 4, lbky, - binormal_ratio * bio[1] / scale));
-            tripletes.push_back(Trip(i + vnbr * 4, lbkz, - binormal_ratio * bio[2] / scale));
+            // energy[i + vnbr * 3] = binormal_ratio * bio.dot(ver - vfr) / scale;
 
-            energy[i + vnbr * 4] = binormal_ratio * bio.dot(ver - vbk) / scale;
+            // // bio * (ver - vbk) / scale = 0;
+            // scale = (ver - vbk).norm();
+            // tripletes.push_back(Trip(i + vnbr * 4, lvx, binormal_ratio * bio[0] / scale));
+            // tripletes.push_back(Trip(i + vnbr * 4, lvy, binormal_ratio * bio[1] / scale));
+            // tripletes.push_back(Trip(i + vnbr * 4, lvz, binormal_ratio * bio[2] / scale));
+
+            // tripletes.push_back(Trip(i + vnbr * 4, lbkx, - binormal_ratio * bio[0] / scale));
+            // tripletes.push_back(Trip(i + vnbr * 4, lbky, - binormal_ratio * bio[1] / scale));
+            // tripletes.push_back(Trip(i + vnbr * 4, lbkz, - binormal_ratio * bio[2] / scale));
+
+            // energy[i + vnbr * 4] = binormal_ratio * bio.dot(ver - vbk) / scale;
         }
     }
 
@@ -2123,6 +2140,7 @@ void PolyOpt::opt_planarity(){
         std::cout<<"The environment is polluted, Please re-start the program"<<std::endl;
         return;
     }
+    int vnbr = Front.size();
     spMat H;
     Eigen::VectorXd B;
     spMat Hmass;
@@ -2166,13 +2184,19 @@ void PolyOpt::opt_planarity(){
 
     double stplength = dx.norm();
     double energy_gravity = emass.norm();
-    
-    std::cout << "Crease, gravity, " << energy_gravity<<", smt, "<<esmt.norm()<<", ";
-    std::cout << "step, " << stplength;
+
+    std::cout << "Crease, gravity, " << energy_gravity<<", gravity max, "<<emass.lpNorm<Eigen::Infinity>();
+    if (binormal_ratio != 0)
+    {
+        // energy of approximating binormals
+        Eigen::VectorXd eab = emass.segment(vnbr * 3, 2 * vnbr) / binormal_ratio;
+        std::cout << ", bnm appro max, " << eab.lpNorm<Eigen::Infinity>();
+    }
+    std::cout << ", smt, " << esmt.norm() << ", step, " << stplength;
     if(weight_angle > 0){
         double energy_angle = Eangle.norm();
         std::cout<<", Energy Planarity, "<<energy_angle<<", Planar max, "<< Eangle.lpNorm<Eigen::Infinity>()
-        <<", planar determinate, "<<FlatDeterm.norm()<<", max determinate, "<<FlatDeterm.maxCoeff();
+        <<", planar determinate, "<<FlatDeterm.norm()<<", max determinate, "<<FlatDeterm.lpNorm<Eigen::Infinity>();
     }
     std::cout<<"\n";
     
@@ -2353,6 +2377,12 @@ void QuadOpt::reset()
             d1_type = 1;
         }
     }
+    if (OptType == 2) // PPG
+    {
+
+        d0_type = 0;
+        d1_type = 0;
+    }
     if (OptType == 3) // PPG
     {                         
         std::cout << "Set Up GGA Diagonals" << std::endl;
@@ -2492,18 +2522,17 @@ void QuadOpt::assemble_gravity(spMat& H, Eigen::VectorXd& B, Eigen::VectorXd &en
 
         energy[i + vnbr] = vdiff.dot(vdiff) * scale;
 
-        // verori[0] = OrigVars[lx];
-        // verori[1] = OrigVars[ly];
-        // verori[2] = OrigVars[lz];
-        // scale = 0.1;
-        // vdiff = Eigen::Vector3d(V.row(vid)) - verori;
+        verori[0] = OrigVars[lx];
+        verori[1] = OrigVars[ly];
+        verori[2] = OrigVars[lz];
+        scale = 0.1;
+        vdiff = Eigen::Vector3d(V.row(vid)) - verori;
 
-        // tripletes.push_back(Trip(i + vnbr * 2, lx, 2 * vdiff[0] * scale));
-        // tripletes.push_back(Trip(i + vnbr * 2, ly, 2 * vdiff[1] * scale));
-        // tripletes.push_back(Trip(i + vnbr * 2, lz, 2 * vdiff[2] * scale));
+        tripletes.push_back(Trip(i + vnbr * 2, lx, 2 * vdiff[0] * scale));
+        tripletes.push_back(Trip(i + vnbr * 2, ly, 2 * vdiff[1] * scale));
+        tripletes.push_back(Trip(i + vnbr * 2, lz, 2 * vdiff[2] * scale));
 
-        // energy[i + vnbr * 2] = vdiff.dot(vdiff) * scale;
-
+        energy[i + vnbr * 2] = vdiff.dot(vdiff) * scale;
     }
     int nvars = GlobVars.size();
     int ncondi = energy.size();
@@ -2606,11 +2635,11 @@ void QuadOpt::assemble_fairness(spMat& H, Eigen::VectorXd& B, Eigen::VectorXd &e
             col_smt = false;
         }
 
-        if (d0_type == 0 || d0f < 0 || d0b < 0)
+        if (d0_type == 0 || d0f < 0 || d0b < 0 || OptType == 2)
         {
             d0_smt = false;
         }
-        if (d1_type == 0 || d1f < 0 || d1b < 0)
+        if (d1_type == 0 || d1f < 0 || d1b < 0 || OptType == 2)
         {
             d1_smt = false;
         }
@@ -3930,32 +3959,47 @@ void QuadOpt::extract_binormals(const int family, const int bnm_start, const int
 void QuadOpt::extract_diagonals(const int family, std::vector<std::vector<int>> &digs){
     std::vector<std::vector<int>> curves;
     int vnbr = V.rows();
-    Eigen::VectorXi checked = Eigen::VectorXi::Zero(vnbr);
+    // Eigen::VectorXi checked = Eigen::VectorXi::Zero(vnbr);
+    // for(int i=0;i<vnbr; i++){
+    //     if(checked[i]){
+    //         continue;
+    //     }
+    //     for()
+    // }
+    Eigen::VectorXi Front, Back;
+    if (family == 2)
+    {
+        Front = d0_front;
+        Back = d0_back;
+    }
+    if (family == 3)
+    {
+        Front = d1_front;
+        Back = d1_back;
+    }
+
     Eigen::VectorXi starts = Eigen::VectorXi::Zero(vnbr);
     assert(family == 2 || family == 3);
+    int nbr_start = 0;
+    int nbr_wrongs = 0;
+    std::vector<Eigen::Vector3d> wrongs;
     for (int i = 0; i < vnbr; i++) // get all the start points
     {
-        int d0f = d0_front[i];
-        int d0b = d0_back[i];
-        int d1f = d1_front[i];
-        int d1b = d1_back[i];
+
         int fr, bk;
-        if (family == 2) // d0
+        fr = Front[i];
+        bk = Back[i];
+        if (fr >= 0)
         {
-            fr = d0f;
-            bk = d0b;
-        }
-
-        if (family == 3) // d1
-        {
-
-            fr = d1f;
-            bk = d1b;
-        }
-        if(fr == -1){
-            starts[i] = 1;
+            int ff;
+            if (Front[fr] == -1)
+            {
+                starts[i] = 1;
+                nbr_start++;
+            }
         }
     }
+    std::cout<<"Nbr of start points of the diagonals: "<<nbr_start<<std::endl;
 
     for (int itr = 0; itr < vnbr; itr++)
     {
@@ -3992,8 +4036,13 @@ void QuadOpt::extract_diagonals(const int family, std::vector<std::vector<int>> 
         if (tmpc.size() > 0)
         {
             curves.push_back(tmpc);
+            if (tmpc.size() == 1) // only have 1 start point but not end point
+            {
+                wrongs.push_back(V.row(tmpc[0]));
+            }
         }
     }
+    Debugtool = vec_list_to_matrix(wrongs);
     digs = curves;
 }
 
@@ -4135,9 +4184,15 @@ void QuadOpt::write_polyline_info(){
         std::vector<std::vector<int>> diagonals;
         int family = WhichDiagonal == 0 ? 2 : 3;
         extract_diagonals(family, diagonals);
+        std::cout<<"Nbr of Diagonals: "<<diagonals.size()<<std::endl;;
         std::vector<std::vector<Eigen::Vector3d>> cv, bn;
         for (int i = 0; i < diagonals.size(); i++)
         {
+            // for (int j = 0; j < diagonals[i].size(); j++)
+            // {
+            //     std::cout << diagonals[i][j] << ", ";
+            // }
+            // std::cout << "\n";
             std::vector<Eigen::Vector3d> tmpc, tmpb;
             std::vector<int> tmpi;
             for (int j = 0; j < diagonals[i].size(); j++)

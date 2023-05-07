@@ -225,6 +225,7 @@ public:
     void extract_binormals(const int family, const int bnm_start, const int vid, Eigen::Vector3d& bi);
     void extract_diagonals(const int family, std::vector<std::vector<int>> &digs);
     void write_polyline_info();
+    Eigen::MatrixXd Debugtool;
 private:
     MeshProcessing MP;
     int varsize;

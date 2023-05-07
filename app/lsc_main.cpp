@@ -79,6 +79,7 @@ namespace lscif
 	double dbg_dbl = 30;
 	double dbg_dbl2 = 60;
 	double vector_scaling = 1;
+	double vector_scaling2 = 0;
 	int extracted_nbr = 5;
 	bool debug_flag = false;
 	std::vector<int> fixedVertices;
@@ -1035,6 +1036,8 @@ int main(int argc, char *argv[])
 			ImGui::InputDouble("double", &lscif::dbg_dbl, 0, 0, "%.4f");
 			ImGui::InputDouble("double2", &lscif::dbg_dbl2, 0, 0, "%.4f");
 			ImGui::InputDouble("vector_scaling", &lscif::vector_scaling, 0, 0, "%.4f");
+			ImGui::SameLine();
+			ImGui::InputDouble("vector_scaling2", &lscif::vector_scaling2, 0, 0, "%.4f");
 			ImGui::InputInt("extracted_nbr", &lscif::extracted_nbr, 0, 0);
 			ImGui::PushItemWidth(50);
 			ImGui::InputDouble("x", &lscif::ptInx, 0, 0, "%.4f");
@@ -1061,16 +1064,16 @@ int main(int argc, char *argv[])
 				// using intersections of the rectifying planes to get the developable.
 				// construct_single_developable_strips_by_intersect_rectifying(0);
 				// write_unfold_single_strip();
-				// draw_catenaries_on_cylinder();
-				// Eigen::MatrixXd Vcout;
-				// Eigen::MatrixXd Vlout;
-				// match_the_two_catenaries(lscif::tools.lsmesh, lscif::tools.Boundary_Edges, lscif::tools.V,
-				// 						 lscif::tools.F, lscif::tools.fvalues, Vcout, Vlout);
-				// viewer.data().add_points(Vcout, lscif::hot_red);
-				// viewer.data().add_points(Vlout, lscif::sea_green);
-				Eigen::MatrixXd Vout;
-				lscif::poly_tool.draw_inflections(Vout);
-				viewer.data().add_points(Vout, lscif::hot_red);
+				draw_catenaries_on_cylinder();
+				Eigen::MatrixXd Vcout;
+				Eigen::MatrixXd Vlout;
+				match_the_two_catenaries(lscif::tools.lsmesh, lscif::tools.Boundary_Edges, lscif::tools.V,
+										 lscif::tools.F, lscif::tools.norm_v, lscif::tools.fvalues, Vcout, Vlout);
+				viewer.data().add_points(Vcout, lscif::hot_red);
+				viewer.data().add_points(Vlout, lscif::sea_green);
+				// Eigen::MatrixXd Vout;
+				// lscif::poly_tool.draw_inflections(Vout);
+				// viewer.data().add_points(Vout, lscif::hot_red);
 			}
 			ImGui::SameLine();
 			if (ImGui::Button("DBG", ImVec2(ImGui::GetWindowSize().x * 0.23f, 0.0f)))
@@ -1081,13 +1084,25 @@ int main(int argc, char *argv[])
 				// construct_single_developable_strips_by_intersect_rectifying(0);
 				// write_unfold_single_strip();
 				// draw_catenaries_on_cylinder();
-				lscif::tools.debug_tool();
+				// lscif::tools.debug_tool();
+				make_example_comparing_two_plylines_distance();
 			}
 			ImGui::SameLine();
 			if (ImGui::Button("OBJ2CSV", ImVec2(ImGui::GetWindowSize().x * 0.23f, 0.0f)))
 			{
 				obj2csv();
 			}
+			if (ImGui::Button("DrawQdOptDbg", ImVec2(ImGui::GetWindowSize().x * 0.23f, 0.0f)))
+			{
+
+				viewer.data().add_points(lscif::quad_tool.Debugtool, lscif::hot_red);
+			}
+			ImGui::SameLine();
+			if (ImGui::Button("ResortPlys", ImVec2(ImGui::GetWindowSize().x * 0.23f, 0.0f)))
+			{
+				run_sort_polylines();
+			}
+
 		}
 		if (ImGui::CollapsingHeader("LS Processing", ImGuiTreeNodeFlags_DefaultOpen))
 		{
@@ -2565,6 +2580,22 @@ int main(int argc, char *argv[])
 			const Eigen::RowVector3d red(0.8, 0.2, 0.2);
 			viewer.data().add_points(ver, red); // show rows
 		}
+		ImGui::SameLine();
+		if (ImGui::Button("ShadingMesh", ImVec2(ImGui::GetWindowSize().x * 0.25f, 0.0f)))
+
+		{
+			std::cout<<"Please Set Up both vector_scaling and vector_scaling2 for generating the mesh"<<std::endl;
+			int id = viewer.selected_data_index;
+			
+			CGMesh updatemesh; 
+			read_plylines_extract_offset_mesh(lscif::vector_scaling, lscif::vector_scaling2, updatemesh);
+			lscif::updateMeshViewer(viewer, updatemesh);
+			lscif::meshFileName.push_back("Shading_" + lscif::meshFileName[id]);
+			lscif::Meshes.push_back(updatemesh);
+
+			viewer.selected_data_index = id;
+		}
+
 		if (ImGui::CollapsingHeader("Mesh Optimization", ImGuiTreeNodeFlags_CollapsingHeader))
 		{
 			// Expose variable directly ...

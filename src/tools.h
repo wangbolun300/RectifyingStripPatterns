@@ -103,7 +103,8 @@ void mark_high_energy_vers(const Eigen::VectorXd &energy, const int ninner, cons
                            const std::vector<int> &IVids, Eigen::VectorXi &he, std::vector<int>& refid);
 void read_plylines_and_binormals(std::vector<std::vector<Eigen::Vector3d>>& ply, std::vector<std::vector<Eigen::Vector3d>>& bin);
 bool read_polylines(std::vector<std::vector<Eigen::Vector3d>>& ply);
-CGMesh polyline_to_strip_mesh(const std::vector<std::vector<Eigen::Vector3d>> &ply, const std::vector<std::vector<Eigen::Vector3d>> &bi, const double ratio);
+CGMesh polyline_to_strip_mesh(const std::vector<std::vector<Eigen::Vector3d>> &ply, const std::vector<std::vector<Eigen::Vector3d>> &bi, 
+const double ratio, const double ratio_back = 0);
 
 std::vector<Eigen::Vector3d> sample_one_polyline_based_on_length(const std::vector<Eigen::Vector3d>& polyline, const double avg);
 std::vector<Eigen::Vector3d> sample_one_polyline_and_binormals_based_on_length(const std::vector<Eigen::Vector3d> &polyline, const int nbr,
@@ -165,7 +166,7 @@ void construct_developable_strips_by_intersect_rectifying();
 void draw_catenaries_on_cylinder();           
 
 void match_the_two_catenaries(const CGMesh &lsmesh, const std::vector<CGMesh::HalfedgeHandle> &loop, const Eigen::MatrixXd &V,
-                              const Eigen::MatrixXi &F, const Eigen::VectorXd &ls,
+                              const Eigen::MatrixXi &F, const Eigen::MatrixXd &normals, const Eigen::VectorXd &ls,
                               Eigen::MatrixXd& Vcout, Eigen::MatrixXd& Vlout);
 bool quadratic_solver(const std::vector<double> &func, std::array<double, 2> &roots);    
 void orthogonal_slope_for_different_shading_types(const int whichtype, Eigen::VectorXi InnerV, const Eigen::VectorXi &info,
@@ -180,4 +181,7 @@ void get_orthogonal_direction_minimal_principle_curvature(const Eigen::MatrixXd 
                                                           std::vector<double> &coscos, std::vector<std::vector<Eigen::Vector3d>>& CurvDir);
 void obj2csv();    
 void project_polylines_on_shading_curves_and_save_results();     
-void read_draw_pts_from_plylines(Eigen::MatrixXd &ver);                       
+void read_draw_pts_from_plylines(Eigen::MatrixXd &ver);           
+void read_plylines_extract_offset_mesh(const double scale_front, const double scale_back, CGMesh& mesh);      
+void make_example_comparing_two_plylines_distance();      
+void run_sort_polylines();
