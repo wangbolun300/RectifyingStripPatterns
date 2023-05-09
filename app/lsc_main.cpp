@@ -18,6 +18,10 @@
 #include <OpenMesh/Core/Mesh/PolyMesh_ArrayKernelT.hh>
 #include <igl/parula.h>
 #include <igl/isolines_map.h>
+#include <igl/Timer.h>
+igl::Timer timer_global;
+double time_total = 0;
+int iteration_total = 0;
 
 typedef OpenMesh::PolyMesh_ArrayKernelT<> CGMesh;
 
@@ -590,8 +594,11 @@ int main(int argc, char *argv[])
 			}
 
 			std::cout << "Mesh is: " << fname << std::endl;
+			Eigen::Vector3d vmin(lscif::tools.V.col(0).minCoeff(), lscif::tools.V.col(1).minCoeff(), lscif::tools.V.col(2).minCoeff());
+			Eigen::Vector3d vmax(lscif::tools.V.col(0).maxCoeff(), lscif::tools.V.col(1).maxCoeff(), lscif::tools.V.col(2).maxCoeff());
 
-			std::cout << "Vertices/Edges/Faces/HalfEdges/boundaryHalfEdge/boundaryEdge: " << lscif::mesh.n_vertices() << "/" << lscif::mesh.n_edges() << "/" << lscif::mesh.n_faces() << "/" << lscif::mesh.n_halfedges() << "/" << nbhe << "/" << nbe << std::endl;
+			std::cout << "Vertices/Edges/Faces/HalfEdges/boundaryHalfEdge/boundaryEdge/BBD: "
+					  << lscif::mesh.n_vertices() << "/" << lscif::mesh.n_edges() << "/" << lscif::mesh.n_faces() << "/" << lscif::mesh.n_halfedges() << "/" << nbhe << "/" << nbe << "/" << (vmin - vmax).norm() << std::endl;
 
 			lscif::updateMeshViewer(viewer, lscif::mesh);
 		}
@@ -1102,6 +1109,42 @@ int main(int argc, char *argv[])
 			{
 				run_sort_polylines();
 			}
+			ImGui::SameLine();
+			if (ImGui::Button("SaveSlope", ImVec2(ImGui::GetWindowSize().x * 0.23f, 0.0f)))
+			{
+				Eigen::MatrixXd E0, E1;
+				lscif::tools.show_slopes(lscif::vector_scaling, E0, E1);
+				Eigen::MatrixXd rotmids, rotdirs;
+				// viewer.data().add_edges(E0, E1, lscif::sea_green);
+				show_rotback_slopes(E0, E1, lscif::Shading_Latitude,
+									rotmids, rotdirs);
+				viewer.data().add_edges(
+					rotmids - lscif::vector_scaling * rotdirs, rotmids + lscif::vector_scaling * rotdirs, lscif::hot_red);
+				viewer.data().add_points(
+					rotmids, lscif::hot_red);
+				save_rotback_slopes(rotmids, rotdirs);
+			}
+			
+			ImGui::SameLine();
+			if (ImGui::Button("HalfNbrPly", ImVec2(ImGui::GetWindowSize().x * 0.23f, 0.0f)))
+			{
+				decrease_ply_nbr_by_half();
+			}
+			
+			if (ImGui::Button("WriteTime", ImVec2(ImGui::GetWindowSize().x * 0.23f, 0.0f)))
+			{
+				std::cout<<"Total Time: "<<time_total<<std::endl;
+				std::cout<<"Total Iterations: "<<iteration_total<<std::endl;
+				std::cout<<"AVG Time: "<<time_total / iteration_total<<std::endl;
+			}
+			ImGui::SameLine();
+			if (ImGui::Button("TimerReset", ImVec2(ImGui::GetWindowSize().x * 0.23f, 0.0f)))
+			{
+				time_total = 0;
+				iteration_total = 0;
+				timer_global.stop();
+				std::cout<<"Timer get initialized "<<std::endl;
+			}
 
 		}
 		if (ImGui::CollapsingHeader("LS Processing", ImGuiTreeNodeFlags_DefaultOpen))
@@ -1150,16 +1193,19 @@ int main(int argc, char *argv[])
 				lscif::tools.ShadingLatitude = lscif::Shading_Latitude;
 				lscif::tools.enable_reflection = lscif::let_ray_reflect;
 				lscif::tools.recompute_auxiliaries = lscif::recompute_auxiliaries;
-
+				timer_global.start();
 				for (int i = 0; i < lscif::OpIter; i++)
 				{
 					lscif::tools.Run_Level_Set_Opt();
+					iteration_total ++;
 					if (lscif::tools.step_length < 1e-16 && i != 0)
 					{ // step length actually is the value for the last step
 						std::cout << "optimization converges " << std::endl;
 						break;
 					}
 				}
+				timer_global.stop();
+				time_total += timer_global.getElapsedTimeInSec();
 				std::cout << "waiting for instruction..." << std::endl;
 				// lscif::MP.MeshUnitScale(inputMesh, updatedMesh);
 				int id = viewer.selected_data_index;
@@ -1223,10 +1269,14 @@ int main(int argc, char *argv[])
 				// lscif::tools.Theta_tol2 = lscif::InputPhiTol;
 				// lscif::tools.Phi_tol2 = lscif::InputPhiTol1;
 				lscif::tools.prepare_mesh_optimization_solving(initializer);
+				timer_global.start();
 				for (int i = 0; i < lscif::Nbr_Iterations_Mesh_Opt; i++)
 				{
 					lscif::tools.Run_Mesh_Opt();
+					iteration_total ++;
 				}
+				timer_global.stop();
+				time_total += timer_global.getElapsedTimeInSec();
 				updatedMesh = lscif::tools.lsmesh;
 				lscif::updateMeshViewer(viewer, updatedMesh);
 				lscif::meshFileName.push_back("mso_" + lscif::meshFileName[id]);
@@ -1420,16 +1470,20 @@ int main(int argc, char *argv[])
 
 				lscif::tools.prepare_level_set_solving(einit);
 				lscif::tools.weight_geodesic = lscif::weight_geodesic;
-
+				timer_global.start();
 				for (int i = 0; i < lscif::OpIter; i++)
 				{
 					lscif::tools.Run_AAG(lscif::readed_LS1, lscif::readed_LS2, lscif::readed_LS3);
+					iteration_total ++;
 					if (lscif::tools.step_length < 1e-16 && i != 0)
 					{ // step length actually is the value for the last step
 						std::cout << "optimization converges " << std::endl;
 						break;
 					}
 				}
+				timer_global.stop();
+				time_total += timer_global.getElapsedTimeInSec();
+
 				std::cout << "waiting for instruction..." << std::endl;
 				// lscif::MP.MeshUnitScale(inputMesh, updatedMesh);
 				lscif::updateMeshViewer(viewer, inputMesh);
@@ -1509,16 +1563,19 @@ int main(int argc, char *argv[])
 
 				lscif::tools.prepare_level_set_solving(einit);
 				lscif::tools.weight_geodesic = lscif::weight_geodesic;
-
+				timer_global.start();
 				for (int i = 0; i < lscif::OpIter; i++)
 				{
 					lscif::tools.Run_AGG(lscif::readed_LS1, lscif::readed_LS2, lscif::readed_LS3);
+					iteration_total ++;
 					if (lscif::tools.step_length < 1e-16 && i != 0)
 					{ // step length actually is the value for the last step
 						std::cout << "optimization converges " << std::endl;
 						break;
 					}
 				}
+				timer_global.stop();
+				time_total += timer_global.getElapsedTimeInSec();
 				std::cout << "waiting for instruction..." << std::endl;
 				// lscif::MP.MeshUnitScale(inputMesh, updatedMesh);
 				lscif::updateMeshViewer(viewer, inputMesh);
@@ -1599,16 +1656,19 @@ int main(int argc, char *argv[])
 				lscif::tools.pseudo_geodesic_target_angle_degree_2 = lscif::target_angle_2;
 
 				lscif::tools.prepare_level_set_solving(einit);
-
+				timer_global.start();
 				for (int i = 0; i < lscif::OpIter; i++)
 				{
 					lscif::tools.Run_PPG(lscif::readed_LS1, lscif::readed_LS2, lscif::readed_LS3);
+					iteration_total ++;
 					if (lscif::tools.step_length < 1e-16 && i != 0)
 					{ // step length actually is the value for the last step
 						std::cout << "optimization converges " << std::endl;
 						break;
 					}
 				}
+				timer_global.stop();
+				time_total += timer_global.getElapsedTimeInSec();
 				std::cout << "waiting for instruction..." << std::endl;
 				// lscif::MP.MeshUnitScale(inputMesh, updatedMesh);
 				lscif::updateMeshViewer(viewer, inputMesh);
@@ -2095,6 +2155,7 @@ int main(int argc, char *argv[])
 				lscif::poly_tool.init_crease_opt(vertices, tangents, binormals);
 
 				viewer.selected_data_index = id;
+				evaluate_strip_straightness(lscif::Poly_readed, lscif::Bino_readed);
 			}
 			ImGui::SameLine();
 			if (ImGui::Button("OptCrease", ImVec2(ImGui::GetWindowSize().x * 0.23f, 0.0f)))
@@ -2860,9 +2921,10 @@ int main(int argc, char *argv[])
 				viewer.selected_data_index = id;
 			}
 			ImGui::SameLine();
-			if (ImGui::Button("AutoRunPd-Gdsic", ImVec2(ImGui::GetWindowSize().x * 0.25f, 0.0f)))
+			if (ImGui::Button("AutoRunPG", ImVec2(ImGui::GetWindowSize().x * 0.25f, 0.0f)))
 
 			{
+				timer_global.start();
 				AutoRunArgs runner = lscif::autorunner[1];
 				for (int i = 0; i < runner.parts.size(); i++)
 				{
@@ -2874,6 +2936,7 @@ int main(int argc, char *argv[])
 					for (int j = 0; j < runner.parts[i].iterations; j++)
 					{
 						lscif::tools.Run_Level_Set_Opt_interactive(runner.compute_pg);
+						iteration_total++;
 						if (lscif::tools.step_length < runner.stop_step_length && j != 0)
 						{
 							std::cout << "optimization converges " << std::endl;
@@ -2882,6 +2945,8 @@ int main(int argc, char *argv[])
 					}
 					std::cout << "\n";
 				}
+				timer_global.stop();
+				time_total += timer_global.getElapsedTimeInSec();
 
 				std::cout << "Pseudo-Geodesic Curves in level sets are Generated ..." << std::endl;
 				int id = viewer.selected_data_index;
@@ -3042,15 +3107,20 @@ int main(int argc, char *argv[])
 					ImGui::End();
 					return;
 				}
+				timer_global.start();
 				for (int i = 0; i < lscif::OpIter; i++)
 				{
 					lscif::quad_tool.opt();
+					iteration_total++;
 					if (lscif::quad_tool.real_step_length < 1e-16 && i != 0)
 					{ // step length actually is the value for the last step
 						std::cout << "optimization converges " << std::endl;
 						break;
 					}
 				}
+				timer_global.stop();
+				time_total += timer_global.getElapsedTimeInSec();
+
 				std::cout << "waiting for instruction..." << std::endl;
 				// lscif::MP.MeshUnitScale(inputMesh, updatedMesh);
 				int id = viewer.selected_data_index;

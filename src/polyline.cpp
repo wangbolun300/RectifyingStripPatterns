@@ -185,7 +185,7 @@ void convert_polyline_to_developable_strips_reflection_method(const std::vector<
 }
 
 // the nbr of vers - 1 = the nbr of length = the nbr of angles + 1.
-void check_strip_straightness(const std::vector<double>& lengths, const std::vector<double> &angles){
+void check_strip_straightness(const std::vector<double>& lengths, const std::vector<double> &angles, double& devratio, bool print){
     // set the initial direction as (0, 0) ->(0, 1)
     int vnbr = lengths.size() + 1;
     Eigen::MatrixXd pts;
@@ -223,7 +223,12 @@ void check_strip_straightness(const std::vector<double>& lengths, const std::vec
     Eigen::Vector2d n = eigenvec.normalized();// this is othogonal to the regression line.
 
     Eigen::VectorXd proj_dis = (y * n).rowwise().norm();
-    std::cout<<"The maximal derivate: "<<proj_dis.maxCoeff()<<", the total length of this polyline: "<<total_length<<std::endl;
+    if (print)
+    {
+        std::cout << "The maximal derivate: " << proj_dis.maxCoeff() << ", the total length of this polyline: " << total_length << std::endl;
+    }
+
+    devratio = proj_dis.maxCoeff() / total_length;
 }
 
 
@@ -258,10 +263,42 @@ void evaluate_intersect_rectifying(const std::vector<Eigen::Vector3d> &vertices,
         double ang_right = acos(crease.dot(tangents[i + 1]));
         angles[i] = ang_left + ang_right;
     }
-
-    check_strip_straightness(lengths, angles);
+    double ratio;
+    check_strip_straightness(lengths, angles, ratio, true);
 
 }
+void evaluate_strip_straightness(const std::vector<std::vector<Eigen::Vector3d>>& plys,const std::vector<std::vector<Eigen::Vector3d>>& bnms){
+    double max_ratio = 0;
+    for(int i=0;i<plys.size();i++){
+        int pnbr = plys[i].size();
+        std::vector<double> lengths(pnbr - 1);
+        std::vector<double> angles(pnbr - 2);
+        for (int j = 1; j < pnbr - 1; j++)
+        {
+            Eigen::Vector3d vs = plys[i][j-1];
+            Eigen::Vector3d vm = plys[i][j];
+            Eigen::Vector3d ve = plys[i][j + 1];
+            lengths[j - 1] = (vs - vm).norm();
+            Eigen::Vector3d crease = bnms[i][j];
+            Eigen::Vector3d mtangent = (vs - vm).normalized();
+            Eigen::Vector3d tangent = (ve - vm).normalized();
+            
+
+            double ang_left = acos(crease.dot(mtangent));
+            double ang_right = acos(crease.dot(tangent));
+            angles[j - 1] = ang_left + ang_right;
+        }
+        lengths.back() = (plys[i][pnbr - 1] - plys[i][pnbr - 2]).norm();
+        double ratio;
+        check_strip_straightness(lengths, angles, ratio, false);
+        if (ratio > max_ratio)
+        {
+            max_ratio = ratio;
+        }
+    }
+    std::cout << "Evaluating the straightness: maximal deviation is " << max_ratio << "\n";
+}
+
 void get_polyline_rectifying_plane_on_inner_vers(const std::vector<Eigen::Vector3d> &ply_in, const std::vector<Eigen::Vector3d> &bnm_in,
                                                  std::vector<Eigen::Vector3d> &vertices, std::vector<Eigen::Vector3d> &tangents, std::vector<Eigen::Vector3d> &binormals)
 {
@@ -2344,6 +2381,9 @@ void QuadOpt::init(CGMesh &mesh_in, const std::string &prefix)
     Eigen::VectorXd var_vec = Eigen::VectorXd::Zero(varsize);
     var_vec.segment(0, vnbr * 3) = grav_vec;
     gravity_matrix = var_vec.asDiagonal();
+    Eigen::Vector3d vmin(V.col(0).minCoeff(), V.col(1).minCoeff(), V.col(2).minCoeff());
+    Eigen::Vector3d vmax(V.col(0).maxCoeff(), V.col(1).maxCoeff(), V.col(2).maxCoeff());
+    std::cout<<"Initialized quad mesh: Vnbr, "<<V.rows()<<", BBD, "<<(vmin - vmax).norm()<<std::endl;;
 }
 
 void QuadOpt::reset()

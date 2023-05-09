@@ -6465,3 +6465,75 @@ void run_sort_polylines()
     write_polyline_xyz(binormals, fname + "_b");
     std::cout << "files get saved" << std::endl;
 }
+
+void show_rotback_slopes(const Eigen::MatrixXd &E0, const Eigen::MatrixXd &E1, const double latitude_degree,
+                         Eigen::MatrixXd &rotmids, Eigen::MatrixXd &rotdirs)
+{
+    double latitude_radian = latitude_degree * LSC_PI / 180.;
+    double rho = -(LSC_PI / 2 - latitude_radian); // this is correct rotation
+    Eigen::MatrixXd midpts = (E0 + E1) / 2;
+    Eigen::MatrixXd directions = E1 - E0;
+    for (int i = 0; i < directions.rows(); i++)
+    {
+        Eigen::Vector3d dir = directions.row(i);
+        directions.row(i) = dir.normalized();
+    }
+
+    Eigen::Matrix3d rotation;
+    rotation << 1, 0, 0,
+        0, cos(rho), -sin(rho),
+        0, sin(rho), cos(rho);
+    // assert(ply_extracted.size() > 0);
+    
+    rotmids = (rotation * midpts.transpose()).transpose();
+    rotdirs = (rotation * directions.transpose()).transpose();
+}
+
+void save_rotback_slopes(const Eigen::MatrixXd &rotmids, const Eigen::MatrixXd &rotdirs){
+    std::cout<<"saving the slopes as csv files, type down the prefix"<<std::endl;
+    std::string fname = igl::file_dialog_save();
+    if (fname.length() == 0 || rotmids.rows()==0)
+    {
+        std::cout << "\nLSC: save mesh failed, please type down the correct name, or feed the correct data" << std::endl;
+        return;
+    }
+    std::ofstream file;
+    file.open(fname + ".csv");
+    for (int i = 0; i < rotmids.rows(); i++)
+    {
+        file << rotmids(i, 0) << "," << rotmids(i, 1) << "," << rotmids(i, 2) << "," << rotdirs(i, 0) << "," << rotdirs(i, 1) << "," << rotdirs(i, 2) << "\n";
+
+    }
+    file.close();
+    std::cout<<"file saved"<<std::endl;
+
+}
+void decrease_ply_nbr_by_half(){
+    std::vector<std::vector<Eigen::Vector3d>> ply, bnm, plyout, bnmout;
+    read_plylines_and_binormals(ply, bnm);
+    int count = 1;
+    for (int i = 0; i < ply.size(); i++)
+    {
+        if (count < ply.size())
+        {
+            plyout.push_back(ply[count]);
+            bnmout.push_back(bnm[count]);
+            count += 2;
+            std::cout<<"select nbr "<<count;
+        }
+        else
+        {
+            break;
+        }
+    }
+    std::string fname = igl::file_dialog_save();
+    if (fname.length() == 0)
+    {
+        std::cout << "\nLSC: save mesh failed, please type down the correct name" << std::endl;
+        return;
+    }
+
+    write_polyline_xyz(plyout, fname);
+    write_polyline_xyz(bnmout, fname + "_b");
+    std::cout << "files get saved" << std::endl;
+}

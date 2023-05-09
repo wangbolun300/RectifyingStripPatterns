@@ -185,3 +185,8 @@ void read_draw_pts_from_plylines(Eigen::MatrixXd &ver);
 void read_plylines_extract_offset_mesh(const double scale_front, const double scale_back, CGMesh& mesh);      
 void make_example_comparing_two_plylines_distance();      
 void run_sort_polylines();
+void show_rotback_slopes(const Eigen::MatrixXd &E0, const Eigen::MatrixXd &E1, const double latitude_degree,
+                         Eigen::MatrixXd &rotmids, Eigen::MatrixXd &rotdirs);
+void save_rotback_slopes(const Eigen::MatrixXd &rotmids, const Eigen::MatrixXd &rotdirs);
+void decrease_ply_nbr_by_half();
+void evaluate_strip_straightness(const std::vector<std::vector<Eigen::Vector3d>>& plys,const std::vector<std::vector<Eigen::Vector3d>>& bnms);
