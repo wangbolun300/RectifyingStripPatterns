@@ -190,3 +190,4 @@ void show_rotback_slopes(const Eigen::MatrixXd &E0, const Eigen::MatrixXd &E1, c
 void save_rotback_slopes(const Eigen::MatrixXd &rotmids, const Eigen::MatrixXd &rotdirs);
 void decrease_ply_nbr_by_half();
 void evaluate_strip_straightness(const std::vector<std::vector<Eigen::Vector3d>>& plys,const std::vector<std::vector<Eigen::Vector3d>>& bnms);
+void save_invert_levelset(const Eigen::VectorXd& func);

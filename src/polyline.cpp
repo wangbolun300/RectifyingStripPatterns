@@ -450,6 +450,7 @@ void sample_polylines_and_binormals_evenly(const int nbr_segs, const std::vector
     }
     // std::cout<<"check 1"<<std::endl;
     double avg = max_length / nbr_segs; 
+    bool hasnan = false;
     for (int i = 0; i < ply_in.size(); i++)
     {
         std::vector<Eigen::Vector3d> ply_current = ply_in[i], bin_current = bi_in[i];
@@ -461,6 +462,12 @@ void sample_polylines_and_binormals_evenly(const int nbr_segs, const std::vector
             ply_sampled.push_back(ply_current.back());
             bin_sampled.push_back(bin_current.front());
             bin_sampled.push_back(bin_current.back());
+            Eigen::Vector3d bi0 = bin_current.front();
+            Eigen::Vector3d bi1 = bin_current.back();
+            if (isnan(bi0[0]) || isnan(bi0[1]) || isnan(bi0[2]) || isnan(bi1[0]) || isnan(bi1[1]) || isnan(bi1[2]))
+            {
+                std::cout << "NAN in SHORT" << std::endl;
+            }
         }
         else{
             ply_sampled = sample_one_polyline_and_binormals_based_on_length(ply_current, nbr, bin_current, bin_sampled);
@@ -487,6 +494,26 @@ void PolyOpt::init(const std::vector<std::vector<Eigen::Vector3d>> &ply_in, cons
         sample_polylines_and_binormals_evenly(sample_nbr, ply_in, bi_in, ply, bi);
         std::cout<<"polyline get sampled"<<std::endl;
     }
+    bool hasnan = false;
+    for (int i = 0; i < bi.size(); i++)
+    {
+        for (int j = 0; j < bi[i].size(); j++)
+        {
+            if (isnan(bi[i][j][0]) || isnan(bi[i][j][1]) || isnan(bi[i][j][2]))
+            {
+                hasnan = true;
+                break;
+            }
+        }
+        if (hasnan)
+        {
+            break;
+        }
+    }
+    if (hasnan)
+    {
+        std::cout << "INIT ERROR: SAMPLED BINORMALS HAS NAN" << std::endl;
+    }
     int vnbr = 0;
     for (auto line : ply)
     {
@@ -497,7 +524,7 @@ void PolyOpt::init(const std::vector<std::vector<Eigen::Vector3d>> &ply_in, cons
     }
     VerNbr = vnbr;
     // x0, x1, ..., xn, y0, ..., zn, bx0, ... bxn, ..., bzn
-    PlyVars.resize(vnbr * 2 * 3);
+    PlyVars = Eigen::VectorXd::Zero(vnbr * 2 * 3);
     endpts = Eigen::VectorXd::Zero(vnbr * 6);
     VinPly = Eigen::VectorXd::Ones(vnbr * 6) * -1;
     Front.resize(vnbr);
@@ -573,6 +600,9 @@ void PolyOpt::init(const std::vector<std::vector<Eigen::Vector3d>> &ply_in, cons
     opt_for_polyline = true;
     opt_for_crease = false;
     MaxNbrPinC = csize;
+    if(vector_contains_NAN(PlyVars)){
+        std::cout<<"INIT ERROR: variables contain NAN"<<std::endl;
+    }
     
 }
 
@@ -971,7 +1001,7 @@ void PolyOpt::assemble_gravity(spMat &H, Eigen::VectorXd &B, Eigen::VectorXd &en
         verori[1] = OriVars[ly];
         verori[2] = OriVars[lz];
         vdiff = ver - verori;
-        scale = 0.1;
+        scale = 1;
 
         tripletes.push_back(Trip(i + vnbr * 2, lx, 2 * vdiff[0] * scale));
         tripletes.push_back(Trip(i + vnbr * 2, ly, 2 * vdiff[1] * scale));
@@ -986,32 +1016,6 @@ void PolyOpt::assemble_gravity(spMat &H, Eigen::VectorXd &B, Eigen::VectorXd &en
     J.setFromTriplets(tripletes.begin(), tripletes.end());
     H = J.transpose() * J;
     B = -J.transpose() * energy;
-    // if (Front.size() == 0)
-    // {
-    //     std::cout << "please use assemble_gravity after init the PolyOpt" << std::endl;
-    //     return;
-    // }
-
-    // // std::vector<Trip> tripletes;
-    // int vnbr = Front.size();
-    // H = spMat(Eigen::VectorXd::Ones(vnbr * 6).asDiagonal()) + endpts_signs * (ratio_endpts - 1);
-    // energy = Eigen::VectorXd::Zero(vnbr * 6);
-    // energy.segment(0, vnbr * 3) = (PlyVars - OriVars).segment(0, vnbr * 3);
-
-    // // pick the selected one.
-    // if (pick_single_line)
-    // {
-    //     for (int i = 0; i < VinPly.size(); i++)
-    //     {
-    //         if (VinPly[i] != pick_line_id)
-    //         {
-    //             H.coeffRef(i, i) = 0;
-    //             energy[i] = 0;
-    //         }
-    //     }
-    // }
-
-    // B = -H * energy;
 }
 void PolyOpt::assemble_polyline_smooth(const bool crease, spMat &H, Eigen::VectorXd &B, Eigen::VectorXd &energy)
 {
@@ -1186,24 +1190,28 @@ void PolyOpt::assemble_polyline_smooth(const bool crease, spMat &H, Eigen::Vecto
             if(isnan(sign2)){
                 std::cout<<"sign2 is nan"<<std::endl;
             }
-            if(isnan(err[0])){
+            if(isnan(err[0]) || isnan(err[1]) || isnan(err[2])){
                 std::cout<<"err[0] is nan"<<std::endl;
-                std::cout<<"error, "<<err<<std::endl;
-                std::cout << "sign1, " << sign1 << std::endl;
-                std::cout << "sign2, " << sign2 << std::endl;
-                std::cout << "nfr, " << nfr << std::endl;
-                std::cout << "nbk, " << nbk << std::endl;
-                std::cout << "nbi, " << nbi << std::endl;
+                // std::cout<<"error, "<<err<<std::endl;
+                // std::cout << "sign1, " << sign1 << std::endl;
+                // std::cout << "sign2, " << sign2 << std::endl;
+                // std::cout << "nfr, " << nfr << std::endl;
+                // std::cout << "nbk, " << nbk << std::endl;
+                // std::cout << "nbi, " << nbi << std::endl;
+                // std::cout << "original nfr, " << OriVars[lfnx]<<","<< OriVars[lfny]<<", "<< OriVars[lfnz] << std::endl;
+                // std::cout << "original nbk, " << OriVars[lbnx]<<","<< OriVars[lbny]<<", "<< OriVars[lbnz] << std::endl;
+                // std::cout<<"line id "<<VinPly[lfnx]<<", "<<VinPly[lbnx]<<std::endl;
+                
                 
             }
-            if (vector_contains_NAN(PlyVars))
-            {
-                std::cout << "Polyvars has nan" << std::endl;
-            }
+            // if (vector_contains_NAN(PlyVars))
+            // {
+            //     std::cout << "Polyvars has nan" << std::endl;
+            // }
         }
         
     }
-    assert(!vector_contains_NAN(energy));
+    // assert(!vector_contains_NAN(energy));
     int nanposition;
     if(vector_contains_NAN(energy, nanposition)){
         std::cout<<"NAN in Ply smooth, location: "<<nanposition<<", with vnbr "<<vnbr<<std::endl;
@@ -1746,22 +1754,44 @@ void PolyOpt::orient_binormals_of_plyline(const std::vector<std::vector<Eigen::V
     std::vector<std::vector<Eigen::Vector3d>> bilist = bi;
     // int counter = 0;
     Eigen::Vector3d bbase = OrientEndPts ? bi[0].back() : bi[0][0];
-    for (int i = 0; i < bi.size(); i++)
+    if (!OrientEndPts)
     {
-        Eigen::Vector3d base = OrientEndPts ? bi[i].back() : bi[i][0];
-        if (base.dot(bbase) < 0)
+        for (int i = 0; i < bi.size(); i++)
         {
-            base *= -1;
-        }
-        bbase = base;
+            Eigen::Vector3d base = OrientEndPts ? bi[i].back() : bi[i][0];
+            if (base.dot(bbase) < 0)
+            {
+                base *= -1;
+            }
+            bbase = base;
 
-        for (int j = 0; j < bi[i].size(); j++)
-        {
-            Eigen::Vector3d direction = orient_vector(base, bi[i][j]);
-            base = direction;
-            bilist[i][j] = direction;
+            for (int j = 0; j < bi[i].size(); j++)
+            {
+                Eigen::Vector3d direction = orient_vector(base, bi[i][j]);
+                base = direction;
+                bilist[i][j] = direction;
+            }
         }
     }
+    else{
+        for (int i = 0; i < bi.size(); i++)
+        {
+            Eigen::Vector3d base = OrientEndPts ? bi[i].back() : bi[i][0];
+            if (base.dot(bbase) < 0)
+            {
+                base *= -1;
+            }
+            bbase = base;
+
+            for (int j = bi[i].size() - 1; j > -1; j--)
+            {
+                Eigen::Vector3d direction = orient_vector(base, bi[i][j]);
+                base = direction;
+                bilist[i][j] = direction;
+            }
+        }
+    }
+
     bout = bilist;
     OrientEndPts = !OrientEndPts;
 }

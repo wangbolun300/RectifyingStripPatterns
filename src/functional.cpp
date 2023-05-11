@@ -707,3 +707,301 @@ void lsTools::write_fitting_data(){
     file.close();
     std::cout<<"Necessary info saved"<<std::endl;
 }
+
+// the auxiliaries:, the axis, the target cos value, the target sin value ,
+// 0 ~ vnbr-1 : function values, 
+// vnbr, vnbr + 1, vnbr + 2: the axis
+// vnbr + 3, cos
+// vnbr + 4, sin
+
+void lsTools::assemble_solver_constant_slope(const Eigen::VectorXd &vars,
+                                             const bool fix_axis, const Eigen::Vector3d &axis_in, const bool fix_angle, const double angle_degree,
+                                             const LSAnalizer &analizer,
+                                             spMat &H, Eigen::VectorXd &B, Eigen::VectorXd &energy)
+{
+    std::vector<Trip> tripletes;
+    int vnbr = V.rows();
+    int fnbr = F.rows();
+    double cos_angle_fix, sin_angle_fix;
+    double angle_radian = angle_degree * LSC_PI / 180.; // the angle in radian
+    cos_angle_fix = cos(angle_radian);
+    sin_angle_fix = sin(angle_radian);
+    Eigen::Vector3d axis_fix = axis_in.normalized();
+    tripletes.reserve(10 + fnbr * 11);              //
+    energy = Eigen::VectorXd::Zero(2 * fnbr + 5); // mesh total energy values
+
+    int lax = vnbr;
+    int lay = vnbr + 1;
+    int laz = vnbr + 2;
+    int lcos = vnbr + 3;
+    int lsin = vnbr + 4;
+    if (Compute_Auxiliaries)
+    {
+        if (fix_axis)
+        {
+            Glob_lsvars[lax] = axis_fix[0];
+            Glob_lsvars[lay] = axis_fix[1];
+            Glob_lsvars[laz] = axis_fix[2];
+        }
+        else
+        {
+            Glob_lsvars[lax] = 0;
+            Glob_lsvars[lay] = 0;
+            Glob_lsvars[laz] = 1;
+        }
+        if (fix_angle)
+        {
+            Glob_lsvars[lcos] = cos_angle_fix;
+            Glob_lsvars[lsin] = sin_angle_fix;
+        }
+        else
+        {
+            Glob_lsvars[lcos] = 1 / 1.414;
+            Glob_lsvars[lsin] = 1 / 1.414;
+        }
+    }
+    double cos_angle = Glob_lsvars[lcos];
+    double sin_angle = Glob_lsvars[lsin];
+    Eigen::Vector3d axis(Glob_lsvars[lax], Glob_lsvars[lay], Glob_lsvars[laz]);
+    for (int i = 0; i < fnbr; i++)
+    {
+        int fid = i;
+        int v0 = F(fid, 0);
+        int v1 = F(fid, 1);
+        int v2 = F(fid, 2);
+        // dir0 * V0 + dir1 * V1 + dir2 * V2 is the iso-line direction
+        Eigen::Vector3d dir0 = V.row(v2) - V.row(v1);
+        Eigen::Vector3d dir1 = V.row(v0) - V.row(v2);
+        Eigen::Vector3d dir2 = V.row(v1) - V.row(v0);
+        Eigen::Vector3d iso = dir0 * vars[v0] + dir1 * vars[v1] + dir2 * vars[v2];
+        Eigen::Vector3d norm = norm_f.row(fid);
+        
+        Eigen::Vector3d bxis;
+        if (axis.cross(norm).norm() > 1e-4)
+        {
+            bxis = axis.cross(norm).normalized();
+        }
+        else
+        {
+            continue;
+        }
+        double scale = iso.norm() * axis.norm();
+        // iso * axis / scale - cos = 0;
+        tripletes.push_back(Trip(i, v0, dir0.dot(axis) / scale));
+        tripletes.push_back(Trip(i, v1, dir1.dot(axis) / scale));
+        tripletes.push_back(Trip(i, v2, dir2.dot(axis) / scale));
+
+        tripletes.push_back(Trip(i, lax, iso[0] / scale));
+        tripletes.push_back(Trip(i, lay, iso[1] / scale));
+        tripletes.push_back(Trip(i, laz, iso[2] / scale));
+
+        tripletes.push_back(Trip(i, lcos, -1));
+
+        energy[i] = iso.dot(axis) / scale - cos_angle;
+
+        // iso * bxis / scale - sin = 0
+        scale = iso.norm();
+        tripletes.push_back(Trip(i + fnbr, v0, dir0.dot(bxis) / scale));
+        tripletes.push_back(Trip(i + fnbr, v1, dir1.dot(bxis) / scale));
+        tripletes.push_back(Trip(i + fnbr, v2, dir2.dot(bxis) / scale));
+
+        tripletes.push_back(Trip(i + fnbr, lsin, -1));
+
+        energy[i + fnbr] = iso.dot(bxis) / scale - sin_angle;
+    }
+    // sin^2 + cos^2 = 1
+    tripletes.push_back(Trip(2 * fnbr, lcos, 2 * cos_angle));
+    tripletes.push_back(Trip(2 * fnbr, lsin, 2 * sin_angle));
+
+    energy[2 * fnbr] = sin_angle * sin_angle + cos_angle * cos_angle - 1;
+
+    // axis * axis = 1
+    tripletes.push_back(Trip(2 * fnbr + 1, lax, 2 * axis[0]));
+    tripletes.push_back(Trip(2 * fnbr + 1, lay, 2 * axis[1]));
+    tripletes.push_back(Trip(2 * fnbr + 1, laz, 2 * axis[2]));
+
+    energy[2 * fnbr + 1] = axis.dot(axis) - 1;
+
+    if (fix_axis)
+    {
+        double scale = axis.norm();
+        // axis * axis_fix / scale = 1;
+        tripletes.push_back(Trip(2 * fnbr + 2, lax, axis_fix[0] / scale));
+        tripletes.push_back(Trip(2 * fnbr + 2, lay, axis_fix[1] / scale));
+        tripletes.push_back(Trip(2 * fnbr + 2, laz, axis_fix[2] / scale));
+
+        energy[2 * fnbr + 2] = axis.dot(axis_fix) / scale - 1;
+    }
+    if (fix_angle)
+    {
+        // sin_angle - sin_angle_fix = 0
+        tripletes.push_back(Trip(2 * fnbr + 3, lsin, 1));
+        energy[2 * fnbr + 3] = sin_angle - sin_angle_fix;
+
+        // cos_angle - cos_angle_fix = 0
+        tripletes.push_back(Trip(2 * fnbr + 4, lcos, 1));
+        energy[2 * fnbr + 4] = cos_angle - cos_angle_fix;
+    }
+    spMat J;
+	J.resize(energy.size(), Glob_lsvars.size());
+	J.setFromTriplets(tripletes.begin(), tripletes.end());
+	H = J.transpose() * J;
+	B = -J.transpose() * energy;
+}
+
+void lsTools::Run_ConstSlopeOpt(){
+    Eigen::MatrixXd GradValueF, GradValueV;
+	Eigen::VectorXd PGEnergy;
+	Eigen::VectorXd func = fvalues;
+
+	int vnbr = V.rows();
+	int fnbr = F.rows();
+
+	// initialize the level set with some number
+	if (func.size() != vnbr)
+	{
+		if (trace_hehs.size() == 0)
+		{
+			std::cout << "Please First Set Up The Boundary Condition (Tracing)" << std::endl;
+			return;
+		}
+		initialize_level_set_accroding_to_parametrization();
+		std::cout << "level set get initialized" << std::endl;
+		return;
+	}
+	analysis_pseudo_geodesic_on_vertices(func, analizers[0]);
+
+	int final_size = vnbr + 5; // Change this when using more auxilary vars
+
+	//  update quantities associated with level set values
+
+	get_gradient_hessian_values(func, GradValueV, GradValueF);
+
+	if (Glob_lsvars.size() == 0)
+	{
+		std::cout << "Initializing Global Variable For LevelSet Opt ... " << std::endl;
+		Glob_lsvars = Eigen::VectorXd::Zero(final_size); // We change the size if opt more than 1 level set
+		Glob_lsvars.segment(0, vnbr) = func;
+	}
+	if (Last_Opt_Mesh)
+	{
+		Compute_Auxiliaries = true;
+		std::cout << "Recomputing Auxiliaries" << std::endl;
+	}
+
+	spMat H;
+	H.resize(vnbr, vnbr);
+	Eigen::VectorXd B = Eigen::VectorXd::Zero(vnbr);
+
+	spMat LTL;			  // left of laplacian
+	Eigen::VectorXd mLTF; // right of laplacian
+	assemble_solver_biharmonic_smoothing(func, LTL, mLTF);
+	H += weight_laplacian * LTL;
+	B += weight_laplacian * mLTF;
+	assert(mass.rows() == vnbr);
+
+	Eigen::VectorXd bcfvalue = Eigen::VectorXd::Zero(vnbr);
+	Eigen::VectorXd fbdenergy = Eigen::VectorXd::Zero(vnbr);
+	// boundary condition (traced as boundary condition)
+	if (trace_hehs.size() > 0)
+	{ // if traced, we count the related energies in
+
+		spMat bc_JTJ;
+		Eigen::VectorXd bc_mJTF;
+		assemble_solver_boundary_condition_part(func, bc_JTJ, bc_mJTF, bcfvalue);
+		H += weight_boundary * bc_JTJ;
+		B += weight_boundary * bc_mJTF;
+	}
+
+	// strip width condition
+	if (enable_strip_width_energy)
+	{
+		spMat sw_JTJ;
+		Eigen::VectorXd sw_mJTF;
+		assemble_solver_strip_width_part(GradValueF, sw_JTJ, sw_mJTF); // by default the strip width is 1. Unless tracing info updated the info
+		H += weight_strip_width * sw_JTJ;
+		B += weight_strip_width * sw_mJTF;
+	}
+
+	assert(H.rows() == vnbr);
+	assert(H.cols() == vnbr);
+	// pseudo geodesic
+	spMat Hlarge;
+	Eigen::VectorXd Blarge;
+	Hlarge.resize(final_size, final_size);
+	Blarge = Eigen::VectorXd::Zero(final_size);
+
+	Hlarge = sum_uneven_spMats(H, Hlarge);
+	Blarge = sum_uneven_vectors(B, Blarge);
+
+	if (enable_pseudo_geodesic_energy)
+	{
+
+		spMat pg_JTJ;
+		Eigen::VectorXd pg_mJTF;
+        assemble_solver_constant_slope(func, AxisFixedForSlopes, AxisFixIn, AnglesFixedForSlopes, AngleFixIn, analizers[0],
+        pg_JTJ, pg_mJTF, PGEnergy);
+
+		Hlarge = sum_uneven_spMats(Hlarge, weight_pseudo_geodesic_energy * pg_JTJ);
+		Blarge = sum_uneven_vectors(Blarge, weight_pseudo_geodesic_energy * pg_mJTF);
+	}
+
+	Hlarge += 1e-6 * weight_mass * spMat(Eigen::VectorXd::Ones(final_size).asDiagonal());
+
+	Eigen::SimplicialLLT<Eigen::SparseMatrix<double>> solver(Hlarge);
+
+	// assert(solver.info() == Eigen::Success);
+	if (solver.info() != Eigen::Success)
+	{
+		// solving failed
+		std::cout << "solver fail" << std::endl;
+		return;
+	}
+	// std::cout<<"solved successfully"<<std::endl;
+	Eigen::VectorXd dx = solver.solve(Blarge).eval();
+	dx *= 0.75;
+	// std::cout << "step length " << dx.norm() << std::endl;
+	double level_set_step_length = dx.norm();
+	// double inf_norm=dx.cwiseAbs().maxCoeff();
+	if (enable_pseudo_geodesic_energy) // only pg energy and boundary angles requires step length
+	{
+		if (level_set_step_length > max_step_length)
+		{
+			dx *= max_step_length / level_set_step_length;
+		}
+	}
+
+	func += dx.topRows(vnbr);
+	fvalues = func;
+	Glob_lsvars += dx;
+	double energy_biharmonic = (QcH * func).norm();
+	double energy_boundary = (bcfvalue).norm();
+	std::cout << "energy: harm " << energy_biharmonic << ", bnd " << energy_boundary << ", ";
+	if (enable_pseudo_geodesic_energy)
+	{
+		double energy_pg = PGEnergy.norm();
+		double max_energy_ls = PGEnergy.lpNorm<Eigen::Infinity>();
+		std::cout << "pg_energy, " << energy_pg << ", "
+				  << "lsmax," << max_energy_ls << ", ";
+	}
+
+	if (enable_strip_width_energy)
+	{
+
+		Eigen::VectorXd ener = GradValueF.rowwise().norm();
+		ener = ener.asDiagonal() * ener;
+		Eigen::VectorXd wds = Eigen::VectorXd::Ones(fnbr) * strip_width * strip_width;
+
+		ener -= wds;
+		double stp_energy = Eigen::VectorXd(ener).dot(ener);
+		std::cout << "strip, " << stp_energy << ", ";
+	}
+	step_length = dx.norm();
+    Eigen::Vector3d axis(Glob_lsvars[vnbr], Glob_lsvars[vnbr + 1], Glob_lsvars[vnbr + 2]);
+    double cos_angle = Glob_lsvars[vnbr + 3];
+    double sin_angle = Glob_lsvars[vnbr + 4];
+    std::cout<<"Axis ("<<axis[0]<<", "<<axis[1]<<", "<<axis[2]<<"), cos_angle "<<cos_angle;
+    std::cout << ", step " << step_length << std::endl;
+
+	Last_Opt_Mesh = false;
+}

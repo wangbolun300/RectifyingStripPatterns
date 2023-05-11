@@ -3180,7 +3180,7 @@ void sample_polyline_and_extend_verlist(const std::vector<Eigen::Vector3d> &poly
         start = seg;
     }
     verlist.push_back(polyline.back());
-    segid.push_back(nbr - 2);
+    segid.push_back(polyline.size() - 2);
     t.push_back(1);
     assert(t.size()==segid.size()&& t.size()==verlist.size());
 }
@@ -3217,8 +3217,24 @@ std::vector<Eigen::Vector3d> sample_one_polyline_and_binormals_based_on_length(c
     for(int i=0;i<verlist.size();i++){
         int id0 = segid[i];
         double t = tlist[i];
-        Eigen::Vector3d bn = binormals[id0] * (1 - t) + binormals[id0 + 1] * t;
-        bn_out.push_back(bn.normalized());
+        Eigen::Vector3d b1 = binormals[id0], b2 = binormals[id0 + 1];
+        if (b1.dot(b2) < 0)
+        {
+            b2 *= -1;
+        }
+        Eigen::Vector3d bn = b1 * (1 - t) + b2 * t;
+        bn.normalize();
+        if(isnan(bn[0])||isnan(bn[1]) ||isnan(bn[2])){
+            std::cout<<"Sampled Binormal has NAN"<<std::endl;
+            std::cout<<"b1, "<<b1.transpose()<<std::endl;
+            std::cout<<"b2, "<<b2.transpose()<<std::endl;
+            std::cout<<"t, "<<t<<std::endl;
+            std::cout<<"id0, "<<id0<<std::endl;
+            std::cout<<"line size , "<<binormals.size()<<std::endl;
+
+        }
+
+        bn_out.push_back(bn);
     }
     return verlist;
     // std::cout<<"check out out out"<<std::endl;
@@ -4806,7 +4822,7 @@ void recover_polyline_endpts(){
             continue;
         }
 
-        std::vector<Eigen::Vector3d> tmp_ply(vnbr), tmp_bin(vnbr);
+        std::vector<Eigen::Vector3d> tmp_ply(vnbr), tmp_bin(vnbr), crs_ply = ply0[i], recover_ply(vnbr);
         int vnbr_crease = ply0[crease_cid].size();
         std::vector<Eigen::Vector3d> current_crease = bin0[crease_cid];
         if (vnbr - vnbr_crease != 2)
@@ -4816,18 +4832,22 @@ void recover_polyline_endpts(){
         }
         // recover the first pt
         tmp_ply = ply1[i];
+
         Eigen::Vector3d v01 = tmp_ply[0]-tmp_ply[1];
         Eigen::Vector3d crease = current_crease[0];
         recover_end_pt_direction_from_crease(crease, v01, tmp_bin[0]);
+        recover_ply.front() = v01 + crs_ply.front();
 
         // recover the last pt
         v01 = tmp_ply[vnbr - 1] - tmp_ply[vnbr - 2];
         crease = current_crease.back();
         recover_end_pt_direction_from_crease(crease, v01, tmp_bin.back());
+        recover_ply.back() = v01 + crs_ply.back();
 
         for (int j = 1; j < vnbr-1; j++)
         {
             tmp_bin[j] = current_crease[j - 1];
+            recover_ply[j] = crs_ply[j - 1];
         }
         ply2.push_back(tmp_ply);
         bin2.push_back(tmp_bin);
@@ -6537,3 +6557,71 @@ void decrease_ply_nbr_by_half(){
     write_polyline_xyz(bnmout, fname + "_b");
     std::cout << "files get saved" << std::endl;
 }
+
+void save_invert_levelset(const Eigen::VectorXd& func){
+    save_levelset(-func);
+}
+
+// Eigen::Vector3d eq35(double u, double v){
+//     double sru = sqrt(u);
+//     double x = exp((1-u)*v)*sru*(sru*sin())
+// }
+
+// void write_functional_surface(double radius, double height, int nr, int nh)
+// {
+//     Eigen::MatrixXd ver;
+//     Eigen::MatrixXi faces;
+//     ver.resize(nh * nr, 3);
+//     faces.resize(2 * (nh - 1) * (nr-1), 3);
+//     int verline = 0;
+//     double hitv = height / (nh - 1);
+//     double ritv =  LSC_PI / (nr-1);// we only draw half a cylinder
+//     for (int i = 0; i < nr; i++)
+//     {
+//         double angle = ritv * i;
+//         double x = cos(angle) * radius;
+//         double y = sin(angle) * radius;
+//         for (int j = 0; j < nh; j++)
+//         {
+//             double z = j * hitv;
+//             ver.row(verline) << x, y, z;
+//             verline++;
+//         }
+//     }
+
+//     int fline = 0;
+//     for (int i = 0; i < nr; i++)
+//     {
+//         if (i < nr - 1)
+//         {
+//             for (int j = 0; j < nh - 1; j++)
+//             {
+//                 int id0 = nh * i + j;
+//                 int id1 = nh * (i + 1) + j;
+//                 int id2 = nh * (i + 1) + j + 1;
+//                 int id3 = nh * i + j + 1;
+//                 faces.row(fline) = Eigen::Vector3i(id0, id1, id2);
+//                 faces.row(fline + 1) = Eigen::Vector3i(id0, id2, id3);
+//                 fline += 2;
+//             }
+//         }
+//         // else
+//         // {
+//         //     for (int j = 0; j < nh - 1; j++)
+//         //     {
+//         //         int id0 = nh * i + j;
+//         //         int id1 = j;
+//         //         int id2 = j + 1;
+//         //         int id3 = nh * i + j + 1;
+//         //         faces.row(fline) = Eigen::Vector3i(id0, id1, id2);
+//         //         faces.row(fline + 1) = Eigen::Vector3i(id0, id2, id3);
+//         //         fline += 2;
+//         //     }
+//         // }
+//     }
+//     std::string path("/Users/wangb0d/bolun/D/vs/levelset/level-set-curves/data/");
+//     igl::write_triangle_mesh(path + "oc_" + std::to_string(radius) + "_" + std::to_string(height) + "_" +
+//                                  std::to_string(nr) + "_" + std::to_string(nh) + ".obj",
+//                              ver, faces);
+//     std::cout << "cylinder file saved " << std::endl;
+// }

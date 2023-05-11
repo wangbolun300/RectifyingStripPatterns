@@ -528,6 +528,18 @@ private:
     // void assemble_solver_mesh_strip_width(spMat &JTJ, Eigen::VectorXd &B, Eigen::VectorXd &energy);
     void update_mesh_properties();// the mesh properties (normals, laplacian, etc.) get updated before optimization
 
+    // The following is for constant slope optimization
+    void assemble_solver_constant_slope(const Eigen::VectorXd &vars,
+                                             const bool fix_axis, const Eigen::Vector3d &axis_in, const bool fix_angle, const double angle_degree,
+                                             const LSAnalizer &analizer,
+                                             spMat &H, Eigen::VectorXd &B, Eigen::VectorXd &energy);
+public:
+    bool AxisFixedForSlopes = false;
+    bool AnglesFixedForSlopes = false;
+    Eigen::Vector3d AxisFixIn;
+    double AngleFixIn;
+    
+
 
 public:
     // parametrization and find the boundary loop
@@ -705,6 +717,7 @@ public:
     void Run_PPG_Mesh_Opt(Eigen::VectorXd& func0, Eigen::VectorXd& func1, Eigen::VectorXd& func2);
     void Run_Othogonal_Levelset(const Eigen::VectorXd &func_ref);
     void Run_AsOrthAsPossible_LS();
+    void Run_ConstSlopeOpt();
     void initialize_level_set_accroding_to_parametrization();
     void initialize_level_set_by_tracing(const TracingPrepare& Tracing_initializer);
     void initialize_level_set_by_boundary_assignment(const TracingPrepare& Tracing_initializer);
