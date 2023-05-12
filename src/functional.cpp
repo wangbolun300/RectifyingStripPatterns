@@ -713,7 +713,7 @@ void lsTools::write_fitting_data(){
 // vnbr, vnbr + 1, vnbr + 2: the axis
 // vnbr + 3, cos
 // vnbr + 4, sin
-
+// this method is face-based
 void lsTools::assemble_solver_constant_slope(const Eigen::VectorXd &vars,
                                              const bool fix_axis, const Eigen::Vector3d &axis_in, const bool fix_angle, const double angle_degree,
                                              const LSAnalizer &analizer,
@@ -727,8 +727,8 @@ void lsTools::assemble_solver_constant_slope(const Eigen::VectorXd &vars,
     cos_angle_fix = cos(angle_radian);
     sin_angle_fix = sin(angle_radian);
     Eigen::Vector3d axis_fix = axis_in.normalized();
-    tripletes.reserve(10 + fnbr * 11);              //
-    energy = Eigen::VectorXd::Zero(2 * fnbr + 5); // mesh total energy values
+    tripletes.reserve(fnbr * 21);              //
+    energy = Eigen::VectorXd::Zero(7 * fnbr); // mesh total energy values
 
     int lax = vnbr;
     int lay = vnbr + 1;
@@ -756,8 +756,8 @@ void lsTools::assemble_solver_constant_slope(const Eigen::VectorXd &vars,
         }
         else
         {
-            Glob_lsvars[lcos] = 1 / 1.414;
-            Glob_lsvars[lsin] = 1 / 1.414;
+            Glob_lsvars[lcos] = 0;
+            Glob_lsvars[lsin] = 1;
         }
     }
     double cos_angle = Glob_lsvars[lcos];
@@ -785,6 +785,7 @@ void lsTools::assemble_solver_constant_slope(const Eigen::VectorXd &vars,
         {
             continue;
         }
+
         double scale = iso.norm() * axis.norm();
         // iso * axis / scale - cos = 0;
         tripletes.push_back(Trip(i, v0, dir0.dot(axis) / scale));
@@ -808,45 +809,271 @@ void lsTools::assemble_solver_constant_slope(const Eigen::VectorXd &vars,
         tripletes.push_back(Trip(i + fnbr, lsin, -1));
 
         energy[i + fnbr] = iso.dot(bxis) / scale - sin_angle;
+        if (fix_axis)
+        {
+            double scale1 = axis.norm();
+            // axis * axis_fix / scale1 = 1;
+            tripletes.push_back(Trip(i + fnbr * 2, lax, axis_fix[0] / scale1));
+            tripletes.push_back(Trip(i + fnbr * 2, lay, axis_fix[1] / scale1));
+            tripletes.push_back(Trip(i + fnbr * 2, laz, axis_fix[2] / scale1));
+
+            energy[i + fnbr * 2] = axis.dot(axis_fix) / scale1 - 1;
+        }
+        if (fix_angle)
+        {
+            // sin_angle - sin_angle_fix = 0
+            tripletes.push_back(Trip(i + fnbr * 3, lsin, 1));
+            energy[i + fnbr * 3] = sin_angle - sin_angle_fix;
+
+            // cos_angle - cos_angle_fix = 0
+            tripletes.push_back(Trip(i + fnbr * 4, lcos, 1));
+            energy[i + fnbr * 4] = cos_angle - cos_angle_fix;
+        }
+        // sin^2 + cos^2 = 1
+        tripletes.push_back(Trip(i + fnbr * 5, lcos, 2 * cos_angle));
+        tripletes.push_back(Trip(i + fnbr * 5, lsin, 2 * sin_angle));
+
+        energy[i + fnbr * 5] = sin_angle * sin_angle + cos_angle * cos_angle - 1;
+
+        // axis * axis = 1
+        tripletes.push_back(Trip(i + fnbr * 6, lax, 2 * axis[0]));
+        tripletes.push_back(Trip(i + fnbr * 6, lay, 2 * axis[1]));
+        tripletes.push_back(Trip(i + fnbr * 6, laz, 2 * axis[2]));
+
+        energy[i + fnbr * 6] = axis.dot(axis) - 1;
     }
-    // sin^2 + cos^2 = 1
-    tripletes.push_back(Trip(2 * fnbr, lcos, 2 * cos_angle));
-    tripletes.push_back(Trip(2 * fnbr, lsin, 2 * sin_angle));
 
-    energy[2 * fnbr] = sin_angle * sin_angle + cos_angle * cos_angle - 1;
-
-    // axis * axis = 1
-    tripletes.push_back(Trip(2 * fnbr + 1, lax, 2 * axis[0]));
-    tripletes.push_back(Trip(2 * fnbr + 1, lay, 2 * axis[1]));
-    tripletes.push_back(Trip(2 * fnbr + 1, laz, 2 * axis[2]));
-
-    energy[2 * fnbr + 1] = axis.dot(axis) - 1;
-
-    if (fix_axis)
-    {
-        double scale = axis.norm();
-        // axis * axis_fix / scale = 1;
-        tripletes.push_back(Trip(2 * fnbr + 2, lax, axis_fix[0] / scale));
-        tripletes.push_back(Trip(2 * fnbr + 2, lay, axis_fix[1] / scale));
-        tripletes.push_back(Trip(2 * fnbr + 2, laz, axis_fix[2] / scale));
-
-        energy[2 * fnbr + 2] = axis.dot(axis_fix) / scale - 1;
-    }
-    if (fix_angle)
-    {
-        // sin_angle - sin_angle_fix = 0
-        tripletes.push_back(Trip(2 * fnbr + 3, lsin, 1));
-        energy[2 * fnbr + 3] = sin_angle - sin_angle_fix;
-
-        // cos_angle - cos_angle_fix = 0
-        tripletes.push_back(Trip(2 * fnbr + 4, lcos, 1));
-        energy[2 * fnbr + 4] = cos_angle - cos_angle_fix;
-    }
+    std::cout << "Check: angle: " << energy.segment(0, fnbr * 2).norm() << "," << energy.segment(fnbr * 2, fnbr).norm()
+              << "," << energy.segment(fnbr * 3, fnbr * 2).norm()
+              << "," << energy.segment(fnbr * 5, fnbr).norm() << "," << energy.segment(fnbr * 6, fnbr).norm() << ",";
     spMat J;
 	J.resize(energy.size(), Glob_lsvars.size());
 	J.setFromTriplets(tripletes.begin(), tripletes.end());
 	H = J.transpose() * J;
-	B = -J.transpose() * energy;
+	B = -J.transpose() * energy; 
+}
+// the auxiliaries:, the axis, the target cos value, the target sin value ,
+// 0 ~ vnbr-1 : function values, 
+// vnbr, vnbr + 1, vnbr + 2: the axis
+// vnbr + 3, cos
+// vnbr + 4, sin
+void lsTools::assemble_solver_constant_slope_vertex_based(const Eigen::VectorXd &vars,
+                                                          const bool fix_axis, const Eigen::Vector3d &axis_in, const bool fix_angle, const double angle_degree,
+                                                          const LSAnalizer &analizer,
+                                                          spMat &H, Eigen::VectorXd &B, Eigen::VectorXd &energy)
+{
+    int vnbr = V.rows();
+	int ninner = analizer.LocalActInner.size();
+    std::vector<Trip> tripletes;
+	tripletes.reserve(ninner * 23);				// the number of rows is ninner*4, the number of cols is aux_start_loc + ninner * 3 (all the function values and auxiliary vars)
+	energy = Eigen::VectorXd::Zero(ninner * 7); // mesh total energy values
+
+    double cos_angle_fix, sin_angle_fix;
+    double angle_radian = angle_degree * LSC_PI / 180.; // the angle in radian
+    cos_angle_fix = cos(angle_radian);
+    sin_angle_fix = sin(angle_radian);
+    Eigen::Vector3d axis_fix = axis_in.normalized();
+    int lax = vnbr;
+    int lay = vnbr + 1;
+    int laz = vnbr + 2;
+    int lcos = vnbr + 3;
+    int lsin = vnbr + 4;
+    if (Compute_Auxiliaries)
+    {
+        if (fix_axis)
+        {
+            Glob_lsvars[lax] = axis_fix[0];
+            Glob_lsvars[lay] = axis_fix[1];
+            Glob_lsvars[laz] = axis_fix[2];
+        }
+        else
+        {
+            Glob_lsvars[lax] = 0;
+            Glob_lsvars[lay] = 0;
+            Glob_lsvars[laz] = 1;
+        }
+        if (fix_angle)
+        {
+            Glob_lsvars[lcos] = cos_angle_fix;
+            Glob_lsvars[lsin] = sin_angle_fix;
+        }
+        else
+        {
+            Glob_lsvars[lcos] = 0;
+            Glob_lsvars[lsin] = 1;
+        }
+    }
+    double cos_angle = Glob_lsvars[lcos];
+    double sin_angle = Glob_lsvars[lsin];
+    Eigen::Vector3d axis(Glob_lsvars[lax], Glob_lsvars[lay], Glob_lsvars[laz]);
+    if (fix_axis)
+    {
+        axis = axis_fix;
+        Glob_lsvars[lax] = axis_fix[0];
+        Glob_lsvars[lay] = axis_fix[1];
+        Glob_lsvars[laz] = axis_fix[2];
+    }
+    if(fix_angle){
+        cos_angle = cos_angle_fix;
+        sin_angle = sin_angle_fix;
+        Glob_lsvars[lcos] = cos_angle;
+        Glob_lsvars[lsin] = sin_angle;
+    }
+    for (int i = 0; i < ninner; i++)
+	{
+		if (analizer.LocalActInner[i] == false)
+		{
+			std::cout << "singularity" << std::endl;
+			continue;
+		}
+		int vm = IVids[i];
+		
+		CGMesh::HalfedgeHandle inhd = analizer.heh0[i], outhd = analizer.heh1[i];
+		int v1 = lsmesh.from_vertex_handle(inhd).idx();
+		int v2 = lsmesh.to_vertex_handle(inhd).idx();
+		int v3 = lsmesh.from_vertex_handle(outhd).idx();
+		int v4 = lsmesh.to_vertex_handle(outhd).idx();
+
+		double t1 = analizer.t1s[i];
+		double t2 = analizer.t2s[i];
+		
+		Eigen::Vector3d ver0 = V.row(v1) + (V.row(v2) - V.row(v1)) * t1;
+		Eigen::Vector3d ver1 = V.row(vm);
+		Eigen::Vector3d ver2 = V.row(v3) + (V.row(v4) - V.row(v3)) * t2;
+		// the locations
+		int lvm = vm;
+		int lv1 = v1;
+		int lv2 = v2;
+		int lv3 = v3;
+		int lv4 = v4;
+        double fm = Glob_lsvars[lvm];
+        double f1 = Glob_lsvars[lv1];
+        double f2 = Glob_lsvars[lv2];
+        double f3 = Glob_lsvars[lv3];
+        double f4 = Glob_lsvars[lv4];
+        Eigen::Vector3d pm = V.row(vm);
+        Eigen::Vector3d p1 = V.row(v1);
+        Eigen::Vector3d p2 = V.row(v2);
+        Eigen::Vector3d p3 = V.row(v3);
+        Eigen::Vector3d p4 = V.row(v4);
+
+		// the weights
+		double dis0 = ((V.row(v1) - V.row(v2)) * vars[lvm] + (V.row(v2) - V.row(vm)) * vars[lv1] + (V.row(vm) - V.row(v1)) * vars[lv2]).norm();
+		double dis1 = ((V.row(v3) - V.row(v4)) * vars[lvm] + (V.row(v4) - V.row(vm)) * vars[lv3] + (V.row(vm) - V.row(v3)) * vars[lv4]).norm();
+        
+        Eigen::Vector3d norm = norm_v.row(vm);
+        Eigen::Vector3d bxis;
+
+        if (axis.cross(norm).norm() > 1e-4)
+        {
+            bxis = axis.cross(norm).normalized();
+        }
+        else
+        {
+            continue;
+        }
+
+        double dma = pm.dot(axis);
+        double d1a = p1.dot(axis);
+        double d2a = p2.dot(axis);
+        double d3a = p3.dot(axis);
+        double d4a = p4.dot(axis);
+
+        double dmb = pm.dot(bxis);
+        double d1b = p1.dot(bxis);
+        double d2b = p2.dot(bxis);
+        double d3b = p3.dot(bxis);
+        double d4b = p4.dot(bxis);
+
+        // the tangent is 
+        // (f2-f1) * (f4-fm) * v3 + (f2-f1) * (fm-f3) * v4 - (f4-f3) * (f2-fm) * v1 - (f4-f3) * (fm-f1) * v2
+        
+        
+        Eigen::Vector3d tangent = (f2 - f1) * (f4 - fm) * p3 + (f2 - f1) * (fm - f3) * p4 - (f4 - f3) * (f2 - fm) * p1 - (f4 - f3) * (fm - f1) * p2;
+        double scale = tangent.norm();// * axis.norm();
+        // tangent * axis  - cos_angle * scale = 0
+        tripletes.push_back(Trip(i, lvm, -(f2 - f1) * d3a + (f2 - f1) * d4a + (f4 - f3) * d1a - (f4 - f3) * d2a));
+        tripletes.push_back(Trip(i, lv1, -(f4 - fm) * d3a - (fm - f3) * d4a + (f4 - f3) * d2a));
+        tripletes.push_back(Trip(i, lv2, (f4 - fm) * d3a + (fm - f3) * d4a - (f4 - f3) * d1a));
+        tripletes.push_back(Trip(i, lv3, -(f2 - f1) * d4a + (f2 - fm) * d1a + (fm - f1) * d2a));
+        tripletes.push_back(Trip(i, lv4, (f2 - f1) * d3a - (f2 - fm) * d1a - (fm - f1) * d2a));
+        if (!fix_axis)
+        {
+            tripletes.push_back(Trip(i, lax, tangent[0]));
+            tripletes.push_back(Trip(i, lay, tangent[1]));
+            tripletes.push_back(Trip(i, laz, tangent[2]));
+        }
+        if (!fix_angle)
+        {
+            tripletes.push_back(Trip(i, lcos, -scale));
+        }
+
+        energy[i] = tangent.dot(axis) - cos_angle * scale;
+
+        // tangent * bxis - sin_angle * scale = 0;
+        scale = tangent.norm() * bxis.norm();
+
+        tripletes.push_back(Trip(i + ninner, lvm, -(f2 - f1) * d3b + (f2 - f1) * d4b + (f4 - f3) * d1b - (f4 - f3) * d2b));
+        tripletes.push_back(Trip(i + ninner, lv1, -(f4 - fm) * d3b - (fm - f3) * d4b + (f4 - f3) * d2b));
+        tripletes.push_back(Trip(i + ninner, lv2, (f4 - fm) * d3b + (fm - f3) * d4b - (f4 - f3) * d1b));
+        tripletes.push_back(Trip(i + ninner, lv3, -(f2 - f1) * d4b + (f2 - fm) * d1b + (fm - f1) * d2b));
+        tripletes.push_back(Trip(i + ninner, lv4, (f2 - f1) * d3b - (f2 - fm) * d1b - (fm - f1) * d2b));
+        if (!fix_angle)
+        {
+            tripletes.push_back(Trip(i + ninner, lsin, -scale));
+        }
+
+        energy[i + ninner] = tangent.dot(bxis) - sin_angle * scale;
+
+        if (fix_axis)
+        {
+            // double scale1 =1;
+            // // axis * axis_fix / scale1 = 1;
+            // tripletes.push_back(Trip(i + ninner * 2, lax, axis_fix[0] / scale1));
+            // tripletes.push_back(Trip(i + ninner * 2, lay, axis_fix[1] / scale1));
+            // tripletes.push_back(Trip(i + ninner * 2, laz, axis_fix[2] / scale1));
+
+            // energy[i + ninner * 2] = axis.dot(axis_fix) / scale1 - 1;
+        }
+        if (fix_angle)
+        {
+            // // sin_angle - sin_angle_fix = 0
+            // tripletes.push_back(Trip(i + ninner * 3, lsin, 1));
+            // energy[i + ninner * 3] = sin_angle - sin_angle_fix;
+
+            // // cos_angle - cos_angle_fix = 0
+            // tripletes.push_back(Trip(i + ninner * 4, lcos, 1));
+            // energy[i + ninner * 4] = cos_angle - cos_angle_fix;
+        }
+        if (!fix_angle)
+        {
+            // sin^2 + cos^2 = 1
+            tripletes.push_back(Trip(i + ninner * 5, lcos, 2 * cos_angle));
+            tripletes.push_back(Trip(i + ninner * 5, lsin, 2 * sin_angle));
+
+            energy[i + ninner * 5] = sin_angle * sin_angle + cos_angle * cos_angle - 1;
+        }
+
+        if (!fix_axis)
+        {
+            // axis * axis = 1
+            tripletes.push_back(Trip(i + ninner * 6, lax, 2 * axis[0]));
+            tripletes.push_back(Trip(i + ninner * 6, lay, 2 * axis[1]));
+            tripletes.push_back(Trip(i + ninner * 6, laz, 2 * axis[2]));
+
+            energy[i + ninner * 6] = axis.dot(axis) - 1;
+        }
+
+        
+    }
+    std::cout << "Check: angle: " << energy.segment(0, ninner * 2).norm() << "," << energy.segment(ninner * 2, ninner).norm()
+              << "," << energy.segment(ninner * 3, ninner * 2).norm()
+              << "," << energy.segment(ninner * 5, ninner).norm() << "," << energy.segment(ninner * 6, ninner).norm() << ",";
+    spMat J;
+	J.resize(energy.size(), Glob_lsvars.size());
+	J.setFromTriplets(tripletes.begin(), tripletes.end());
+	H = J.transpose() * J;
+	B = -J.transpose() * energy; 
 }
 
 void lsTools::Run_ConstSlopeOpt(){
@@ -939,11 +1166,12 @@ void lsTools::Run_ConstSlopeOpt(){
 
 		spMat pg_JTJ;
 		Eigen::VectorXd pg_mJTF;
-        assemble_solver_constant_slope(func, AxisFixedForSlopes, AxisFixIn, AnglesFixedForSlopes, AngleFixIn, analizers[0],
+        assemble_solver_constant_slope_vertex_based(func, AxisFixedForSlopes, AxisFixIn, AnglesFixedForSlopes, AngleFixIn, analizers[0],
         pg_JTJ, pg_mJTF, PGEnergy);
 
 		Hlarge = sum_uneven_spMats(Hlarge, weight_pseudo_geodesic_energy * pg_JTJ);
 		Blarge = sum_uneven_vectors(Blarge, weight_pseudo_geodesic_energy * pg_mJTF);
+        Compute_Auxiliaries = false;
 	}
 
 	Hlarge += 1e-6 * weight_mass * spMat(Eigen::VectorXd::Ones(final_size).asDiagonal());

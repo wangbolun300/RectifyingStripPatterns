@@ -530,9 +530,14 @@ private:
 
     // The following is for constant slope optimization
     void assemble_solver_constant_slope(const Eigen::VectorXd &vars,
-                                             const bool fix_axis, const Eigen::Vector3d &axis_in, const bool fix_angle, const double angle_degree,
-                                             const LSAnalizer &analizer,
-                                             spMat &H, Eigen::VectorXd &B, Eigen::VectorXd &energy);
+                                        const bool fix_axis, const Eigen::Vector3d &axis_in, const bool fix_angle, const double angle_degree,
+                                        const LSAnalizer &analizer,
+                                        spMat &H, Eigen::VectorXd &B, Eigen::VectorXd &energy);
+    void assemble_solver_constant_slope_vertex_based(const Eigen::VectorXd &vars,
+                                        const bool fix_axis, const Eigen::Vector3d &axis_in, const bool fix_angle, const double angle_degree,
+                                        const LSAnalizer &analizer,
+                                        spMat &H, Eigen::VectorXd &B, Eigen::VectorXd &energy);
+
 public:
     bool AxisFixedForSlopes = false;
     bool AnglesFixedForSlopes = false;

@@ -180,7 +180,7 @@ namespace lscif
     bool AnglesFixedForSlopes = false;
     double AxisFixInX = 0;
 	double AxisFixInY = 0;
-	double AxisFixInZ = 0;
+	double AxisFixInZ = 1;
     double AngleFixIn = 45;
 
 	// add a new mesh into the mesh lists, and show the new mesh along with previous showed meshes
