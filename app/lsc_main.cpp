@@ -3425,7 +3425,7 @@ int main(int argc, char *argv[])
 				lscif::tools.angle_between_two_levelsets = lscif::angle_between_two_levelsets;
 				lscif::tools.weight_fix_two_ls_angle = lscif::weight_fix_two_ls_angle;
 				lscif::tools.AxisFixedForSlopes = lscif::AxisFixedForSlopes;
-				lscif::tools.AnglesFixedForSlopes = lscif::AxisFixedForSlopes;;
+				lscif::tools.AnglesFixedForSlopes = lscif::AnglesFixedForSlopes;;
 				lscif::tools.AxisFixIn = Eigen::Vector3d(lscif::AxisFixInX, lscif::AxisFixInY, lscif::AxisFixInZ);
 				lscif::tools.AngleFixIn = lscif::AngleFixIn;
 				// lscif::tools.weight_shading = lscif::weight_shading;
@@ -3460,6 +3460,23 @@ int main(int argc, char *argv[])
 				const Eigen::RowVector3d blue(0.2, 0.2, 0.8);
 
 				viewer.selected_data_index = id;
+			}
+			ImGui::SameLine();
+			if (ImGui::Button("DrawBxis", ImVec2(ImGui::GetWindowSize().x * 0.25f, 0.0f)))
+			{
+				const Eigen::RowVector3d red(0.8, 0.2, 0.2);
+				const Eigen::RowVector3d blue(0.2, 0.2, 0.8);
+				const Eigen::RowVector3d yellow(241. / 255, 196. / 255, 15. / 255);
+
+				const Eigen::RowVector3d black(0, 0, 0);
+				const Eigen::RowVector3d green(0.2, 0.8, 0.2);
+
+				Eigen::MatrixXd E0, E1;
+				std::cout << "ploting the bxis" << std::endl;
+				Eigen::MatrixXd binormals;
+				lscif::tools.show_bxis(E0, E1);
+				viewer.data().add_edges(E0, E1, green);
+				
 			}
 		}
 				// binormals as orthogonal as possible.

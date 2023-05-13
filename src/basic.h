@@ -615,6 +615,8 @@ public:
 private:
     std::vector<int> Fslope; // the faces of the marked slopes.
     std::vector<Eigen::Vector3d> OrthoSlope; // the orthogonal vectors of the desired slopes
+    Eigen::MatrixXd bxis0;
+    Eigen::MatrixXd bxis1;
     
 
 public:
@@ -700,6 +702,7 @@ public:
     void show_binormals(const Eigen::VectorXd &func, Eigen::MatrixXd &E0, Eigen::MatrixXd &E1, Eigen::MatrixXd &binormals, double ratio);
     void show_max_pg_energy(Eigen::VectorXd& e);
     void show_max_pg_energy_all(Eigen::MatrixXd &energy);
+    void show_bxis(Eigen::MatrixXd& E0, Eigen::MatrixXd& E1);
     void show_traced_curve_params(Eigen::MatrixXd &curve);
     void save_traced_curves(const std::string filename);
     void clear_traced_curves();

@@ -867,6 +867,8 @@ void lsTools::assemble_solver_constant_slope_vertex_based(const Eigen::VectorXd 
     std::vector<Trip> tripletes;
 	tripletes.reserve(ninner * 23);				// the number of rows is ninner*4, the number of cols is aux_start_loc + ninner * 3 (all the function values and auxiliary vars)
 	energy = Eigen::VectorXd::Zero(ninner * 7); // mesh total energy values
+    bxis0 = Eigen::MatrixXd::Zero(ninner, 3);
+    bxis1 = bxis0;
 
     double cos_angle_fix, sin_angle_fix;
     double angle_radian = angle_degree * LSC_PI / 180.; // the angle in radian
@@ -899,9 +901,10 @@ void lsTools::assemble_solver_constant_slope_vertex_based(const Eigen::VectorXd 
         }
         else
         {
-            Glob_lsvars[lcos] = 0;
-            Glob_lsvars[lsin] = 1;
+            Glob_lsvars[lcos] = 1 / 1.414;
+            Glob_lsvars[lsin] = 1 / 1.414;
         }
+        std::cout << "Auxiliary computed" << std::endl;
     }
     double cos_angle = Glob_lsvars[lcos];
     double sin_angle = Glob_lsvars[lsin];
@@ -964,9 +967,11 @@ void lsTools::assemble_solver_constant_slope_vertex_based(const Eigen::VectorXd 
         Eigen::Vector3d norm = norm_v.row(vm);
         Eigen::Vector3d bxis;
 
-        if (axis.cross(norm).norm() > 1e-4)
+        if (axis.normalized().cross(norm).norm() > 0.2)
         {
             bxis = axis.cross(norm).normalized();
+            bxis0.row(i) = pm;
+            bxis1.row(i) = pm + bxis;
         }
         else
         {
@@ -1232,4 +1237,9 @@ void lsTools::Run_ConstSlopeOpt(){
     std::cout << ", step " << step_length << std::endl;
 
 	Last_Opt_Mesh = false;
+}
+
+void lsTools::show_bxis(Eigen::MatrixXd& E0, Eigen::MatrixXd& E1){
+    E0 = bxis0;
+    E1 = bxis1;
 }

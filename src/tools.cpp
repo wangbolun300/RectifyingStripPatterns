@@ -3320,6 +3320,27 @@ std::array<double, 3> barycenter_coordinate(const Eigen::Vector3d &v0, const Eig
     result[2] = t2 / all;
     return result;
 }
+
+void generate_estimate_binormals_out_of_polylines(const std::vector<std::vector<Eigen::Vector3d>>& plys, std::vector<std::vector<Eigen::Vector3d>>& bnms){
+    bnms = plys;
+    for (int i = 0; i < plys.size(); i++)
+    {
+        for (int j = 1; j < plys[i].size() - 1; j++)
+        {
+            Eigen::Vector3d vf = plys[i][j - 1];
+            Eigen::Vector3d v = plys[i][j];
+            Eigen::Vector3d vb = plys[i][j + 1];
+
+            Eigen::Vector3d bvec = (vf - v).cross(vb - v).normalized();
+            bnms[i][j] = bvec;
+        }
+        int csize = plys[i].size();
+        bnms[i][0] = bnms[i][1];
+        bnms[i][csize - 1] = bnms[i][csize - 2];
+    }
+    return;
+}
+
 #include <igl/point_mesh_squared_distance.h>
 void extract_shading_lines(const CGMesh &lsmesh, const Eigen::MatrixXd &V, const std::vector<CGMesh::HalfedgeHandle> &loop,
                            const Eigen::MatrixXi &F, const Eigen::VectorXd &ls,
@@ -3355,7 +3376,7 @@ void extract_shading_lines(const CGMesh &lsmesh, const Eigen::MatrixXd &V, const
     {
         return;
     }
-    std::cout << "Reading Bi-normals of triangle mesh. If you don't want to write binormal files, esc here" << std::endl;
+    std::cout << "Reading Bi-normals of triangle mesh. If you don't have reference binormal vector file, esc here" << std::endl;
     for (int i = 0; i < lines.size(); i++)
     {
         for (int j = 0; j < lines[i].size(); j++)
@@ -3365,7 +3386,12 @@ void extract_shading_lines(const CGMesh &lsmesh, const Eigen::MatrixXd &V, const
     }
     Eigen::MatrixXd bn;
     bool bireaded = read_bi_normals(bn);
-    if(!bireaded){
+    if(!bireaded)
+    {
+        std::vector<std::vector<Eigen::Vector3d>> binormals;
+        generate_estimate_binormals_out_of_polylines(lines, binormals);
+        write_polyline_xyz(binormals, fname + "_b");
+        std::cout << "Binormals got written" << std::endl;
         return;
     }
     std::cout << "Binormals readed" << std::endl;
