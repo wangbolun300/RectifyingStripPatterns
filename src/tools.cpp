@@ -4326,8 +4326,18 @@ const double ratio, const double ratio_back)
         std::vector<CGMesh::VertexHandle> vhd0, vhd1;
         for (int j = 0; j < ply[i].size(); j++)
         {
-            Eigen::Vector3d p0 = ply[i][j] - bi[i][j] * ratio_back;
-            Eigen::Vector3d p1 = ply[i][j] + bi[i][j] * ratio;
+            int idf = std::max(j - 1, 0);
+            int idb = std::min(j + 1, int(ply[i].size() - 1));
+            Eigen::Vector3d tangent = (ply[i][idf] - ply[i][idb]).normalized();
+            Eigen::Vector3d direction = bi[i][j].normalized();
+            if (abs(direction.dot(tangent)) > 1e-3)
+            { // not orthogonal, need to get the correct ratio to make the norm is 1
+                double vt = direction.dot(tangent);
+                double alpha = sqrt(1 / (1 - vt * vt));
+                direction *= alpha;
+            }
+            Eigen::Vector3d p0 = ply[i][j] - direction * ratio_back;
+            Eigen::Vector3d p1 = ply[i][j] + direction * ratio;
             vhd0.push_back(mesh.add_vertex(CGMesh::Point(p0[0], p0[1], p0[2])));
             vhd1.push_back(mesh.add_vertex(CGMesh::Point(p1[0], p1[1], p1[2])));
         }
@@ -5212,6 +5222,7 @@ void draw_catenaries_on_cylinder(){
         std::cout<<"Please type something "<<std::endl;
         return;
     }
+    double clength = 0;
     std::ofstream file;
     file.open(fname);
     for (int i = 0; i < vnbr; i++)
@@ -5501,7 +5512,10 @@ void shading_slope_range_compute(const Eigen::MatrixXd& V, const Eigen::MatrixXi
             }
         }
         else{
-            double slopem = deepest[2] / scale;
+            double slopem;
+
+            slopem = deepest[2] / scale;
+
             if (slope0 < slopem)
             {
                 range[i][0] = atan(std::min(slope0, slope1));
@@ -5514,6 +5528,182 @@ void shading_slope_range_compute(const Eigen::MatrixXd& V, const Eigen::MatrixXi
             }
         }
         
+        // if(i<10){
+        //     std::cout<<"i "<<i<<" angle min, "<<range[i][0]<<", max, "<<range[i][1]<<std::endl;
+        // }
+    }
+}
+
+// the angle is the angle of slopvec against y axis, from 0 to 2pi
+// all_angle means if the norm is close to the reference so that the angle is random
+// slope_vec is the vector that x*x + y*y = 1
+// here the angle is determined by the vector = norm X ref. users should be careful when using this function about if the vector takes opposite direction.
+void get_angle_of_vector_ortho_to_reference(const Eigen::Vector3d &norm, const Eigen::Vector3d& ref, Eigen::Vector3d& slopevec, double& angle_radian, bool& all_angle){
+    all_angle = false;
+    // if the norm is parallel with ref, all angles are allowed
+    if (abs(abs(norm.dot(ref)) - 1) < 1e-4)
+    {
+        all_angle = true;
+        return;
+    }
+    Eigen::Vector3d tangent = norm.cross(ref).normalized();
+    double scale = tangent[0] * tangent[0] + tangent[1] * tangent[1];
+    scale = sqrt(scale);
+    slopevec = tangent/scale;
+    double sn = slopevec[0];
+    double cn = slopevec[1];
+    double deep_radian = acos(cn); // if the range is from 0 to pi, then sn need not consider.
+    if (sn < 0)
+    {
+        deep_radian = 2 * LSC_PI - deep_radian;
+    }
+    angle_radian = deep_radian;
+}
+// ref0 corresponds to phimin, ref1 corresponds to phimax.
+void get_angle_range_of_vector_ortho_to_reference(const Eigen::Vector3d &norm, const Eigen::Vector3d &ref0, const Eigen::Vector3d &ref1,
+                                                  double &angle_radian0, double &angle_radian1, bool &all_angle)
+{
+    all_angle = false;
+    Eigen::Vector3d slopevec0, slopevec1;
+    double angle0, angle1;
+    bool aa0, aa1;
+    get_angle_of_vector_ortho_to_reference(norm, ref0, slopevec0, angle0, aa0);
+    get_angle_of_vector_ortho_to_reference(norm, ref1, slopevec1, angle1, aa1);
+    if (aa0 || aa1)
+    {
+        all_angle = true;
+        return;
+    }
+
+    // 2d vectors of them. they are already normalized
+    Eigen::Vector3d s2d0(slopevec0[0], slopevec0[1], 0), s2d1(slopevec1[0], slopevec1[1], 0);
+    Eigen::Vector3d cross = s2d0.cross(s2d1);
+    double adiff = acos(s2d0.dot(s2d1));
+    double a_ref; // angle of the slopevec1, it should be the smaller-angle one of the two vectors
+    // make sure the cross is positive to the z axis
+    bool invert = false;
+    if (cross[2] < 0)
+    {
+        invert = true;
+    }
+    // if no need to change the angles
+    if (!invert)
+    {
+        a_ref = angle1;
+    }
+    else{// if need to use the inverted direction
+        a_ref = angle1 - LSC_PI;
+    }
+    double b_ref = a_ref + adiff;
+    angle_radian0 = a_ref;
+    angle_radian1 = b_ref;
+}
+void shading_slope_range_compute(const Eigen::MatrixXd &V, const Eigen::MatrixXi &F, const Eigen::VectorXi &Fselect,
+                                 const Eigen::MatrixXd &norm_f, const double theta_degree, const double phi_min, const double phi_max,
+                                 std::vector<std::array<double, 2>> &range, std::vector<bool> &active)
+{
+    Eigen::Vector3d vecref0, vecref1;
+    vecref0 = angle_ray_converter(theta_degree, phi_min);
+    vecref1 = angle_ray_converter(theta_degree, phi_max);
+    // phi0 and phi1 are for the range of tangent vectors!!!
+    int fnbr = F.rows();
+    int vnbr = V.rows();
+    range.resize(fnbr);
+    active.resize(fnbr);
+    for (int i = 0; i < fnbr; i++)
+    {
+        if (Fselect.size() > 0)
+        {
+            if (Fselect[i] < 0)
+            {
+                active[i] = false;
+                continue;
+            }
+        }
+        active[i] = true;
+        Eigen::Vector3d v0 = V.row(F(i, 0));
+        Eigen::Vector3d v1 = V.row(F(i, 1));
+        Eigen::Vector3d v2 = V.row(F(i, 2));
+        Eigen::Vector3d norm = norm_f.row(i);
+        if (abs(abs(norm(2)) - 1) < 1e-4)
+        { // the triangle is almost horizontal, it only has slope = 0.
+            active[i] = false;
+            continue;
+        }
+        double ang0, ang1;
+        bool all_angle;
+        // The ang0 ang1 will be almost in the range of (0, pi)
+        get_angle_range_of_vector_ortho_to_reference(norm, vecref0, vecref1, ang0, ang1, all_angle);
+
+        // the triangle is almost verticle, all slopes exist, but it also creates difficulty in getting correct orientation of the tangents.
+        if (abs(norm(2)) < 1e-4 || all_angle) 
+        {
+            // range[i][0] = -LSC_PI / 2;
+            // range[i][1] = LSC_PI / 2;
+            active[i] = false;
+            continue;
+        }
+        Eigen::Vector3d deepest; // it is a vector that lies in the line projected by the norm to the xy plane, and its x>0, 
+        deepest[0] = norm[0];
+        deepest[1] = norm[1];
+        deepest[2] = -(deepest[0] * norm[0] + deepest[1] * norm[1]) / norm[2]; // deepest * norm = 0
+        if (deepest[0] < 0)
+        {
+            deepest *= -1;
+        }
+        // get the corresponding phi of this vector
+        double scale = deepest[0] * deepest[0] + deepest[1] * deepest[1];
+        scale = sqrt(scale);
+        // the sin and cos value of the angle against y axis. the range is from 0 to pi
+        double sn = deepest[0] / scale;
+        double cn = deepest[1] / scale;
+        double deep_radian = acos(cn);// if the range is from 0 to pi, then sn need not consider.
+        bool including_deep1 = false; // include it or the opposite of it
+        if (deep_radian < ang1 && deep_radian > ang0)
+        {
+            including_deep1 = true;
+        }
+        // if (deep_radian > 0 && deep_radian < LSC_PI / 2)// if deepest angle is [0, pi/2], then its opposite (angle + pi) could be in the range
+        // {
+        //     if (deep_radian + LSC_PI < ang1 && deep_radian + LSC_PI > ang0)
+        //     {
+        //         including_deep2 = true;
+        //     }
+        // }
+        double slope0, slope1;
+        slope_of_given_angle(norm, ang0, slope0);
+        slope_of_given_angle(norm, ang1, slope1);
+        if (!including_deep1)
+        {
+            if (slope0 < slope1)
+            {
+                range[i][0] = atan(slope0);
+                range[i][1] = atan(slope1);
+            }
+            else
+            {
+                range[i][0] = atan(slope1);
+                range[i][1] = atan(slope0);
+            }
+        }
+        else
+        {
+            double slopem;
+
+            slopem = deepest[2] / scale;
+          
+            if (slope0 < slopem)
+            {
+                range[i][0] = atan(std::min(slope0, slope1));
+                range[i][1] = atan(slopem);
+            }
+            else
+            {
+                range[i][0] = atan(slopem);
+                range[i][1] = atan(std::max(slope0, slope1));
+            }
+        }
+
         // if(i<10){
         //     std::cout<<"i "<<i<<" angle min, "<<range[i][0]<<", max, "<<range[i][1]<<std::endl;
         // }
@@ -5740,6 +5930,66 @@ void get_orthogonal_vector_of_selected_slope_shading(const Eigen::MatrixXd &V, c
     std::cout<<"For Shading: The final face nbr of slopes: "<<fout.size()<<std::endl;
     std::cout<<"No roots: "<<case1<<", 2 or 0 valid roots: "<<case2<<std::endl;
 }
+// phi_min, phi_max are in degree. This version consider about theta
+void get_orthogonal_vector_of_selected_slope_shading(const Eigen::MatrixXd &V, const Eigen::MatrixXi &F, Eigen::VectorXi &Fselect,
+                                                     const Eigen::MatrixXd &norm_f, const double theta_degree,
+                                                     const double phi_min, const double phi_max, std::vector<int> &fout, std::vector<Eigen::Vector3d> &ortho)
+{
+    fout.clear();
+    ortho.clear();
+    std::vector<std::array<double, 2>> range;
+    std::vector<bool> active;
+    shading_slope_range_compute(V, F,Fselect, norm_f, theta_degree, phi_min, phi_max, range, active);
+    std::vector<int> flist;
+    double angle_degree;
+    vote_for_slope(range, active, flist, angle_degree);
+    double angle_radian = angle_degree * LSC_PI / 180;
+    int case1=0, case2=0, case3 =0;
+    for (int i = 0; i < flist.size(); i++)
+    {
+        int fid = flist[i];
+        Eigen::Vector3d norm = norm_f.row(fid);
+        double z = tan(angle_radian);
+        double a0 = norm[0];
+        double a1 = norm[1];
+        double a2 = norm[2];
+        std::vector<double> coeffs(3);
+        coeffs[0] = a2 * a2 * z * z - a0 * a0;
+        coeffs[1] = 2 * a1 * a2 * z;
+        coeffs[2] = a0 * a0 + a1 * a1;
+        std::array<double, 2> roots;
+        bool solve = quadratic_solver(coeffs, roots);
+        if(!solve){
+            case1++;
+            continue;
+        }
+        bool vali0 = validate_slope_root(norm, z, roots[0]);
+        bool vali1 = validate_slope_root(norm, z, roots[1]);
+        // stratigy: if no root or two valid roots, skip. if only one root, accept it.
+        if(vali0 * vali1 == 1){//no roots or two roots
+            case2++;
+            continue;
+        }
+        Eigen::Vector3d direction;
+        if(vali0){
+            double c = roots[0];
+            double x = sqrt(1 - c * c);
+            double y = c;
+            direction << x, y, z;
+        }
+        if(vali1){
+            double c = roots[1];
+            double x = sqrt(1 - c * c);
+            double y = c;
+            direction << x, y, z;
+        }
+        fout.push_back(fid);
+        Eigen::Vector3d oout = norm.cross(direction).normalized();
+        ortho.push_back(oout);
+    }
+    std::cout<<"For Shading: The final face nbr of slopes: "<<fout.size()<<std::endl;
+    std::cout<<"No roots: "<<case1<<", 2 or 0 valid roots: "<<case2<<std::endl;
+}
 
 void print_validation_vector(const Eigen::Vector3d &norm, const Eigen::Vector3d &axis,
                              const Eigen::Vector3d &direc, const Eigen::Vector3d& proj, const double angle_radian)
@@ -5872,7 +6122,7 @@ void orthogonal_slope_for_different_shading_types(const int whichtype, Eigen::Ve
         Eigen::VectorXi Fselect; // this is empty, meaning not selecting
         double phi_min = phi - phi_tol;
         double phi_max = phi + phi_tol;
-        get_orthogonal_vector_of_selected_slope_shading(V, F, Fselect, norm_f, phi_min, phi_max, fout, ortho);
+        get_orthogonal_vector_of_selected_slope_shading(V, F, Fselect, norm_f, theta, phi_min, phi_max, fout, ortho);
     }
     if (whichtype == 1) // simply light throughs
     {
@@ -5902,7 +6152,7 @@ void orthogonal_slope_for_different_shading_types(const int whichtype, Eigen::Ve
                 Fselect[i] = 1;
             }
         }
-        get_orthogonal_vector_of_selected_slope_shading(V, F, Fselect, norm_f, phi_min, phi_max, fout, ortho);
+        get_orthogonal_vector_of_selected_slope_shading(V, F, Fselect, norm_f,theta, phi_min, phi_max, fout, ortho);
 
     }
     if (whichtype == 3)
@@ -5935,7 +6185,7 @@ void orthogonal_slope_for_different_shading_types(const int whichtype, Eigen::Ve
                 Fselect2[i] = 1;
             }
         }
-        get_orthogonal_vector_of_selected_slope_shading(V, F, Fselect1, norm_f, phi_min, phi_max, fout1, ortho1);
+        get_orthogonal_vector_of_selected_slope_shading(V, F, Fselect1, norm_f, theta, phi_min, phi_max, fout1, ortho1);
         get_orthogonal_vector_of_selected_slope_lighting(V, F, Fselect2, norm_f, theta2, phi2, fout2, ortho2);
 
         fout = fout1;
@@ -6588,6 +6838,181 @@ void save_invert_levelset(const Eigen::VectorXd& func){
     save_levelset(-func);
 }
 
+void write_polyline_joints(const Eigen::MatrixXd& V, const Eigen::MatrixXi& F, const Eigen::MatrixXd &norm_v){
+    std::vector<std::vector<Eigen::Vector3d>> ply1, ply2, bin1, bin2;
+    read_plylines_and_binormals(ply1, bin1);
+    read_plylines_and_binormals(ply2, bin2);
+    std::vector<std::vector<std::vector<int>>> correspondance;
+    std::vector<Eigen::Vector3d> pts, dir0s, dir1s;
+    double threads = 0.5;
+    double normlength = 2;// each normal length
+    correspondance.resize(ply1.size());
+
+    for (int i = 0; i < ply1.size(); i++)
+    {
+        correspondance[i].resize(ply1[i].size());
+        for (int j = 1; j < ply1[i].size() - 1; j++)
+        {
+            Eigen::Vector3d p = ply1[i][j];
+            double mindis = 1e10;
+            int kmin = 0;
+            int lmin = 0;
+            for (int k = 0; k < ply2.size(); k++)
+            {
+                for (int l = 1; l < ply2[k].size() - 1; l++)
+                {
+                    Eigen::Vector3d pc = ply2[k][l];
+                    double dis = (pc - p).norm();
+                    if (dis < mindis)
+                    {
+                        mindis = dis;
+                        kmin = k;
+                        lmin = l;
+                    }
+                }
+            }
+            if (lmin == 0 || lmin == ply2[kmin].size() - 1)
+            {
+                continue;
+            }
+            if (mindis > threads)
+            {
+                continue;
+            }
+            else
+            {
+                correspondance[i][j].push_back(kmin);
+                correspondance[i][j].push_back(lmin);
+                pts.push_back(p);
+                dir0s.push_back(bin1[i][j]);
+                if (bin1[i][j].dot(bin2[kmin][lmin]) > 0)// make sure they are in opposite direction
+                {
+                    dir1s.push_back(bin2[kmin][lmin]);
+                }
+                else
+                {
+                    dir1s.push_back(-bin2[kmin][lmin]);
+                }
+            }
+        }
+    }
+    Eigen::MatrixXd C;
+    Eigen::VectorXi I;
+    Eigen::VectorXd D;
+    int nq = pts.size();
+    Eigen::MatrixXd norms;
+    norms.resize(nq, 3);
+    Eigen::MatrixXd vers = vec_list_to_matrix(pts);
+    igl::point_mesh_squared_distance(vers, V, F, D, I, C);
+    for (int i = 0; i < nq; i++)
+    {
+        int fid = I(i);
+        int v0 = F(fid, 0);
+        int v1 = F(fid, 1);
+        int v2 = F(fid, 2);
+        Eigen::Vector3d pt = pts[i];
+        Eigen::Vector3d ver0 = V.row(v0);
+        Eigen::Vector3d ver1 = V.row(v1);
+        Eigen::Vector3d ver2 = V.row(v2);
+        std::array<double, 3> coor = barycenter_coordinate(ver0, ver1, ver2, pt);
+
+        Eigen::Vector3d dir = coor[0] * norm_v.row(v0) + coor[1] * norm_v.row(v1) + coor[2] * norm_v.row(v2);
+        dir = dir.normalized();
+        if(dir == Eigen::Vector3d(0,0,0)){
+            dir = Eigen::Vector3d(1,0,0);
+        }
+        norms.row(i) = dir;
+    }
+    std::vector<Eigen::Vector3d> pout;
+    std::vector<std::vector<int>> lines(nq), tris;
+    std::string vwrite;
+    for (int i = 0; i < nq; i++)
+    {
+        // E0 E1 are the end points of the axis
+        Eigen::Vector3d E0 = pts[i] + normlength / 2 * Eigen::Vector3d(norms.row(i));
+        Eigen::Vector3d E1 = pts[i] - normlength / 2 * Eigen::Vector3d(norms.row(i));
+        // E2 is on E0 side.
+        Eigen::Vector3d E2, E3, T2, T3;
+        Eigen::Vector3d c1 = dir0s[i];
+        Eigen::Vector3d c2 = dir1s[i];
+        Eigen::Vector3d n = norms.row(i);
+        // double alpha1 = normlength / (2 * c1.dot(n));
+        // double alpha2 = normlength / (2 * c2.dot(n));
+        double alpha1 = normlength / 2 / c1.norm();
+        double alpha2 = normlength / 2 / c2.norm();
+        if (alpha1 > 0)
+        { //c1 is on the positive direction wrt the normal vector
+            E2 = pts[i] + alpha1 * c1;
+            E3 = pts[i] - alpha2 * c2;
+        }
+        else{
+            // c1 is on the negative direction 
+            E2 = pts[i] + alpha2 * c2;
+            E3 = pts[i] - alpha1 * c1;
+        }
+        int le0 = pout.size() + 1;
+        int le1 = pout.size() + 2;
+        int le2 = pout.size() + 3;
+        int le3 = pout.size() + 4;
+        int le4 = pout.size() + 5; // this is the middle ver
+        // lines
+        lines[i].push_back(le0);
+        lines[i].push_back(le1);
+
+        // triangles
+        std::vector<int> tempt;
+        tempt.push_back(le4);
+        tempt.push_back(le2);
+        tempt.push_back(le0);
+        tris.push_back(tempt);
+        tempt.clear();
+        tempt.push_back(le4);
+        tempt.push_back(le3);
+        tempt.push_back(le1);
+        tris.push_back(tempt);
+
+        // points;
+        pout.push_back(E0);
+        pout.push_back(E1);
+        pout.push_back(E2);
+        pout.push_back(E3);
+        pout.push_back(pts[i]);
+        // check the angles
+        double angle1 = acos(c1.normalized().dot(n)) * 180 / LSC_PI;
+        double angle2 = acos(c2.normalized().dot(n)) * 180 / LSC_PI;
+        std::cout << "Angles, " << angle1 << ", " << angle2 << std::endl;
+    }
+    for (int i = 0; i < pout.size(); i++)
+    {
+        Eigen::Vector3d pt = pout[i];
+        vwrite = vwrite + "v " + std::to_string(pt[0]) + " " + std::to_string(pt[1]) + " " + std::to_string(pt[2]) + "\n";
+    }
+    std::cout << "Please write down the prefix" << std::endl;
+    std::string fname = igl::file_dialog_save();
+    if (fname.length() == 0)
+    {
+        std::cout << "\nLSC: save mesh failed, please type down the correct name" << std::endl;
+        return;
+    }
+    std::ofstream fout;
+    fout.open(fname + "l.obj");
+    fout << vwrite;
+    for (int i = 0; i < lines.size(); i++)
+    {
+        fout << "l " << lines[i][0] << " " << lines[i][1] << std::endl;
+    }
+    fout.close();
+
+    fout.open(fname + "tri.obj");
+    fout << vwrite;
+    for (int i = 0; i < tris.size(); i++)
+    {
+        fout << "f " << tris[i][0] << " " << tris[i][1] << " " << tris[i][2] << std::endl;
+    }
+    fout.close();
+    std::cout << "finished" << std::endl;
+}
+
 // Eigen::Vector3d eq35(double u, double v){
 //     double sru = sqrt(u);
 //     double x = exp((1-u)*v)*sru*(sru*sin())
@@ -6651,3 +7076,243 @@ void save_invert_levelset(const Eigen::VectorXd& func){
 //                              ver, faces);
 //     std::cout << "cylinder file saved " << std::endl;
 // }
+
+
+
+void generate_rulings_outof_plylines()
+{
+    double scale = 0.5;
+    std::vector<std::vector<Eigen::Vector3d>> ply1, bin1;
+    read_plylines_and_binormals(ply1, bin1);
+    std::vector<Eigen::Vector3d> pts;
+    std::vector<std::vector<int>> lines;
+    
+    for (int i = 0; i < ply1.size(); i++)
+    {
+        for (int j = 1; j < ply1[i].size() - 2; j++)
+        {
+            std::vector<int> l;
+            l.push_back(pts.size() + 1);
+            l.push_back(pts.size() + 2);
+            lines.push_back(l);
+            Eigen::Vector3d p1 = ply1[i][j] + bin1[i][j] * scale;
+            Eigen::Vector3d p2 = ply1[i][j] - bin1[i][j] * scale;
+
+            pts.push_back(p1);
+            pts.push_back(p2);
+        }
+    }
+    std::string vwrite;
+    for (int i = 0; i < pts.size(); i++)
+    {
+        Eigen::Vector3d pt = pts[i];
+        vwrite = vwrite + "v " + std::to_string(pt[0]) + " " + std::to_string(pt[1]) + " " + std::to_string(pt[2]) + "\n";
+    }
+    std::cout << "Please write down the prefix" << std::endl;
+    std::string fname = igl::file_dialog_save();
+    if (fname.length() == 0)
+    {
+        std::cout << "\nLSC: save mesh failed, please type down the correct name" << std::endl;
+        return;
+    }
+    std::ofstream fout;
+    fout.open(fname + "l.obj");
+    fout << vwrite;
+    for (int i = 0; i < lines.size(); i++)
+    {
+        fout << "l " << lines[i][0] << " " << lines[i][1] << std::endl;
+    }
+    fout.close();
+}
+
+
+// threadshold_nbr is the nbr of quads we want to discard when too few quads in a row
+void compute_ls_intersections_and_assign_parallel_joints(const CGMesh &lsmesh, const Eigen::Vector3d &joint,
+                                                         const double scale, const Eigen::MatrixXd &V,
+                                                         const Eigen::MatrixXi &F, const Eigen::VectorXd &ls0, const Eigen::VectorXd &ls1,
+                                                         const int expect_nbr_ls0, const int expect_nbr_ls1,
+                                                         bool even_pace = false)
+{
+    std::vector<std::vector<Eigen::Vector3d>> ivs;                                    // the intersection vertices
+    Eigen::MatrixXi gridmat;                                                          // the matrix for vertex
+    Eigen::VectorXd lsv0, lsv1;                                                       // the extracted level set values;
+    std::vector<std::vector<Eigen::Vector3d>> poly0_e0, poly0_e1, poly1_e0, poly1_e1; // polylines
+    std::vector<std::vector<int>> fid0, fid1;                                         // face ids of each polyline segment
+    std::vector<Eigen::Vector3d> verlist, jlist;
+    if(ls0.size()!=ls1.size()){
+        std::cout<<"ERROR, Please use the correct level sets"<<std::endl;
+    }
+    int nbr_ls0, nbr_ls1;
+    if(!even_pace){
+        nbr_ls0=expect_nbr_ls0;
+        nbr_ls1=expect_nbr_ls1;
+        get_level_set_sample_values(ls0, nbr_ls0, lsv0);
+        get_level_set_sample_values(ls1, nbr_ls1, lsv1);
+    }
+    else{
+        double pace = std::min((ls0.maxCoeff() - ls0.minCoeff()) / (expect_nbr_ls0 + 1), (ls1.maxCoeff() - ls1.minCoeff()) / (expect_nbr_ls1 + 1));
+        nbr_ls0 = (ls0.maxCoeff() - ls0.minCoeff()) / pace + 1;
+        nbr_ls1 = (ls1.maxCoeff() - ls1.minCoeff()) / pace + 1;
+        get_level_set_sample_values_even_pace(ls0, nbr_ls0, pace, lsv0);
+        get_level_set_sample_values_even_pace(ls1, nbr_ls1, pace, lsv1);
+    }
+
+    ivs.resize(nbr_ls0);
+    verlist.reserve(nbr_ls0 * nbr_ls1);
+    gridmat = Eigen::MatrixXi::Ones(nbr_ls0, nbr_ls1) * -1; // initially there is no quad patterns
+    lsv0.resize(nbr_ls0);
+    lsv1.resize(nbr_ls1);
+    poly0_e0.resize(nbr_ls0);
+    poly0_e1.resize(nbr_ls0);
+    poly1_e0.resize(nbr_ls1);
+    poly1_e1.resize(nbr_ls1);
+    fid0.resize(nbr_ls0);
+    fid1.resize(nbr_ls1);
+    for (int i = 0; i < nbr_ls0; i++)
+    {
+        ivs[i].resize(nbr_ls1);
+        poly0_e0[i].reserve(nbr_ls1);
+        poly0_e1[i].reserve(nbr_ls1);
+        fid0[i].reserve(nbr_ls1);
+    }
+    for (int i = 0; i < nbr_ls1; i++)
+    {
+        poly1_e0[i].reserve(nbr_ls0);
+        poly1_e1[i].reserve(nbr_ls0);
+        fid1[i].reserve(nbr_ls0);
+    }
+    
+    // std::cout<<"sp_0 \n"<<lsv0.transpose()<<"\nsp_1\n"<<lsv1.transpose()<<std::endl;
+    for (int i = 0; i < nbr_ls0; i++)
+    {
+        double vl = lsv0[i];
+        get_iso_lines(V, F, ls0, vl, poly0_e0[i], poly0_e1[i], fid0[i]);
+        // std::cout<<i<<" size "<<poly0_e0[i].size()<<"\n";
+    }
+    for (int i = 0; i < nbr_ls1; i++)
+    {
+        double vl = lsv1[i];
+        get_iso_lines(V, F, ls1, vl, poly1_e0[i], poly1_e1[i], fid1[i]);
+        // std::cout<<i<<" size "<<poly1_e0[i].size()<<"\n";
+    }
+    int vnbr = 0;
+    std::vector<std::vector<int>> lines;
+    for (int i = 0; i < nbr_ls0; i++)
+    {
+        for (int j = 0; j < nbr_ls1; j++)
+        {
+            Eigen::Vector3d ipoint;
+            bool intersect = get_polyline_intersection(V, F, poly0_e0[i], poly0_e1[i], poly1_e0[j], poly1_e1[j], fid0[i], fid1[j], ipoint);
+            if (intersect)
+            {
+                // double dis =
+                verlist.push_back(ipoint);
+                gridmat(i, j) = vnbr;
+                std::vector<int> ids;
+                ids.push_back(jlist.size() + 1);
+                ids.push_back(jlist.size() + 2);
+                lines.push_back(ids);
+                jlist.push_back(ipoint + scale * joint);
+                jlist.push_back(ipoint - scale * joint);
+                
+                vnbr++;
+            }
+        }
+        // The following pars are for debugging
+        // Eigen::VectorXi cv=gridmat.row(i);
+        // std::vector<int> problems = element_ids_for_not_computed_vers(cv);
+        // if(problems.size()>0){
+        //     std::cout<<i<<" this row has missing points \n"<<cv.transpose()<<" size, "<<problems.size()<<std::endl;
+            
+        //     for(int j: problems){
+        //         Eigen::Vector3d ipoint;
+        //         get_polyline_intersection(V, F, poly0_e0[i], poly0_e1[i], poly1_e0[j], poly1_e1[j], fid0[i], fid1[j], ipoint, true);
+        //     }
+        // }
+    }
+    std::string vwrite;
+    for (int i = 0; i < jlist.size(); i++)
+    {
+        Eigen::Vector3d pt = jlist[i];
+        vwrite = vwrite + "v " + std::to_string(pt[0]) + " " + std::to_string(pt[1]) + " " + std::to_string(pt[2]) + "\n";
+    }
+    std::cout << "write the joints. Please write down the prefix" << std::endl;
+    std::string fname = igl::file_dialog_save();
+    if (fname.length() == 0)
+    {
+        std::cout << "\nLSC: save mesh failed, please type down the correct name" << std::endl;
+        return;
+    }
+    std::ofstream fout;
+    fout.open(fname + "l.obj");
+    fout << vwrite;
+    for (int i = 0; i < lines.size(); i++)
+    {
+        fout << "l " << lines[i][0] << " " << lines[i][1] << std::endl;
+    }
+    fout.close();
+    std::cout<<"writing done. "<<std::endl;
+    
+}
+void assign_const_rulings_to_strips(const Eigen::Vector3d& bnm){
+    std::vector<std::vector<Eigen::Vector3d>> ply1, bin1;
+    read_polylines(ply1);
+    bin1 = ply1;
+    // read_plylines_and_binormals(ply2, bin2);
+    for (int i = 0; i < ply1.size(); i++)
+    {
+        for (int j = 0; j < ply1[i].size(); j++)
+        {
+            bin1[i][j] = bnm;
+        }
+    }
+    std::cout << "write prefix for saving new files" << std::endl;
+    std::string fname = igl::file_dialog_save();
+    if (fname.length() == 0)
+    {
+        std::cout << "\nLSC: save mesh failed, please type down the correct name" << std::endl;
+        return;
+    }
+
+    write_polyline_xyz(ply1, fname);
+    write_polyline_xyz(bin1, fname + "_b");
+    std::cout << "files get saved" << std::endl;
+}
+
+void assign_ls_to_subpatch(CGMesh &ref, CGMesh &base, const Eigen::VectorXd &func, Eigen::VectorXd &funout)
+{
+    lsTools reftool(ref);
+    lsTools bastool(base);
+    reftool.initialize_mesh_properties();
+    bastool.initialize_mesh_properties();
+    int rvnbr = reftool.V.rows();
+    int bvnbr = bastool.V.rows();
+    int ninner = bastool.IVids.size();
+    Eigen::VectorXi InnerV = bastool.InnerV;
+    Eigen::MatrixXd C;
+    Eigen::VectorXi I;
+    Eigen::VectorXd D;
+    Eigen::VectorXi mapping = Eigen::VectorXi::Ones(bvnbr) * -1;  // the list (size is the same as the vertex list) shows the type of the conditions
+    funout.resize(rvnbr);
+
+    std::vector<int> bnd;// boundary of the first type
+    igl::point_mesh_squared_distance(reftool.V, bastool.V, bastool.F, D, I, C);
+    for (int i = 0; i < rvnbr; i++)
+    {
+        int f = I(i);
+
+        Eigen::Vector3d p = C.row(i);
+        Eigen::Vector3d v0 = bastool.V.row(bastool.F(f, 0));
+        Eigen::Vector3d v1 = bastool.V.row(bastool.F(f, 1));
+        Eigen::Vector3d v2 = bastool.V.row(bastool.F(f, 2));
+        std::array<double, 3> coor = barycenter_coordinate(v0, v1, v2, p);
+        double fun0 = func[bastool.F(f, 0)];
+        double fun1 = func[bastool.F(f, 1)];
+        double fun2 = func[bastool.F(f, 2)];
+
+        double value = coor[0] * fun0 + coor[1] * fun1 + coor[2] * fun2;
+
+        funout[i] = value;
+        
+    }
+}

@@ -559,7 +559,7 @@ Eigen::Vector3d angle_ray_converter(const double theta, const double phi)
 	ray[2] = sin(theta_radian);
 	return ray;
 }
-// 
+// input in degree
 void angle_range_calculator(double theta, double phi, double theta_tol, double phi_tol, double &zmin, double &zmax, double &tanmin,
 							double &tanmax)
 {

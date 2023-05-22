@@ -995,7 +995,8 @@ void lsTools::assemble_solver_constant_slope_vertex_based(const Eigen::VectorXd 
         
         
         Eigen::Vector3d tangent = (f2 - f1) * (f4 - fm) * p3 + (f2 - f1) * (fm - f3) * p4 - (f4 - f3) * (f2 - fm) * p1 - (f4 - f3) * (fm - f1) * p2;
-        double scale = tangent.norm();// * axis.norm();
+        Eigen::Vector3d tproject = tangent.dot(axis) * axis + tangent.dot(bxis) * bxis;
+        double scale = tproject.norm() * axis.norm();
         // tangent * axis  - cos_angle * scale = 0
         tripletes.push_back(Trip(i, lvm, -(f2 - f1) * d3a + (f2 - f1) * d4a + (f4 - f3) * d1a - (f4 - f3) * d2a));
         tripletes.push_back(Trip(i, lv1, -(f4 - fm) * d3a - (fm - f3) * d4a + (f4 - f3) * d2a));
@@ -1016,7 +1017,7 @@ void lsTools::assemble_solver_constant_slope_vertex_based(const Eigen::VectorXd 
         energy[i] = tangent.dot(axis) - cos_angle * scale;
 
         // tangent * bxis - sin_angle * scale = 0;
-        scale = tangent.norm() * bxis.norm();
+        scale = tproject.norm() * bxis.norm();
 
         tripletes.push_back(Trip(i + ninner, lvm, -(f2 - f1) * d3b + (f2 - f1) * d4b + (f4 - f3) * d1b - (f4 - f3) * d2b));
         tripletes.push_back(Trip(i + ninner, lv1, -(f4 - fm) * d3b - (fm - f3) * d4b + (f4 - f3) * d2b));

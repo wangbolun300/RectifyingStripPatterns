@@ -96,6 +96,7 @@ bool vector_contains_NAN(Eigen::VectorXd &B);
 bool vector_contains_NAN(Eigen::VectorXd &B, int& loc);
 void get_one_ring_vertices(CGMesh &lsmesh, const int id, std::vector<int> &pts);
 Eigen::VectorXi Second_Angle_Inner_Vers();
+// the angles are in degree.
 Eigen::Vector3d angle_ray_converter(const double theta, const double phi);
 void rotate_z_axis_to_earth_axis(const Eigen::MatrixXd &Vori, Eigen::MatrixXd &Vnew, const double latitude_degree);
 void mesh_unit_scale(const Eigen::MatrixXd &V, Eigen::MatrixXd &Vout);
@@ -191,3 +192,14 @@ void save_rotback_slopes(const Eigen::MatrixXd &rotmids, const Eigen::MatrixXd &
 void decrease_ply_nbr_by_half();
 void evaluate_strip_straightness(const std::vector<std::vector<Eigen::Vector3d>>& plys,const std::vector<std::vector<Eigen::Vector3d>>& bnms);
 void save_invert_levelset(const Eigen::VectorXd& func);
+void write_polyline_joints(const Eigen::MatrixXd& V, const Eigen::MatrixXi& F, const Eigen::MatrixXd &norm_v);
+void generate_rulings_outof_plylines();
+void assign_const_rulings_to_strips(const Eigen::Vector3d& bnm);
+void compute_ls_intersections_and_assign_parallel_joints(const CGMesh &lsmesh, const Eigen::Vector3d &joint,
+                                                         const double scale, const Eigen::MatrixXd &V,
+                                                         const Eigen::MatrixXi &F, const Eigen::VectorXd &ls0, const Eigen::VectorXd &ls1,
+                                                         const int expect_nbr_ls0, const int expect_nbr_ls1,
+                                                         bool even_pace);
+void angle_range_calculator(double theta, double phi, double theta_tol, double phi_tol, double &zmin, double &zmax, double &tanmin,
+							double &tanmax);
+void assign_ls_to_subpatch(CGMesh &ref, CGMesh &base, const Eigen::VectorXd &func, Eigen::VectorXd &funout);

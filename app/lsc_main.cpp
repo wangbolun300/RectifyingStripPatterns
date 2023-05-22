@@ -1078,16 +1078,31 @@ int main(int argc, char *argv[])
 				// using intersections of the rectifying planes to get the developable.
 				// construct_single_developable_strips_by_intersect_rectifying(0);
 				// write_unfold_single_strip();
-				draw_catenaries_on_cylinder();
-				Eigen::MatrixXd Vcout;
-				Eigen::MatrixXd Vlout;
-				match_the_two_catenaries(lscif::tools.lsmesh, lscif::tools.Boundary_Edges, lscif::tools.V,
-										 lscif::tools.F, lscif::tools.norm_v, lscif::tools.fvalues, Vcout, Vlout);
-				viewer.data().add_points(Vcout, lscif::hot_red);
-				viewer.data().add_points(Vlout, lscif::sea_green);
+				// draw_catenaries_on_cylinder();
+				// Eigen::MatrixXd Vcout;
+				// Eigen::MatrixXd Vlout;
+				// match_the_two_catenaries(lscif::tools.lsmesh, lscif::tools.Boundary_Edges, lscif::tools.V,
+				// 						 lscif::tools.F, lscif::tools.norm_v, lscif::tools.fvalues, Vcout, Vlout);
+				// viewer.data().add_points(Vcout, lscif::hot_red);
+				// viewer.data().add_points(Vlout, lscif::sea_green);
 				// Eigen::MatrixXd Vout;
 				// lscif::poly_tool.draw_inflections(Vout);
 				// viewer.data().add_points(Vout, lscif::hot_red);
+				std::string fname = igl::file_dialog_open();
+				if (fname.length() == 0)
+				{
+					std::cout << "\nLSC: read mesh failed" << std::endl;
+					ImGui::End();
+					return;
+				}
+				Eigen::MatrixXd Vtri;
+				Eigen::MatrixXi Ftri;
+				igl::readOBJ(fname, Vtri, Ftri);
+				double length = 0;
+				for(int i=0;i<Vtri.rows()-1;i++){
+					length += Eigen::Vector3d(Vtri.row(i) - Vtri.row(i + 1)).norm();
+				}
+				std::cout<<"length of the curve: "<<length<<std::endl;
 			}
 			ImGui::SameLine();
 			if (ImGui::Button("DBG", ImVec2(ImGui::GetWindowSize().x * 0.23f, 0.0f)))
@@ -1164,7 +1179,32 @@ int main(int argc, char *argv[])
 				}
 				
 			}
+			ImGui::SameLine();
+			if (ImGui::Button("AssignConstRuling", ImVec2(ImGui::GetWindowSize().x * 0.23f, 0.0f)))
+			{
+				// write_polyline_joints(lscif::tools.V, lscif::tools.F, lscif::tools.norm_v);
+				assign_const_rulings_to_strips(Eigen::Vector3d(lscif::ptInx, lscif::ptIny, lscif::ptInz));
+			}
+			if (ImGui::Button("OthoLs2Joints", ImVec2(ImGui::GetWindowSize().x * 0.23f, 0.0f)))
+			{
 
+				compute_ls_intersections_and_assign_parallel_joints(lscif::tools.lsmesh, Eigen::Vector3d(lscif::ptInx, lscif::ptIny, lscif::ptInz),
+																	lscif::vector_scaling, lscif::tools.V, lscif::tools.F,
+																	lscif::readed_LS1, lscif::readed_LS2,
+																	lscif::nbr_lines_first_ls,
+																	lscif::nbr_lines_second_ls,
+																	false);
+			}	
+			ImGui::SameLine();			
+			if (ImGui::Button("AssignLsToPatch", ImVec2(ImGui::GetWindowSize().x * 0.23f, 0.0f)))
+			{
+
+				Eigen::VectorXd funout;
+				assign_ls_to_subpatch(lscif::readed_mesh1[0], lscif::readed_mesh2, lscif::tools.fvalues, funout);
+				std::cout << "write sub-patch scalar field" << std::endl;
+				save_levelset(funout);
+			}											 
+														
 		}
 		if (ImGui::CollapsingHeader("LS Processing", ImGuiTreeNodeFlags_DefaultOpen))
 		{
@@ -3429,16 +3469,21 @@ int main(int argc, char *argv[])
 				lscif::tools.AxisFixIn = Eigen::Vector3d(lscif::AxisFixInX, lscif::AxisFixInY, lscif::AxisFixInZ);
 				lscif::tools.AngleFixIn = lscif::AngleFixIn;
 				// lscif::tools.weight_shading = lscif::weight_shading;
+//
 				lscif::tools.prepare_level_set_solving(einit);
+				timer_global.start();
 				for (int i = 0; i < lscif::OpIter; i++)
 				{
 					lscif::tools.Run_ConstSlopeOpt();
+					iteration_total ++;
 					if (lscif::tools.step_length < 1e-16 && i != 0)
 					{ // step length actually is the value for the last step
 						std::cout << "optimization converges " << std::endl;
 						break;
 					}
 				}
+				timer_global.stop();
+				time_total += timer_global.getElapsedTimeInSec();
 				std::cout << "waiting for instruction..." << std::endl;
 				lscif::updateMeshViewer(viewer, inputMesh);
 				lscif::meshFileName.push_back("lso_" + lscif::meshFileName[id]);
