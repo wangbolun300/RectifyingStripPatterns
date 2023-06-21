@@ -62,6 +62,9 @@ void extract_levelset_web_stable(const CGMesh &lsmesh, const std::vector<CGMesh:
 void extract_shading_lines(const CGMesh &lsmesh, const Eigen::MatrixXd &V, const std::vector<CGMesh::HalfedgeHandle> &loop,
                            const Eigen::MatrixXi &F, const Eigen::VectorXd &ls,
                            const int expect_nbr_ls, const bool write_binormals);
+void extract_normal_lines(CGMesh &lsmesh, const Eigen::MatrixXd &V, const std::vector<CGMesh::HalfedgeHandle> &loop,
+                           const Eigen::MatrixXi &F, const Eigen::VectorXd &ls,
+                           const int expect_nbr_ls);                           
 double get_mat_max_diag(spMat& M);
 void solve_mean_value_laplacian_mat(CGMesh& lsmesh, const std::vector<int>& IVids, spMat& mat);
 spMat sum_uneven_spMats(const spMat& mat_small, const spMat& mat_large);

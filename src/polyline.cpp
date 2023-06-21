@@ -231,7 +231,6 @@ void check_strip_straightness(const std::vector<double>& lengths, const std::vec
     devratio = proj_dis.maxCoeff() / total_length;
 }
 
-
 // the tangents are on each vertex. 
 // evaluate the rectifying planes intersects with each other
 void evaluate_intersect_rectifying(const std::vector<Eigen::Vector3d> &vertices, const std::vector<Eigen::Vector3d> &tangents,

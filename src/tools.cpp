@@ -3443,7 +3443,98 @@ void extract_shading_lines(const CGMesh &lsmesh, const Eigen::MatrixXd &V, const
     write_polyline_xyz(bilist, fname+"_b");
     std::cout << "Binormals got written" << std::endl;
 }
+// take the normal vector instead of the binormal vectors 
+void extract_normal_lines(CGMesh &lsmesh, const Eigen::MatrixXd &V, const std::vector<CGMesh::HalfedgeHandle> &loop,
+                           const Eigen::MatrixXi &F, const Eigen::VectorXd &ls,
+                           const int expect_nbr_ls)
+{
+    Eigen::VectorXd lsv0;
+    int nbr_ls0;
+    std::vector<std::vector<Eigen::Vector3d>> lines;
 
+    nbr_ls0 = expect_nbr_ls;
+    get_level_set_sample_values(ls, nbr_ls0, lsv0);
+    std::vector<Eigen::Vector3d> verlist;
+    verlist.reserve(nbr_ls0 * F.rows());
+
+    for (int i = 0; i < nbr_ls0; i++)
+    {
+        std::vector<std::vector<Eigen::Vector3d>> polylines;
+        double value = lsv0[i];
+        std::vector<bool> left_large;
+        get_iso_lines(lsmesh, loop, V, F, ls, value, polylines, left_large);
+        for (int j = 0; j < polylines.size(); j++)
+        {
+            if(polylines[j].size()>3){// remove too short elements
+                lines.push_back(polylines[j]);
+            }
+            
+        }
+    }
+    std::cout << "Writing the Polylines, please provide the file prefix" << std::endl;
+    std::string fname = igl::file_dialog_save();
+    write_polyline_xyz(lines, fname);
+
+    std::cout << "Reading Bi-normals of triangle mesh. If you don't have reference binormal vector file, esc here" << std::endl;
+    for (int i = 0; i < lines.size(); i++)
+    {
+        for (int j = 0; j < lines[i].size(); j++)
+        {
+            verlist.push_back(lines[i][j]);
+        }
+    }
+    lsTools tool(lsmesh);
+    Eigen::MatrixXd bn = tool.norm_v;
+    
+    std::cout << "normals got" << std::endl;
+    Eigen::MatrixXd C;
+    Eigen::VectorXi I;
+    Eigen::VectorXd D;
+    int nq = verlist.size();
+    Eigen::MatrixXd B;
+    B.resize(nq, 3);
+    Eigen::MatrixXd vers = vec_list_to_matrix(verlist);
+    igl::point_mesh_squared_distance(vers, V, F, D, I, C);
+    for (int i = 0; i < nq; i++)
+    {
+        int fid = I(i);
+        int v0 = F(fid, 0);
+        int v1 = F(fid, 1);
+        int v2 = F(fid, 2);
+        Eigen::Vector3d pt = verlist[i];
+        Eigen::Vector3d ver0 = V.row(v0);
+        Eigen::Vector3d ver1 = V.row(v1);
+        Eigen::Vector3d ver2 = V.row(v2);
+        std::array<double, 3> coor = barycenter_coordinate(ver0, ver1, ver2, pt);
+
+        Eigen::Vector3d dir = coor[0] * bn.row(v0) + coor[1] * bn.row(v1) + coor[2] * bn.row(v2);
+        dir = dir.normalized();
+        if(dir == Eigen::Vector3d(0,0,0)){
+            dir = Eigen::Vector3d(1,0,0);
+        }
+        B.row(i) = dir;
+    }
+    std::vector<std::vector<Eigen::Vector3d>> bilist = lines;
+    int counter = 0;
+    Eigen::Vector3d bbase = B.row(0);
+    for (int i = 0; i < lines.size(); i++)
+    {
+        Eigen::Vector3d base = B.row(counter);
+        if(base.dot(bbase)<0){
+            base *= -1;
+        }
+
+        for (int j = 0; j < lines[i].size(); j++)
+        {
+            Eigen::Vector3d direction = orient_vector(base, B.row(counter));
+            base = direction;
+            bilist[i][j] = direction;
+            counter++;
+        }
+    }
+    write_polyline_xyz(bilist, fname+"_b");
+    std::cout << "Binormals got written" << std::endl;
+}
 void lsTools::show_binormals(const Eigen::VectorXd &func, Eigen::MatrixXd &E0, Eigen::MatrixXd &E1, Eigen::MatrixXd& binormals,  double ratio){
     
     E0 = V - Binormals * ratio;
