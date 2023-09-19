@@ -30,6 +30,8 @@ cd build
 cmake ../  -DCMAKE_BUILD_TYPE=Release
 make
 ```
+To build it on MSVC, you need to download openmesh (https://gitlab.vci.rwth-aachen.de:9000/OpenMesh/OpenMesh/-/jobs/156362/artifacts/raw/OpenMesh-9.1.0.zip) into the "external" folder, unzip it into "external/openmesh/OpenMesh-9.1.0" and build it into "external/openmesh/OpenMesh-9.1.0/build".
+
 Then double-click the executable `lsc_devbin`, you will see a pop-out window whose buttons link the functions that generate all the results in our paper. 
 
 <img src="./data/fig/mainpage.png" style="zoom:40%;" />  
