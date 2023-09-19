@@ -12,7 +12,7 @@ src/tracing.cpp
 src/energy.cpp
 src/functional.cpp
 src/mesh_opt.cpp
-src/mesh_opt.h
+src/nodes.cpp
 src/polyline.cpp
 src/interaction.cpp
 src/interaction.h

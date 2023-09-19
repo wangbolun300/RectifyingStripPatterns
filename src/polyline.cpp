@@ -231,6 +231,7 @@ void check_strip_straightness(const std::vector<double>& lengths, const std::vec
     devratio = proj_dis.maxCoeff() / total_length;
 }
 
+
 // the tangents are on each vertex. 
 // evaluate the rectifying planes intersects with each other
 void evaluate_intersect_rectifying(const std::vector<Eigen::Vector3d> &vertices, const std::vector<Eigen::Vector3d> &tangents,
@@ -895,6 +896,28 @@ void PolyOpt::force_smoothing_binormals(){
             counter++;
         }
     }
+}
+void PolyOpt::related_error(){
+    int vnbr = VerNbr;
+    Eigen::MatrixXd C;
+    Eigen::VectorXi I;
+    Eigen::VectorXd D;
+    
+    Eigen::MatrixXd vers(vnbr, 3);
+    vers.col(0) = PlyVars.segment(0, vnbr);
+    vers.col(1) = PlyVars.segment(vnbr, vnbr);
+    vers.col(2) = PlyVars.segment(vnbr * 2, vnbr);
+    if(Vref.cols() != vers.cols()){
+        std::cout<<"In PolyOpt::assemble_gravity: Vref.cols() "<<Vref.cols()<<std::endl;
+        return;
+    }
+    assert(Vref.cols() == vers.cols());
+    igl::point_mesh_squared_distance(vers, Vref, Fref, D, I, C);
+    double maxdis = sqrt(D.maxCoeff());
+    Eigen::Vector3d vmin(Vref.col(0).minCoeff(), Vref.col(1).minCoeff(), Vref.col(2).minCoeff());
+    Eigen::Vector3d vmax(Vref.col(0).maxCoeff(), Vref.col(1).maxCoeff(), Vref.col(2).maxCoeff());
+    double bbd = (vmin - vmax).norm();
+    std::cout << "the ratio of approximate distance / bounding box diagonal: " << maxdis / bbd << std::endl;
 }
 void PolyOpt::assemble_gravity(spMat &H, Eigen::VectorXd &B, Eigen::VectorXd &energy)
 {

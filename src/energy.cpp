@@ -282,35 +282,23 @@ void lsTools::calculate_pseudo_geodesic_opt_expanded_function_values(Eigen::Vect
 	tripletes.clear();
 	tripletes.reserve(ninner * 60); // 
 	Energy = Eigen::VectorXd::Zero(ninner * 12); // mesh total energy values
-#ifdef LSC_VARIABLE_CURVE_ANGLES
-	std::vector<int> type_record = PG_Vertex_Types[0];
-	for (int itr = 0; itr < type_record.size(); itr++)
-	{
-		int i = type_record[itr]; // the id in inner vers
 
-#else
 	assert(angle_degree.size() == 1 || angle_degree.size() == vnbr);
 	for (int i = 0; i < ninner; i++)
 	{
-
-#endif
 		int vm = IVids[i];
 		if (analizer.LocalActInner[i] == false) {
 			std::cout << "singularity, " << vm << std::endl;
 			continue;
 		}
-#ifdef LSC_VARIABLE_CURVE_ANGLES
-		double angle_radian = PGVariationalAngles[vm] * LSC_PI / 180.;
-		cos_angle = cos(angle_radian);
-		sin_angle = sin(angle_radian);
-#else
+
 		if (angle_degree.size() == vnbr)
 		{
 			double angle_radian = angle_degree[vm] * LSC_PI / 180.; // the angle in radian
 			cos_angle = cos(angle_radian);
 			sin_angle = sin(angle_radian);
 		}
-#endif
+
 
 		CGMesh::HalfedgeHandle inhd = analizer.heh0[i], outhd = analizer.heh1[i];
 		int v1 = lsmesh.from_vertex_handle(inhd).idx();
@@ -903,16 +891,7 @@ void lsTools::calculate_shading_condition_inequivalent(Eigen::VectorXd &vars,
 		tripletes.push_back(Trip(i + ninner * 2, lrz, 2 * vars(lrz) * scale * weight_binormal));
 
 		Energy[i + ninner * 2] = (r.dot(r) - 1) * scale * weight_binormal;
-		// std::cout<<"c3 got"<<std::endl;
-		// if (analizer.ShadSpecial.size() != ninner)
-		// {
-		// 	std::cout << "Please check the surface patches that are parallel to the light" << std::endl;
-		// }
-		// if (analizer.ShadSpecial[i] == 0 && !enable_let_ray_through && !enable_reflection) // if this patch is parallel to the light, skip
-		// {
-		// 	continue;
-		// }
-		
+
 		
 		// np * r = 0
 		tripletes.push_back(Trip(i + ninner * 3, lrx, np[0] * scale));
@@ -1098,18 +1077,9 @@ void lsTools::calculate_extreme_pseudo_geodesic_values(Eigen::VectorXd &vars, co
 	Energy = Eigen::VectorXd::Zero(ninner * 2); // mesh total energy values
 	double max_ele = 0;
 	double max_eng = 0;
-#ifdef LSC_VARIABLE_CURVE_ANGLES
-	std::vector<int> type_record =  PG_Vertex_Types[1];
-	for (int itr = 0; itr < type_record.size(); itr++)
-	{
-		int i = type_record[itr]; // the id in inner vers
 
-#else
 	for (int i = 0; i < ninner; i++)
 	{
-		
-		
-#endif
 		if (analizer.LocalActInner[i] == false)
 		{
 			std::cout << "singularity" << std::endl;
@@ -1225,110 +1195,6 @@ void lsTools::calculate_extreme_pseudo_geodesic_values(Eigen::VectorXd &vars, co
 	
 }
 
-// this function only need be called after initializing the level set
-void lsTools::get_traced_boundary_triangle_direction_derivatives() {
-	int size = tracing_start_edges.size();
-
-	spMat jacobian;
-	jacobian.resize(size, V.rows());
-	std::vector<Trip> triplets;
-	triplets.reserve(size * 3);
-	// refids.clear();
-	// refids.reserve(size * 3);
-	for (int i = 0; i < size; i++) {
-		CGMesh::HalfedgeHandle hd = tracing_start_edges[i];
-		CGMesh::HalfedgeHandle op = lsmesh.opposite_halfedge_handle(hd);
-		// get the face
-		int fid = lsmesh.face_handle(hd).idx();
-		if (fid < 0) {
-			fid = lsmesh.face_handle(op).idx();
-		}
-		int idfrom = lsmesh.from_vertex_handle(hd).idx();
-		int idto = lsmesh.to_vertex_handle(hd).idx();
-		int idlarge = idto;
-		int idsmall = idfrom;
-		if (fvalues[idfrom] > fvalues[idto]) {
-			idlarge = idfrom;
-			idsmall = idto;
-		}
-		Eigen::Vector3d bdirec = (V.row(idsmall) - V.row(idlarge)).normalized();// the direction large to small
-		Eigen::Vector3d norm = norm_f.row(fid);
-		Eigen::Vector3d d1 = get_coff_vec_for_gradient(gradVF, fid, F(fid, 0));
-		Eigen::Vector3d d2 = get_coff_vec_for_gradient(gradVF, fid, F(fid, 1));
-		Eigen::Vector3d d3 = get_coff_vec_for_gradient(gradVF, fid, F(fid, 2));
-		double c1 = norm.cross(-d1).dot(bdirec);
-		double c2 = norm.cross(-d2).dot(bdirec);
-		double c3 = norm.cross(-d3).dot(bdirec);
-		triplets.push_back(Trip(i, F(fid, 0), c1));
-		triplets.push_back(Trip(i, F(fid, 1), c2));
-		triplets.push_back(Trip(i, F(fid, 2), c3));
-		// refids.push_back(F(fid, 0));
-		// refids.push_back(F(fid, 1));
-		// refids.push_back(F(fid, 2));
-	}
-	jacobian.setFromTriplets(triplets.begin(), triplets.end());
-	DBdirections = jacobian;
-}
-
-void lsTools::calculate_boundary_direction_energy_function_values(const Eigen::MatrixXd& GradFValue,
-	const std::vector<CGMesh::HalfedgeHandle>& edges, const Eigen::VectorXd& func, Eigen::VectorXd& lens, Eigen::VectorXd& energy) {
-	int size = edges.size();
-	energy.resize(size);
-	lens.resize(size);
-	for (int i = 0; i < size; i++) {
-		CGMesh::HalfedgeHandle hd = edges[i];
-		CGMesh::HalfedgeHandle op = lsmesh.opposite_halfedge_handle(hd);
-		CGMesh::HalfedgeHandle next = lsmesh.next_halfedge_handle(hd);
-		// get the face
-		int fid = lsmesh.face_handle(hd).idx();
-		if (fid < 0) {
-			fid = lsmesh.face_handle(op).idx();
-			next = lsmesh.next_halfedge_handle(op);
-		}
-		int idfrom = lsmesh.from_vertex_handle(hd).idx();
-		int idto = lsmesh.to_vertex_handle(hd).idx();
-		int idlarge = idto;
-		int idsmall = idfrom;
-		if (func[idfrom] > func[idto]) {
-			idlarge = idfrom;
-			idsmall = idto;
-		}
-		Eigen::Vector3d bdirec = (V.row(idsmall) - V.row(idlarge)).normalized();// the direction large to small
-		Eigen::Vector3d norm = norm_f.row(fid);
-		Eigen::Vector3d gradient = -GradFValue.row(fid);
-		Eigen::Vector3d cross = norm.cross(gradient);
-		lens[i] = cross.norm();
-
-		double angle_radian = pseudo_geodesic_start_angle_degree * LSC_PI / 180.; // the angle in radian
-		double value = cross.dot(bdirec) / lens[i] - cos(angle_radian);
-		energy[i] = value;
-
-		// check correctness
-		CGMesh::VertexHandle vh1 = lsmesh.vertex_handle(idfrom);
-		CGMesh::VertexHandle vh2 = lsmesh.vertex_handle(idto);
-
-		if (!(lsmesh.is_boundary(vh1) && lsmesh.is_boundary(vh2)))
-		{
-			std::cout << "not boundary!" << std::endl;
-		}
-
-		if (gradient.dot(bdirec) < 0) {
-			std::cout << "not correct gradient" << std::endl;
-		}
-		int vop = lsmesh.to_vertex_handle(next).idx();
-		if (vop == idfrom || vop == idto) {
-			std::cout << "wrong wrong" << std::endl;
-		}
-		Eigen::Vector3d rot = norm.cross(bdirec);
-		Eigen::Vector3d other = V.row(vop) - V.row(idsmall);
-		if (rot.dot(other) < 0) {
-			std::cout << "the rot doesnot point to correct " << i << std::endl;
-		}
-		if (rot.dot(cross) < 0) {
-			std::cout << "wrong cross!, " << i << " ang " << rot.dot(cross) << std::endl;
-		}
-	}
-}
 
 void lsTools::calculate_binormal_regulizer(Eigen::VectorXd& vars,
 	const LSAnalizer &analizer, const int vars_start_loc, const int aux_start_loc, std::vector<Trip> &tripletes, Eigen::VectorXd& Energy) {
@@ -1474,16 +1340,7 @@ void lsTools::assemble_solver_binormal_regulizer(Eigen::VectorXd &vars,
 	H = J.transpose() * J;
 	B = -J.transpose() * energy;
 }
-void lsTools::assemble_solver_fixed_boundary_direction_part(const Eigen::MatrixXd& GradFValue, const std::vector<CGMesh::HalfedgeHandle>& edges,
-	const Eigen::VectorXd& func,
-	spMat& H, Eigen::VectorXd& B, Eigen::VectorXd& energy) {
-	Eigen::VectorXd lens;
-	calculate_boundary_direction_energy_function_values(GradFValue, edges, func, lens, energy);
-	spMat J = spMat(lens.asDiagonal().inverse()) * DBdirections;
-	spMat JTJ = J.transpose() * J;
-	B = -J.transpose() * BDEvalue;
-	H = JTJ;
-}
+
 void lsTools::assemble_solver_boundary_condition_part(const Eigen::VectorXd& func, spMat& H, Eigen::VectorXd& B, Eigen::VectorXd &bcfvalue) {
 	spMat bcJacobian;
 	assert(trace_vers.size() == trace_hehs.size());
@@ -1531,53 +1388,7 @@ void lsTools::assemble_solver_boundary_condition_part(const Eigen::VectorXd& fun
 	// get the -(J^T)*f(x)
 	B = -bcJacobian.transpose() * bcfvalue;
 }
-// make some edges have assigned_value
-void lsTools::assemble_solver_fixed_values_part(const std::vector<CGMesh::HalfedgeHandle> &hds, const double assigned_value,
-												const Eigen::VectorXd &func, spMat &H, Eigen::VectorXd &B, Eigen::VectorXd &bcfvalue)
-{
-	spMat bcJacobian;
-	int size = 0;// the number of constraints
-	std::vector<double> vec_elements;
-	std::vector<Trip> triplets;
-	vec_elements.reserve(hds.size()*2);
-	triplets.reserve(hds.size()*2);
-	Eigen::VectorXi checked = Eigen::VectorXi::Zero(V.rows());
-	for (int i = 0; i < hds.size(); i++)
-	{
-		CGMesh::HalfedgeHandle edge = hds[i];
-		int id_from = lsmesh.from_vertex_handle(edge).idx();
-		int id_to = lsmesh.to_vertex_handle(edge).idx();
-		if (checked[id_from] == 0)
-		{
-			triplets.push_back(Trip(size, id_from, 1));
-			checked[id_from] = 1;
-			vec_elements.push_back(func[id_from] - assigned_value);
-			size++;
-		}
-		if (checked[id_to] == 0)
-		{
-			triplets.push_back(Trip(size, id_to, 1));
-			checked[id_to] = 1;
-			vec_elements.push_back(func[id_to] - assigned_value);
-			size++;
-		}
-	}
-	// std::cout<<"after loop"<<std::endl;
-	// get boundary condition: the jacobian matrix
-	bcJacobian.resize(size, V.rows());
-	bcJacobian.setFromTriplets(triplets.begin(), triplets.end());
-	bcfvalue.resize(size);
-	// std::cout<<"calculated a and b"<<std::endl;
-	for (int i = 0; i < size; i++) {// get the f(x)
-		double value = vec_elements[i];
-		bcfvalue(i) = value;
-	}
-	
-	// get JTJ
-	H = bcJacobian.transpose() * bcJacobian;
-	// get the -(J^T)*f(x)
-	B = -bcJacobian.transpose() * bcfvalue;
-}
+
 double get_mat_max_diag(spMat& M) {
 	int nbr = M.rows();
 	double value = 0;
@@ -1639,8 +1450,7 @@ void lsTools::assemble_solver_extreme_cases_part_vertex_based(Eigen::VectorXd &v
 	{ // shading condition
 		if (!enable_shading_init)
 		{
-			// calculate_shading_condition_auxiliary_vars(vars,
-			// 										   analizer, vars_start_loc, vnbr, tripletes, energy);
+
 			calculate_shading_condition_inequivalent(vars,
 													   analizer, vars_start_loc, vnbr, tripletes, energy);
 			spMat rescale = remove_weight_binormal_influence_in_energy(ninner, energy.size(), weight_binormal);
@@ -1915,14 +1725,7 @@ void lsTools::Run_Level_Set_Opt() {
 	else{
 		final_size = ninner * 10 + vnbr;// pseudo - geodesic
 	}
-	 
 
-	bool need_update_trace_info = (DBdirections.rows() == 0 && trace_hehs.size() > 0) || (Last_Opt_Mesh && trace_hehs.size() > 0); // traced but haven't compute the info
-	if (need_update_trace_info)
-	{
-
-		get_traced_boundary_triangle_direction_derivatives();
-	}
 	//  update quantities associated with level set values
 	
 	
@@ -1971,34 +1774,16 @@ void lsTools::Run_Level_Set_Opt() {
 	B += weight_laplacian * mLTF;
 	assert(mass.rows() == vnbr);
 
-	// fix inner vers and smooth boundary
-	if (enable_inner_vers_fixed)
-	{
-		// H += weight_mass * InnerV.asDiagonal();
-		std::cout << "Please don't use fixing_inner_vertex energy" << std::endl;
-	}
 	Eigen::VectorXd bcfvalue = Eigen::VectorXd::Zero(vnbr);
-	Eigen::VectorXd fbdenergy = Eigen::VectorXd::Zero(vnbr);
 	// boundary condition (traced as boundary condition)
 	if (trace_hehs.size() > 0)
 	{ // if traced, we use boundary condition
-		if (!enable_boundary_angles)
-		{
-			spMat bc_JTJ;
-			Eigen::VectorXd bc_mJTF;
-			assemble_solver_boundary_condition_part(func, bc_JTJ, bc_mJTF, bcfvalue);
-			H += weight_boundary * bc_JTJ;
-			B += weight_boundary * bc_mJTF;
-		}
-		// boundary edge angles
-		if (enable_boundary_angles)
-		{
-			spMat JTJ;
-			Eigen::VectorXd mJTF;
-			assemble_solver_fixed_boundary_direction_part(GradValueF, tracing_start_edges, func, JTJ, mJTF, fbdenergy);
-			H += weight_boundary * JTJ;
-			B += weight_boundary * mJTF;
-		}
+
+		spMat bc_JTJ;
+		Eigen::VectorXd bc_mJTF;
+		assemble_solver_boundary_condition_part(func, bc_JTJ, bc_mJTF, bcfvalue);
+		H += weight_boundary * bc_JTJ;
+		B += weight_boundary * bc_mJTF;
 	}
 	if (interactive_flist.size() > 0)
     { // if traced, we use boundary condition
@@ -2062,11 +1847,6 @@ void lsTools::Run_Level_Set_Opt() {
 			// get the vertices associated to the second angle
 			analizers[0].Special = shading_condition_info;
 
-			// mark the angles
-			Eigen::VectorXd diff;
-			// analizers[0].ShadSpecial = shading_detect_parallel_patch(Reference_theta, Reference_phi, diff);
-
-			// std::cout<<"extreme before"<<std::endl;
 			assemble_solver_extreme_cases_part_vertex_based(Glob_lsvars, asymptotic, Given_Const_Direction,
 															analizers[0], vars_start_loc, pg_JTJ, pg_mJTF, PGEnergy);
 			// std::cout<<"extreme computed"<<std::endl;
@@ -2110,7 +1890,7 @@ void lsTools::Run_Level_Set_Opt() {
 	// std::cout << "step length " << dx.norm() << std::endl;
 	double level_set_step_length = dx.norm();
 	// double inf_norm=dx.cwiseAbs().maxCoeff();
-	if (enable_boundary_angles || enable_pseudo_geodesic_energy)// only pg energy and boundary angles requires step length
+	if (enable_pseudo_geodesic_energy)// only pg energy and boundary angles requires step length
 	{
 		if (level_set_step_length > max_step_length)
 		{
@@ -2124,17 +1904,21 @@ void lsTools::Run_Level_Set_Opt() {
 	double energy_biharmonic = (QcH * func).norm();
 	double energy_boundary = (bcfvalue).norm();
 	std::cout << "energy: harm " << energy_biharmonic << ", bnd " << energy_boundary << ", ";
+	pgerror = 0;
+	double energy_pg = PGEnergy.norm();
+	if (energy_pg > 0)
+		pgerror = energy_pg * energy_pg;
 	if (enable_pseudo_geodesic_energy)
 	{
 		if (!enable_extreme_cases) {
-			double energy_pg = PGEnergy.norm();
+			
 			double max_energy_ls = PGEnergy.lpNorm<Eigen::Infinity>();
 			std::cout << "pg, " << energy_pg << ", " << "lsmax," << max_energy_ls << ",";
 		}
 		else {
-			double planar_energy = PGEnergy.norm();
+			
 			double max_energy_ls = PGEnergy.lpNorm<Eigen::Infinity>();
-			std::cout << "extreme_pg, " << planar_energy << " lsmax," << max_energy_ls<<", ";
+			std::cout << "extreme_pg, " << energy_pg << " lsmax," << max_energy_ls<<", ";
 			if(e_smbi.size()>0){
 				std::cout<< "smbi, "<<e_smbi.norm()<<", ";
 			}
@@ -2153,11 +1937,7 @@ void lsTools::Run_Level_Set_Opt() {
 		double stp_energy = Eigen::VectorXd(ener).dot(ener);
 		std::cout << "strip, " << stp_energy << ", ";
 	}
-	if (enable_boundary_angles) {
-		double energy = fbdenergy.norm();
-		std::cout << "bound_dirc, " << energy << ", ";
 
-	}
 	step_length = dx.norm();
 	std::cout << "step " << step_length;
 	if (interactive_flist.size() > 0) // if start to solve pseudo-geodeic, we refer to the strokes
@@ -2366,7 +2146,7 @@ void lsTools::Run_Level_Set_Opt_Angle_Variable() {
 	// std::cout << "step length " << dx.norm() << std::endl;
 	double level_set_step_length = dx.norm();
 	// double inf_norm=dx.cwiseAbs().maxCoeff();
-	if (enable_boundary_angles || enable_pseudo_geodesic_energy)// only pg energy and boundary angles requires step length
+	if (enable_pseudo_geodesic_energy)// only pg energy and boundary angles requires step length
 	{
 		if (level_set_step_length > max_step_length)
 		{
@@ -2972,7 +2752,6 @@ void lsTools::Run_Othogonal_Levelset(const Eigen::VectorXd &func_ref)
 	assert(mass.rows() == vnbr);
 
 	Eigen::VectorXd bcfvalue = Eigen::VectorXd::Zero(vnbr);
-	Eigen::VectorXd fbdenergy = Eigen::VectorXd::Zero(vnbr);
 	// boundary condition (traced as boundary condition)
 	if (trace_hehs.size() > 0)
 	{ // if traced, we count the related energies in

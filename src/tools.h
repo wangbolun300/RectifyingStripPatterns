@@ -62,9 +62,6 @@ void extract_levelset_web_stable(const CGMesh &lsmesh, const std::vector<CGMesh:
 void extract_shading_lines(const CGMesh &lsmesh, const Eigen::MatrixXd &V, const std::vector<CGMesh::HalfedgeHandle> &loop,
                            const Eigen::MatrixXi &F, const Eigen::VectorXd &ls,
                            const int expect_nbr_ls, const bool write_binormals);
-void extract_normal_lines(CGMesh &lsmesh, const Eigen::MatrixXd &V, const std::vector<CGMesh::HalfedgeHandle> &loop,
-                           const Eigen::MatrixXi &F, const Eigen::VectorXd &ls,
-                           const int expect_nbr_ls);                           
 double get_mat_max_diag(spMat& M);
 void solve_mean_value_laplacian_mat(CGMesh& lsmesh, const std::vector<int>& IVids, spMat& mat);
 spMat sum_uneven_spMats(const spMat& mat_small, const spMat& mat_large);
@@ -188,6 +185,7 @@ void project_polylines_on_shading_curves_and_save_results();
 void read_draw_pts_from_plylines(Eigen::MatrixXd &ver);           
 void read_plylines_extract_offset_mesh(const double scale_front, const double scale_back, CGMesh& mesh);      
 void make_example_comparing_two_plylines_distance();      
+void compare_multiple_correspoding_curves_dis();
 void run_sort_polylines();
 void show_rotback_slopes(const Eigen::MatrixXd &E0, const Eigen::MatrixXd &E1, const double latitude_degree,
                          Eigen::MatrixXd &rotmids, Eigen::MatrixXd &rotdirs);

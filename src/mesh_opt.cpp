@@ -1,4 +1,4 @@
-#include <lsc/mesh_opt.h>
+#include <lsc/basic.h>
 #include <lsc/tools.h>
 #include <igl/grad.h>
 #include <igl/hessian.h>

@@ -404,12 +404,6 @@ void  lsTools::Run_AsOrthAsPossible_LS(){
 	B += weight_laplacian * mLTF;
 	assert(mass.rows() == vnbr);
 
-	// fix inner vers and smooth boundary
-	if (enable_inner_vers_fixed)
-	{
-		// H += weight_mass * InnerV.asDiagonal();
-		std::cout << "Please don't use fixing_inner_vertex energy" << std::endl;
-	}
 	Eigen::VectorXd bcfvalue = Eigen::VectorXd::Zero(vnbr);
 	
 	if (interactive_flist.size() > 0)
@@ -489,7 +483,7 @@ void  lsTools::Run_AsOrthAsPossible_LS(){
 	// std::cout << "step length " << dx.norm() << std::endl;
 	double level_set_step_length = dx.norm();
 	// double inf_norm=dx.cwiseAbs().maxCoeff();
-	if (enable_boundary_angles || enable_pseudo_geodesic_energy)// only pg energy and boundary angles requires step length
+	if (enable_pseudo_geodesic_energy)// only pg energy and boundary angles requires step length
 	{
 		if (level_set_step_length > max_step_length)
 		{
@@ -650,14 +644,7 @@ void lsTools::RunInitAOAP(){
 	dx *= 0.75;
 	// std::cout << "step length " << dx.norm() << std::endl;
 	double level_set_step_length = dx.norm();
-	// double inf_norm=dx.cwiseAbs().maxCoeff();
-	// if (enable_boundary_angles || enable_pseudo_geodesic_energy)// only pg energy and boundary angles requires step length
-	// {
-	// 	if (level_set_step_length > max_step_length)
-	// 	{
-	// 		dx *= max_step_length / level_set_step_length;
-	// 	}
-	// }
+
 
 	func += dx.topRows(vnbr);
 	fvalues = func;
@@ -996,7 +983,7 @@ void lsTools::assemble_solver_constant_slope_vertex_based(const Eigen::VectorXd 
         
         Eigen::Vector3d tangent = (f2 - f1) * (f4 - fm) * p3 + (f2 - f1) * (fm - f3) * p4 - (f4 - f3) * (f2 - fm) * p1 - (f4 - f3) * (fm - f1) * p2;
         Eigen::Vector3d tproject = tangent.dot(axis) * axis + tangent.dot(bxis) * bxis;
-        double scale = tproject.norm() * axis.norm();
+        double scale = tangent.norm() * axis.norm(); 
         // tangent * axis  - cos_angle * scale = 0
         tripletes.push_back(Trip(i, lvm, -(f2 - f1) * d3a + (f2 - f1) * d4a + (f4 - f3) * d1a - (f4 - f3) * d2a));
         tripletes.push_back(Trip(i, lv1, -(f4 - fm) * d3a - (fm - f3) * d4a + (f4 - f3) * d2a));
@@ -1015,21 +1002,6 @@ void lsTools::assemble_solver_constant_slope_vertex_based(const Eigen::VectorXd 
         }
 
         energy[i] = tangent.dot(axis) - cos_angle * scale;
-
-        // tangent * bxis - sin_angle * scale = 0;
-        scale = tproject.norm() * bxis.norm();
-
-        tripletes.push_back(Trip(i + ninner, lvm, -(f2 - f1) * d3b + (f2 - f1) * d4b + (f4 - f3) * d1b - (f4 - f3) * d2b));
-        tripletes.push_back(Trip(i + ninner, lv1, -(f4 - fm) * d3b - (fm - f3) * d4b + (f4 - f3) * d2b));
-        tripletes.push_back(Trip(i + ninner, lv2, (f4 - fm) * d3b + (fm - f3) * d4b - (f4 - f3) * d1b));
-        tripletes.push_back(Trip(i + ninner, lv3, -(f2 - f1) * d4b + (f2 - fm) * d1b + (fm - f1) * d2b));
-        tripletes.push_back(Trip(i + ninner, lv4, (f2 - f1) * d3b - (f2 - fm) * d1b - (fm - f1) * d2b));
-        if (!fix_angle)
-        {
-            tripletes.push_back(Trip(i + ninner, lsin, -scale));
-        }
-
-        energy[i + ninner] = tangent.dot(bxis) - sin_angle * scale;
 
         if (fix_axis)
         {
@@ -1193,7 +1165,7 @@ void lsTools::Run_ConstSlopeOpt(){
 	}
 	// std::cout<<"solved successfully"<<std::endl;
 	Eigen::VectorXd dx = solver.solve(Blarge).eval();
-	dx *= 0.75;
+	// dx *= 0.75;
 	// std::cout << "step length " << dx.norm() << std::endl;
 	double level_set_step_length = dx.norm();
 	// double inf_norm=dx.cwiseAbs().maxCoeff();

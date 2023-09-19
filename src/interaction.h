@@ -1,3 +1,4 @@
+#pragma once
 #include<igl/unproject_onto_mesh.h>
 #include <igl/opengl/glfw/imgui/ImGuiMenu.h>
 #include <igl/opengl/glfw/imgui/ImGuiHelpers.h>
@@ -32,6 +33,7 @@ class AutoRunArgs{
     std::vector<PartOfAutoRun> parts;
     bool compute_pg;
     double stop_step_length; // when the step length lower than this, stop
+    double stop_energy_sqrt; // when the energy sqrt lower than this, stop
 
     
 };

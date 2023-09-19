@@ -244,18 +244,10 @@ void lsTools::assemble_solver_pesudo_geodesic_energy_part_stitch_boundary(Eigen:
 	std::vector<Trip> tripletes;
 	tripletes.reserve(nbpair * 65); 
 	Energy = Eigen::VectorXd::Zero(nbpair * 12);// mesh total energy values
-// #ifdef LSC_VARIABLE_CURVE_ANGLES
-// 	std::vector<int> type_record = PG_Vertex_Types[0];
-// 	for (int itr = 0; itr < type_record.size(); itr++)
-// 	{
-// 		int i = type_record[itr]; // the id in inner vers
 
-// #else
 	assert(angle_degree.size() == 1 || angle_degree.size() == vnbr);
 	for (int i = 0; i < nbpair; i++)
 	{
-
-// #endif
         int vm0, vm1;
         // make sure vm0 is on the inward side, vm1 is on the outward side.
         if (analizer.Correspondance[i]) 
@@ -268,18 +260,13 @@ void lsTools::assemble_solver_pesudo_geodesic_energy_part_stitch_boundary(Eigen:
             vm1 = BndPairs[i][0];
         }
 
-// #ifdef LSC_VARIABLE_CURVE_ANGLES
-// 		double angle_radian = PGVariationalAngles[vm] * LSC_PI / 180.;
-// 		cos_angle = cos(angle_radian);
-// 		sin_angle = sin(angle_radian);
-// #else
 		if (angle_degree.size() == vnbr) // in this case, the angle on vm0 should be the same as vm1
 		{
 			double angle_radian = angle_degree[vm0] * LSC_PI / 180.; // the angle in radian
 			cos_angle = cos(angle_radian);
 			sin_angle = sin(angle_radian);
 		}
-// #endif
+
 
 		CGMesh::HalfedgeHandle inhd = analizer.heh0[i], outhd = analizer.heh1[i];
 		int v1 = lsmesh.from_vertex_handle(inhd).idx();

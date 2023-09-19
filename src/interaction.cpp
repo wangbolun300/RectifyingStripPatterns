@@ -32,7 +32,7 @@ void AssignAutoRunDefaultArgs(AutoRunArgs &args, const bool compute_pg)
     else{//paras for pseodu-geodesic
         args.compute_pg = true;
         args.stop_step_length = 5e-2; // when the step length lower than this, stop
-
+        args.stop_energy_sqrt = 1e-3;
         args.parts.resize(5);
         // 
         args.parts[0].iterations = 20;
@@ -44,19 +44,23 @@ void AssignAutoRunDefaultArgs(AutoRunArgs &args, const bool compute_pg)
 
         args.parts[1] = args.parts[0];
         args.parts[1].iterations = 20;
-        args.parts[1].weight_pg = 0.01;
+        args.parts[0].weight_lap = 0.0001;
+        args.parts[1].weight_pg = 0.1;
+        args.parts[1].weight_bnd = 0;
+        args.parts[0].weight_strip_width = 0;
 
         args.parts[2] = args.parts[1];
         args.parts[2].iterations = 20;
-        args.parts[2].weight_pg = 0.1;
+        args.parts[2].weight_pg = 3;
+        
 
         args.parts[3] = args.parts[2];
-        args.parts[3].iterations = 20;
-        args.parts[3].weight_pg = 1;
+        args.parts[3].iterations = 100;
+        args.parts[3].weight_pg = 30;
 
-        args.parts[4] = args.parts[3];
-        args.parts[4].iterations = 100;
-        args.parts[4].weight_pg = 10;
+        // args.parts[4] = args.parts[3];
+        // args.parts[4].iterations = 100;
+        // args.parts[4].weight_pg = 10;
     }
 }
 
@@ -679,7 +683,6 @@ void lsTools::Run_Level_Set_Opt_interactive(const bool compute_pg)
     // std::cout<<"check 2"<<std::endl;
 	// fix inner vers and smooth boundary
 	Eigen::VectorXd bcfvalue = Eigen::VectorXd::Zero(vnbr);
-	Eigen::VectorXd fbdenergy = Eigen::VectorXd::Zero(vnbr);
 	// boundary condition
     if (interactive_flist.size() > 0)
     { // if traced, we use boundary condition
@@ -760,14 +763,7 @@ void lsTools::Run_Level_Set_Opt_interactive(const bool compute_pg)
 	dx *= 0.75;
 	// std::cout << "step length " << dx.norm() << std::endl;
 	double level_set_step_length = dx.norm();
-	// double inf_norm=dx.cwiseAbs().maxCoeff();
-	// if (enable_boundary_angles || enable_pseudo_geodesic_energy)// only pg energy and boundary angles requires step length
-	// {
-	// 	if (level_set_step_length > max_step_length)
-	// 	{
-	// 		dx *= max_step_length / level_set_step_length;
-	// 	}
-	// }
+
 
 	func += dx.topRows(vnbr);
 	fvalues = func;
@@ -779,6 +775,7 @@ void lsTools::Run_Level_Set_Opt_interactive(const bool compute_pg)
     if (compute_pg)
     {
         double energy_pg = PGEnergy.norm();
+        pgerror = energy_pg * energy_pg;
         double max_energy_ls = PGEnergy.lpNorm<Eigen::Infinity>();
         std::cout << "pg, " << energy_pg << ", "
                   << "lsmax," << max_energy_ls << ",";

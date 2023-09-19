@@ -1,0 +1,1 @@
+The files "opt_*.csv" are the files for a high-quality binormal strip. "crease_*.csv" are for the rectifying strip optimized from the binormal strip.

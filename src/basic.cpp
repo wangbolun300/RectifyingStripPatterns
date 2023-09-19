@@ -59,15 +59,6 @@ void lsTools::prepare_level_set_solving(const EnergyPrepare &Energy_initializer)
     max_step_length=Energy_initializer.max_step_length;
     enable_strip_width_energy=Energy_initializer.solve_strip_width_on_traced;
     weight_strip_width = Energy_initializer.weight_strip_width;
-    enable_inner_vers_fixed=Energy_initializer.enable_inner_vers_fixed;
-    enable_functional_angles=Energy_initializer.enable_functional_angles;
-    if(Energy_initializer.enable_functional_angles){
-        
-        pseudo_geodesic_target_min_angle_degree=Energy_initializer.target_min_angle;
-        pseudo_geodesic_target_max_angle_degree=Energy_initializer.target_max_angle;
-    }
-    pseudo_geodesic_start_angle_degree=Energy_initializer.start_angle;
-    enable_boundary_angles=Energy_initializer.enable_boundary_angles;
     enable_extreme_cases = Energy_initializer.enable_extreme_cases;
      
     Given_Const_Direction= Energy_initializer.Given_Const_Direction;
@@ -82,24 +73,6 @@ void lsTools::prepare_mesh_optimization_solving(const MeshEnergyPrepare& initial
     enable_extreme_cases = initializer.enable_extreme_cases;
     weight_mass=initializer.weight_mass;
     Given_Const_Direction= initializer.Given_Const_Direction;
-}
-void lsTools::convert_paras_as_meshes(CGMesh &output)
-{
-    Eigen::MatrixXd paras_visual; // 3d visulazation of the paras, nx3.
-    Eigen::MatrixXd zeros = Eigen::MatrixXd::Zero(paras.rows(), 1);
-    paras_visual.resize(paras.rows(), 3);
-    paras_visual << paras, zeros;
-    output = lsmesh;
-    int i = 0;
-    for (CGMesh::VertexIter viter = output.vertices_begin(); viter != output.vertices_end(); ++viter)
-    {
-        CGMesh::Point pt;
-        pt[0] = paras(i, 0);
-        pt[1] = paras(i, 1);
-        pt[2] = 0;
-        i++;
-        output.set_point(viter, pt);
-    }
 }
 // each element is the sqrt of area
 spMat get_uniformed_mass(spMat& mass_in){
@@ -561,7 +534,6 @@ void lsTools::get_all_the_edge_normals()
 {
     int ne = lsmesh.n_edges();
     norm_e.resize(ne, 3);
-    ActE.resize(lsmesh.n_edges());
     for (CGMesh::EdgeIter e_it = lsmesh.edges_begin(); e_it != lsmesh.edges_end(); ++e_it)
     {
         int eid = e_it.handle().idx();
@@ -586,18 +558,8 @@ void lsTools::get_all_the_edge_normals()
         Eigen::Vector3d direction = n1 + n2;
         direction = direction / direction.norm();
         norm_e.row(eid) = direction;
-        int coplanarity=edge_is_coplanar(lsmesh,e_it.handle(),V,F);
-        if(coplanarity==0){// not on boundary and not co-planar
-            ActE.coeffRef(eid)=1;
-        }
     }
-    Actid.reserve(lsmesh.n_edges());
-    for(int i=0;i<ActE.size();i++){
-        if(ActE.coeffRef(i)==1){
-            Actid.push_back(i);
-        }
-    }
-    // std::cout<<"The edge normal vectors are solved for tracing method"<<std::endl;
+
 }
 
 
@@ -663,8 +625,7 @@ void lsTools::Trace_One_Guide_Pseudo_Geodesic() {
 
 
 void lsTools::initialize_level_set_by_tracing(const TracingPrepare& Tracing_initializer){
-    // cylinder_open_example(5, 10, 50, 30);
-    // exit(0);
+
     trace_vers.clear();
     trace_hehs.clear();
     assigned_trace_ls.clear();
@@ -722,87 +683,6 @@ void lsTools::initialize_level_set_by_tracing(const TracingPrepare& Tracing_init
     }
     estimate_strip_width_according_to_tracing();
     std::cout<<"check the numbr of curves "<<trace_vers.size()<<std::endl;
-   
-}
-
-// assign values and angles on one boundary curve splited by the corners
-void lsTools::initialize_level_set_by_boundary_assignment(const TracingPrepare& Tracing_initializer){
-    // cylinder_open_example(5, 10, 50, 30);
-    // exit(0);
-    trace_vers.clear();
-    trace_hehs.clear();
-    assigned_trace_ls.clear();
-    double target_angle = Tracing_initializer.target_angle;// 
-    double start_angel = Tracing_initializer.start_angle;
-    trace_start_angle_degree=start_angel;
-    double threadshold_angel_degree = Tracing_initializer.threadshold_angel_degree; // threadshold for checking mesh boundary corners
-    int nbr_itv = Tracing_initializer.every_n_edges; // every nbr_itv boundary edges we shoot one curve
-    int which_segment=Tracing_initializer.which_boundary_segment;
-    
-    std::vector<std::vector<CGMesh::HalfedgeHandle>> boundaries;
-    split_mesh_boundary_by_corner_detection(lsmesh, V, threadshold_angel_degree,Boundary_Edges, boundaries);
-    std::cout<<"get the boundary segments, how many: "<<boundaries.size()<<std::endl;
-    if (nbr_itv < 1)
-    {
-        std::cout << "Please set up the parameter nbr_itv " << std::endl;
-        return;
-    }
-    if(which_segment>=boundaries.size()){
-        std::cout<<"Please set up correct boundary id, the maximal boundary segment number is "<<boundaries.size()<<std::endl;
-        return;
-    }
-    std::vector<CGMesh::HalfedgeHandle> boundary_segment=boundaries[which_segment];
-    tracing_start_edges=boundary_segment;
-    std::cout<<"the number of edges on this segment "<<boundary_segment.size()<<std::endl;
-    OpenMesh::HalfedgeHandle init_edge = boundary_segment[0];
-    
-    OpenMesh::HalfedgeHandle checking_edge = init_edge;
-    int beid=0;
-    double lsvalue=0;
-    int curvecount=0;
-    while (1){
-        checking_edge = boundary_segment[beid];
-        std::vector<Eigen::Vector3d> curve;
-        std::vector<CGMesh::HalfedgeHandle> handles;
-
-        curve.clear();
-        handles.clear();
-        CGMesh::HalfedgeHandle intersected_handle_tmp;
-        Eigen::Vector3d intersected_point_tmp;
-        double start_point_para=0.5;
-        bool found = init_pseudo_geodesic_first_segment(checking_edge, start_point_para, start_angel,
-                                                        intersected_handle_tmp, intersected_point_tmp);
-       
-        if (!found)
-        {
-            std::cout << "error in initialization the boundary direction" << std::endl;
-            return;
-        }
-
-        Eigen::Vector3d first_point = get_3d_ver_from_t(start_point_para, V.row(lsmesh.from_vertex_handle(checking_edge).idx()),
-                                                        V.row(lsmesh.to_vertex_handle(checking_edge).idx()));
-
-        curve.push_back(first_point);
-        handles.push_back(checking_edge);
-        curve.push_back(intersected_point_tmp);
-        handles.push_back(intersected_handle_tmp);
-        curvecount++;
-        assert(curve.size()>0);
-        trace_vers.push_back(curve);
-        trace_hehs.push_back(handles);
-        assigned_trace_ls.push_back(lsvalue);
-        lsvalue+=1;
-        int nextbeid=beid+nbr_itv;
-        if(nextbeid<boundary_segment.size()){
-            beid=nextbeid;
-        }
-        else{
-            break;
-        }
-        
-    }
-    estimate_strip_width_according_to_tracing();
-    std::cout<<"the numbr of values assigned to this boundary:  "<<trace_vers.size()<<std::endl;
    
 }
 
@@ -1068,78 +948,6 @@ void lsTools::print_info(const int vid)
          double angle = acos(cos_angle);
          std::cout << "angle " << 180. / LSC_PI * angle << std::endl;
     }
-    // int xloc = vm + vnbr + ninner * 8;
-    // int yloc = vm + vnbr + ninner * 9;
-    // int zloc = vm + vnbr + ninner * 10;
-    // int lnpx = vm + vnbr + ninner * 11;
-    // int lnpy = vm + vnbr + ninner * 12;
-    // int lnpz = vm + vnbr + ninner * 13;
-    // int lbnx = vm + vnbr + ninner * 0;
-    // int lbny = vm + vnbr + ninner * 1;
-    // int lbnz = vm + vnbr + ninner * 2;
-    // if (enable_shading_init)
-    // {
-    //     xloc = vm + vnbr + ninner * 3;
-    //     yloc = vm + vnbr + ninner * 4;
-    //     zloc = vm + vnbr + ninner * 5;
-    // }
-    // Eigen::Vector3d bn = Eigen::Vector3d(Glob_lsvars[lbnx], Glob_lsvars[lbny], Glob_lsvars[lbnz]);
-    // std::cout << "the light, " << Glob_lsvars[xloc] << ", " << Glob_lsvars[yloc] << ", " << Glob_lsvars[zloc] << "\n";
-    // std::cout << "the pn, " << bn[0] << ", " << bn[1] << ", " << bn[2] << "\n";
-    // std::cout << "the binormal, " << Glob_lsvars[xloc] << ", " << Glob_lsvars[yloc] << ", " << Glob_lsvars[zloc] << "\n";
-    // double latitude_radian = ShadingLatitude * LSC_PI / 180.;
-    // double rho = (LSC_PI / 2 - latitude_radian);
-    // Eigen::Matrix3d rotation;
-    // rotation << 1, 0, 0,
-    //     0, cos(rho), -sin(rho),
-    //     0, sin(rho), cos(rho);
-    // Eigen::Vector3d direction_ground = Eigen::Vector3d(0, 0, -1); // the ground direction
-    // direction_ground = rotation * direction_ground;
-    // Eigen::Vector3d light = Eigen::Vector3d(Glob_lsvars[xloc], Glob_lsvars[yloc], Glob_lsvars[zloc]);
-    // Eigen::Vector3d pn = Eigen::Vector3d(Glob_lsvars[lnpx], Glob_lsvars[lnpy], Glob_lsvars[lnpz]);
-
-    // std::cout << "the ground, " << direction_ground[0] << ", " << direction_ground[1] << ", " << direction_ground[2] << "\n";
-
-    // std::cout << "light * pn = " << Eigen::Vector3d(Glob_lsvars[xloc], Glob_lsvars[yloc], Glob_lsvars[zloc]).dot(Eigen::Vector3d(Glob_lsvars[lnpx], Glob_lsvars[lnpy], Glob_lsvars[lnpz]))
-    // <<", ground * pn = "<<direction_ground.dot(Eigen::Vector3d(Glob_lsvars[lnpx], Glob_lsvars[lnpy], Glob_lsvars[lnpz]))<<std::endl;
-    // std::cout<<"(light, pn, ground) = "<<light.cross(pn).dot(direction_ground)<<std::endl;
-// }
-
-    // LSAnalizer anl;
-    // analysis_pseudo_geodesic_on_vertices(fvalues,anl);
-    // int ninner = anl.LocalActInner.size();
-    // Eigen::MatrixXd tangents = Eigen::MatrixXd::Zero(ninner, 3);
-    // for (int i = 0; i < ninner; i++)
-	// {
-	// 	if (anl.LocalActInner[i] == false)
-	// 	{
-	// 		std::cout << "singularity" << std::endl;
-	// 		continue;
-	// 	}
-	// 	int vm = IVids[i];
-
-	// 	CGMesh::HalfedgeHandle inhd = anl.heh0[i], outhd = anl.heh1[i];
-	// 	int v1 = lsmesh.from_vertex_handle(inhd).idx();
-	// 	int v2 = lsmesh.to_vertex_handle(inhd).idx();
-	// 	int v3 = lsmesh.from_vertex_handle(outhd).idx();
-	// 	int v4 = lsmesh.to_vertex_handle(outhd).idx();
-
-	// 	double t1 = anl.t1s[i];
-	// 	double t2 = anl.t2s[i];
-		
-	// 	Eigen::Vector3d ver0 = V.row(v1) + (V.row(v2) - V.row(v1)) * t1;
-	// 	Eigen::Vector3d ver1 = V.row(vm);
-	// 	Eigen::Vector3d ver2 = V.row(v3) + (V.row(v4) - V.row(v3)) * t2;
-	// 	// the locations
-    //     Eigen::Vector3d tg = ver2 - ver0;
-    //     tg = tg.normalized();
-        
-    //     tangents.row(i)=tg;
-    // }
-    // Eigen::Vector3d ray = Reference_ray.normalized();
-    // Eigen::VectorXd dot = tangents * ray;
-    // std::cout<<"the angle between ray and tangents, "<<dot.norm()<<", max, "<<dot.maxCoeff()<<std::endl;
-    // std::cout<<"the tangent values\n "<<tangents<<std::endl;
 }
 
 #include <igl/gaussian_curvature.h>

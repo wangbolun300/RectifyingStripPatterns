@@ -3443,98 +3443,7 @@ void extract_shading_lines(const CGMesh &lsmesh, const Eigen::MatrixXd &V, const
     write_polyline_xyz(bilist, fname+"_b");
     std::cout << "Binormals got written" << std::endl;
 }
-// take the normal vector instead of the binormal vectors 
-void extract_normal_lines(CGMesh &lsmesh, const Eigen::MatrixXd &V, const std::vector<CGMesh::HalfedgeHandle> &loop,
-                           const Eigen::MatrixXi &F, const Eigen::VectorXd &ls,
-                           const int expect_nbr_ls)
-{
-    Eigen::VectorXd lsv0;
-    int nbr_ls0;
-    std::vector<std::vector<Eigen::Vector3d>> lines;
 
-    nbr_ls0 = expect_nbr_ls;
-    get_level_set_sample_values(ls, nbr_ls0, lsv0);
-    std::vector<Eigen::Vector3d> verlist;
-    verlist.reserve(nbr_ls0 * F.rows());
-
-    for (int i = 0; i < nbr_ls0; i++)
-    {
-        std::vector<std::vector<Eigen::Vector3d>> polylines;
-        double value = lsv0[i];
-        std::vector<bool> left_large;
-        get_iso_lines(lsmesh, loop, V, F, ls, value, polylines, left_large);
-        for (int j = 0; j < polylines.size(); j++)
-        {
-            if(polylines[j].size()>3){// remove too short elements
-                lines.push_back(polylines[j]);
-            }
-            
-        }
-    }
-    std::cout << "Writing the Polylines, please provide the file prefix" << std::endl;
-    std::string fname = igl::file_dialog_save();
-    write_polyline_xyz(lines, fname);
-
-    std::cout << "Reading Bi-normals of triangle mesh. If you don't have reference binormal vector file, esc here" << std::endl;
-    for (int i = 0; i < lines.size(); i++)
-    {
-        for (int j = 0; j < lines[i].size(); j++)
-        {
-            verlist.push_back(lines[i][j]);
-        }
-    }
-    lsTools tool(lsmesh);
-    Eigen::MatrixXd bn = tool.norm_v;
-    
-    std::cout << "normals got" << std::endl;
-    Eigen::MatrixXd C;
-    Eigen::VectorXi I;
-    Eigen::VectorXd D;
-    int nq = verlist.size();
-    Eigen::MatrixXd B;
-    B.resize(nq, 3);
-    Eigen::MatrixXd vers = vec_list_to_matrix(verlist);
-    igl::point_mesh_squared_distance(vers, V, F, D, I, C);
-    for (int i = 0; i < nq; i++)
-    {
-        int fid = I(i);
-        int v0 = F(fid, 0);
-        int v1 = F(fid, 1);
-        int v2 = F(fid, 2);
-        Eigen::Vector3d pt = verlist[i];
-        Eigen::Vector3d ver0 = V.row(v0);
-        Eigen::Vector3d ver1 = V.row(v1);
-        Eigen::Vector3d ver2 = V.row(v2);
-        std::array<double, 3> coor = barycenter_coordinate(ver0, ver1, ver2, pt);
-
-        Eigen::Vector3d dir = coor[0] * bn.row(v0) + coor[1] * bn.row(v1) + coor[2] * bn.row(v2);
-        dir = dir.normalized();
-        if(dir == Eigen::Vector3d(0,0,0)){
-            dir = Eigen::Vector3d(1,0,0);
-        }
-        B.row(i) = dir;
-    }
-    std::vector<std::vector<Eigen::Vector3d>> bilist = lines;
-    int counter = 0;
-    Eigen::Vector3d bbase = B.row(0);
-    for (int i = 0; i < lines.size(); i++)
-    {
-        Eigen::Vector3d base = B.row(counter);
-        if(base.dot(bbase)<0){
-            base *= -1;
-        }
-
-        for (int j = 0; j < lines[i].size(); j++)
-        {
-            Eigen::Vector3d direction = orient_vector(base, B.row(counter));
-            base = direction;
-            bilist[i][j] = direction;
-            counter++;
-        }
-    }
-    write_polyline_xyz(bilist, fname+"_b");
-    std::cout << "Binormals got written" << std::endl;
-}
 void lsTools::show_binormals(const Eigen::VectorXd &func, Eigen::MatrixXd &E0, Eigen::MatrixXd &E1, Eigen::MatrixXd& binormals,  double ratio){
     
     E0 = V - Binormals * ratio;
@@ -4224,50 +4133,6 @@ void get_one_ring_vertices_simple(const Eigen::VectorXi &ref, CGMesh &lsmesh, Ei
     }
 }
 
-// Eigen::VectorXi lsTools::Second_Angle_Inner_Vers()
-// {
-    
-//     int ninner = analizers[0].LocalActInner.size();
-//     int vnbr = V.rows();
-//     Eigen::VectorXi result = Eigen::VectorXi::Zero(ninner);
-//     int candi_size = Second_Ray_vers.size();
-//     Eigen::VectorXi ref = Eigen::VectorXi::Ones(vnbr) * -1; // mark the related vertices as 1, others as -1
-//     for (int id : Second_Ray_vers)
-//     {
-//         ref[id] = 1;
-//     }
-
-//     for (int i = 0; i < Second_Ray_nbr_rings; i++)
-//     {
-//         Eigen::VectorXi ring;
-//         get_one_ring_vertices_simple(ref, lsmesh, ring);
-//         ref = ring;
-//     }
-
-//     // map the marks into inner vertex list
-//     for (int i = 0; i < ref.size(); i++)
-//     {
-//         if (ref[i] < 0)
-//         {
-//             continue;
-//         }
-//         int location = InnerV[i];
-//         if(location>=0){
-//             result[location] = 1;
-//         }
-        
-//     }
-    
-//     return result;
-// }
-
-// // this is to find the boundary of the shadow. In the boundary, the light is tangent to the surface
-// void un_mark_innervers_tangent_to_light(const Eigen::Vector3d &light, CGMesh &lsmesh,
-//                                         const Eigen::VectorXi &InnerV, const std::vector<int> &IVids, Eigen::VectorXi &act_inner)
-// {
-
-// }
-
 // rotate the z axis to make it align with the earth axis (pointing to the north)
 void rotate_z_axis_to_earth_axis(const Eigen::MatrixXd& Vori, Eigen::MatrixXd& Vnew, const double latitude_degree){
     double latitude_radian = latitude_degree * LSC_PI / 180.;
@@ -4317,34 +4182,6 @@ void mesh_unit_scale(const Eigen::MatrixXd &V, Eigen::MatrixXd &Vout)
     }
     Vout *= ratio;
     std::cout<<"Unit Scale the Mesh, the scaling ratio, "<<ratio<<", the translation, "<<Vcent.norm()<<std::endl;
-}
-
-// for shading system, if the surface patch is parallel to the light, then the only solution is 
-// the asymptotic curves, which is hard to meet the trend of the level set. thus we mark these points out.
-// theta and phi are the main light direction, diff records how close to othogonal
-Eigen::VectorXi lsTools::shading_detect_parallel_patch(const double theta, const double phi, Eigen::VectorXd& diff)
-{
-    int ninner = analizers[0].LocalActInner.size();
-    int vnbr = V.rows();
-    diff = Eigen::VectorXd::Zero(vnbr);
-    Eigen::VectorXi otho = Eigen::VectorXi::Ones(ninner) * 1; // mark the vertices whose normal is othogonal to the light as 0.
-    Eigen::Vector3d target_light = angle_ray_converter(theta, phi);
-    int removed = 0;
-    for (int i = 0; i < ninner; i++)
-    {
-        int vm = IVids[i];
-        std::vector<int> ids;
-        // get_one_ring_vertices(lsmesh, vm, ids);
-        Eigen::Vector3d normal = norm_v.row(vm);
-        diff[vm] = 1 - abs(normal.dot(target_light));
-        if (diff[vm] > 0.9)
-        {
-            otho[i] = 0;
-            removed ++;
-        }
-    }
-    // std::cout<<removed<<" vertices got removed because locally the surface is tangent to the light"<<std::endl;
-    return otho;
 }
 
 template <typename Tn>
@@ -5396,12 +5233,13 @@ bool ply_ply_distance(const std::vector<Eigen::Vector3d> &ply, const std::vector
     double dis_max = 0;
     double clsu, clsv;
     Eigen::Vector3d closest;
+    // std::cout<<"sizes, "<<ply.size()<<", "<<curve.size()<<std::endl;
     for (int i = 1; i < ply.size() - 1; i++)// skip boundary vertices
     {
         Eigen::Vector3d v = ply[i];
         double local_min = 1e6;
         int idmin = 0;
-        for (int j = 0; j < curve.size() - 1; j++) // skip boundary vertices
+        for (int j = 0; j < curve.size() - 1; j++) 
         {
             Eigen::Vector3d vs = curve[j];
             Eigen::Vector3d ve = curve[j + 1];
@@ -5410,11 +5248,11 @@ bool ply_ply_distance(const std::vector<Eigen::Vector3d> &ply, const std::vector
             double t = -vsv.dot(ves) / ves.dot(ves);
             if (t < 0)
             {
-                continue;
+                t = 0;
             }
             if (t > 1)
             {
-                continue;
+                t = 1;
             }
             Eigen::Vector3d pjp = vs + (ve - vs) * t;
             double dis = (v - pjp).norm();
@@ -5422,6 +5260,7 @@ bool ply_ply_distance(const std::vector<Eigen::Vector3d> &ply, const std::vector
             {
                 local_min = dis;
             }
+            // std::cout<<"DBG, check here"<<std::endl;
         }
         if (dis_max < local_min)
         {
@@ -6761,6 +6600,53 @@ void make_example_comparing_two_plylines_distance(){
     std::cout<<"maximal distance is "<<dis<<std::endl;
 }
 
+void compare_multiple_correspoding_curves_dis(){
+    std::cout<<"reading the two families of curves, please provide the prefixes"<<std::endl;
+    std::string fname1 = igl::file_dialog_save();
+    std::string fname2 = igl::file_dialog_save();
+    if (fname1.length() == 0 || fname2.length() == 0)
+    {
+        std::cout << "Please type down the prefix" << std::endl;
+        return;
+    }
+    std::vector<std::vector<double>> vx2, vy2, vz2, vx1, vy1, vz1;
+    read_csv_data_lbl(fname1+"_x.csv", vx1);
+    read_csv_data_lbl(fname1+"_y.csv", vy1);
+    read_csv_data_lbl(fname1+"_z.csv", vz1);
+
+    read_csv_data_lbl(fname2+"_x.csv", vx2);
+    read_csv_data_lbl(fname2+"_y.csv", vy2);
+    read_csv_data_lbl(fname2 + "_z.csv", vz2);
+    assert(vx1.size() == vx2.size());
+    int csize = vx2.size();
+    std::vector<std::vector<Eigen::Vector3d>> c1s(csize), c2s(csize);
+    for (int i = 0; i < csize; i++)
+    {
+        c1s[i].resize(vx1[i].size());
+        c2s[i].resize(vx2[i].size());
+        for (int j = 0; j < c1s[i].size(); j++)
+        {
+            c1s[i][j] = Eigen::Vector3d(vx1[i][j], vy1[i][j], vz1[i][j]);
+        }
+        for (int j = 0; j < c2s[i].size(); j++)
+        {
+            c2s[i][j] = Eigen::Vector3d(vx2[i][j], vy2[i][j], vz2[i][j]);
+        }
+    }
+
+
+    double max_dis = -1;
+    for (int i = 0; i < csize; i++)
+    {
+        double cdis = -1;
+        ply_ply_distance(c1s[i], c2s[i], cdis);
+        std::cout << i << "th, dis, " << cdis << std::endl;
+        if (cdis > max_dis)
+            max_dis = cdis;
+    }
+    std::cout<<"absolute max distance between two families of segs: "<<max_dis<<std::endl;
+}
+
 
 std::vector<int> sort_plylines_based_on_midpts(const std::vector<std::vector<Eigen::Vector3d>> &ply)
 {
@@ -7383,10 +7269,9 @@ void assign_ls_to_subpatch(CGMesh &ref, CGMesh &base, const Eigen::VectorXd &fun
     Eigen::MatrixXd C;
     Eigen::VectorXi I;
     Eigen::VectorXd D;
-    Eigen::VectorXi mapping = Eigen::VectorXi::Ones(bvnbr) * -1;  // the list (size is the same as the vertex list) shows the type of the conditions
+
     funout.resize(rvnbr);
 
-    std::vector<int> bnd;// boundary of the first type
     igl::point_mesh_squared_distance(reftool.V, bastool.V, bastool.F, D, I, C);
     for (int i = 0; i < rvnbr; i++)
     {

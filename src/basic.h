@@ -19,7 +19,6 @@ typedef Eigen::Triplet<double> Trip;
 
 static bool produce_no_smooth_oscu = false;// this is a flag to create wrong results when set as true.
 static bool produce_small_search_range = false; // this is to enable small searching range for tracing.
-// #define LSC_VARIABLE_CURVE_ANGLES // this is the flag 
 
 enum BCtype{ // boundary condition type
     Traced, //0 // the traced values as the guide directions
@@ -36,16 +35,9 @@ class EnergyPrepare{
     double weight_strip_width;
     bool solve_pseudo_geodesic;
     bool solve_strip_width_on_traced;
-    bool enable_inner_vers_fixed;
-    bool enable_functional_angles;
-    bool enable_boundary_angles;
     bool enable_extreme_cases;
     double target_angle;
-    double start_angle;
-    double target_min_angle;
-    double target_max_angle;
     double max_step_length;
-
     bool Given_Const_Direction;
     // Eigen::Vector3d Reference_ray;
 };
@@ -82,7 +74,6 @@ public:
     Eigen::VectorXi LocalActBpair;
     std::vector<bool> Correspondance;
     Eigen::VectorXi Special; // record if we apply the second condition in shading
-    // Eigen::VectorXi ShadSpecial; // detect if parallel to the light
     // Eigen::VectorXi HighEnergy; // detect high energy vertices
     std::vector<CGMesh::HalfedgeHandle> heh0; 
     std::vector<CGMesh::HalfedgeHandle> heh1;
@@ -166,6 +157,8 @@ public:
     void vertex_matrix_to_polyline(std::vector<std::vector<Eigen::Vector3d>> &ply, Eigen::MatrixXd& V);
     void get_normal_vector_from_reference(const Eigen::MatrixXd& Vr, const Eigen::MatrixXi& Fr, const Eigen::MatrixXd& nr);
     void force_smoothing_binormals();
+    void related_error();// the related error between the strip midlines and the surface
+
 
     // the crease opt framework
     Eigen::MatrixXd vertices_cp;
@@ -271,7 +264,6 @@ class lsTools
 {
 private:
     MeshProcessing MP;
-    
     Eigen::MatrixXd norm_f;               // normal per face
     Eigen::MatrixXd angF;                 // angel per vertex of each F. nx3, n is the number of faces
     Eigen::VectorXd areaF;                // the area of each face.
@@ -291,41 +283,16 @@ private:
     std::vector<double> II_L;                     // second fundamental form: L 
     std::vector<double> II_M;                     // second fundamental form: M 
     std::vector<double> II_N;                     // second fundamental form: N 
-    
-    
-    
     // spMat Dlpsqr;                       // the derivates of ||laplacian F||^2 for all the vertices.
     spMat QcH; // curved harmonic energy matrix
     spMat Dlps;       // the derivates of laplacian F for all the vertices.
     spMat mass;       // mass(i,i) is the area of the voronoi cell of vertex vi
-    
-    
-    std::vector<CGMesh::HalfedgeHandle> tracing_start_edges;
-    std::vector<double> pseudo_geodesic_angles_per_ver;
-    Eigen::VectorXd Glob_lsvars; // global variables for levelset opt
-
-    
     Eigen::MatrixXd norm_e; // normal directions on each edge
-    std::vector<std::vector<Eigen::Vector3d>> trace_vers;        // traced vertices
-    std::vector<std::vector<CGMesh::HalfedgeHandle>> trace_hehs; // traced half edge handles
-    std::vector<double> assigned_trace_ls; // function values for each traced curve.
-    std::vector<std::vector<Eigen::Vector2d>> traced_paras;//parameterizations for the traced curves. This is only useful for illustrations.
-
-    std::vector<Eigen::Vector3d> guideVers;
-    std::vector<CGMesh::HalfedgeHandle> guideHehs;
-    
-    double trace_start_angle_degree = 90; //the angle between the first segment and the given boundary
-    spMat  DBdirections; // the derivative of boundary directions from tracing 
-    // edge-based pseudo-energy values
-    Efunc ActE;// active edges, which means they are not co-planar edges, and not boundary edges.
-    std::vector<int> Actid; // active edge ids. the length equals to the number of non-zero elements in ActE
-    Eigen::VectorXd BDEvalue; // boundary direction energy value
-
-    // variables for interactive level-set design
-    std::vector<std::vector<int>> interactive_flist;
-    std::vector<std::vector<Eigen::Vector3f>> interactive_bclist;
 
 
+    /*
+        Initialize mesh properties
+    */
     void get_mesh_angles();
     void get_mesh_normals_per_face();
     void get_mesh_normals_per_ver();
@@ -344,74 +311,18 @@ private:
     void get_vertex_rotation_matices();
 
     void get_I_and_II_locally();
-
-    // CAUTION: please call this after you initialize the function values.
-
-    // get the derivatives of direction.dot(edge) of boundary triangles the traced curves start, 
-    // where edge is the boundary edge directions from large to small. 
-    void get_traced_boundary_triangle_direction_derivatives(); 
-    // get the boundary vertices and one ring vertices from them
     void get_bnd_vers_and_handles();
     void get_all_the_edge_normals();// the edge normals and the active edges
-    void analysis_pseudo_geodesic_on_vertices(const Eigen::VectorXd& func_values, Eigen::VectorXi& LocalActInner,
-        std::vector<CGMesh::HalfedgeHandle>& heh0, std::vector<CGMesh::HalfedgeHandle>& heh1,
-        std::vector<double>& t1s, std::vector<double>& t2s);
-    void analysis_pseudo_geodesic_on_vertices(const Eigen::VectorXd &func_values,
-                                              const std::vector<std::array<int, 2>> boundary_pairs,
-                                              Eigen::VectorXi &LocalActInner,
-                                              Eigen::VectorXi &LocalActBpair,
-                                              std::vector<bool> &correspondance,
-                                              std::vector<CGMesh::HalfedgeHandle> &heh0, std::vector<CGMesh::HalfedgeHandle> &heh1,
-                                              std::vector<double> &t1s, std::vector<double> &t2s);
-    void analysis_pseudo_geodesic_on_vertices(const Eigen::VectorXd& func_values, LSAnalizer& analizer);
-    void analysis_pseudo_geodesic_on_vertices(const Eigen::VectorXd& func_values,const std::vector<std::array<int, 2>> boundary_pairs, LSAnalizer& analizer);
-    void calculate_pseudo_geodesic_opt_expanded_function_values(Eigen::VectorXd &vars, const std::vector<double> &angle_degree,
-                                                                const LSAnalizer &analizer, const int vars_start_loc, const int aux_start_loc, std::vector<Trip> &tripletes, Eigen::VectorXd &Energy);
-    void calculate_extreme_pseudo_geodesic_values(Eigen::VectorXd &vars, const bool asymptotic,
-                                                  const LSAnalizer &analizer, const int vars_start_loc, std::vector<Trip> &tripletes, Eigen::VectorXd &Energy);
-    void calculate_boundary_direction_energy_function_values(const Eigen::MatrixXd &GradFValue,
-                                                             const std::vector<CGMesh::HalfedgeHandle> &edges, const Eigen::VectorXd &func, Eigen::VectorXd &lens, Eigen::VectorXd &energy);
-    void calculate_shading_condition_auxiliary_vars(Eigen::VectorXd &vars,
-                                                    const LSAnalizer &analizer, const int vars_start_loc, const int aux_start_loc, std::vector<Trip> &tripletes, Eigen::VectorXd &Energy);
-    void calculate_shading_condition_inequivalent(Eigen::VectorXd &vars,
-                                                  const LSAnalizer &analizer, const int vars_start_loc, const int aux_start_loc, std::vector<Trip> &tripletes, Eigen::VectorXd &Energy);
-    void calculate_shading_init(Eigen::VectorXd &vars,
-                                const LSAnalizer &analizer, const int vars_start_loc, const int aux_start_loc, std::vector<Trip> &tripletes, Eigen::VectorXd &Energy);
-    void calculate_binormal_regulizer(Eigen::VectorXd& vars,
-	const LSAnalizer &analizer, const int vars_start_loc, const int aux_start_loc,std::vector<Trip> &tripletes,  Eigen::VectorXd& Energy);
-    void assemble_solver_laplacian_part(spMat &H, Efunc &B);
-    void assemble_solver_biharmonic_smoothing(const Eigen::VectorXd &func, spMat &H, Eigen::VectorXd &B); // Biharmonic smoothing (natural curved Hessian boundary)
-    void assemble_solver_boundary_condition_part(const Eigen::VectorXd &func, spMat &H, Eigen::VectorXd &B, Eigen::VectorXd &bcfvalue);
-    void assemble_solver_interactive_boundary_condition_part(const Eigen::VectorXd &func, spMat &H, Eigen::VectorXd &B, Eigen::VectorXd &bcfvalue);
-    void assemble_solver_fixed_values_part(const std::vector<CGMesh::HalfedgeHandle> &hds, const double assigned_value,
-                                           const Eigen::VectorXd &func, spMat &H, Eigen::VectorXd &B, Eigen::VectorXd &bcfvalue);
-    void assemble_solver_pesudo_geodesic_energy_part_vertex_based(Eigen::VectorXd &vars, const std::vector<double> &angle_degree,
-                                                                  const LSAnalizer &analizer, const int vars_start_loc, const int aux_start_loc, spMat &H, Eigen::VectorXd &B, Eigen::VectorXd &energy);
-    void assemble_solver_pesudo_geodesic_energy_part_stitch_boundary(Eigen::VectorXd &vars, const std::vector<double> &angle_degree,
-                                                                  const LSAnalizer &analizer, const int vars_start_loc, const int aux_start_loc, spMat &H, Eigen::VectorXd &B, Eigen::VectorXd &energy);                                                                  
-    void assemble_solver_strip_width_part(const Eigen::MatrixXd& GradValue,  spMat& H, Eigen::VectorXd& B);
-    void assemble_solver_extreme_cases_part_vertex_based(Eigen::VectorXd &vars, const bool asymptotic, const bool use_given_direction, 
-                                                         const LSAnalizer &analizer, const int vars_start_loc, spMat &H, Eigen::VectorXd &B, Eigen::VectorXd &energy);
-    void assemble_solver_fixed_boundary_direction_part(const Eigen::MatrixXd& GradFValue, const std::vector<CGMesh::HalfedgeHandle>& edges,
-        const Eigen::VectorXd& func,
-        spMat& H, Eigen::VectorXd& B, Eigen::VectorXd& energy);
-
-    void assemble_solver_binormal_regulizer(Eigen::VectorXd &vars,
-												 const LSAnalizer &analizer, const int vars_start_loc,
-												 const int aux_start_loc, spMat &H, Eigen::VectorXd &B, Eigen::VectorXd &energy);
-    // void assemble_solver_shading_condition(Eigen::VectorXd &vars, 
-    //                                        const LSAnalizer &analizer, const int vars_start_loc, 
-    //                                        spMat &H, Eigen::VectorXd &B, Eigen::VectorXd &Energy);
-    void assemble_solver_othogonal_to_given_face_directions(const Eigen::VectorXd &func, const Eigen::MatrixXd &directions,
-                                                            const Eigen::VectorXi &fids, spMat &H, Eigen::VectorXd &B, Eigen::VectorXd &energy);
-    // this function takes the reference level set as constant
-    void assemble_solver_fix_angle_to_given_face_directions(const Eigen::VectorXd &func, const Eigen::MatrixXd &directions,
-                                                            const Eigen::MatrixXd &grads, const double angle_fix,
-                                                            const Eigen::VectorXi &fids, spMat &H, Eigen::VectorXd &B, Eigen::VectorXd &energy);
-    // this function takes the reference level set also as variables
-    // fix the angle between the first and the second levelset
-    void assemble_solver_fix_two_ls_angle(const Eigen::VectorXd &vars, const double angle_fix,
-                                          spMat &H, Eigen::VectorXd &B, Eigen::VectorXd &energy);
+    
+    /*
+        tracing params
+    */
+    std::vector<CGMesh::HalfedgeHandle> tracing_start_edges;
+    std::vector<std::vector<Eigen::Vector3d>> trace_vers;        // traced vertices
+    std::vector<std::vector<CGMesh::HalfedgeHandle>> trace_hehs; // traced half edge handles
+    std::vector<double> assigned_trace_ls; // function values for each traced curve.
+    std::vector<std::vector<Eigen::Vector2d>> traced_paras;//parameterizations for the traced curves. This is only useful for illustrations.
+    double trace_start_angle_degree = 90; //the angle between the first segment and the given boundary
 
     // void assemble_solver_pseudo_geodesic_part(spMat &H, Efunc& B);
     bool find_geodesic_intersection_p1_is_NOT_ver(const Eigen::Vector3d &p0, const Eigen::Vector3d &p1,
@@ -443,17 +354,112 @@ private:
                                             const double start_boundary_angle_degree,
                                             std::vector<Eigen::Vector3d> &curve,
                                             std::vector<CGMesh::HalfedgeHandle> &handles);
-
     bool get_checking_edges(const std::vector<int> &start_point_ids, const CGMesh::HalfedgeHandle &edge_middle, const Eigen::Vector3d &point_middle,
                             Efunc &edges_checked, Efunc &points_checked, NeighbourInfo &ninfo, std::vector<int> &point_to_check);
-
-    void extract_one_curve(const double value, Eigen::MatrixXd& E0, Eigen::MatrixXd &E1);
     void estimate_strip_width_according_to_tracing();
-    // Eigen::VectorXi Second_Angle_Inner_Vers();// the inner vertices use the second shading angle
+
+
+
+
+    /*
+        Interactive design
+    */
+    std::vector<std::vector<int>> interactive_flist;
+    std::vector<std::vector<Eigen::Vector3f>> interactive_bclist;
+
+    /*
+        level set opt functions and variables
+    */
+    std::array<LSAnalizer, 3> analizers;
+    Eigen::VectorXd Glob_lsvars; // global variables for levelset opt
+    // normal level set analyzer
+    void analysis_pseudo_geodesic_on_vertices(const Eigen::VectorXd& func_values, Eigen::VectorXi& LocalActInner,
+        std::vector<CGMesh::HalfedgeHandle>& heh0, std::vector<CGMesh::HalfedgeHandle>& heh1,
+        std::vector<double>& t1s, std::vector<double>& t2s);
+    void analysis_pseudo_geodesic_on_vertices(const Eigen::VectorXd& func_values, LSAnalizer& analizer);
+    
+    
+    // level set angle controller
+    void calculate_pseudo_geodesic_opt_expanded_function_values(Eigen::VectorXd &vars, const std::vector<double> &angle_degree,
+                                                                const LSAnalizer &analizer, const int vars_start_loc, const int aux_start_loc, std::vector<Trip> &tripletes, Eigen::VectorXd &Energy);
+    void calculate_extreme_pseudo_geodesic_values(Eigen::VectorXd &vars, const bool asymptotic,
+                                                  const LSAnalizer &analizer, const int vars_start_loc, std::vector<Trip> &tripletes, Eigen::VectorXd &Energy);
+    
+    
+    void assemble_solver_laplacian_part(spMat &H, Efunc &B);
+    void assemble_solver_biharmonic_smoothing(const Eigen::VectorXd &func, spMat &H, Eigen::VectorXd &B); // Biharmonic smoothing (natural curved Hessian boundary)
+    void assemble_solver_boundary_condition_part(const Eigen::VectorXd &func, spMat &H, Eigen::VectorXd &B, Eigen::VectorXd &bcfvalue);
+    void assemble_solver_interactive_boundary_condition_part(const Eigen::VectorXd &func, spMat &H, Eigen::VectorXd &B, Eigen::VectorXd &bcfvalue);
+    void assemble_solver_strip_width_part(const Eigen::MatrixXd& GradValue,  spMat& H, Eigen::VectorXd& B);
+    void assemble_solver_extreme_cases_part_vertex_based(Eigen::VectorXd &vars, const bool asymptotic, const bool use_given_direction, 
+                                                         const LSAnalizer &analizer, const int vars_start_loc, spMat &H, Eigen::VectorXd &B, Eigen::VectorXd &energy);
+
+    void assemble_solver_pesudo_geodesic_energy_part_vertex_based(Eigen::VectorXd &vars, const std::vector<double> &angle_degree,
+                                                                  const LSAnalizer &analizer, const int vars_start_loc, const int aux_start_loc, spMat &H, Eigen::VectorXd &B, Eigen::VectorXd &energy);
+
+    
+    void assemble_solver_othogonal_to_given_face_directions(const Eigen::VectorXd &func, const Eigen::MatrixXd &directions,
+                                                            const Eigen::VectorXi &fids, spMat &H, Eigen::VectorXd &B, Eigen::VectorXd &energy);
+    // this function takes the reference level set as constant
+    void assemble_solver_fix_angle_to_given_face_directions(const Eigen::VectorXd &func, const Eigen::MatrixXd &directions,
+                                                            const Eigen::MatrixXd &grads, const double angle_fix,
+                                                            const Eigen::VectorXi &fids, spMat &H, Eigen::VectorXd &B, Eigen::VectorXd &energy);
+    
+    
+    /*
+        Shading design
+    */
+    void calculate_shading_condition_inequivalent(Eigen::VectorXd &vars,
+                                                  const LSAnalizer &analizer, const int vars_start_loc, const int aux_start_loc, std::vector<Trip> &tripletes, Eigen::VectorXd &Energy);
+    void calculate_shading_init(Eigen::VectorXd &vars,
+                                const LSAnalizer &analizer, const int vars_start_loc, const int aux_start_loc, std::vector<Trip> &tripletes, Eigen::VectorXd &Energy);
+    void calculate_binormal_regulizer(Eigen::VectorXd& vars,
+	const LSAnalizer &analizer, const int vars_start_loc, const int aux_start_loc,std::vector<Trip> &tripletes,  Eigen::VectorXd& Energy);
+    void assemble_solver_binormal_regulizer(Eigen::VectorXd &vars,
+												 const LSAnalizer &analizer, const int vars_start_loc,
+												 const int aux_start_loc, spMat &H, Eigen::VectorXd &B, Eigen::VectorXd &energy);
+   
+
+   /*
+        Topology: stitching boundary
+   */
+  // level set analyzer with detecting seams.
+      std::vector<std::array<int, 2>> BndPairs; // pairs of overlapping boundary vertices.
+    void analysis_pseudo_geodesic_on_vertices(const Eigen::VectorXd &func_values,
+                                              const std::vector<std::array<int, 2>> boundary_pairs,
+                                              Eigen::VectorXi &LocalActInner,
+                                              Eigen::VectorXi &LocalActBpair,
+                                              std::vector<bool> &correspondance,
+                                              std::vector<CGMesh::HalfedgeHandle> &heh0, std::vector<CGMesh::HalfedgeHandle> &heh1,
+                                              std::vector<double> &t1s, std::vector<double> &t2s);
+    void analysis_pseudo_geodesic_on_vertices(const Eigen::VectorXd& func_values,const std::vector<std::array<int, 2>> boundary_pairs, LSAnalizer& analizer);
+    
+   void assemble_solver_pesudo_geodesic_energy_part_stitch_boundary(Eigen::VectorXd &vars, const std::vector<double> &angle_degree,
+                                                                  const LSAnalizer &analizer, const int vars_start_loc, const int aux_start_loc, spMat &H, Eigen::VectorXd &B, Eigen::VectorXd &energy);                                                                  
+
     
 
-    // Mesh Optimization Part
+    /*
+        level set structures
+    */
 
+    // this function takes the reference level set also as variables
+    // fix the angle between the first and the second levelset
+    void assemble_solver_fix_two_ls_angle(const Eigen::VectorXd &vars, const double angle_fix,
+                                          spMat &H, Eigen::VectorXd &B, Eigen::VectorXd &energy);
+
+
+    /*
+        extract polylines
+    */
+    void extract_one_curve(const double value, Eigen::MatrixXd& E0, Eigen::MatrixXd &E1);
+    
+
+
+    /*
+        Triangle Mesh Optimization Part
+    */
+    Eigen::VectorXd Glob_Vars;
     spMat MVLap; // mean value laplacian
     spMat Elmat; // the edge length constriant
     double weight_Mesh_smoothness;
@@ -469,37 +475,6 @@ public:
 private:
     double Mesh_opt_max_step_length;
     bool Last_Opt_Mesh=false; // the last step was mesh optimization. need to update all the mesh properties
-
-    ///////////////functional angle values part//////////////////////
-
-    bool Analyze_Optimized_LS_Angles = false; // analyze the pg angles from the variables.
-    Eigen::VectorXd AnalizedAngelVector;
-
-    std::vector<double> changed_angles;
-    Eigen::VectorXd RawTargetAngles;
-    std::vector<int> PosFids;// the positive curved fids
-    std::vector<int> NegFids;// the nagative curved fids
-    std::vector<Eigen::Vector3d> OrthMinK;// the direction orthogonal to minimal curvature direction
-    std::vector<double> CosSqr; // the squared cosin value of the target direction to CurvatureDirections[i][0]
-    void assemble_solver_follow_min_abs_curvature(spMat &H, Eigen::VectorXd &B, Eigen::VectorXd& Eng);
-    // disable changed angles and use the current version.
-public:
-    bool Disable_Changed_Angles = false;
-    // By default false, meaning we still change the angles to make it close to asymptotics. 
-    // if true, fit the angles as a polynormial curve, and approximate the curve values.
-    bool Use_Fitting_Angles = false; 
-    bool Use_Opt_Only_BNMS = false;
-    bool Init_ChagingAngles = false;
-    std::vector<std::vector<Eigen::Vector3d>> CurvatureDirections;
-    void RunInitAOAP();
-    void write_fitting_data();
-    void show_minimal_curvature_directions(Eigen::MatrixXd& E0, Eigen::MatrixXd& E1, const double scaling);
-    // void generate_
-private:
-    
-    Eigen::VectorXd Glob_Vars;
-    std::array<LSAnalizer, 3> analizers;
-
     void calculate_mesh_opt_expanded_function_values( Eigen::VectorXd& vars,
         const LSAnalizer &analizer,
         const std::vector<double>& angle_degree,
@@ -528,6 +503,44 @@ private:
     // void assemble_solver_mesh_strip_width(spMat &JTJ, Eigen::VectorXd &B, Eigen::VectorXd &energy);
     void update_mesh_properties();// the mesh properties (normals, laplacian, etc.) get updated before optimization
 
+
+
+    /*
+    ///////////////functional angle values part//////////////////////
+    */
+    
+
+    bool Analyze_Optimized_LS_Angles = false; // analyze the pg angles from the variables.
+    Eigen::VectorXd AnalizedAngelVector;
+
+    std::vector<double> changed_angles;
+    Eigen::VectorXd RawTargetAngles;
+    std::vector<int> PosFids;// the positive curved fids
+    std::vector<int> NegFids;// the nagative curved fids
+    std::vector<Eigen::Vector3d> OrthMinK;// the direction orthogonal to minimal curvature direction
+    std::vector<double> CosSqr; // the squared cosin value of the target direction to CurvatureDirections[i][0]
+    void assemble_solver_follow_min_abs_curvature(spMat &H, Eigen::VectorXd &B, Eigen::VectorXd& Eng);
+    // disable changed angles and use the current version.
+public:
+    bool Disable_Changed_Angles = false;
+    // By default false, meaning we still change the angles to make it close to asymptotics. 
+    // if true, fit the angles as a polynormial curve, and approximate the curve values.
+    bool Use_Fitting_Angles = false; 
+    bool Use_Opt_Only_BNMS = false;
+    bool Init_ChagingAngles = false;
+    std::vector<std::vector<Eigen::Vector3d>> CurvatureDirections;
+    void write_fitting_data();
+    void show_minimal_curvature_directions(Eigen::MatrixXd& E0, Eigen::MatrixXd& E1, const double scaling);
+
+
+    /*
+        constant slope
+    */
+private:
+    std::vector<int> Fslope; // the faces of the marked slopes.
+    std::vector<Eigen::Vector3d> OrthoSlope; // the orthogonal vectors of the desired slopes
+    Eigen::MatrixXd bxis0;
+    Eigen::MatrixXd bxis1;
     // The following is for constant slope optimization
     void assemble_solver_constant_slope(const Eigen::VectorXd &vars,
                                         const bool fix_axis, const Eigen::Vector3d &axis_in, const bool fix_angle, const double angle_degree,
@@ -537,15 +550,45 @@ private:
                                         const bool fix_axis, const Eigen::Vector3d &axis_in, const bool fix_angle, const double angle_degree,
                                         const LSAnalizer &analizer,
                                         spMat &H, Eigen::VectorXd &B, Eigen::VectorXd &energy);
-
 public:
     bool AxisFixedForSlopes = false;
     bool AnglesFixedForSlopes = false;
     Eigen::Vector3d AxisFixIn;
     double AngleFixIn;
+    void show_slopes(const double scaleing, Eigen::MatrixXd &E0, Eigen::MatrixXd &E1);
+    
+    /*
+        node design
+    */
+
+   // the rulings passing through the same point.
+    void assemble_solver_co_point_ruling_node(const Eigen::VectorXd &vars,
+                                                   const bool fix_centroid, const Eigen::Vector3d &centroid_in, 
+												   const bool fix_radius, const std::vector<double>& radius_input,
+                                                   const LSAnalizer &analizer,
+                                                   spMat &H, Eigen::VectorXd &B, Eigen::VectorXd &energy);
+    void Run_ruling_opt();
+    void statistic_tangent_vector_to_pt_distance();
+    void test_quadratic_compare_0(const double a, const double b, const double c, const double xmin, const double xmax);
     
 
+    bool RulingFixCentroid = false;
+    bool RulingFixRadius = false;
+    Eigen::Vector3d RulingCentroid;
+    bool RulingOnlyFindingSphere = false; // take only centroid and radius as variables, keep the level sets unchanged
+    Eigen::MatrixXd TangentE0;
+    Eigen::MatrixXd TangentE1;
+    Eigen::MatrixXd NodeProjectPts;
+    bool write_ls_radius_file = false;
+    std::vector<double> RadiusCollected; 
+    std::vector<double> NodeFitPly;
+    std::vector<double> NodeFitTargetRadius;
+    Eigen::VectorXd XsNode;
+    Eigen::VectorXd YsNode;
 
+    /*
+    //////////////////////  Interfaces  ////////////////////
+    */
 public:
     // parametrization and find the boundary loop
     lsTools(CGMesh &mesh);
@@ -563,8 +606,6 @@ public:
     std::vector<int> IVids; // the ids of the inner vers, size is ninner
     spMat mass_uniform; // the uniformed mass matrix to make sure the average area is 1.
 
-
-    double weight_assign_face_value; // weight of the assigned value shown in the solver
     double weight_mass;              // weight of the mass function energy
     double weight_laplacian;              // weight of the laplacian energy
     double weight_boundary;              // weight of the boundary energy
@@ -576,20 +617,20 @@ public:
     double strip_width = 1;       // strip width, defined as h/w, h: level set function value difference. w: distance between two points on the surface
     double max_step_length;
     double step_length;
+    double pgerror;
     
     bool enable_pseudo_geodesic_energy=false; // decide if we include pseudo-geodesic energy
     bool enable_strip_width_energy=false;
-    bool enable_inner_vers_fixed=false;// decide if we enables fixing the inner vers and optimize boundary laplacian
-    bool enable_functional_angles=false;// decide if we enable functional angle variation
-    bool enable_boundary_angles=false;
+    
     bool enable_extreme_cases = false; // osculating plane othogonal to the normal direction, or contains the given direction
-    bool Given_Const_Direction = false;// use the given direction but not the normal
-    bool enable_max_energy_check = false;
+    bool Given_Const_Direction = false;// use the given direction for shading 
     bool enable_shading_init = false;
     bool enable_let_ray_through = false; // optimize that whole surface let ray through for shading
     bool enable_reflection = false;
     bool recompute_auxiliaries = false;// recompute auxiliaries to reduce the energy.
     bool fix_angle_of_two_levelsets = false;
+    double angle_between_two_levelsets;
+    double weight_fix_two_ls_angle;
 
     double Reference_theta;  // the ray feed to the optimization as a constant direction
     double Reference_phi;
@@ -600,32 +641,15 @@ public:
     double ShadingLatitude;
     double Theta_tol1;
     double Phi_tol1;
-    double max_energy_percentage = 0;
-    std::vector<int> Second_Ray_vers; // the vertices for the second shading light direction
-    int Second_Ray_nbr_rings = 1; // the nbr of rings associate to the vers corresponding to the second ray
+
     double weight_binormal;
     Eigen::VectorXi shading_condition_info;
     std::vector<std::vector<int>> PG_Vertex_Types;// record the vertices types used in variational angle
-    Eigen::VectorXd PGGeoDistance;
-    Eigen::VectorXd PGVariationalAngles;
-    double angle_between_two_levelsets;
-    double weight_fix_two_ls_angle;
-    std::vector<std::array<int, 2>> BndPairs; // pairs of overlapping boundary vertices.
-
-private:
-    std::vector<int> Fslope; // the faces of the marked slopes.
-    std::vector<Eigen::Vector3d> OrthoSlope; // the orthogonal vectors of the desired slopes
-    Eigen::MatrixXd bxis0;
-    Eigen::MatrixXd bxis1;
+    Eigen::VectorXd PGGeoDistance;// TODO maybe not needed since this method is bad.
+    Eigen::VectorXd PGVariationalAngles;// TODO maybe not needed since this method is bad.
     
-
-public:
-    void show_slopes(const double scaleing, Eigen::MatrixXd &E0, Eigen::MatrixXd &E1);
     double pseudo_geodesic_target_angle_degree; // the target pseudo-geodesic angle
     double pseudo_geodesic_target_angle_degree_2; // the target pseudo-geodesic angle
-    double pseudo_geodesic_start_angle_degree; // the start angle
-    double pseudo_geodesic_target_min_angle_degree; // the target angle for max function value of LS
-    double pseudo_geodesic_target_max_angle_degree; // the target angle for min function value of LS
     // bool enable_pseudo_vertex=false;
 
     // Eigen::MatrixXd vBinormal;
@@ -639,8 +663,8 @@ public:
     Eigen::VectorXd PGE;// pseudo geodesic energy
 
     std::vector<int> refids;                      // output the ids of current dealing points. just for debug purpose
-    Eigen::MatrixXd Ppro0;// the projected corresponding points 
-    Eigen::MatrixXd Npro0;// the normal vector of the projected corresponding points 
+    Eigen::MatrixXd Ppro0;// the projected corresponding points of the mesh to the reference mesh
+    Eigen::MatrixXd Npro0;// the normal vector of the projected corresponding points on the reference mesh
     
     // Eigen::Vector3d ray_catcher(int vid);
     // boundary conditions
@@ -686,9 +710,8 @@ public:
     }
     void prepare_level_set_solving(const EnergyPrepare &Energy_initializer);
     void prepare_mesh_optimization_solving(const MeshEnergyPrepare& initializer);
+    
     void show_level_set(Eigen::VectorXd &val);
-    // convert the parameters into a mesh, for visulization purpose
-    void convert_paras_as_meshes(CGMesh &output);
 
     void show_gradients(Eigen::MatrixXd &E0, Eigen::MatrixXd &E1, double ratio);
     void show_gradient_scalar(Eigen::VectorXd &values, int which);
@@ -696,21 +719,25 @@ public:
     void show_current_reference_points(Eigen::MatrixXd &pts);
     void show_1_order_derivate(Eigen::MatrixXd &E0, Eigen::MatrixXd &E1, Eigen::MatrixXd &E2, Eigen::MatrixXd &E3, double ratio);
     void show_vertex_normal(Eigen::MatrixXd &E0, Eigen::MatrixXd &E1, double ratio);
-    void show_pseudo_geodesic_curve(std::vector<Eigen::MatrixXd> &E0, std::vector<Eigen::MatrixXd> &E1, Eigen::MatrixXd &vers);
-    void show_traced_binormals(Eigen::MatrixXd &bE0, Eigen::MatrixXd &bE1, Eigen::MatrixXd &nE0, Eigen::MatrixXd &nE1, const double scale);
-    void show_posi_negt_curvature(Eigen::MatrixXd& color);
     void show_binormals(const Eigen::VectorXd &func, Eigen::MatrixXd &E0, Eigen::MatrixXd &E1, Eigen::MatrixXd &binormals, double ratio);
     void show_max_pg_energy(Eigen::VectorXd& e);
     void show_max_pg_energy_all(Eigen::MatrixXd &energy);
+    void show_posi_negt_curvature(Eigen::MatrixXd& color);
+    void extract_levelset_curves(const int nbr, std::vector<Eigen::MatrixXd> &E0, std::vector<Eigen::MatrixXd> &E1);
+    // works only for const slope method
     void show_bxis(Eigen::MatrixXd& E0, Eigen::MatrixXd& E1);
+   
+   
+    // show the traced pg curves
+    void show_pseudo_geodesic_curve(std::vector<Eigen::MatrixXd> &E0, std::vector<Eigen::MatrixXd> &E1, Eigen::MatrixXd &vers);
+    void show_traced_binormals(Eigen::MatrixXd &bE0, Eigen::MatrixXd &bE1, Eigen::MatrixXd &nE0, Eigen::MatrixXd &nE1, const double scale);
     void show_traced_curve_params(Eigen::MatrixXd &curve);
     void save_traced_curves(const std::string filename);
     void clear_traced_curves();
     void load_one_traced_curve();
-    Eigen::VectorXi shading_detect_parallel_patch(const double theta, const double phi, Eigen::VectorXd& diff);
-    void print_info(const int vid);
-
     void Trace_One_Guide_Pseudo_Geodesic();
+    
+    
     // after tracing, use this function to get smooth level set
     void Run_Level_Set_Opt();
     void Run_Level_Set_Opt_interactive(const bool compute_pg);
@@ -725,17 +752,19 @@ public:
     void Run_PPG_Mesh_Opt(Eigen::VectorXd& func0, Eigen::VectorXd& func1, Eigen::VectorXd& func2);
     void Run_Othogonal_Levelset(const Eigen::VectorXd &func_ref);
     void Run_AsOrthAsPossible_LS();
+    void RunInitAOAP();
     void Run_ConstSlopeOpt();
+
     void initialize_level_set_accroding_to_parametrization();
+    // the following two functions actually trace curves or segments and assign values on them
     void initialize_level_set_by_tracing(const TracingPrepare& Tracing_initializer);
-    void initialize_level_set_by_boundary_assignment(const TracingPrepare& Tracing_initializer);
     void initialize_level_set_by_select_boundary_segment(const TracingPrepare& Tracing_initializer, bool trace);
-    void extract_levelset_curves(const int nbr, std::vector<Eigen::MatrixXd> &E0, std::vector<Eigen::MatrixXd> &E1);
     bool receive_interactive_strokes_and_init_ls(const std::vector<std::vector<int>> &flist,
                                           const std::vector<std::vector<Eigen::Vector3f>> &bclist);
-    // void clear_high_energy_markers_in_analizer();
+
     CGMesh write_parameterization_mesh();
     void debug_tool();
+    void print_info(const int vid);
 };
 
 // // partial derivate tools, regard level set function as variates.
