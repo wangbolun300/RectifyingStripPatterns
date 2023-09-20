@@ -24,7 +24,7 @@ If you use our code in your project, please consider citing the original paper:
 To compile the code, first you need to install CMake (https://cmake.org/), 
 To build the executable on Linux or macOS:
 ```sh
-cd level-set-curves/
+cd RectifyingStripPatterns/
 mkdir build
 cd build
 cmake ../  -DCMAKE_BUILD_TYPE=Release
