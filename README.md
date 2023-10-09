@@ -1,12 +1,10 @@
 # Rectifying Strip Patterns
 <img src="./data/fig/code_teaser.png"  />  
-This is an implementation of the paper "Rectifying Strip Patterns" (SIGGRAPH ASIA 2023). The code is implemented in C++, and tested on MSVC and GCC. This is a framework to design rectifying strips/structures, including a scalar field optimization framework, a quad mesh optimization framework, code for optimizing binormal strips into rectifying strips, etc. 
-
-
+This is an implementation of the paper "Rectifying Strip Patterns" (SIGGRAPH ASIA 2023). The code is implemented in C++, and tested on MSVC and GCC. This is a framework to design rectifying strips/structures, including a scalar field optimization framework, a quad mesh optimization framework, code for optimizing binormal strips into rectifying strips, etc.
 
 ## Citation
 
-If you use our code in your project, please consider citing the original paper:
+If you use our code in your project, please consider citing the [original paper](https://github.com/wangbolun300/RectifyingStripPatterns/blob/main/data/RectifyingPatternsLowRes.pdf):
 
 ```bibtex
 @article{Wang:2023:Rectifying,
@@ -17,7 +15,7 @@ If you use our code in your project, please consider citing the original paper:
     journal      = {ACM Transactions on Graphics},
     volume       = XX,
     number       = XX,
-    articleno    = XX,
+    articleno    = 256,
     numpages     = XX
 }
 ```
