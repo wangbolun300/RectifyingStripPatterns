@@ -2,6 +2,8 @@
 <img src="./data/fig/code_teaser.png"  />  
 This is an implementation of the paper "Rectifying Strip Patterns" (SIGGRAPH ASIA 2023). The code is implemented in C++, and tested on MSVC and GCC. This is a framework to design rectifying strips/structures, including a scalar field optimization framework, a quad mesh optimization framework, code for optimizing binormal strips into rectifying strips, etc. 
 
+
+
 ## Citation
 
 If you use our code in your project, please consider citing the original paper:
@@ -30,7 +32,7 @@ cd build
 cmake ../  -DCMAKE_BUILD_TYPE=Release
 make
 ```
-To build it on MSVC, you need to download openmesh (https://gitlab.vci.rwth-aachen.de:9000/OpenMesh/OpenMesh/-/jobs/156362/artifacts/raw/OpenMesh-9.1.0.zip) into the "external" folder, unzip it into "external/openmesh/OpenMesh-9.1.0" and build it into "external/openmesh/OpenMesh-9.1.0/build".
+To build it on MSVC, you need to download [openmesh](https://gitlab.vci.rwth-aachen.de:9000/OpenMesh/OpenMesh/-/jobs/156362/artifacts/raw/OpenMesh-9.1.0.zip) into the "external" folder, unzip it into "external/openmesh/OpenMesh-9.1.0" and build it into "external/openmesh/OpenMesh-9.1.0/build".
 
 Then double-click the executable `lsc_devbin`, you will see a pop-out window whose buttons link the functions that generate all the results in our paper. 
 
