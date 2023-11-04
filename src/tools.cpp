@@ -7292,3 +7292,387 @@ void assign_ls_to_subpatch(CGMesh &ref, CGMesh &base, const Eigen::VectorXd &fun
         
     }
 }
+
+
+// the following code is used to generate arrows aligning with given directions.
+// merge the two mesh into one file
+void extendMesh(Eigen::MatrixXd& V, Eigen::MatrixXi& F, Eigen::MatrixXd& Va, Eigen::MatrixXi& Fa){
+    int vnbr0 = V.rows();
+    int vnbr1 = Va.rows();
+    int fnbr0 = F.rows();
+    int fnbr1 = Fa.rows();
+    Eigen::MatrixXd Vnew(vnbr0 + vnbr1, 3);
+    Eigen::MatrixXi Fnew(fnbr0 + fnbr1, 3);
+    Vnew.topRows(vnbr0) = V;
+    Vnew.bottomRows(vnbr1) = Va;
+    Fnew.topRows(fnbr0) = F;
+    Fnew.bottomRows(fnbr1) = Fa;
+    Fnew.bottomRows(fnbr1).array() += vnbr0;
+    V = Vnew;
+    F = Fnew;
+}
+
+// void RotationMatrix(const Eigen::Vector3d& vbefore,const Eigen::Vector3d& vafter, Eigen::Matrix3d& mat){
+//     Eigen::Vector3d va = vbefore.normalized();
+//     Eigen::Vector3d vb = vafter.normalized();
+//     Eigen::Vector3d vs = vb.cross(va);
+//     Eigen::Vector3d v = vs.normalized();
+//     double ca = vb.dot(va);
+//     double scale = 1 - ca;
+//     Eigen::Vector3d vt = v * scale;
+//     mat(0,0) = vt[0] * v[0] + ca;
+//     mat(1,1) = vt[1] * v[1] + ca;
+//     mat(2,2) = vt[2] * v[2] + ca;
+//     vt[0] *= v[1];
+//     vt[2] *= v[0];
+//     vt[1] *= v[2];
+//     mat(0, 1) = vt[0] - vs[2];
+//     mat(0, 2) = vt[2] - vs[1];
+//     mat(1, 0) = vt[0] - vs[2];
+//     mat(1, 2) = vt[1] - vs[0];
+//     mat(2, 0) = vt[2] - vs[1];
+//     mat(2, 1) = vt[1] - vs[0];
+// }
+
+
+// Rodrigues' rotation formula
+Eigen::Matrix3d getRotationMatrix(Eigen::Vector3d vectorBefore, Eigen::Vector3d vectorAfter)
+        {
+            Eigen::Vector3d vb = vectorBefore.normalized();
+            Eigen::Vector3d va = vectorAfter.normalized();
+
+            Eigen::Vector3d vs = vb.cross(va);
+            Eigen::Vector3d v = vs.normalized();
+            double ca = vb.dot(va);
+
+            double scale = 1 - ca;
+            Eigen::Vector3d vt(v[0] * scale, v[1] * scale, v[2] * scale);
+
+            Eigen::Matrix3d rotationMatrix;
+
+            rotationMatrix(0, 0) = vt[0] * v[0] + ca;
+            rotationMatrix(1, 1) = vt[1] * v[1] + ca;
+            rotationMatrix(2, 2) = vt[2] * v[2] + ca;
+            vt[0] *= v[1];
+            vt[2] *= v[0];
+            vt[1] *= v[2];
+
+            rotationMatrix(0, 1) = vt[0] - vs[2];
+            rotationMatrix(0, 2) = vt[2] + vs[1];
+            rotationMatrix(1, 0) = vt[0] + vs[2];
+            rotationMatrix(1, 2) = vt[1] - vs[0];
+            rotationMatrix(2, 0) = vt[2] - vs[1];
+            rotationMatrix(2, 1) = vt[1] + vs[0];
+
+            return rotationMatrix;
+        }
+
+
+
+// the arrow is originally in (0,0,0) and pointing to z axis
+void orientMeshToDirection(const Eigen::Vector3d& pstart, const Eigen::Vector3d& pend, Eigen::MatrixXd& V){
+    // put the mesh to the location
+    int vnbr = V.rows();
+    
+    // orient the mesh
+    Eigen::Matrix3d rot;
+    Eigen::Vector3d dtarget = (pend - pstart).normalized();
+    Eigen::Vector3d dstart = Eigen::Vector3d(0, 0, 1);
+    rot = getRotationMatrix(dstart, dtarget);
+    Eigen::MatrixXd Vtra = V.transpose();
+    Vtra = rot * Vtra;
+    V = Vtra.transpose();
+    V.col(0) = V.col(0) + Eigen::VectorXd::Ones(vnbr) * double(pstart(0));
+    V.col(1) = V.col(1) + Eigen::VectorXd::Ones(vnbr) * double(pstart(1));
+    V.col(2) = V.col(2) + Eigen::VectorXd::Ones(vnbr) * double(pstart(2));
+
+}
+
+void orientVectors(Eigen::MatrixXd &d, const double sign = 1)
+{
+    Eigen::Vector3d ref = d.row(0) * sign;
+    for (int i = 0; i < d.rows(); i++)
+    {
+        Eigen::Vector3d vec = d.row(i);
+        if (vec.dot(ref) < 0)
+        {
+            d.row(i) *= -1;
+        }
+    }
+}
+
+void orientEndpts(Eigen::MatrixXd& ref, const Eigen::MatrixXd &start, Eigen::MatrixXd &end, const double sign = 1)
+{
+    ref *= sign;
+    for (int i = 0; i < start.rows(); i++)
+    {
+        Eigen::Vector3d vec = end.row(i) - start.row(i);
+        if (vec.dot(Eigen::Vector3d(ref.row(i))) < 0)
+        {
+            end.row(i) = -vec + Eigen::Vector3d(start.row(i));
+        }
+    }
+}
+
+void runRotateArrows(double scaling){
+    // for normal vectors
+    bool orient = false;
+    double orientSign = 1;
+    std::string normEndfile = "/Users/wangb0d/bolun/F/文件/个人/postdoc/presentation/materials/arrows/pts_normal_end.obj";
+    std::string arrowfile = "/Users/wangb0d/bolun/F/文件/个人/postdoc/presentation/materials/arrows/arrowTri.obj";
+    std::string pstartfile = "/Users/wangb0d/bolun/F/文件/个人/postdoc/presentation/materials/arrows/wrong_results/pts_start.obj";
+    std::string pendfile = "/Users/wangb0d/bolun/F/文件/个人/postdoc/presentation/materials/arrows/wrong_results/pts_normal_end.obj";
+    std::string exportfile = "/Users/wangb0d/bolun/F/文件/个人/postdoc/presentation/materials/arrows/normalUnionWrong.obj";
+
+    ////////////////////////
+    // // for binormal vectors
+    // pendfile = "/Users/wangb0d/bolun/F/文件/个人/postdoc/presentation/materials/arrows/pts_binormal_end.obj";
+    // exportfile = "/Users/wangb0d/bolun/F/文件/个人/postdoc/presentation/materials/arrows/binormalVectors.obj";
+    // orient = true;
+    // orientSign = -1;
+    // ///////////////////////////////
+
+    // ////////////////////////
+    // // for messy vectors
+    // pstartfile = "/Users/wangb0d/bolun/F/文件/个人/postdoc/presentation/materials/arrows/wrong_results/pts_start.obj";
+    // pendfile = "/Users/wangb0d/bolun/F/文件/个人/postdoc/presentation/materials/arrows/wrong_results/pts_binormal_end.obj";
+    // exportfile = "/Users/wangb0d/bolun/F/文件/个人/postdoc/presentation/materials/arrows/binormalVectorsWrong.obj";
+    // orient = true;
+    // orientSign = 1;
+    ///////////////////////////////
+
+
+    Eigen::MatrixXd Varrow, Vstart, Vend, V, VNormEnd;
+    Eigen::MatrixXi Farrow, Fstart, Fend, F, Ftmp;
+    igl::readOBJ(arrowfile, Varrow, Farrow);
+    igl::readOBJ(pstartfile, Vstart, Fstart);
+    igl::readOBJ(pendfile, Vend, Fend);
+    std::cout << "readed " << std::endl;
+    // rescaling and orienting the arrow
+    Varrow *= scaling;
+    if (orient)
+    {
+        igl::readOBJ(normEndfile, VNormEnd, Ftmp);
+        Eigen::MatrixXd ref = VNormEnd - Vstart;
+        orientEndpts(ref, Vstart, Vend, orientSign);
+    }
+
+    Eigen::Vector3d pstart = Vstart.row(0);
+    Eigen::Vector3d pend = Vend.row(0);
+    Eigen::MatrixXd Varrowtmp = Varrow;
+    Eigen::MatrixXi Farrowtmp = Farrow;
+    std::cout << "check  Varrowtmp " << Varrowtmp.rows() << std::endl;
+    orientMeshToDirection(pstart, pend, Varrowtmp);
+    std::cout << "check  Varrowtmp " << Varrowtmp.rows() << std::endl;
+    std::cout << "check  Farrowtmp " << Farrowtmp.rows() << std::endl;
+    V = Varrowtmp;
+    F = Farrowtmp;
+    int nbr = Vstart.rows();
+    std::cout << "nbr of segs " << nbr << std::endl;
+
+    for (int i = 1; i < nbr; i++)
+    {
+        pstart = Vstart.row(i);
+        pend = Vend.row(i);
+        Varrowtmp = Varrow;
+        orientMeshToDirection(pstart, pend, Varrowtmp);
+        extendMesh(V, F, Varrowtmp, Farrowtmp);
+    }
+    igl::writeOBJ(exportfile, V, F);
+}
+
+// quads
+void generateFlist(const int nvstart, Eigen::MatrixXi& F){
+    F.resize(nvstart - 1, 4);
+    for (int i = 0; i < F.rows(); i++)
+    {
+        Eigen::Vector4i face;
+        // i, i+1, i+nvstart+1, i+nvstart
+        face << i, i + 1, i + nvstart + 1, i + nvstart;
+        F.row(i) = face;
+    }
+}
+
+// triangles
+void generateFlistTri(const int nvstart, Eigen::MatrixXi& F){
+    F.resize((nvstart - 1) * 2, 4);
+    for (int i = 0; i < F.rows() / 2; i++)
+    {
+        Eigen::Vector3i face0, face1;
+        // i, i+1, i+nvstart+1, i+nvstart
+        face0 << i, i + 1, i + nvstart + 1;
+        face1 << i, i + nvstart + 1, i + nvstart;
+        F.row(2 * i) = face0;
+        F.row(2 * i + 1) = face1;
+    }
+}
+
+// quads
+void generateFQuands(const Eigen::MatrixXd &Vstart, const Eigen::MatrixXd &Vend, Eigen::MatrixXd &Vall, Eigen::MatrixXi &F,
+                     const double scaling)
+{
+    Eigen::MatrixXd D = Vend - Vstart;
+    int nqd = D.rows() - 1;
+    Eigen::MatrixXd Vstart0(nqd, 3), Vstart1(nqd, 3);
+    Eigen::MatrixXd Vend0(nqd, 3), Vend1(nqd, 3);
+
+    for (int i = 0; i < D.rows() - 1; i++)
+    {
+        Eigen::Vector3d direction = D.row(i) * scaling;
+        Eigen::Vector3d tangent = (Vstart.row(i + 1) - Vstart.row(i)).normalized();
+        Vstart0.row(i) = Eigen::Vector3d(Vstart.row(i)) + tangent * scaling / 2;
+        Vstart1.row(i) = Eigen::Vector3d(Vstart.row(i)) - tangent * scaling / 2;
+        Vend0.row(i) = direction + Eigen::Vector3d(Vstart0.row(i));
+        Vend1.row(i) = direction + Eigen::Vector3d(Vstart1.row(i));
+    }
+
+    Vall.resize(nqd * 4, 3); 
+    Vall.topRows(nqd) = Vstart0;
+    Vall.middleRows(nqd, nqd) = Vstart1;
+    Vall.middleRows(nqd * 2, nqd) = Vend0;
+    Vall.bottomRows(nqd) = Vend1;
+    
+    F.resize(nqd, 4);
+
+    for (int i = 0; i < F.rows(); i++)
+    {
+        Eigen::Vector4i face;
+        // i, i+nqd, i+3*nqd, i+2*nqd
+        face << i, i + nqd, i + 3 * nqd, i + 2 * nqd;
+        F.row(i) = face;
+    }
+}
+
+// scaling is to rescale the quad length
+void writeRectifyingPlanes(double scaling)
+{
+    // for normal vectors
+    bool orient = false;
+    double orientSign = 1;
+    std::string normEndfile = "/Users/wangb0d/bolun/F/文件/个人/postdoc/presentation/materials/arrows/pts_normal_end.obj";
+    std::string arrowfile = "/Users/wangb0d/bolun/F/文件/个人/postdoc/presentation/materials/arrows/arrowTri.obj";
+    std::string pstartfile = "/Users/wangb0d/bolun/F/文件/个人/postdoc/presentation/materials/arrows/pts_start.obj";
+    std::string pendfile = "/Users/wangb0d/bolun/F/文件/个人/postdoc/presentation/materials/arrows/pts_normal_end.obj";
+    std::string exportfile = "/Users/wangb0d/bolun/F/文件/个人/postdoc/presentation/materials/arrows/arrowUnion.obj";
+
+    ////////////////////////
+    // for binormal vectors
+    pendfile = "/Users/wangb0d/bolun/F/文件/个人/postdoc/presentation/materials/arrows/pts_binormal_end.obj";
+    exportfile = "/Users/wangb0d/bolun/F/文件/个人/postdoc/presentation/materials/arrows/quads.obj";
+    orient = true;
+    orientSign = 1; 
+    ///////////////////////////////
+
+    ////////////////////////
+    // for messy vectors
+    pstartfile = "/Users/wangb0d/bolun/F/文件/个人/postdoc/presentation/materials/arrows/wrong_results/pts_start.obj";
+    pendfile = "/Users/wangb0d/bolun/F/文件/个人/postdoc/presentation/materials/arrows/wrong_results/pts_binormal_end.obj";
+    exportfile = "/Users/wangb0d/bolun/F/文件/个人/postdoc/presentation/materials/arrows/quadsWrong.obj";
+    orient = true;
+    orientSign = 1;
+    ///////////////////////////////
+
+
+    Eigen::MatrixXd Varrow, Vstart, Vend, V, VNormEnd;
+    Eigen::MatrixXi Farrow, Fstart, Fend, F, Ftmp;
+    igl::readOBJ(arrowfile, Varrow, Farrow);
+    igl::readOBJ(pstartfile, Vstart, Fstart);
+    igl::readOBJ(pendfile, Vend, Fend);
+    std::cout << "readed start size and end size "<<Vstart.rows()<<", "<<Vend.rows() << std::endl;
+    // rescaling and orienting the arrow
+    Varrow *= scaling;
+    if (orient)
+    {
+        igl::readOBJ(normEndfile, VNormEnd, Ftmp);
+        Eigen::MatrixXd ref = VNormEnd - Vstart;
+        orientEndpts(ref, Vstart, Vend, orientSign);
+    }
+    int nvstart = Vstart.rows();
+    // Eigen::MatrixXd Vall(2 * nvstart, 3);
+    // Eigen::MatrixXi Fall;
+    // Vall.topRows(nvstart) = Vstart;
+    // Vend = Vstart + (Vend - Vstart) * scaling;
+    // Vall.bottomRows(nvstart) = Vend;
+
+    // generateFlist(nvstart, Fall);
+    // generateFlistTri(nvstart, Fall);
+    Eigen::MatrixXd Vout;
+    Eigen::MatrixXi Fout;
+    generateFQuands(Vstart, Vend, Vout, Fout, scaling);
+
+    igl::writeOBJ(exportfile, Vout, Fout);
+}
+
+void writeOBJEdges(const std::string &fileout, const Eigen::MatrixXd &V) {
+    std::ofstream fout;
+    fout.open(fileout);
+    int vnbr = V.rows();
+    for (int i = 0; i < vnbr; i++)
+    {
+        fout << "v " << V(i, 0) << " " << V(i, 1) << " " << V(i, 2) << "\n";
+    }
+    for (int i = 0; i < vnbr - 1; i++)
+    {
+        fout << "l " << i + 1 << " " << i + 2 << "\n";
+    }
+    fout.close();
+}
+
+void writeMessyPoints(double scaling)
+{
+    // for normal vectors
+    bool orient = false;
+    double orientSign = 1;
+    std::string normEndfile = "/Users/wangb0d/bolun/F/文件/个人/postdoc/presentation/materials/arrows/pts_normal_end.obj";
+    std::string arrowfile = "/Users/wangb0d/bolun/F/文件/个人/postdoc/presentation/materials/arrows/arrowTri.obj";
+    std::string pstartfile = "/Users/wangb0d/bolun/F/文件/个人/postdoc/presentation/materials/arrows/pts_start.obj";
+    std::string pendfile = "/Users/wangb0d/bolun/F/文件/个人/postdoc/presentation/materials/arrows/pts_normal_end.obj";
+    std::string exportfile = "/Users/wangb0d/bolun/F/文件/个人/postdoc/presentation/materials/arrows/arrowUnion.obj";
+
+    ////////////////////////
+    // for binormal vectors
+    pendfile = "/Users/wangb0d/bolun/F/文件/个人/postdoc/presentation/materials/arrows/pts_binormal_end.obj";
+    exportfile = "/Users/wangb0d/bolun/F/文件/个人/postdoc/presentation/materials/arrows/lines.obj";
+    orient = true;
+    orientSign = 1; 
+    ///////////////////////////////
+
+    ////////////////////////
+    // for messy vectors
+    // pstartfile = "/Users/wangb0d/bolun/F/文件/个人/postdoc/presentation/materials/arrows/wrong_results/pts_start.obj";
+    // pendfile = "/Users/wangb0d/bolun/F/文件/个人/postdoc/presentation/materials/arrows/wrong_results/pts_binormal_end.obj";
+    // exportfile = "/Users/wangb0d/bolun/F/文件/个人/postdoc/presentation/materials/arrows/linesWrong.obj";
+    // orient = true;
+    // orientSign = 1;
+    ///////////////////////////////
+
+
+    Eigen::MatrixXd Varrow, Vstart, Vend, V, VNormEnd;
+    Eigen::MatrixXi Farrow, Fstart, Fend, F, Ftmp;
+    igl::readOBJ(arrowfile, Varrow, Farrow);
+    igl::readOBJ(pstartfile, Vstart, Fstart);
+    igl::readOBJ(pendfile, Vend, Fend);
+    // std::cout << "readed start size and end size "<<Vstart.rows()<<", "<<Vend.rows() << std::endl;
+    // // rescaling and orienting the arrow
+    // Varrow *= scaling;
+    // if (orient)
+    // {
+    //     igl::readOBJ(normEndfile, VNormEnd, Ftmp);
+    //     Eigen::MatrixXd ref = VNormEnd - Vstart;
+    //     orientEndpts(ref, Vstart, Vend, orientSign);
+    // }
+    // int nvstart = Vstart.rows();
+    // // Eigen::MatrixXd Vall(2 * nvstart, 3);
+    // // Eigen::MatrixXi Fall;
+    // // Vall.topRows(nvstart) = Vstart;
+    // // Vend = Vstart + (Vend - Vstart) * scaling;
+    // // Vall.bottomRows(nvstart) = Vend;
+
+    // // generateFlist(nvstart, Fall);
+    // // generateFlistTri(nvstart, Fall);
+    // Eigen::MatrixXd Vout;
+    // Eigen::MatrixXi Fout;
+    // generateFQuands(Vstart, Vend, Vout, Fout, scaling);
+
+    writeOBJEdges(exportfile, Vstart);
+}

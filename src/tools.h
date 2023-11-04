@@ -204,3 +204,6 @@ void compute_ls_intersections_and_assign_parallel_joints(const CGMesh &lsmesh, c
 void angle_range_calculator(double theta, double phi, double theta_tol, double phi_tol, double &zmin, double &zmax, double &tanmin,
 							double &tanmax);
 void assign_ls_to_subpatch(CGMesh &ref, CGMesh &base, const Eigen::VectorXd &func, Eigen::VectorXd &funout);
+void runRotateArrows(double scaling);
+void writeRectifyingPlanes(double scaling);
+void writeMessyPoints(double scaling);
