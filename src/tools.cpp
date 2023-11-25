@@ -6358,6 +6358,46 @@ void obj2csv()
     }
     fout.close();
 }
+void csv2objcurves(){
+    std::cout<<"reading the two families of curves, please provide the prefixes"<<std::endl;
+    std::string fname1 = igl::file_dialog_save();
+    // std::string fname2 = igl::file_dialog_save();
+    if (fname1.length() == 0)
+    {
+        std::cout << "Please type down the prefix" << std::endl;
+        return;
+    }
+    std::vector<std::vector<double>> vx1, vy1, vz1;
+    read_csv_data_lbl(fname1+"_x.csv", vx1);
+    read_csv_data_lbl(fname1+"_y.csv", vy1);
+    read_csv_data_lbl(fname1+"_z.csv", vz1);
+    std::cout << "saving obj edge file" << std::endl;
+    std::string fname = igl::file_dialog_save();
+    std::ofstream fout;
+    fout.open(fname);
+    
+    for (int i = 0; i < vx1.size(); i++)
+    {
+        for (int j = 0; j < vx1[i].size(); j++)
+        {
+            fout << "v " << vx1[i][j] << " " << vy1[i][j] << " " << vz1[i][j] << "\n";
+        }
+    }
+    int count = 1; // id starts from 1
+    for (int i = 0; i < vx1.size(); i++)
+    {
+        for (int j = 0; j < vx1[i].size(); j++)
+        {
+            if (j < vx1[i].size() - 1)
+            {
+                fout << "l " << count << " " << count + 1 << "\n";
+            }
+            count++;
+        }
+    }
+    fout.close();
+    std::cout << "file saved" << std::endl;
+}
 
 void lsTools::debug_tool(){
     Eigen::VectorXi info;

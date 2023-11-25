@@ -643,6 +643,11 @@ void lscif::draw_menu1(igl::opengl::glfw::Viewer &viewer, igl::opengl::glfw::img
 				std::cout << "Compare two faimilies of curves max distance" << std::endl;
 				compare_multiple_correspoding_curves_dis();
 			}
+			ImGui::SameLine();
+			if (ImGui::Button("CSV2OBJ", ImVec2(ImGui::GetWindowSize().x * 0.23f, 0.0f)))
+			{
+				csv2objcurves();
+			}
 			if (ImGui::Button("WriteErrorCSV", ImVec2(ImGui::GetWindowSize().x * 0.23f, 0.0f)))
 			{
 				Eigen::VectorXd error_print;

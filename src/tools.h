@@ -181,6 +181,7 @@ void get_orthogonal_direction_minimal_principle_curvature(const Eigen::MatrixXd 
                                                           std::vector<int> &idsneg, std::vector<Eigen::Vector3d> &ortho,
                                                           std::vector<double> &coscos, std::vector<std::vector<Eigen::Vector3d>>& CurvDir);
 void obj2csv();    
+void csv2objcurves();
 void project_polylines_on_shading_curves_and_save_results();     
 void read_draw_pts_from_plylines(Eigen::MatrixXd &ver);           
 void read_plylines_extract_offset_mesh(const double scale_front, const double scale_back, CGMesh& mesh);      
