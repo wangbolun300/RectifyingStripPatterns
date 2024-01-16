@@ -557,6 +557,16 @@ Eigen::VectorXd vec_list_to_vector(const std::vector<double>& vec){
     }
     return result;
 }
+Eigen::VectorXi vec_list_to_vector(const std::vector<int> &vec)
+{
+    Eigen::VectorXi result;
+    result.resize(vec.size());
+    for (int i = 0; i < vec.size(); i++)
+    {
+        result[i] = vec[i];
+    }
+    return result;
+}
 std::vector<Eigen::Vector3d> mat_to_vec_list(const Eigen::MatrixXd &m)
 {
     std::vector<Eigen::Vector3d> result(m.rows());
@@ -2947,13 +2957,71 @@ void extract_levelset_web(const CGMesh &lsmesh, const Eigen::MatrixXd &V,
     std::cout<<"Each row and col of quads got saved"<<std::endl;
 }
 
+void getWebFromMat(const Eigen::MatrixXi &mat, Eigen::VectorXi &l0, Eigen::VectorXi &l1, Eigen::VectorXi &l2, Eigen::VectorXi &l3,
+                   Eigen::VectorXi &l4, Eigen::VectorXi &l5)
+{
+    std::vector<int> e0, e1, e2, e3, e4, e5;
+    int rows = mat.rows();
+    int cols = mat.cols();
+    for (int i = 0; i < rows; i++)
+    {
+        for (int j = 0; j < cols; j++)
+        {
+            if (j < cols - 1)
+            {
+                if (mat(i, j) >= 0 && mat(i, j + 1) >= 0)
+                {
+                    e0.push_back(mat(i, j));
+                    e1.push_back(mat(i, j + 1));
+                }
+            }
+            if (i < rows - 1)
+            {
+                if (mat(i, j) >= 0 && mat(i + 1, j) >= 0)
+                {
+                    e2.push_back(mat(i, j));
+                    e3.push_back(mat(i + 1, j));
+                }
+            }
+
+            if (i < rows - 1 && j < cols + 1)
+            {
+                if (mat(i, j + 1) >= 0 && mat(i + 1, j) >= 0)
+                {
+                    e4.push_back(mat(i, j + 1));
+                    e5.push_back(mat(i + 1, j));
+                }
+            }
+        }
+    }
+    l0 = vec_list_to_vector(e0);
+    l1 = vec_list_to_vector(e1);
+    l2 = vec_list_to_vector(e2);
+    l3 = vec_list_to_vector(e3);
+    l4 = vec_list_to_vector(e4);
+    l5 = vec_list_to_vector(e5);
+}
+
+void writeEdgeFile(const std::string& name, const Eigen::MatrixXd& V, const Eigen::VectorXi& l0, const Eigen::VectorXi& l1){
+    std::ofstream fout;
+    fout.open(name);
+    for (int i = 0; i < V.rows(); i++)
+    {
+        fout << "v " << V(i, 0) << " " << V(i, 1) << " " << V(i, 2) << "\n";
+    }
+    for(int i=0;i<l0.size();i++){
+        fout<<"l "<<l0[i]+1<<" "<<l1[i]+1<<"\n";
+    }
+    fout.close();
+}
 
 // threadshold_nbr is the nbr of quads we want to discard when too few quads in a row
 // this function uses the baricenter coordinates to solve intersection points
+// diagSegments is true then write the diagonal segments.
 void extract_levelset_web_stable(const CGMesh &lsmesh, const std::vector<CGMesh::HalfedgeHandle>& loop, const Eigen::MatrixXd &V,
                           const Eigen::MatrixXi &F, const Eigen::VectorXd &ls0, const Eigen::VectorXd &ls1,
                           const int expect_nbr_ls0, const int expect_nbr_ls1, const int threadshold_nbr,
-                          Eigen::MatrixXd &vers, Eigen::MatrixXi &Faces, bool even_pace=false)
+                          Eigen::MatrixXd &vers, Eigen::MatrixXi &Faces, bool even_pace=false, bool diagSegments = false)
 {
     Eigen::MatrixXi gridmat;    // the matrix for vertex
     Eigen::VectorXd lsv0, lsv1; // the extracted level set values;
@@ -3071,11 +3139,25 @@ void extract_levelset_web_stable(const CGMesh &lsmesh, const std::vector<CGMesh:
     vcr = remove_quad_info_duplicated(vcr, mapping);
     vr = remove_quad_info_duplicated(vr, mapping);
     vc = remove_quad_info_duplicated(vc, mapping);
-    
-    std::cout<<"Saving the info for each row or col of quads"<<std::endl;
-    std::string fname = igl::file_dialog_save();
-    save_quad_left_right_info(fname, vrl, vrr, vcl, vcr, vr, vc);
-    std::cout<<"Each row and col of quads got saved"<<std::endl;
+    if (!diagSegments)
+    {
+        std::cout << "Saving the info for each row or col of quads" << std::endl;
+        std::string fname = igl::file_dialog_save();
+        save_quad_left_right_info(fname, vrl, vrr, vcl, vcr, vr, vc);
+        std::cout << "Each row and col of quads got saved" << std::endl;
+    }
+
+    if(diagSegments){
+        Eigen::VectorXi l0, l1, l2, l3, l4, l5;
+        getWebFromMat(gridmat, l0, l1, l2, l3, l4, l5);
+        std::cout<<"Before writting the web edges, prefix: \n";
+        Eigen::MatrixXd Vall = vec_list_to_matrix(verlist);
+        std::string fname = igl::file_dialog_save();
+        writeEdgeFile(fname + "R.obj", Vall, l0, l1);
+        writeEdgeFile(fname + "C.obj", Vall, l2, l3);
+        writeEdgeFile(fname + "D.obj", Vall, l4, l5);
+        std::cout<<"after writting the web edges: \n";
+    }
 }
 double polyline_length(const std::vector<Eigen::Vector3d>& line){
     int size = line.size();
@@ -7715,4 +7797,199 @@ void writeMessyPoints(double scaling)
     // generateFQuands(Vstart, Vend, Vout, Fout, scaling);
 
     writeOBJEdges(exportfile, Vstart);
+}
+
+// whichHe is selected from 0, 1, 2
+void getQuadFacesFromTriMesh(CGMesh &trimesh, const int whichHe, std::vector<std::array<int, 4>> &quads)
+{
+    quads.clear();
+    for (CGMesh::VertexIter v_it = trimesh.vertices_begin(); v_it != (trimesh.vertices_end()); ++v_it)
+    {
+        CGMesh::VertexHandle vh = v_it.handle();
+        if (trimesh.is_boundary(vh))
+        {
+            continue;
+        }
+        int counter = 0;
+        CGMesh::HalfedgeHandle he0;
+        for (CGMesh::VertexOHalfedgeIter voh = trimesh.voh_begin(vh); voh != trimesh.voh_end(vh); ++voh)
+        {
+            if (counter == whichHe)
+            {
+                he0 = voh.handle();
+                break;
+            }
+            counter++;
+        }
+        CGMesh::HalfedgeHandle next = trimesh.next_halfedge_handle(he0);
+        
+        int v0 = trimesh.from_vertex_handle(he0).idx();
+        int v1 = trimesh.to_vertex_handle(he0).idx();
+        int v3 = trimesh.to_vertex_handle(next).idx();
+        CGMesh::HalfedgeHandle oppo = trimesh.opposite_halfedge_handle(next);
+        if (trimesh.is_boundary(oppo))
+        {
+            continue;
+        }
+
+        CGMesh::HalfedgeHandle opnx = trimesh.next_halfedge_handle(oppo);
+        int v2 = trimesh.to_vertex_handle(opnx).idx();
+        // verused[v0] = true;
+        // verused[v1] = true;
+        // verused[v2] = true;
+        // verused[v3] = true;
+        quads.push_back({v0, v1, v2, v3});
+    }
+}
+
+void quadlist2Matrix(const std::vector<std::array<int, 4>> &quads, Eigen::MatrixXi &F)
+{
+    F.resize(quads.size(), 4);
+    for (int i = 0; i < quads.size(); i++)
+    {
+        F(i, 0) = quads[i][0];
+        F(i, 1) = quads[i][1];
+        F(i, 2) = quads[i][2];
+        F(i, 3) = quads[i][3];
+    }
+}
+
+// write 2 of 3 families of polylines of the triangle mesh
+void readTriMeshConvert2QuadMesh(){
+    std::string fname = igl::file_dialog_open();
+    if (fname.length() == 0)
+    {
+        std::cout << "\nLSC: read mesh failed" << std::endl;
+        return;
+    }
+    CGMesh trimesh;
+    OpenMesh::IO::read_mesh(trimesh, fname);
+    std::cout << "\nMesh Readed" << std::endl;
+    Eigen::MatrixXd V;
+    Eigen::MatrixXi Ftri, Fqd0, Fqd1, Fqd2;
+    std::vector<bool> verused(trimesh.n_vertices(), false);
+
+    std::vector<std::array<int,4>> quads1, quads2, quads0;
+    getQuadFacesFromTriMesh(trimesh, 0, quads0);
+    getQuadFacesFromTriMesh(trimesh, 1, quads1);
+    getQuadFacesFromTriMesh(trimesh, 2, quads2);
+    MeshProcessing mp;
+    mp.mesh2Matrix(trimesh, V, Ftri);
+    quadlist2Matrix(quads0, Fqd0);
+    quadlist2Matrix(quads1, Fqd1);
+    quadlist2Matrix(quads2, Fqd2);
+    std::cout<<"Writing the output quads, the prefix...\n";
+    std::string fnameout = igl::file_dialog_save();
+    igl::writeOBJ(fnameout + "f0.obj", V, Fqd0);
+    igl::writeOBJ(fnameout + "f1.obj", V, Fqd1);
+    igl::writeOBJ(fnameout + "f2.obj", V, Fqd2);
+}
+
+// whichDiag is chosen from 0 and 1
+void QuadMeshToTri(CGMesh &quadmesh, Eigen::MatrixXi &F0, Eigen::MatrixXi& F1)
+{
+    std::vector<std::array<int, 3>> tris0, tris1;
+
+    for (CGMesh::FaceIter f_it = quadmesh.faces_begin(); f_it != (quadmesh.faces_end()); ++f_it)
+    {
+        int fid = f_it.handle().idx();
+        int ecounter = 0;
+        std::array<int, 4> vlocal;
+        for (CGMesh::FaceVertexIter fv_it = quadmesh.fv_begin(f_it); fv_it != (quadmesh.fv_end(f_it)); ++fv_it)
+        {
+            vlocal[ecounter] = fv_it.handle().idx();
+            ecounter++;
+        }
+        tris0.push_back({vlocal[0], vlocal[1], vlocal[2]});
+        tris0.push_back({vlocal[0], vlocal[2], vlocal[3]});
+
+        tris1.push_back({vlocal[0], vlocal[1], vlocal[3]});
+        tris1.push_back({vlocal[1], vlocal[2], vlocal[3]});
+    }
+    F0.resize(tris0.size(), 3);
+    F1.resize(tris0.size(), 3);
+    for (int i = 0; i < F0.rows(); i++)
+    {
+        for (int j = 0; j < 3; j++)
+        {
+            F0(i, j) = tris0[i][j];
+            F1(i, j) = tris1[i][j];
+        }
+    }
+}
+
+void readQuadMesh2TriMesh()
+{
+    std::string fname = igl::file_dialog_open();
+    if (fname.length() == 0)
+    {
+        std::cout << "\nLSC: read mesh failed" << std::endl;
+        return;
+    }
+    CGMesh quadmesh;
+    OpenMesh::IO::read_mesh(quadmesh, fname);
+    std::cout << "\nMesh Readed" << std::endl;
+    Eigen::MatrixXd V;
+    Eigen::MatrixXi Fqd, Ftr0, Ftr1;
+
+    std::vector<std::array<int, 4>> quads1, quads2, quads0;
+    QuadMeshToTri(quadmesh, Ftr0, Ftr1);
+    MeshProcessing mp;
+    mp.mesh2Matrix(quadmesh, V, Fqd);
+    std::cout << "Writing the output quads, the prefix...\n";
+    std::string fnameout = igl::file_dialog_save();
+    igl::writeOBJ(fnameout + "t0.obj", V, Ftr0);
+    igl::writeOBJ(fnameout + "t1.obj", V, Ftr1);
+}
+void evaluateGGGConsineConstraints()
+{
+    std::string fname = igl::file_dialog_open();
+    if (fname.length() == 0)
+    {
+        std::cout << "\nLSC: read mesh failed" << std::endl;
+        return;
+    }
+    CGMesh trimesh;
+    OpenMesh::IO::read_mesh(trimesh, fname);
+    Eigen::MatrixXd V;
+    Eigen::MatrixXi F;
+    MeshProcessing mp;
+    mp.mesh2Matrix(trimesh, V, F);
+    std::cout << "\nMesh Readed" << std::endl;
+    int vnbr = V.rows();
+    Eigen::VectorXd energy = Eigen::VectorXd::Zero(V.rows() * 3);
+    for (CGMesh::VertexIter v_it = trimesh.vertices_begin(); v_it != (trimesh.vertices_end()); ++v_it)
+    {
+        CGMesh::VertexHandle vh = v_it.handle();
+        if (trimesh.is_boundary(vh))
+        {
+            continue;
+        }
+        if (trimesh.valence(vh) != 6)
+        {
+            continue;
+        }
+        int vid = vh.idx();
+        Eigen::Vector3d v = V.row(vh.idx());
+        std::vector<Eigen::Vector3d> vs;
+        for (CGMesh::VertexOHalfedgeIter voh = trimesh.voh_begin(vh); voh != trimesh.voh_end(vh); ++voh)
+        {
+            CGMesh::HalfedgeHandle he0 = voh.handle();
+            vs.push_back(V.row(trimesh.to_vertex_handle(he0).idx()));
+        }
+        Eigen::Vector3d vv0 = (vs[0] - v).normalized();
+        Eigen::Vector3d vv1 = (vs[1] - v).normalized();
+        Eigen::Vector3d vv2 = (vs[2] - v).normalized();
+        Eigen::Vector3d vv3 = (vs[3] - v).normalized();
+        Eigen::Vector3d vv4 = (vs[4] - v).normalized();
+        Eigen::Vector3d vv5 = (vs[5] - v).normalized();
+
+        double e0 = vv0.dot(vv1) - vv3.dot(vv4);
+        double e1 = vv1.dot(vv2) - vv4.dot(vv5);
+        double e2 = vv2.dot(vv3) - vv5.dot(vv0);
+        energy[vid] = e0;
+        energy[vid + vnbr] = e1;
+        energy[vid + vnbr * 2] = e2;
+    }
+    std::cout << "the total energy is " << energy.norm() << "\n";
 }

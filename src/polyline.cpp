@@ -2337,7 +2337,8 @@ void load_row_col_info(const std::vector<std::vector<double>> &rowstmp, Eigen::V
     }
     return;
 }
-
+// d0 is in between of rf and cf.
+// d1 is in between of rb and cb.
 void load_diagonal_info(const Eigen::VectorXi &row_front, const Eigen::VectorXi &row_back, const Eigen::VectorXi &col_front,
                         const Eigen::VectorXi &col_back, Eigen::VectorXi &d0_front, Eigen::VectorXi &d1_front,
                         Eigen::VectorXi &d0_back, Eigen::VectorXi &d1_back)
@@ -2366,6 +2367,82 @@ void load_diagonal_info(const Eigen::VectorXi &row_front, const Eigen::VectorXi 
         d0_back[id] = rd;
         d1_front[id] = ld;
         d1_back[id] = ru;
+    }
+}
+
+// get the row and col info directly from openmesh.
+void getQuadRowCols(CGMesh &mesh_in, Eigen::VectorXi &rf, Eigen::VectorXi &rb, Eigen::VectorXi &cf, Eigen::VectorXi &cb)
+{
+    const int vnbr = mesh_in.n_vertices();
+    const int fnbr = mesh_in.n_faces();
+    rf = -Eigen::VectorXi::Ones(vnbr);
+    rb = rf;
+    cf = rf;
+    cb = rf;
+    for (int i = 0; i < fnbr; i++)
+    {
+        CGMesh::FaceHandle fh = mesh_in.face_handle(i); // get the face handle of face i
+        int counter = 0;
+        for (CGMesh::FaceHalfedgeIter voh = mesh_in.fh_begin(fh); voh != mesh_in.fh_end(fh); ++voh)
+        {
+            CGMesh::HalfedgeHandle he = voh.current_halfedge_handle();
+            int vstart = mesh_in.from_vertex_handle(he).idx();
+            int vend = mesh_in.to_vertex_handle(he).idx();
+            if (counter == 0)
+            {
+                rb[vstart] = vend;
+                rf[vend] = vstart;
+            }
+            if (counter == 2)
+            {
+                rb[vend] = vstart;
+                rf[vstart] = vend;
+            }
+            if(counter == 1)
+            {
+                cb[vstart] = vend;
+                cf[vend] = vstart;
+            }
+            if(counter == 3)
+            {
+                cb[vend] = vstart;
+                cf[vstart] = vend;
+            }
+            
+            counter++;
+        }
+    }
+    // validation
+    for (int i = 0; i < vnbr; i++)
+    {
+        std::vector<int> ids;
+        ids.reserve(5);
+        ids.push_back(i);
+        ids.push_back(cf[i]);
+        ids.push_back(cb[i]);
+        ids.push_back(rb[i]);
+        ids.push_back(rf[i]);
+        for (int j = 0; j < ids.size(); j++)
+        {
+            int id0 = ids[j];
+            if (id0 < 0)
+            {
+                continue;
+            }
+            for (int k = 0; k < ids.size(); k++)
+            {
+                int id1 = ids[k];
+                if (j == k || id1 < 0)
+                {
+                    continue;
+                }
+                if (id0 == id1)
+                {
+                    std::cout << "ERROR in getQuadRowCols, wrong neighboring info!\n";
+                    exit(0);
+                }
+            }
+        }
     }
 }
 
@@ -2420,6 +2497,64 @@ void QuadOpt::init(CGMesh &mesh_in, const std::string &prefix)
     load_row_col_info(rowstmp, row_front,row_back);
     load_row_col_info(colstmp, col_front, col_back);
 
+    load_diagonal_info(row_front, row_back, col_front, col_back, d0_front, d1_front, d0_back, d1_back);
+    OrigVars = Eigen::VectorXd::Zero(varsize);
+    OrigVars.segment(0, vnbr) = V.col(0);
+    OrigVars.segment(vnbr, vnbr) = V.col(1);
+    OrigVars.segment(vnbr * 2, vnbr) = V.col(2);
+    mesh_original = mesh_in;
+    mesh_update = mesh_original;
+    ComputeAuxiliaries = true;
+    Estimate_PG_Angles = true;
+    Eigen::VectorXd grav_vec = Eigen::VectorXd::Ones(vnbr * 3);
+    Eigen::VectorXd var_vec = Eigen::VectorXd::Zero(varsize);
+    var_vec.segment(0, vnbr * 3) = grav_vec;
+    gravity_matrix = var_vec.asDiagonal();
+    Eigen::Vector3d vmin(V.col(0).minCoeff(), V.col(1).minCoeff(), V.col(2).minCoeff());
+    Eigen::Vector3d vmax(V.col(0).maxCoeff(), V.col(1).maxCoeff(), V.col(2).maxCoeff());
+    std::cout<<"Initialized quad mesh: Vnbr, "<<V.rows()<<", BBD, "<<(vmin - vmax).norm()<<std::endl;;
+}
+
+void QuadOpt::init(CGMesh &mesh_in)
+{
+    MP.mesh2Matrix(mesh_in, V, F);
+    // for (int i = 0; i < rowinfo.size(); i++)
+    // {
+    //     std::cout << "init, row size, " << i << "th, " << rowinfo[i].size() << std::endl;
+    // }
+    // for (int i = 0; i < colinfo.size(); i++)
+    // {
+    //     std::cout << "init, col size, " << i << "th, " << colinfo[i].size() << std::endl;
+    // }
+
+    int vnbr = V.rows();
+    if (OptType == 0)// AAG
+    {
+        // vertices vnbr * 3, normals vnbr * 3, binormals for G vnbr * 3  
+        varsize = vnbr * 9;
+    }
+    if (OptType == 1)// AGG
+    {
+        // vertices vnbr * 3, normals vnbr * 3, binormals for G0 vnbr * 3, binormals for G1 vnbr * 3.    
+        varsize = vnbr * 12;
+    }
+    if (OptType == 2)// PP
+    {
+        // vertices vnbr * 3, normals vnbr * 3, binormals + side vectors:  (vnbr * 6) * 2
+        varsize = vnbr * 18;
+   
+    }
+    if (OptType == 3)// PPG
+    {
+        // vertices vnbr * 3, normals vnbr * 3, binormals + side vectors:  (vnbr * 6) * 2 + vnbr * 3
+        varsize = vnbr * 21;
+
+    }
+    
+
+
+    getQuadRowCols(mesh_in, row_front, row_back, col_front, col_back);
+    std::cout << "Row Col info computed\n";
     load_diagonal_info(row_front, row_back, col_front, col_back, d0_front, d1_front, d0_back, d1_back);
     OrigVars = Eigen::VectorXd::Zero(varsize);
     OrigVars.segment(0, vnbr) = V.col(0);
@@ -3532,6 +3667,10 @@ void QuadOpt::assemble_normal_conditions(spMat& H, Eigen::VectorXd& B, Eigen::Ve
         tripletes.push_back(Trip(i, lrbz, -(norm(2)) / dis0));
 
         energy[i] = norm.dot(Vrf - Vrb) / dis0;
+        if (isnan(energy[i]))
+        {
+            std::cout << "NAN 1\nnorm, " << norm << ", values, " << Vrf << ", " << Vrb << ", dis0, " << dis0 << "\n";
+        }
 
         // norm * (Vcf - Vcb) = 0
         tripletes.push_back(Trip(i + vnbr, lnx, (Vcf(0) - Vcb(0)) / dis1));
@@ -3547,6 +3686,10 @@ void QuadOpt::assemble_normal_conditions(spMat& H, Eigen::VectorXd& B, Eigen::Ve
         tripletes.push_back(Trip(i + vnbr, lcbz, -(norm(2)) / dis1));
 
         energy[i + vnbr] = norm.dot(Vcf - Vcb) / dis1;
+        // if (isnan(energy[i + vnbr]))
+        // {
+        //     std::cout<<"NAN 2\n ";
+        // }
 
         // norm * norm = 1
         tripletes.push_back(Trip(i + vnbr * 2, lnx, 2 * norm(0)));
@@ -3554,6 +3697,10 @@ void QuadOpt::assemble_normal_conditions(spMat& H, Eigen::VectorXd& B, Eigen::Ve
         tripletes.push_back(Trip(i + vnbr * 2, lnz, 2 * norm(2)));
 
         energy[i + vnbr * 2] = norm.dot(norm) - 1;
+        // if (isnan(energy[i + vnbr * 2]))
+        // {
+        //     std::cout<<"NAN 3\n ";
+        // }
 
         
     }
@@ -3841,10 +3988,11 @@ void QuadOpt::opt(){
 }
 
 void QuadOpt::show_curve_families(std::array<Eigen::MatrixXd, 3>& edges){
-    int row_m = rowinfo.size() / 2;
-    int col_m = rowinfo[row_m].size() / 2;
+    // int row_m = rowinfo.size() / 2;
+    // int col_m = rowinfo[row_m].size() / 2;
 
-    int vid = rowinfo[row_m][col_m]; // choose a point in the middle
+    // int vid = rowinfo[row_m][col_m]; // choose a point in the middle
+    int vid = mesh_original.n_vertices() / 2;
 
     std::vector<Eigen::Vector3d> vtp;
     int vcurrent = vid;
@@ -4153,6 +4301,11 @@ void QuadOpt::extract_diagonals(const int family, std::vector<std::vector<int>> 
 
 void QuadOpt::write_polyline_info(){
     // the iterations might look weird, because in our data the info are in the form of 0, 1, 2, -1, -1, 3, 4, ...
+    if (rowinfo.size() == 0 || colinfo.size() == 0)
+    {
+        std::cout << "Please use the other initialization method to give rowinfo and col info\n";
+        return;
+    }
     PolyOpt plytool;
     Eigen::VectorXi Bnd;
     get_Bnd(Bnd);

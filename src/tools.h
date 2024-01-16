@@ -58,7 +58,7 @@ void extract_levelset_web(const CGMesh &lsmesh, const Eigen::MatrixXd &V,
 void extract_levelset_web_stable(const CGMesh &lsmesh, const std::vector<CGMesh::HalfedgeHandle>& loop, const Eigen::MatrixXd &V,
                           const Eigen::MatrixXi &F, const Eigen::VectorXd &ls0, const Eigen::VectorXd &ls1,
                           const int expect_nbr_ls0, const int expect_nbr_ls1, const int threadshold_nbr,
-                          Eigen::MatrixXd &vers, Eigen::MatrixXi &Faces, bool even_pace);
+                          Eigen::MatrixXd &vers, Eigen::MatrixXi &Faces, bool even_pace, bool diagSegments);
 void extract_shading_lines(const CGMesh &lsmesh, const Eigen::MatrixXd &V, const std::vector<CGMesh::HalfedgeHandle> &loop,
                            const Eigen::MatrixXi &F, const Eigen::VectorXd &ls,
                            const int expect_nbr_ls, const bool write_binormals);
@@ -208,3 +208,6 @@ void assign_ls_to_subpatch(CGMesh &ref, CGMesh &base, const Eigen::VectorXd &fun
 void runRotateArrows(double scaling);
 void writeRectifyingPlanes(double scaling);
 void writeMessyPoints(double scaling);
+void readTriMeshConvert2QuadMesh();
+void readQuadMesh2TriMesh();
+void evaluateGGGConsineConstraints();

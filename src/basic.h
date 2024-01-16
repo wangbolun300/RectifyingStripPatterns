@@ -187,6 +187,7 @@ public:
     QuadOpt(){};
     void init(CGMesh& mesh_in, const std::vector<std::vector<double>> rowinfo, const std::vector<std::vector<double>>colinfo);
     void init(CGMesh& mesh_in, const std::string& prefix);
+    void init(CGMesh& mesh_in);
     
     std::vector<std::vector<double>> rowinfo; // to record the adjancency info of rows  
     std::vector<std::vector<double>> colinfo; // to record the adjancency info of cols
@@ -218,6 +219,7 @@ public:
     void extract_binormals(const int family, const int bnm_start, const int vid, Eigen::Vector3d& bi);
     void extract_diagonals(const int family, std::vector<std::vector<int>> &digs);
     void write_polyline_info();
+    // void evaluateGGGcosineConstraints();
     Eigen::MatrixXd Debugtool;
 private:
     MeshProcessing MP;

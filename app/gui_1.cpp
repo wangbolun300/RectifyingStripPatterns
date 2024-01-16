@@ -1972,7 +1972,7 @@ void lscif::draw_menu2(igl::opengl::glfw::Viewer &viewer, igl::opengl::glfw::img
 					{
 						int filter_nbr = 3;
 						extract_levelset_web_stable(tools.lsmesh, tools.Boundary_Edges, tools.V, tools.F, readed_LS1, readed_LS2, nbr_lines_first_ls,
-													nbr_lines_second_ls, filter_nbr, VER, FAC, true);
+													nbr_lines_second_ls, filter_nbr, VER, FAC, true, false);
 					}
 					else
 					{
@@ -2181,6 +2181,44 @@ void lscif::draw_menu2(igl::opengl::glfw::Viewer &viewer, igl::opengl::glfw::img
 			meshFileName.push_back("Shading_" + meshFileName[id]);
 			Meshes.push_back(updatemesh);
 
+			viewer.selected_data_index = id;
+		}
+		ImGui::SameLine();
+		if (ImGui::Button("ExtrWebEdges", ImVec2(ImGui::GetWindowSize().x * 0.25f, 0.0f)))
+		{
+			std::cout << "This code is to extract Web Edges" << std::endl;
+			int id = viewer.selected_data_index;
+			CGMesh inputMesh = Meshes[id];
+			Eigen::MatrixXd VER;
+			Eigen::MatrixXi FAC;
+			if (!debug_flag)
+			{
+				if (readed_LS1.size() > 0 && readed_LS2.size() > 0)
+				{
+					int filter_nbr = 3;
+					extract_levelset_web_stable(tools.lsmesh, tools.Boundary_Edges, tools.V, tools.F, readed_LS1, readed_LS2, nbr_lines_first_ls,
+												nbr_lines_second_ls, filter_nbr, VER, FAC, true, true);
+				}
+				else
+				{
+					std::cout << "ERROR, Please load level sets" << std::endl;
+				}
+			}
+
+			Eigen::MatrixXd E0, E1, E2, E3;
+			visual_extract_levelset_web_stable(tools.lsmesh, tools.Boundary_Edges, tools.V, tools.F, readed_LS1, readed_LS2, nbr_lines_first_ls,
+											   nbr_lines_second_ls, E0, E1, E2, E3, true, debug_flag, dbg_int, dbg_int2);
+			const Eigen::RowVector3d red(0.8, 0.2, 0.2);
+			const Eigen::RowVector3d blue(0.2, 0.2, 0.8);
+			const Eigen::RowVector3d black(0, 0, 0);
+			const Eigen::RowVector3d green(0.2, 0.8, 0.2);
+
+			// MP.MeshUnitScale(inputMesh, updatedMesh);
+			updateMeshViewer(viewer, inputMesh);
+			meshFileName.push_back("paceqd_" + meshFileName[id]);
+			Meshes.push_back(inputMesh);
+			viewer.data().add_edges(E0, E1, red);
+			viewer.data().add_edges(E2, E3, green);
 			viewer.selected_data_index = id;
 		}
 
@@ -2697,6 +2735,62 @@ void lscif::draw_menu2(igl::opengl::glfw::Viewer &viewer, igl::opengl::glfw::img
 			{
 				quad_tool.load_triangle_mesh_tree(tools.aabbtree, tools.Vstored,
 												  tools.F, tools.Nstored);
+			}
+			ImGui::SameLine();
+			if (ImGui::Button("LoadWithoutInfo", ImVec2(ImGui::GetWindowSize().x * 0.25f, 0.0f)))
+			{
+				std::string fname = igl::file_dialog_open();
+				if (fname.length() == 0)
+				{
+					std::cout << "\nLSC: read mesh failed" << std::endl;
+					ImGui::End();
+					return;
+				}
+				CGMesh quadmesh;
+				OpenMesh::IO::read_mesh(quadmesh, fname);
+				std::cout << "\nMesh Readed" << std::endl;
+				quad_tool.init(quadmesh);
+
+				size_t last_dot = fname.rfind('.');
+				size_t last_slash = fname.rfind(spliter); // TODO on linux it should be '/'
+				std::string fnameNew = fname.substr(last_slash + 1, (last_dot - last_slash - 1));
+				meshFileName.push_back(fnameNew);
+				Meshes.push_back(quadmesh);
+
+				int nbe = 0;
+				for (CGMesh::EdgeIter eit = quadmesh.edges_begin(); eit != quadmesh.edges_end(); ++eit)
+				{
+					if (quadmesh.is_boundary(eit))
+						nbe++;
+				}
+
+				int nbhe = 0;
+				for (CGMesh::HalfedgeIter heit = quadmesh.halfedges_begin(); heit != quadmesh.halfedges_end(); ++heit)
+				{
+					if (quadmesh.is_boundary(heit))
+						nbhe++;
+				}
+
+				std::cout << "Mesh is: " << fname << std::endl;
+
+				std::cout << "Vertices/Edges/Faces/HalfEdges/boundaryHalfEdge/boundaryEdge: " << quadmesh.n_vertices() << "/" << quadmesh.n_edges() << "/" << quadmesh.n_faces() << "/" << quadmesh.n_halfedges() << "/" << nbhe << "/" << nbe << std::endl;
+
+				updateMeshViewer(viewer, quadmesh);
+			}
+			ImGui::SameLine();
+			if (ImGui::Button("Tri2Quads", ImVec2(ImGui::GetWindowSize().x * 0.25f, 0.0f)))
+			{
+				readTriMeshConvert2QuadMesh();
+			}
+			
+			if (ImGui::Button("Quad2Tri", ImVec2(ImGui::GetWindowSize().x * 0.25f, 0.0f)))
+			{
+				readQuadMesh2TriMesh();
+			}
+			ImGui::SameLine();
+			if (ImGui::Button("EvalGGGTri", ImVec2(ImGui::GetWindowSize().x * 0.25f, 0.0f)))
+			{
+				evaluateGGGConsineConstraints();
 			}
 		}
 		if (ImGui::CollapsingHeader("FunctionalAngles", ImGuiTreeNodeFlags_CollapsingHeader))
