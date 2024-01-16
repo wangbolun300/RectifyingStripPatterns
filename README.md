@@ -65,7 +65,8 @@ Some tips:
 * Open the exe by double-clicking it, there is a default mesh already loaded. If you want to use another mesh, load it by pressing `Import Mesh`, delete the default mesh, and now you have a clean workspace. 
 * Trace guide curves using the buttons under the `Tracing` catalog. The start points of tracing curves are on the boundary of the mesh. There are two `TracingType` you can choose to quickly decide where the start points are. `SegTrace` chooses a segment that contains "`nbr bnd edges`" edges of the boundary starting from the "`start bnd edge`"th edge of the boundary loop. The distance between two neighboring start points is "`every i segments`". Another `TracingType` is `OneEdgeTrace`. If your mesh has corner points on the boundary, you can select the "`Select 1 boundary`"th segment of the boundary curve split by the corner points. `corner angle` helps to decide the corner points. The following figure shows the traced curves under `OneEdgeTrace` mode.
   
-  <img src="./data/fig/tracing.png" style="zoom:40%;" />
+<img src="./data/fig/tracing.png" style="zoom:40%;" />  
+  
 * Now we trace curves. Set up the `start angle` and $\theta$ = `target angle`, press `Trace Curves`, and P-curves will be traced out and rendered in the viewer. 
 * Or, you can also trace 1 curve each time by properly setting up the parameters under `SegTrace` mode, save and load them one by one. This gives you more precise control of the start directions and curve locations.
 * Make sure there is no intersection in the traced curves. 
