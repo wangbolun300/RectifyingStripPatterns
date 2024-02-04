@@ -200,7 +200,7 @@ public:
     // input from outside
     double angle_degree0;
     double angle_degree1;
-    int OptType = 0;// 0: AAG. 1: GGA. 2: PP. 3: PPG 
+    int OptType = 0;// 0: AAG. 1: GGA. 2: PP. 3: PPG. 4: AAGG
     int WhichDiagonal = 0; // 0 or 1
     double weight_fairness;
     double weight_pg;

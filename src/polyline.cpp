@@ -2485,6 +2485,11 @@ void QuadOpt::init(CGMesh &mesh_in, const std::string &prefix)
     {
         // vertices vnbr * 3, normals vnbr * 3, binormals + side vectors:  (vnbr * 6) * 2 + vnbr * 3
         varsize = vnbr * 21;
+    }
+    if (OptType == 4)// AAGG
+    {
+        // vertices vnbr * 3, normals vnbr * 3, binormals for G vnbr * 3 * 2  
+        varsize = vnbr * 12;
 
     }
     
@@ -2548,6 +2553,12 @@ void QuadOpt::init(CGMesh &mesh_in)
     {
         // vertices vnbr * 3, normals vnbr * 3, binormals + side vectors:  (vnbr * 6) * 2 + vnbr * 3
         varsize = vnbr * 21;
+
+    }
+    if (OptType == 4)// AAGG
+    {
+        // vertices vnbr * 3, normals vnbr * 3, binormals for G vnbr * 3 * 2  
+        varsize = vnbr * 12;
 
     }
     
@@ -2624,6 +2635,20 @@ void QuadOpt::reset()
             d1_type = 2;
         }
     }
+    if (OptType == 4) // AAGG
+    {                         
+        std::cout << "Set Up AAGG Diagonals" << std::endl;
+        if (WhichDiagonal == 0)
+        {
+            d0_type = 2;
+            d1_type = 2;
+        }
+        if (WhichDiagonal == 1)
+        { 
+            d0_type = 2;
+            d1_type = 2;
+        }
+    }
     MP.mesh2Matrix(mesh_original, V, F);
     std::cout<<"Get V and F of the quads: "<<V.rows()<<", "<<F.rows()<<std::endl;
     int vnbr = V.rows();
@@ -2649,6 +2674,11 @@ void QuadOpt::reset()
         // vertices vnbr * 3, normals vnbr * 3, binormals + side vectors:  (vnbr * 6) * 2 + vnbr * 3
         varsize = vnbr * 21;
 
+    }
+    if (OptType == 4)// AAGG
+    {
+        // vertices vnbr * 3, normals vnbr * 3, binormals for G0 vnbr * 3, binormals for G1 vnbr * 3.    
+        varsize = vnbr * 12;
     }
 
     OrigVars = Eigen::VectorXd::Zero(varsize);
@@ -3730,7 +3760,7 @@ void QuadOpt::opt(){
     spMat H;
     H.resize(varsize, varsize);
     Eigen::VectorXd B = Eigen::VectorXd::Zero(varsize);
-    Eigen::VectorXd Egravity, Esmth, Enorm, Ebnm0, Ebnm1, Ebnm2, Epg[3];
+    Eigen::VectorXd Egravity, Esmth, Enorm, Ebnm0, Ebnm1, Ebnm2, Epg[4];
 
     spMat Hgravity;  // approximation
 	Eigen::VectorXd Bgravity; // right of laplacian
@@ -3899,6 +3929,54 @@ void QuadOpt::opt(){
         }
         
     }
+    if (OptType == 4)
+    { // AAGG, the diagonal is geodesic that requires binormals
+        spMat Hbnm, Hbnm1;
+        Eigen::VectorXd Bbnm, Bbnm1;
+        // int family = -1;
+        // if (d0_type > 0)
+        // {
+        //     family = 2;
+        // }
+        // if (d1_type > 0)
+        // {
+        //     family = 3;
+        // }
+        // vertices vnbr * 3, normals vnbr * 3, binormals for G0 vnbr * 3, binormals for G1 vnbr * 3  
+        int bnm_start0 = vnbr * 6;
+        assemble_binormal_conditions(Hbnm, Bbnm, Ebnm0, 2, bnm_start0);
+        H += weight_pg * Hbnm;
+        B += weight_pg * Bbnm;
+
+        int bnm_start1 = vnbr * 9;
+        assemble_binormal_conditions(Hbnm1, Bbnm1, Ebnm1, 3, bnm_start1);
+        H += weight_pg * Hbnm1;
+        B += weight_pg * Bbnm1;
+
+
+
+        spMat Hpg[4];
+        Eigen::VectorXd Bpg[4];
+        // G
+        int type = 2; // G
+        assemble_pg_extreme_cases(Hpg[0], Bpg[0], Epg[0], type, 2, bnm_start0);
+        // G another
+        assemble_pg_extreme_cases(Hpg[1], Bpg[1], Epg[1], type, 3, bnm_start1);
+
+        // A
+        type = 1; // A0
+        int family = 0;// row
+        int bnm_start = -1;
+        assemble_pg_extreme_cases(Hpg[2], Bpg[2], Epg[2], type, family, bnm_start);
+
+        type = 1; // A1
+        family = 1;// col
+        bnm_start = -1;
+        assemble_pg_extreme_cases(Hpg[3], Bpg[3], Epg[3], type, family, bnm_start);
+
+        H += weight_pg * (pg_ratio * Hpg[0] + Hpg[1] + Hpg[2] + Hpg[3]);
+        B += weight_pg * (pg_ratio * Bpg[0] + Bpg[1] + Bpg[2] + Bpg[3]);
+    }
 
     // assemble together
 
@@ -3932,6 +4010,9 @@ void QuadOpt::opt(){
     }
     if(OptType == 3){
         std::cout<<"PPG, ";
+    }
+    if(OptType == 4){
+        std::cout<<"AAGG, ";
     }
 
     double ev_appro = Egravity.norm();
@@ -3970,6 +4051,10 @@ void QuadOpt::opt(){
         {
             std::cout << ", " <<Epg[2].norm();
         }
+    }
+    if (OptType == 4)
+    {
+        std::cout << "bnm, " << Ebnm0.norm()<<", "<< Ebnm1.norm()<< ", GGAA, " << Epg[0].norm() << ", " << Epg[1].norm() << ", " << Epg[2].norm() << ", "<<Epg[3].norm() ;
     }
     real_step_length = dx.norm();
     std::cout << ", stp, " << dx.norm() << ", diagonal types, "<<d0_type<<", "<<d1_type<<", ";

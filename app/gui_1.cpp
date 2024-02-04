@@ -2583,7 +2583,7 @@ void lscif::draw_menu2(igl::opengl::glfw::Viewer &viewer, igl::opengl::glfw::img
 			// ImGui::InputInt("Ring nbr", &ring_nbr, 0, 0);
 			// ImGui::InputDouble("Latitude", &Shading_Latitude, 0, 0, "%.4f");
 			ImGui::Combo("QuadType", &quad_tool.OptType,
-						 "AAG\0GGA\0PP\0PPG\0\0");
+						 "AAG\0GGA\0PP\0PPG\0AAGG\0\0");
 			ImGui::SameLine();
 
 			ImGui::Combo("FamilyOfDiag", &quad_tool.WhichDiagonal,
