@@ -11,6 +11,7 @@ void mat_col_to_triplets(const spMat &mat, const int col, const int ref, const b
 spMat dense_mat_list_as_sparse_diagnal(const std::vector<Eigen::MatrixXd> &mlist);
 Eigen::MatrixXd vec_list_to_matrix(const std::vector<Eigen::Vector3d> &vec);
 Eigen::VectorXd vec_list_to_vector(const std::vector<double>& vec);
+std::vector<Eigen::Vector3d> mat_to_vec_list(const Eigen::MatrixXd &m);
 bool triangles_coplanar(const Eigen::Vector3d &t0, const Eigen::Vector3d &t1, const Eigen::Vector3d &t2,
                         const Eigen::Vector3d &p0, const Eigen::Vector3d &p1, const Eigen::Vector3d &p2);
 
@@ -105,7 +106,7 @@ void mark_high_energy_vers(const Eigen::VectorXd &energy, const int ninner, cons
 void read_plylines_and_binormals(std::vector<std::vector<Eigen::Vector3d>>& ply, std::vector<std::vector<Eigen::Vector3d>>& bin);
 bool read_polylines(std::vector<std::vector<Eigen::Vector3d>>& ply);
 CGMesh polyline_to_strip_mesh(const std::vector<std::vector<Eigen::Vector3d>> &ply, const std::vector<std::vector<Eigen::Vector3d>> &bi, 
-const double ratio, const double ratio_back = 0);
+const double ratio, const double ratio_back = 0, const bool &realLength = false);
 
 std::vector<Eigen::Vector3d> sample_one_polyline_based_on_length(const std::vector<Eigen::Vector3d>& polyline, const double avg);
 std::vector<Eigen::Vector3d> sample_one_polyline_and_binormals_based_on_length(const std::vector<Eigen::Vector3d> &polyline, const int nbr,
@@ -162,7 +163,10 @@ void recover_polyline_endpts();
 // read the developable strip, and unfold it in 2d.
 void write_unfold_single_strip(int which_curve = 0);
 // the first version of straight strips: not exactly straight.    
-void construct_single_developable_strips_by_intersect_rectifying(const int which);         
+void construct_single_developable_strips_by_intersect_rectifying(const int which);
+void construct_single_developable_strips_by_intersect_rectifying_AAG(
+    const std::vector<Eigen::Vector3d> &vertices, const std::vector<Eigen::Vector3d> &binormals,
+    std::vector<Eigen::Vector3d> &vout, std::vector<Eigen::Vector3d> &bout);
 void construct_developable_strips_by_intersect_rectifying();
 void draw_catenaries_on_cylinder();           
 
@@ -211,3 +215,5 @@ void writeMessyPoints(double scaling);
 void readTriMeshConvert2QuadMesh();
 void readQuadMesh2TriMesh();
 void evaluateGGGConsineConstraints();
+void adjustAagOffset(const std::vector<Eigen::Vector3d> &verFix,
+                     const std::vector<Eigen::Vector3d> &vers, std::vector<Eigen::Vector3d> &creases);

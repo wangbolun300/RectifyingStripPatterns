@@ -35,6 +35,36 @@ void lscif::updateMeshViewer(igl::opengl::glfw::Viewer &viewer, CGMesh &mesh)
 
 	VertexType.resize(V.size(), 0);
 }
+void lscif::updatePointsViewer(igl::opengl::glfw::Viewer &viewer, const Eigen::MatrixXd& V)
+{
+	Eigen::MatrixXi F;
+	// Create new data slot and set to selected
+	if (!(viewer.data().F.rows() == 0 && viewer.data().V.rows() == 0))
+	{
+		viewer.append_mesh();
+	}
+	//		viewer.data().clear();
+	viewer.data().set_mesh(V, F);
+	viewer.data().is_visible = true;
+
+	// show polygon edges
+	Eigen::MatrixXi E;
+	E.resize(V.rows() - 1, 2);
+	for (int i = 0; i < E.rows(); i++)
+	{
+		E(i, 0) = i;
+		E(i, 1) = i + 1;
+	}
+	Eigen::MatrixXd C = Eigen::MatrixXd::Zero(E.rows(), 3);
+	viewer.data().set_edges(V, E, C);
+
+	viewer.data().show_lines = false;
+	viewer.data().line_width = 2.0;
+	viewer.core().align_camera_center(viewer.data().V, viewer.data().F);
+
+	VertexType.resize(V.size(), 0);
+}
+
 void lscif::plot2dFittingResults(igl::opengl::glfw::Viewer &viewer, const Eigen::VectorXd &xs, const Eigen::VectorXd &ys,
 								 const std::vector<double> &ply)
 {

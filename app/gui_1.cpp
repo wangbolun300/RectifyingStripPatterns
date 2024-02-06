@@ -1561,7 +1561,6 @@ void lscif::draw_menu1(igl::opengl::glfw::Viewer &viewer, igl::opengl::glfw::img
 
 				for (int i = 0; i < OpIter; i++)
 				{
-
 					poly_tool.opt();
 				}
 				CGMesh updatemesh = poly_tool.RecMesh;
@@ -2222,361 +2221,8 @@ void lscif::draw_menu2(igl::opengl::glfw::Viewer &viewer, igl::opengl::glfw::img
 			viewer.selected_data_index = id;
 		}
 
-		if (ImGui::CollapsingHeader("Mesh Optimization", ImGuiTreeNodeFlags_CollapsingHeader))
-		{
-			// Expose variable directly ...
-			ImGui::InputInt("Iteration Mesh Opt", &Nbr_Iterations_Mesh_Opt, 0, 0);
-			ImGui::InputDouble("Weight Mass", &weight_Mesh_mass, 0, 0, "%.4f");
-			ImGui::InputDouble("Weight Smoothness", &weight_Mesh_smoothness, 0, 0, "%.4f");
-			ImGui::InputDouble("Weight Mesh Pseudo Geodesic", &weight_Mesh_pesudo_geodesic, 0, 0, "%.4f");
-			ImGui::InputDouble("Weight Mesh Egdge Length", &weight_Mesh_edgelength, 0, 0, "%.4f");
-			ImGui::InputDouble("Weight Approx", &weight_Mesh_approximation, 0, 0, "%.4f");
-			ImGui::InputDouble("Max Mesh Step Length", &Mesh_opt_max_step_length, 0, 0, "%.4f");
-			if (ImGui::Button("DrawProjection", ImVec2(ImGui::GetWindowSize().x * 0.25f, 0.0f)))
-			{
-				const Eigen::RowVector3d red(0.8, 0.2, 0.2);
-				const Eigen::RowVector3d blue(0.2, 0.2, 0.8);
-				const Eigen::RowVector3d yellow(241. / 255, 196. / 255, 15. / 255);
-
-				const Eigen::RowVector3d black(0, 0, 0);
-				const Eigen::RowVector3d green(0.2, 0.8, 0.2);
-
-				if (tools.Ppro0.size() != 0)
-				{
-					viewer.data().add_edges(tools.Ppro0, tools.V, green);
-					// viewer.data().add_edges(tools.Ppro0,
-					// 						tools.Ppro0 + vector_scaling * tools.Npro0, red);
-					viewer.data().add_edges(tools.Ppro0,
-											tools.Ppro0 + vector_scaling * tools.Npro0, red);
-				}
-			}
-			ImGui::SameLine();
-			if (ImGui::Button("SmtMesh", ImVec2(ImGui::GetWindowSize().x * 0.25f, 0.0f)))
-			{
-				int id = viewer.selected_data_index;
-				CGMesh updatedMesh;
-				CGMesh inputMesh = Meshes[id];
-				MeshEnergyPrepare initializer;
-				initializer.Mesh_opt_max_step_length = Mesh_opt_max_step_length;
-				initializer.weight_Mesh_smoothness = weight_Mesh_smoothness;
-				initializer.weight_mass = weight_mass;
-				initializer.weight_Mesh_edgelength = weight_Mesh_edgelength;
-				tools.weight_Mesh_approximation = weight_Mesh_approximation;
-				tools.weight_Mesh_mass = weight_Mesh_mass;
-
-				tools.prepare_mesh_optimization_solving(initializer);
-				for (int i = 0; i < Nbr_Iterations_Mesh_Opt; i++)
-				{
-					tools.Run_Mesh_Smoothness();
-				}
-				updatedMesh = tools.lsmesh;
-				updateMeshViewer(viewer, updatedMesh);
-				meshFileName.push_back("Smt_" + meshFileName[id]);
-				Meshes.push_back(updatedMesh);
-
-				viewer.selected_data_index = id;
-				std::cout << "waiting for instructions" << std::endl;
-			}
-			// ImGui::InputInt("Iteration", &OpIter, 0, 0);
-			// ImGui::InputDouble("weight ls mass(big)", &weight_mass, 0, 0, "%.4f");
-			// ImGui::Checkbox("Fix Boundary", &fixBoundary_checkbox);
-		}
-		if (ImGui::CollapsingHeader("Shading Paras", ImGuiTreeNodeFlags_CollapsingHeader))
-		{
-			ImGui::InputInt("Ver_id", &update_ver_id, 0, 0);
-			ImGui::InputInt("Ring nbr", &ring_nbr, 0, 0);
-			ImGui::InputDouble("Latitude", &Shading_Latitude, 0, 0, "%.4f");
-			if (ImGui::Button("UpdateVertexID", ImVec2(ImGui::GetWindowSize().x * 0.25f, 0.0f)))
-			{
-				update_verlist.push_back(update_ver_id);
-				std::cout << "Current ver list" << std::endl;
-				for (int i = 0; i < update_verlist.size(); i++)
-				{
-					std::cout << update_verlist[i] << ",";
-				}
-				std::cout << "\n";
-			}
-			ImGui::SameLine();
-			if (ImGui::Button("LoadVertexID", ImVec2(ImGui::GetWindowSize().x * 0.25f, 0.0f)))
-			{
-				std::cout << "Read Vertex ID file row by row" << std::endl;
-				std::string fname = igl::file_dialog_open();
-				if (fname.length() == 0)
-				{
-					std::cout << "\nLSC: read file failed" << std::endl;
-					ImGui::End();
-					return;
-				}
-				std::vector<std::vector<double>> readed;
-				read_csv_data_lbl(fname, readed);
-				std::vector<int> list(readed[0].size());
-				for (int i = 0; i < list.size(); i++)
-				{
-					list[i] = readed[0][i];
-				}
-				update_verlist = list;
-				for (int i = 0; i < update_verlist.size(); i++)
-				{
-					std::cout << update_verlist[i] << ",";
-				}
-				std::cout << "\n";
-			}
-			ImGui::SameLine();
-			if (ImGui::Button("ClearVertexList", ImVec2(ImGui::GetWindowSize().x * 0.25f, 0.0f)))
-			{
-				update_verlist.clear();
-				std::cout << "ver list got cleared" << std::endl;
-			}
-			ImGui::SameLine();
-			if (ImGui::Button("SaveRotatedMesh", ImVec2(ImGui::GetWindowSize().x * 0.25f, 0.0f)))
-			{
-				std::cout << "Rotate the mesh in the earth axis according to the input latitude.\nNow saving the mesh" << std::endl;
-				Eigen::MatrixXd Vnew;
-				rotate_z_axis_to_earth_axis(tools.V, Vnew, Shading_Latitude);
-
-				std::string fname = igl::file_dialog_save();
-				if (fname.length() == 0)
-				{
-					std::cout << "\nLSC: save mesh failed" << std::endl;
-					ImGui::End();
-					return;
-				}
-				igl::writeOBJ(fname, Vnew, tools.F);
-				std::cout << "mesh saved" << std::endl;
-			}
-
-			ImGui::Checkbox("Shading", &Given_Const_Direction);
-			ImGui::SameLine();
-			ImGui::Checkbox("Light Through", &let_ray_through);
-			ImGui::SameLine();
-			ImGui::Checkbox("Light Reflect", &let_ray_reflect);
-
-			ImGui::PushItemWidth(50);
-			ImGui::InputDouble("T0", &InputPx, 0, 0, "%.6f");
-			ImGui::SameLine();
-			ImGui::InputDouble("P0", &InputPy, 0, 0, "%.6f");
-			ImGui::SameLine();
-			ImGui::InputDouble("Ttol0", &InputThetaTol, 0, 0, "%.6f");
-			ImGui::SameLine();
-			ImGui::InputDouble("Ptol0", &InputPhiTol, 0, 0, "%.6f");
-
-			ImGui::InputDouble("T1", &InputPx1, 0, 0, "%.6f");
-			ImGui::SameLine();
-			ImGui::InputDouble("P1", &InputPy1, 0, 0, "%.6f");
-			ImGui::SameLine();
-			ImGui::InputDouble("Ttol1", &InputThetaTol1, 0, 0, "%.6f");
-			ImGui::SameLine();
-			ImGui::InputDouble("Ptol1", &InputPhiTol1, 0, 0, "%.6f");
-
-			ImGui::Checkbox("ShadingInit", &shading_init);
-			ImGui::SameLine();
-			ImGui::InputDouble("weight binormal", &weight_binormal, 0, 0, "%.4f");
-			ImGui::InputDouble("weight smtBinormal", &weight_smt_binormal, 0, 0, "%.4f");
-			ImGui::Checkbox("RecomptAuxiliaries", &recompute_auxiliaries);
-			if (ImGui::Button("draw slopes", ImVec2(ImGui::GetWindowSize().x * 0.23f, 0.0f)))
-			{
-				Eigen::MatrixXd E0, E1;
-				tools.show_slopes(vector_scaling, E0, E1);
-				viewer.data().add_edges(E0, E1, sea_green);
-				std::cout << "Drawing the slopes" << std::endl;
-			}
-		}
-
 		ImGui::PushItemWidth(50);
-		if (ImGui::CollapsingHeader("PickOnePolyline", ImGuiTreeNodeFlags_CollapsingHeader))
-		{
-			ImGui::Checkbox("pickPly", &pick_single_ply);
-			ImGui::SameLine();
-			ImGui::InputInt("pickID", &pick_line_id, 0, 0);
-		}
-		if (ImGui::CollapsingHeader("TwoLvlStAngle", ImGuiTreeNodeFlags_CollapsingHeader))
-		{
-			ImGui::Checkbox("2LvStAngle", &fix_angle_of_two_levelsets);
-			ImGui::SameLine();
-			ImGui::InputDouble("AngleOfLSs", &angle_between_two_levelsets, 0, 0, "%.4f");
-			ImGui::SameLine();
-			ImGui::InputDouble("WeightAngleOfLSs", &weight_fix_two_ls_angle, 0, 0, "%.4f");
-		}
-		if (ImGui::CollapsingHeader("InterActiveDesign", ImGuiTreeNodeFlags_DefaultOpen))
-		{
-			ImGui::Checkbox("drawStrokes", &draw_strokes);
-			ImGui::SameLine();
-			if (ImGui::Button("ClearStrokes", ImVec2(ImGui::GetWindowSize().x * 0.25f, 0.0f)))
-
-			{
-				project_2dx.clear();
-				project_2dy.clear();
-				project_x_tmp.clear();
-				project_y_tmp.clear();
-				project_pts.clear();
-				flist.clear();
-				bclist.clear();
-				CGMesh updatemesh = tools.lsmesh;
-				int id = viewer.selected_data_index;
-				updateMeshViewer(viewer, updatemesh);
-				meshFileName.push_back(meshFileName[id]);
-				Meshes.push_back(updatemesh);
-				std::cout << "The Strokes Are Cleared" << std::endl;
-			}
-			ImGui::SameLine();
-			if (ImGui::Button("Strokes2LS", ImVec2(ImGui::GetWindowSize().x * 0.25f, 0.0f)))
-
-			{
-				std::cout << "Using Strokes to Initialize the Level Set" << std::endl;
-				tools.receive_interactive_strokes_and_init_ls(flist, bclist);
-				bool compute_pg = false;
-				AssignAutoRunDefaultArgs(autorunner[0], compute_pg);
-				compute_pg = true;
-				AssignAutoRunDefaultArgs(autorunner[1], compute_pg);
-				std::cout << "Using Default Parameters" << std::endl;
-			}
-
-			if (ImGui::Button("AutoRunSmoothLS", ImVec2(ImGui::GetWindowSize().x * 0.25f, 0.0f)))
-
-			{
-				AutoRunArgs runner = autorunner[0];
-				for (int i = 0; i < runner.parts.size(); i++)
-				{
-					tools.weight_mass = runner.parts[i].weight_gravity;
-					tools.weight_laplacian = runner.parts[i].weight_lap;
-					tools.weight_boundary = runner.parts[i].weight_bnd;
-					tools.weight_pseudo_geodesic_energy = runner.parts[i].weight_pg;
-					tools.weight_strip_width = runner.parts[i].weight_strip_width;
-					for (int j = 0; j < runner.parts[i].iterations; j++)
-					{
-						tools.Run_Level_Set_Opt_interactive(runner.compute_pg);
-						if (tools.step_length < runner.stop_step_length && j != 0)
-						{
-							std::cout << "optimization converges " << std::endl;
-							break;
-						}
-					}
-				}
-
-				std::cout << "A Smooth Scalar Function Following Input Strokes Is Generated ..." << std::endl;
-				int id = viewer.selected_data_index;
-				CGMesh inputMesh = tools.lsmesh;
-				updateMeshViewer(viewer, inputMesh);
-				meshFileName.push_back("lso_" + meshFileName[id]);
-				Meshes.push_back(inputMesh);
-
-				Eigen::VectorXd level_set_values;
-				tools.show_level_set(level_set_values);
-				if (level_set_values.size() == 0)
-				{
-					std::cout << "Level Set is not initialized" << std::endl;
-					ImGui::End();
-					return;
-				}
-				Eigen::MatrixXd CM;
-				igl::parula(Eigen::VectorXd::LinSpaced(21, 0, 1).eval(), false, CM);
-				igl::isolines_map(Eigen::MatrixXd(CM), CM);
-				viewer.data().set_colormap(CM);
-				viewer.data().set_data(level_set_values);
-				const Eigen::RowVector3d red(0.8, 0.2, 0.2);
-				const Eigen::RowVector3d blue(0.2, 0.2, 0.8);
-
-				viewer.selected_data_index = id;
-			}
-			ImGui::SameLine();
-			if (ImGui::Button("AutoRunPG", ImVec2(ImGui::GetWindowSize().x * 0.25f, 0.0f)))
-
-			{
-				timer_global.start();
-				AutoRunArgs runner = autorunner[1];
-				igl::Timer lctimer;
-				for (int i = 0; i < runner.parts.size(); i++)
-				{
-					tools.weight_mass = runner.parts[i].weight_gravity;
-					tools.weight_laplacian = runner.parts[i].weight_lap;
-					tools.weight_boundary = runner.parts[i].weight_bnd;
-					tools.weight_pseudo_geodesic_energy = runner.parts[i].weight_pg;
-					tools.weight_strip_width = runner.parts[i].weight_strip_width;
-					for (int j = 0; j < runner.parts[i].iterations; j++)
-					{
-						lctimer.start();
-						tools.Run_Level_Set_Opt_interactive(runner.compute_pg);
-						lctimer.stop();
-						errorlist.push_back(tools.pgerror);
-						if(timelist.empty()){
-							timelist.push_back(lctimer.getElapsedTimeInSec());
-						}
-						else{
-							timelist.push_back(timelist.back() + lctimer.getElapsedTimeInSec());
-						}
-
-						iteration_total++;
-						if (
-							(tools.step_length < runner.stop_step_length || tools.pgerror < runner.stop_energy_sqrt * runner.stop_energy_sqrt) 
-							&& j != 0)
-						{
-							std::cout << "optimization converges " << std::endl;
-							break;
-						}
-					}
-					std::cout << "\n";
-				}
-				timer_global.stop();
-				time_total += timer_global.getElapsedTimeInSec();
-
-				std::cout << "Pseudo-Geodesic Curves in level sets are Generated ..." << std::endl;
-				int id = viewer.selected_data_index;
-				CGMesh inputMesh = tools.lsmesh;
-				updateMeshViewer(viewer, inputMesh);
-				meshFileName.push_back("lso_" + meshFileName[id]);
-				Meshes.push_back(inputMesh);
-
-				Eigen::VectorXd level_set_values;
-				tools.show_level_set(level_set_values);
-				if (level_set_values.size() == 0)
-				{
-					std::cout << "Level Set is not initialized" << std::endl;
-					ImGui::End();
-					return;
-				}
-				Eigen::MatrixXd CM;
-				igl::parula(Eigen::VectorXd::LinSpaced(21, 0, 1).eval(), false, CM);
-				igl::isolines_map(Eigen::MatrixXd(CM), CM);
-				viewer.data().set_colormap(CM);
-				viewer.data().set_data(level_set_values);
-				const Eigen::RowVector3d red(0.8, 0.2, 0.2);
-				const Eigen::RowVector3d blue(0.2, 0.2, 0.8);
-
-				viewer.selected_data_index = id;
-			}
-			ImGui::SameLine();
-			if (ImGui::Button("SaveStrokes", ImVec2(ImGui::GetWindowSize().x * 0.25f, 0.0f)))
-
-			{
-				save_strokes(flist, bclist, tools.V, tools.F);
-			}
-			ImGui::SameLine();
-			if (ImGui::Button("ReadStrokes", ImVec2(ImGui::GetWindowSize().x * 0.25f, 0.0f)))
-
-			{
-				Eigen::MatrixXd V = tools.V;
-				Eigen::MatrixXi F = tools.F;
-				read_strokes(flist, bclist);
-				Eigen::MatrixXd vlist;
-				for (int i = 0; i < flist.size(); i++)
-				{
-					vlist.resize(flist[i].size(), 3);
-					for (int j = 0; j < flist[i].size(); j++)
-					{
-						int fid = flist[i][j];
-						Eigen::Vector3f bc = bclist[i][j];
-						Eigen::Vector3d v0 = V.row(F(fid, 0));
-						Eigen::Vector3d v1 = V.row(F(fid, 1));
-						Eigen::Vector3d v2 = V.row(F(fid, 2));
-
-						Eigen::Vector3d pt = bc[0] * v0 + bc[1] * v1 + bc[2] * v2;
-						vlist.row(j) = pt;
-					}
-					const Eigen::RowVector3d red(0.8, 0.2, 0.2);
-					viewer.data().add_points(vlist, red); // show rows
-				}
-			}
-		}
+		
 		if (ImGui::CollapsingHeader("QuadMeshOpt", ImGuiTreeNodeFlags_CollapsingHeader))
 		{
 			// ImGui::InputInt("Ver_id", &update_ver_id, 0, 0);
@@ -2793,414 +2439,104 @@ void lscif::draw_menu2(igl::opengl::glfw::Viewer &viewer, igl::opengl::glfw::img
 				evaluateGGGConsineConstraints();
 			}
 		}
-		if (ImGui::CollapsingHeader("FunctionalAngles", ImGuiTreeNodeFlags_CollapsingHeader))
+
+		if (ImGui::CollapsingHeader("aagEvolution", ImGuiTreeNodeFlags_CollapsingHeader))
 		{
-			// ImGui::InputInt("Ver_id", &update_ver_id, 0, 0);
-			// ImGui::InputInt("Ring nbr", &ring_nbr, 0, 0);
-			// ImGui::InputDouble("Latitude", &Shading_Latitude, 0, 0, "%.4f");
-			ImGui::Checkbox("DisableIncreasing", &Disable_Changed_Angles);
-			ImGui::SameLine();
-			ImGui::Checkbox("UseFittingAngles", &Use_Fitting_Angles);
-			ImGui::SameLine();
-			ImGui::Checkbox("Opt_Only_BNMS", &Use_Opt_Only_BNMS);
-
-			if (ImGui::Button("InitAOAP", ImVec2(ImGui::GetWindowSize().x * 0.25f, 0.0f)))
+			if (ImGui::Button("ReadPlyObj", ImVec2(ImGui::GetWindowSize().x * 0.25f, 0.0f)))
 			{
-				// binormals as orthogonal as possible.
-				EnergyPrepare einit;
-				einit.weight_gravity = weight_mass;
-				einit.weight_lap = weight_laplacian;
-				einit.weight_bnd = weight_boundary;
-				einit.weight_pg = weight_pseudo_geodesic;
-				einit.weight_strip_width = weight_strip_width;
-				einit.solve_pseudo_geodesic = enable_pg_energy_checkbox;
-				einit.target_angle = target_angle;
-				einit.max_step_length = maximal_step_length;
-				einit.solve_strip_width_on_traced = enable_strip_width_checkbox;
-				einit.enable_extreme_cases = enable_extreme_cases;
-				einit.Given_Const_Direction = Given_Const_Direction;
-				// tools.weight_shading = weight_shading;
-				tools.prepare_level_set_solving(einit);
-				tools.Reference_theta = InputPx;
-				tools.Reference_phi = InputPy;
-				tools.Reference_theta1 = InputPx1;
-				tools.Reference_phi1 = InputPy1;
-				tools.Theta_tol = InputThetaTol;
-				tools.Phi_tol = InputPhiTol;
-				tools.Theta_tol1 = InputThetaTol1;
-				tools.Phi_tol1 = InputPhiTol1;
-				tools.weight_geodesic = weight_geodesic;
-				tools.enable_shading_init = shading_init;
-				tools.weight_binormal = weight_binormal;
-				tools.weight_smt_binormal = weight_smt_binormal;
-				tools.enable_let_ray_through = let_ray_through;
-				tools.ShadingLatitude = Shading_Latitude;
-				tools.enable_reflection = let_ray_reflect;
-				tools.recompute_auxiliaries = recompute_auxiliaries;
-				tools.Disable_Changed_Angles = Disable_Changed_Angles;
-				tools.Use_Fitting_Angles = Use_Fitting_Angles;
-				tools.Use_Opt_Only_BNMS = Use_Opt_Only_BNMS;
-
-				for (int i = 0; i < OpIter; i++)
+				std::string fname = igl::file_dialog_open();
+				if (fname.length() == 0)
 				{
-					tools.RunInitAOAP();
-					if (tools.step_length < 1e-16 && i != 0)
-					{ // step length actually is the value for the last step
-						std::cout << "optimization converges " << std::endl;
-						break;
-					}
-				}
-				std::cout << "waiting for instruction..." << std::endl;
-				// MP.MeshUnitScale(inputMesh, updatedMesh);
-				int id = viewer.selected_data_index;
-				CGMesh inputMesh = tools.lsmesh;
-				updateMeshViewer(viewer, inputMesh);
-				meshFileName.push_back("AOAP_" + meshFileName[id]);
-				Meshes.push_back(inputMesh);
-
-				Eigen::VectorXd level_set_values;
-				tools.show_level_set(level_set_values);
-				if (level_set_values.size() == 0)
-				{
+					std::cout << "\nLSC: read mesh failed" << std::endl;
 					ImGui::End();
 					return;
 				}
-				Eigen::MatrixXd CM;
-				// std::cout<<"before compute colormap"<<std::endl;
-				igl::parula(Eigen::VectorXd::LinSpaced(21, 0, 1).eval(), false, CM);
-				igl::isolines_map(Eigen::MatrixXd(CM), CM);
-				// std::cout<<"before set colormap"<<std::endl;
-				viewer.data().set_colormap(CM);
-				// std::cout<<"before set color"<<std::endl;
-				viewer.data().set_data(level_set_values);
-				// Eigen::MatrixXd E0, E1;
-				// // tools.show_gradients(E0,E1, vector_scaling);
-				const Eigen::RowVector3d red(0.8, 0.2, 0.2);
-				const Eigen::RowVector3d blue(0.2, 0.2, 0.8);
+				Eigen::MatrixXi Ftri;
+				igl::readOBJ(fname, SinglePly, Ftri);
+				poly_tool.init(SinglePly);
 
-				viewer.selected_data_index = id;
-			}
-			ImGui::SameLine();
-			if (ImGui::Button("OrthoAsPsblOpt", ImVec2(ImGui::GetWindowSize().x * 0.25f, 0.0f)))
-			{
-				// binormals as orthogonal as possible.
-				EnergyPrepare einit;
-				einit.weight_gravity = weight_mass;
-				einit.weight_lap = weight_laplacian;
-				einit.weight_bnd = weight_boundary;
-				einit.weight_pg = weight_pseudo_geodesic;
-				einit.weight_strip_width = weight_strip_width;
-				einit.solve_pseudo_geodesic = enable_pg_energy_checkbox;
-				einit.target_angle = target_angle;
-				einit.max_step_length = maximal_step_length;
-				einit.solve_strip_width_on_traced = enable_strip_width_checkbox;
-				einit.enable_extreme_cases = enable_extreme_cases;
-				einit.Given_Const_Direction = Given_Const_Direction;
-				// tools.weight_shading = weight_shading;
-				tools.prepare_level_set_solving(einit);
-				tools.Reference_theta = InputPx;
-				tools.Reference_phi = InputPy;
-				tools.Reference_theta1 = InputPx1;
-				tools.Reference_phi1 = InputPy1;
-				tools.Theta_tol = InputThetaTol;
-				tools.Phi_tol = InputPhiTol;
-				tools.Theta_tol1 = InputThetaTol1;
-				tools.Phi_tol1 = InputPhiTol1;
-				tools.weight_geodesic = weight_geodesic;
-				tools.enable_shading_init = shading_init;
-				tools.weight_binormal = weight_binormal;
-				tools.weight_smt_binormal = weight_smt_binormal;
-				tools.enable_let_ray_through = let_ray_through;
-				tools.ShadingLatitude = Shading_Latitude;
-				tools.enable_reflection = let_ray_reflect;
-				tools.recompute_auxiliaries = recompute_auxiliaries;
-				tools.Disable_Changed_Angles = Disable_Changed_Angles;
-				tools.Use_Fitting_Angles = Use_Fitting_Angles;
-				tools.Use_Opt_Only_BNMS = Use_Opt_Only_BNMS;
-
-				for (int i = 0; i < OpIter; i++)
-				{
-					tools.Run_AsOrthAsPossible_LS();
-					if (tools.step_length < 1e-16 && i != 0)
-					{ // step length actually is the value for the last step
-						std::cout << "optimization converges " << std::endl;
-						break;
-					}
-				}
-				std::cout << "waiting for instruction..." << std::endl;
-				// MP.MeshUnitScale(inputMesh, updatedMesh);
 				int id = viewer.selected_data_index;
-				CGMesh inputMesh = tools.lsmesh;
-				updateMeshViewer(viewer, inputMesh);
-				meshFileName.push_back("AOAP_" + meshFileName[id]);
-				Meshes.push_back(inputMesh);
-
-				Eigen::VectorXd level_set_values;
-				tools.show_level_set(level_set_values);
-				if (level_set_values.size() == 0)
-				{
-					ImGui::End();
-					return;
-				}
-				Eigen::MatrixXd CM;
-				// std::cout<<"before compute colormap"<<std::endl;
-				igl::parula(Eigen::VectorXd::LinSpaced(21, 0, 1).eval(), false, CM);
-				igl::isolines_map(Eigen::MatrixXd(CM), CM);
-				// std::cout<<"before set colormap"<<std::endl;
-				viewer.data().set_colormap(CM);
-				// std::cout<<"before set color"<<std::endl;
-				viewer.data().set_data(level_set_values);
-				// Eigen::MatrixXd E0, E1;
-				// // tools.show_gradients(E0,E1, vector_scaling);
-				const Eigen::RowVector3d red(0.8, 0.2, 0.2);
-				const Eigen::RowVector3d blue(0.2, 0.2, 0.8);
-
+				CGMesh updatemesh = polyline_to_strip_mesh(poly_tool.ply_extracted, poly_tool.bin_extracted, vector_scaling);
+				updateMeshViewer(viewer, updatemesh);
+				meshFileName.push_back("ply_" + meshFileName[id]);
+				Meshes.push_back(updatemesh);
+				viewer.data().add_points(SinglePly, hot_red);
 				viewer.selected_data_index = id;
+				std::cout << "read poly with " << SinglePly.rows() << " points\n";
+				// set up parameters
+				weight_laplacian = 0.0001;
+				weight_pseudo_geodesic = 1;
+				weight_geodesic = 0.01;
 			}
 			ImGui::SameLine();
-			if (ImGui::Button("WriteFitting", ImVec2(ImGui::GetWindowSize().x * 0.25f, 0.0f)))
-			{
-				tools.write_fitting_data();
-			}
-			ImGui::SameLine();
-			if (ImGui::Button("DrawMinK", ImVec2(ImGui::GetWindowSize().x * 0.25f, 0.0f)))
-			{
-				Eigen::MatrixXd E0, E1;
-				tools.show_minimal_curvature_directions(E0, E1, vector_scaling);
-				viewer.data().add_edges(E0, E1, hot_red);
-			}
-		}
-
-		if (ImGui::CollapsingHeader("ConstSlope", ImGuiTreeNodeFlags_CollapsingHeader))
-		{
-			// ImGui::InputInt("Ver_id", &update_ver_id, 0, 0);
-			// ImGui::InputInt("Ring nbr", &ring_nbr, 0, 0);
-			// ImGui::InputDouble("Latitude", &Shading_Latitude, 0, 0, "%.4f");
-			ImGui::Checkbox("AxisFixed", &AxisFixedForSlopes);
-			ImGui::SameLine();
-			ImGui::Checkbox("AnglesFixed", &AnglesFixedForSlopes);
-			ImGui::PushItemWidth(50);
-			ImGui::InputDouble("x", &AxisFixInX, 0, 0, "%.4f");
-			ImGui::SameLine();
-			ImGui::InputDouble("y", &AxisFixInY, 0, 0, "%.4f");
-			ImGui::SameLine();
-			ImGui::InputDouble("z", &AxisFixInZ, 0, 0, "%.4f");
-			ImGui::SameLine();
-			ImGui::InputDouble("Angle", &AngleFixIn, 0, 0, "%.4f");
-
-			if (ImGui::Button("Run", ImVec2(ImGui::GetWindowSize().x * 0.25f, 0.0f)))
-			{
-				int id = viewer.selected_data_index;
-				CGMesh inputMesh = tools.lsmesh;
-				EnergyPrepare einit;
-				einit.weight_gravity = weight_mass;
-				einit.weight_lap = weight_laplacian;
-				einit.weight_bnd = weight_boundary;
-				einit.weight_pg = weight_pseudo_geodesic;
-				einit.weight_strip_width = weight_strip_width;
-				einit.solve_pseudo_geodesic = enable_pg_energy_checkbox;
-				einit.target_angle = target_angle;
-				einit.max_step_length = maximal_step_length;
-				einit.solve_strip_width_on_traced = enable_strip_width_checkbox;
-				einit.enable_extreme_cases = enable_extreme_cases;
-				tools.fix_angle_of_two_levelsets = fix_angle_of_two_levelsets;
-				tools.angle_between_two_levelsets = angle_between_two_levelsets;
-				tools.weight_fix_two_ls_angle = weight_fix_two_ls_angle;
-				tools.AxisFixedForSlopes = AxisFixedForSlopes;
-				tools.AnglesFixedForSlopes = AnglesFixedForSlopes;
-				;
-				tools.AxisFixIn = Eigen::Vector3d(AxisFixInX, AxisFixInY, AxisFixInZ);
-				tools.AngleFixIn = AngleFixIn;
-				// tools.weight_shading = weight_shading;
-				//
-				tools.prepare_level_set_solving(einit);
-				timer_global.start();
-				for (int i = 0; i < OpIter; i++)
-				{
-					tools.Run_ConstSlopeOpt();
-					iteration_total++;
-					if (tools.step_length < 1e-16 && i != 0)
-					{ // step length actually is the value for the last step
-						std::cout << "optimization converges " << std::endl;
-						break;
-					}
-				}
-				timer_global.stop();
-				time_total += timer_global.getElapsedTimeInSec();
-				std::cout << "waiting for instruction..." << std::endl;
-				updateMeshViewer(viewer, inputMesh);
-				meshFileName.push_back("lso_" + meshFileName[id]);
-				Meshes.push_back(inputMesh);
-
-				Eigen::VectorXd level_set_values;
-				tools.show_level_set(level_set_values);
-				if (level_set_values.size() == 0)
-				{
-					ImGui::End();
-					return;
-				}
-				Eigen::MatrixXd CM;
-				igl::parula(Eigen::VectorXd::LinSpaced(21, 0, 1).eval(), false, CM);
-				igl::isolines_map(Eigen::MatrixXd(CM), CM);
-				viewer.data().set_colormap(CM);
-				viewer.data().set_data(level_set_values);
-				const Eigen::RowVector3d red(0.8, 0.2, 0.2);
-				const Eigen::RowVector3d blue(0.2, 0.2, 0.8);
-
-				viewer.selected_data_index = id;
-			}
-			ImGui::SameLine();
-			if (ImGui::Button("DrawBxis", ImVec2(ImGui::GetWindowSize().x * 0.25f, 0.0f)))
-			{
-				const Eigen::RowVector3d red(0.8, 0.2, 0.2);
-				const Eigen::RowVector3d blue(0.2, 0.2, 0.8);
-				const Eigen::RowVector3d yellow(241. / 255, 196. / 255, 15. / 255);
-
-				const Eigen::RowVector3d black(0, 0, 0);
-				const Eigen::RowVector3d green(0.2, 0.8, 0.2);
-
-				Eigen::MatrixXd E0, E1;
-				std::cout << "ploting the bxis" << std::endl;
-				Eigen::MatrixXd binormals;
-				tools.show_bxis(E0, E1);
-				viewer.data().add_edges(E0, E1, green);
-			}
-		}
-
-		if (ImGui::CollapsingHeader("TorsionFreeNodes", ImGuiTreeNodeFlags_DefaultOpen))
-		{
-			// ImGui::InputInt("Ver_id", &update_ver_id, 0, 0);
-			// ImGui::InputInt("Ring nbr", &ring_nbr, 0, 0);
-			// ImGui::InputDouble("Latitude", &Shading_Latitude, 0, 0, "%.4f");
-			ImGui::Checkbox("FixCentroid", &CentroidFixedForNodes);
-			ImGui::SameLine();
-			ImGui::Checkbox("fixPly", &RadiusFixedForNodes);
-			ImGui::SameLine();
-			ImGui::Checkbox("FindC&R", &FindCandRForNodes);
-			ImGui::SameLine();
-			ImGui::Checkbox("WriteLs&Radius", &tools.write_ls_radius_file);
-			ImGui::PushItemWidth(50);
-			ImGui::InputDouble("Cx", &CentroidFixInX, 0, 0, "%.4f");
-			ImGui::SameLine();
-			ImGui::InputDouble("Cy", &CentroidFixInY, 0, 0, "%.4f");
-			ImGui::SameLine();
-			ImGui::InputDouble("Cz", &CentroidFixInZ, 0, 0, "%.4f");
-			ImGui::SameLine();
-			ImGui::InputDouble("Radius", &RadiusFixIn, 0, 0, "%.4f");
-			if (ImGui::Button("RunRuling", ImVec2(ImGui::GetWindowSize().x * 0.25f, 0.0f)))
-			{
-				// std::cout<<"in run"<<std::endl;
-				int id = viewer.selected_data_index;
-				CGMesh inputMesh = tools.lsmesh;
-				EnergyPrepare einit;
-				einit.weight_gravity = weight_mass;
-				einit.weight_lap = weight_laplacian;
-				einit.weight_bnd = weight_boundary;
-				einit.weight_pg = weight_pseudo_geodesic;
-				einit.weight_strip_width = weight_strip_width;
-				einit.solve_pseudo_geodesic = enable_pg_energy_checkbox;
-				einit.target_angle = target_angle;
-				einit.max_step_length = maximal_step_length;
-				einit.solve_strip_width_on_traced = enable_strip_width_checkbox;
-				einit.enable_extreme_cases = enable_extreme_cases;
-				tools.fix_angle_of_two_levelsets = fix_angle_of_two_levelsets;
-				tools.angle_between_two_levelsets = angle_between_two_levelsets;
-				tools.weight_fix_two_ls_angle = weight_fix_two_ls_angle;
-
-				tools.RulingFixCentroid = CentroidFixedForNodes;
-				tools.RulingFixRadius = RadiusFixedForNodes;
-				tools.RulingOnlyFindingSphere = FindCandRForNodes;
-				tools.RulingCentroid = Eigen::Vector3d(CentroidFixInX, CentroidFixInY, CentroidFixInZ);
-				// tools.RulingRadius = RadiusFixIn;
-				// tools.weight_shading = weight_shading;
-				//
-				tools.prepare_level_set_solving(einit);
-				timer_global.start();
-				for (int i = 0; i < OpIter; i++)
-				{
-					tools.Run_ruling_opt();
-					iteration_total++;
-					if (tools.step_length < 1e-16 && i != 0)
-					{ // step length actually is the value for the last step
-						std::cout << "optimization converges " << std::endl;
-						break;
-					}
-				}
-				timer_global.stop();
-				time_total += timer_global.getElapsedTimeInSec();
-				std::cout << "waiting for instruction..." << std::endl;
-				updateMeshViewer(viewer, inputMesh);
-				meshFileName.push_back("lso_" + meshFileName[id]);
-				Meshes.push_back(inputMesh);
-
-				Eigen::VectorXd level_set_values;
-				tools.show_level_set(level_set_values);
-				if (level_set_values.size() == 0)
-				{
-					ImGui::End();
-					return;
-				}
-				Eigen::MatrixXd CM;
-				igl::parula(Eigen::VectorXd::LinSpaced(21, 0, 1).eval(), false, CM);
-				igl::isolines_map(Eigen::MatrixXd(CM), CM);
-				viewer.data().set_colormap(CM);
-				viewer.data().set_data(level_set_values);
-				const Eigen::RowVector3d red(0.8, 0.2, 0.2);
-				const Eigen::RowVector3d blue(0.2, 0.2, 0.8);
-
-				viewer.selected_data_index = id;
-			}
-			ImGui::SameLine();
-			
-			if (ImGui::Button("RulingCheckRadius", ImVec2(ImGui::GetWindowSize().x * 0.25f, 0.0f)))
-			{
-				tools.RulingCentroid = Eigen::Vector3d(CentroidFixInX, CentroidFixInY, CentroidFixInZ);
-				if(tools.fvalues.size()>0){
-					tools.statistic_tangent_vector_to_pt_distance();
-				}
-				else{
-					std::cout<<"please load level sets"<<std::endl;
-				}
-				
-			}
-			ImGui::SameLine();
-			
-			if (ImGui::Button("DrawTangents", ImVec2(ImGui::GetWindowSize().x * 0.25f, 0.0f)))
+			if (ImGui::Button("OptBnm", ImVec2(ImGui::GetWindowSize().x * 0.25f, 0.0f)))
 			{
 				
-				const Eigen::RowVector3d red(0.8, 0.2, 0.2);
-				const Eigen::RowVector3d blue(0.2, 0.2, 0.8);
-				const Eigen::RowVector3d yellow(241. / 255, 196. / 255, 15. / 255);
+				poly_tool.weight_smooth = weight_laplacian;
+				poly_tool.weight_mass = weight_mass;
+				poly_tool.weight_binormal = weight_pseudo_geodesic;
+				poly_tool.max_step = maximal_step_length;
+				poly_tool.strip_scale = vector_scaling;
+				poly_tool.binormal_ratio = weight_geodesic;
+				// poly_tool.weight_angle = weight_angle;
+				// poly_tool.target_angle = target_angle;
+				// poly_tool.ratio_endpts = weight_endpoint_ratio;
+				// poly_tool.pick_single_line = pick_single_ply;
+				// poly_tool.pick_line_id = pick_line_id;
 
-				const Eigen::RowVector3d black(0, 0, 0);
-				const Eigen::RowVector3d green(0.2, 0.8, 0.2);
-
-				viewer.data().add_edges(tools.TangentE0, tools.TangentE0 + (tools.TangentE1 - tools.TangentE0) * vector_scaling,
-										green);
+				for (int i = 0; i < OpIter; i++)
+				{
+					poly_tool.opt();
+				}
+				CGMesh updatemesh = poly_tool.RecMesh;
+				int id = viewer.selected_data_index;
+				updateMeshViewer(viewer, updatemesh);
+				meshFileName.push_back("ply_" + meshFileName[id]);
+				Meshes.push_back(updatemesh);
+				viewer.selected_data_index = id;
+				std::cout << "waiting for instructions" << std::endl;
 			}
 			ImGui::SameLine();
-			
-			if (ImGui::Button("TestQuadratics", ImVec2(ImGui::GetWindowSize().x * 0.25f, 0.0f)))
+			if (ImGui::Button("PlanIntesect", ImVec2(ImGui::GetWindowSize().x * 0.25f, 0.0f)))
 			{
-				tools.test_quadratic_compare_0(CentroidFixInX, CentroidFixInY, CentroidFixInZ, dbg_dbl, dbg_dbl2);
+				std::vector<Eigen::Vector3d> versOff; std::vector<Eigen::Vector3d> cresOff;
+				std::vector<Eigen::Vector3d> plyin = poly_tool.ply_extracted[0];
+				std::vector<Eigen::Vector3d> binin = poly_tool.bin_extracted[0];
+				construct_single_developable_strips_by_intersect_rectifying_AAG(plyin, binin, versOff, cresOff);
+				SingleFoot = versOff;
+				SingleCrease = cresOff;
+				int id = viewer.selected_data_index;
+				std::vector<std::vector<Eigen::Vector3d>> vtmp(1), ctmp(1);
+				vtmp[0] = versOff;
+				ctmp[0] = cresOff;
+				CGMesh updatemesh = polyline_to_strip_mesh(vtmp, ctmp, 1, 0, true);
+				updateMeshViewer(viewer, updatemesh);
+				meshFileName.push_back("inter_" + meshFileName[id]);
+				Meshes.push_back(updatemesh);
+				viewer.data().add_points(SinglePly, hot_red);
+				viewer.selected_data_index = id;
 			}
-			if (ImGui::Button("Plot2dFitting", ImVec2(ImGui::GetWindowSize().x * 0.25f, 0.0f)))
+			
+			ImGui::SameLine();
+			if (ImGui::Button("AdjustInit", ImVec2(ImGui::GetWindowSize().x * 0.25f, 0.0f)))
 			{
-				//tools.test_quadratic_compare_0(CentroidFixInX, CentroidFixInY, CentroidFixInZ, dbg_dbl, dbg_dbl2);
-				if (tools.NodeFitPly.size() == 0)
+				if (SinglePly.rows() == 0)
 				{
+					std::cout << "\nLSC: Please init the opt" << std::endl;
 					ImGui::End();
 					return;
 				}
+				adjustAagOffset(mat_to_vec_list(SinglePly), SingleFoot, SingleCrease);
 				int id = viewer.selected_data_index;
-				plot2dFittingResults(viewer, tools.XsNode, tools.YsNode, tools.NodeFitPly);
-				meshFileName.push_back("fitting_" + meshFileName[id]);
-				CGMesh meshtmp;
-				Meshes.push_back(meshtmp);
+				std::vector<std::vector<Eigen::Vector3d>> vtmp(1), ctmp(1);
+				vtmp[0] = SingleFoot;
+				ctmp[0] = SingleCrease;
+				CGMesh updatemesh = polyline_to_strip_mesh(vtmp, ctmp, 1, 0, true);
+				updateMeshViewer(viewer, updatemesh);
+				meshFileName.push_back("optInit_" + meshFileName[id]);
+				Meshes.push_back(updatemesh);
 				viewer.selected_data_index = id;
 			}
-
-
 		}
 		// binormals as orthogonal as possible.
 		ImGui::PushStyleColor(ImGuiCol_Button, (ImVec4)ImColor::HSV(0.0f, 0.6f, 0.6f));

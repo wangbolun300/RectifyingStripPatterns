@@ -102,6 +102,7 @@ public:
     PolyOpt(){};
     // sample_nbr is the nbr of resampling points on the longest polyline. -1 means do not sample.
     void init(const std::vector<std::vector<Eigen::Vector3d>> &ply, const std::vector<std::vector<Eigen::Vector3d>> &bi, const int sample_nbr);
+    void init(const Eigen::MatrixXd& ply_in);
     int VerNbr;
     Eigen::VectorXd PlyVars; // vars for the polylines
     Eigen::VectorXd OriVars; // original vars
@@ -115,7 +116,7 @@ public:
     std::vector<std::vector<Eigen::Vector3d>> ply_rotated;
     std::vector<std::vector<Eigen::Vector3d>> bin_rotated;
     CGMesh RecMesh;// rectifying mesh
-    spMat endpts_signs;
+    // spMat endpts_signs;
     double weight_smooth;
     // double weight_plysmooth;
     double weight_mass;
@@ -128,7 +129,7 @@ public:
     double ratio_endpts;
     double target_angle;
     bool first_compute = true;
-    bool pick_single_line=false;
+    bool pick_single_line = false;
     int pick_line_id;
     // if opt for polyline, then don't opt for crease.
     bool opt_for_polyline = false;
@@ -138,10 +139,12 @@ public:
     Eigen::MatrixXd Nref;
     int MaxNbrPinC = 0;
     bool OrientEndPts = true;
+    bool singleLineProcessing = false;// if we only process single line, no need to glid on a surface.
 
     void opt();
     // make the values not far from original data
     void assemble_gravity(spMat& H, Eigen::VectorXd& B, Eigen::VectorXd &energy);
+    void assemble_gravity_single_ply(spMat& H, Eigen::VectorXd& B, Eigen::VectorXd &energy);
     void assemble_polyline_smooth(const bool crease,  spMat& H, Eigen::VectorXd& B, Eigen::VectorXd &energy);
     void assemble_binormal_condition(spMat& H, Eigen::VectorXd& B, Eigen::VectorXd &energy);
     void assemble_angle_condition(spMat& H, Eigen::VectorXd& B, Eigen::VectorXd &energy);
@@ -188,6 +191,7 @@ public:
     void init(CGMesh& mesh_in, const std::vector<std::vector<double>> rowinfo, const std::vector<std::vector<double>>colinfo);
     void init(CGMesh& mesh_in, const std::string& prefix);
     void init(CGMesh& mesh_in);
+    void initAAG(const std::vector<Eigen::Vector3d> &Vlist, const int rnbr);
     
     std::vector<std::vector<double>> rowinfo; // to record the adjancency info of rows  
     std::vector<std::vector<double>> colinfo; // to record the adjancency info of cols
@@ -195,6 +199,8 @@ public:
     Eigen::MatrixXd V;
     CGMesh mesh_original;
     CGMesh mesh_update;
+    std::vector<Eigen::Vector3d> verOriginal;
+    std::vector<Eigen::Vector3d> verUpdate;
     double real_step_length;
     
     // input from outside
@@ -212,6 +218,7 @@ public:
     // int pg2_type = 0;
     
     void opt();
+    void optAAG();
     void reset();
     void load_triangle_mesh_tree(const igl::AABB<Eigen::MatrixXd, 3> &tree, const Eigen::MatrixXd &Vt,
                                  const Eigen::MatrixXi &Ft, const Eigen::MatrixXd &Nt);
@@ -243,17 +250,19 @@ private:
     Eigen::MatrixXd Vtri;
     Eigen::MatrixXi Ftri;
     Eigen::MatrixXd Ntri;
+    int vNbrInRow = -1;
     void get_Bnd(Eigen::VectorXi& Bnd); // the boundary vertices: the net corners
     void assemble_fairness(spMat& H, Eigen::VectorXd& B, Eigen::VectorXd &energy);
     void assemble_gravity(spMat& H, Eigen::VectorXd& B, Eigen::VectorXd &energy);
+    void assemble_gravity_AAG(spMat& H, Eigen::VectorXd& B, Eigen::VectorXd &energy);
     // type: 0 disabled. 1 means asymptotic, 2 means geodesic, 3 pseudo-geodesic
     // family: 0 rows, 1 cols, 2 diagonal NO0, 3 diagonal NO1.
     void assemble_pg_extreme_cases(spMat &H, Eigen::VectorXd &B, Eigen::VectorXd &energy,
-                                   const int type, const int family, const int aux_start_location);
+                                   const int type, const int family, const int aux_start_location, const int order = 0);
     void assemble_pg_cases(const double angle_radian, spMat &H, Eigen::VectorXd &B, Eigen::VectorXd &energy,
                            const int family, const int aux_start_location);
-    void assemble_binormal_conditions(spMat &H, Eigen::VectorXd &B, Eigen::VectorXd &energy, int type, int family);
-    void assemble_normal_conditions(spMat &H, Eigen::VectorXd &B, Eigen::VectorXd &energy);
+    void assemble_binormal_conditions(spMat &H, Eigen::VectorXd &B, Eigen::VectorXd &energy, int type, int family, const int order = 0);
+    void assemble_normal_conditions(spMat &H, Eigen::VectorXd &B, Eigen::VectorXd &energy, const int order = 0);
 
 public:
     // debug tools

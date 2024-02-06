@@ -17,6 +17,7 @@ src/polyline.cpp
 src/interaction.cpp
 src/interaction.h
 src/topology.cpp
+src/quad.cpp
 )
 ################################################################################
 # Subfolders

@@ -174,6 +174,9 @@ public:
 	std::vector<Eigen::Vector3f> bclist_tmp;
 	std::vector<std::vector<Eigen::Vector3d>> project_pts;
 	AutoRunArgs autorunner[2];
+	Eigen::MatrixXd SinglePly;// these are for init the AAG
+	std::vector<Eigen::Vector3d> SingleFoot;
+	std::vector<Eigen::Vector3d> SingleCrease;
 
 	// functional angles stuff.
 	bool Disable_Changed_Angles = false;
@@ -198,6 +201,7 @@ public:
 
 	// add a new mesh into the mesh lists, and show the new mesh along with previous showed meshes
 	void updateMeshViewer(igl::opengl::glfw::Viewer &viewer, CGMesh &mesh);
+	void updatePointsViewer(igl::opengl::glfw::Viewer &viewer, const Eigen::MatrixXd& V);
 
 	void plot2dFittingResults(igl::opengl::glfw::Viewer &viewer, const Eigen::VectorXd& xs, const Eigen::VectorXd& ys,
 		const std::vector<double> &ply);
