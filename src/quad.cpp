@@ -70,14 +70,20 @@ void load_diagonal_info(const Eigen::VectorXi &row_front, const Eigen::VectorXi 
         {
             continue;
         }
-        int lu = row_front(cfid); // upleft
-        int ld = row_back(cfid);
-        int ru = row_front(cbid);
-        int rd = row_back(cbid);
-        d0_front[id] = lu;
-        d0_back[id] = rd;
-        d1_front[id] = ld;
-        d1_back[id] = ru;
+        if (cfid >= 0)
+        {
+            int lu = row_front(cfid); // upleft
+            d0_front[id] = lu;
+            int ld = row_back(cfid);
+            d1_front[id] = ld;
+        }
+        if (cbid >= 0)
+        {
+            int ru = row_front(cbid);
+            int rd = row_back(cbid);
+            d0_back[id] = rd;
+            d1_back[id] = ru;
+        }
     }
 }
 
@@ -170,6 +176,8 @@ void getQuadRowColsRegular(const int vnbr, const int rnbr, Eigen::VectorXi &rf, 
         for (int j = 0; j < rnbr; j++)
         {
             int vid = i * rnbr + j;
+            assert(vid>=0);
+            assert(vid<vnbr);
             int vfr, vbk, vlf, vrt;
             // front
             if (j == 0)
@@ -196,7 +204,7 @@ void getQuadRowColsRegular(const int vnbr, const int rnbr, Eigen::VectorXi &rf, 
             }
             else
             {
-                vlf = vnbr - rnbr;
+                vlf = vid - rnbr;
             }
             // right
             if (i == cnbr - 1)
@@ -205,7 +213,7 @@ void getQuadRowColsRegular(const int vnbr, const int rnbr, Eigen::VectorXi &rf, 
             }
             else
             {
-                vrt = vnbr + rnbr;
+                vrt = vid + rnbr;
             }
 
             // assign the values.
@@ -213,6 +221,10 @@ void getQuadRowColsRegular(const int vnbr, const int rnbr, Eigen::VectorXi &rf, 
             rb[vid] = vbk;
             cf[vid] = vlf;
             cb[vid] = vrt;
+            assert(vfr<vnbr);
+            assert(vbk<vnbr);
+            assert(vlf<vnbr);
+            assert(vrt<vnbr);
         }
     }
 }
@@ -357,6 +369,7 @@ void QuadOpt::init(CGMesh &mesh_in)
 void assignAagVertices(Eigen::VectorXd &vars,Eigen::VectorXd &graVec, const int varsize, const std::vector<Eigen::Vector3d> &vers)
 {
     vars = Eigen::VectorXd::Zero(varsize);
+    assert(varsize == vers.size() * 9);
     graVec = vars;
     for (int i = 0; i < vers.size(); i++)
     {
@@ -368,11 +381,40 @@ void assignAagVertices(Eigen::VectorXd &vars,Eigen::VectorXd &graVec, const int 
         graVec[i * 9 + 2] = 1;
     }
 }
+
+void constructRegularF(const int vnbr, const int rnbr, Eigen::MatrixXi &F)
+{
+    
+    int cnbr = vnbr / rnbr;
+    F.resize((cnbr - 1) * (rnbr - 1), 4);
+    int fnbr = 0;
+    for (int i = 0; i < cnbr - 1; i++)
+    {
+        for (int j = 0; j < rnbr - 1; j++)
+        {
+            int v0 = i * rnbr + j;
+            int v1 = i * rnbr + j + 1;
+            int v2 = (i + 1) * rnbr + j + 1;
+            int v3 = (i + 1) * rnbr + j;
+            F(fnbr, 0) = v0;
+            F(fnbr, 1) = v1;
+            F(fnbr, 2) = v2;
+            F(fnbr, 3) = v3;
+            fnbr++;
+        }
+    }
+    std::cout<<"check F, \n"<<F<<"\n";
+}
+
 void QuadOpt::initAAG(const std::vector<Eigen::Vector3d> &Vlist, const int rnbr)
 {
 
     int vnbr = Vlist.size();
     V = vec_list_to_matrix(Vlist);
+    std::cout<<"check V, \n"<<V<<"\n";
+    constructRegularF(vnbr, rnbr, F);
+    MeshProcessing mp;
+    mp.matrix2Mesh(mesh_original, V, F);
     vNbrInRow = rnbr;
 
     // vertices vnbr * 3, normals vnbr * 3, binormals for G vnbr * 3
@@ -381,13 +423,23 @@ void QuadOpt::initAAG(const std::vector<Eigen::Vector3d> &Vlist, const int rnbr)
     getQuadRowColsRegular(vnbr, rnbr, row_front, row_back, col_front, col_back);
     std::cout << "Row Col info computed\n";
     load_diagonal_info(row_front, row_back, col_front, col_back, d0_front, d1_front, d0_back, d1_back);
+    std::cout << "Topo obtained\n";
     Eigen::VectorXd var_vec;
     assignAagVertices(OrigVars, var_vec, varsize, Vlist);
+    std::cout << "variables assigned\n";
     // mesh_original = mesh_in;
-    // mesh_update = mesh_original;
+    mesh_update = mesh_original;
     verOriginal = Vlist;
     verUpdate = verOriginal;
     ComputeAuxiliaries = true;
+    if (WhichDiagonal == 0)
+    {
+        d0_type = 1;
+    }
+    if (WhichDiagonal == 1)
+    {
+        d1_type = 1;
+    }
     Estimate_PG_Angles = false;
     gravity_matrix = var_vec.asDiagonal();
     Eigen::Vector3d vmin(V.col(0).minCoeff(), V.col(1).minCoeff(), V.col(2).minCoeff());
@@ -615,9 +667,10 @@ void QuadOpt::assemble_gravity_AAG(spMat& H, Eigen::VectorXd& B, Eigen::VectorXd
 
     
     std::vector<Trip> tripletes;
-    tripletes.reserve(vNbrInRow * 3);
-    energy = Eigen::VectorXd::Zero(vNbrInRow);
-    for (int i = 0; i < vNbrInRow; i++)
+    int vnbr = V.rows();
+    tripletes.reserve(vnbr * 3);
+    energy = Eigen::VectorXd::Zero(vnbr);
+    for (int i = 0; i < vnbr; i++)
     {
         int vid = i;
         int lx = vid * 9;
@@ -628,6 +681,10 @@ void QuadOpt::assemble_gravity_AAG(spMat& H, Eigen::VectorXd& B, Eigen::VectorXd
         // vertices not far away from the original ones
         // (ver - ver^*)^2 = 0
         double scale = 1;
+        if (i < vNbrInRow)
+        {
+            scale = 0;
+        }
         Eigen::Vector3d verori;
         Eigen::Vector3d vdiff;
 
@@ -660,20 +717,57 @@ void QuadOpt::load_triangle_mesh_tree(const igl::AABB<Eigen::MatrixXd, 3> &tree,
     Ntri = Nt;
     std::cout<<"Tree got loaded from triangle mesh."<<std::endl;
 }
+
+// given a vertex id, return the x y z locations of a vertex in variables
+void locatorRules(int vid, int vnbr, int order, int &x, int &y, int &z)
+{
+    if (order == 0)
+    {
+        x = vid;
+        y = vid + vnbr;
+        z = vid + vnbr * 2;
+    }
+    if (order == 1)
+    {
+        x = 9 * vid;
+        y = 9 * vid + 1;
+        z = 9 * vid + 2;
+    }
+}
 // lv is ver location, lf is front location, lb is back location, cid is the id of the condition
 // (v-f)/scale0 + (v-b)/scale1 = 0
 void push_fairness_conditions(std::vector<Trip> &tripletes, Eigen::VectorXd &energy,
                               const int lv, const int lf, const int lb,
                               const double vval, const double fval, const double bval,
-                              const int cid, const double scale0, const double scale1)
+                              const int cid, const double scale0, const double scale1, const int order = 0)
 {
-    tripletes.push_back(Trip(cid, lv, 1 / scale0 + 1 / scale1));
-    tripletes.push_back(Trip(cid, lf, -1 / scale0));
-    tripletes.push_back(Trip(cid, lb, -1 / scale1));
-    energy[cid] = (vval - fval) / scale0 + (vval - bval) / scale1;
+    if (order == 0)
+    {
+        tripletes.push_back(Trip(cid, lv, 1 / scale0 + 1 / scale1));
+        tripletes.push_back(Trip(cid, lf, -1 / scale0));
+        tripletes.push_back(Trip(cid, lb, -1 / scale1));
+        energy[cid] = (vval - fval) / scale0 + (vval - bval) / scale1;
+    }
+
+    if (order == 1)
+    {
+        tripletes.push_back(Trip(cid, lv, 2));
+        tripletes.push_back(Trip(cid, lf, -1));
+        tripletes.push_back(Trip(cid, lb, -1));
+        energy[cid] = (vval - fval) + (vval - bval);
+    }
 }
 
-void QuadOpt::assemble_fairness(spMat& H, Eigen::VectorXd& B, Eigen::VectorXd &energy){
+bool validateOrder1(const int vnbr, const int location)
+{
+    int mn = location % 9;
+    if (mn == 0 || mn == 1 || mn == 2)
+    {
+        return true;
+    }
+    return false;
+}
+void QuadOpt::assemble_fairness(spMat& H, Eigen::VectorXd& B, Eigen::VectorXd &energy, const int order){
     
 
     std::vector<Trip> tripletes;
@@ -694,41 +788,49 @@ void QuadOpt::assemble_fairness(spMat& H, Eigen::VectorXd& B, Eigen::VectorXd &e
         int d1f = d1_front[vid];
         int d1b = d1_back[vid];
         // the locations 
-        int lvx = vid;
-        int lvy = vid + vnbr;
-        int lvz = vid + 2 * vnbr;
+        int lvx;
+        int lvy;
+        int lvz;
+        locatorRules(vid, vnbr, order, lvx, lvy, lvz);
+        int lrfx;
+        int lrfy;
+        int lrfz;
+        locatorRules(rf, vnbr, order, lrfx, lrfy, lrfz);
 
-        int lrfx = rf;
-        int lrfy = rf + vnbr;
-        int lrfz = rf + vnbr * 2;
+        int lrbx;
+        int lrby;
+        int lrbz;
+        locatorRules(rb, vnbr, order, lrbx, lrby, lrbz);
 
-        int lrbx = rb;
-        int lrby = rb + vnbr;
-        int lrbz = rb + vnbr * 2;
+        int lcfx;
+        int lcfy;
+        int lcfz;
+        locatorRules(cf, vnbr, order, lcfx, lcfy, lcfz);
 
-        int lcfx = cf;
-        int lcfy = cf + vnbr;
-        int lcfz = cf + vnbr * 2;
+        int lcbx;
+        int lcby;
+        int lcbz;
+        locatorRules(cb, vnbr, order, lcbx, lcby, lcbz);
 
-        int lcbx = cb;
-        int lcby = cb + vnbr;
-        int lcbz = cb + vnbr * 2;
+        int ld0fx;
+        int ld0fy;
+        int ld0fz;
+        locatorRules(d0f, vnbr, order, ld0fx, ld0fy, ld0fz);
 
-        int ld0fx = d0f;
-        int ld0fy = d0f + vnbr;
-        int ld0fz = d0f + vnbr * 2;
+        int ld0bx;
+        int ld0by;
+        int ld0bz;
+        locatorRules(d0b, vnbr, order, ld0bx, ld0by, ld0bz);
 
-        int ld0bx = d0b;
-        int ld0by = d0b + vnbr;
-        int ld0bz = d0b + vnbr * 2;
+        int ld1fx;
+        int ld1fy;
+        int ld1fz;
+        locatorRules(d1f, vnbr, order, ld1fx, ld1fy, ld1fz);
 
-        int ld1fx = d1f;
-        int ld1fy = d1f + vnbr;
-        int ld1fz = d1f + vnbr * 2;
-
-        int ld1bx = d1b;
-        int ld1by = d1b + vnbr;
-        int ld1bz = d1b + vnbr * 2;
+        int ld1bx;
+        int ld1by;
+        int ld1bz;
+        locatorRules(d1b, vnbr, order, ld1bx, ld1by, ld1bz);
         
         bool row_smt = true;
         bool col_smt = true;
@@ -752,6 +854,35 @@ void QuadOpt::assemble_fairness(spMat& H, Eigen::VectorXd& B, Eigen::VectorXd &e
         {
             d1_smt = false;
         }
+        if (order == 1)
+        {
+            // std::cout<<"Smoothness checking ... \n";
+            if (row_smt)
+            {
+                assert(validateOrder1(vnbr, lvx) && validateOrder1(vnbr, lvy) && validateOrder1(vnbr, lvz));
+                assert(validateOrder1(vnbr, lrfx) && validateOrder1(vnbr, lrfy) && validateOrder1(vnbr, lrfz));
+                assert(validateOrder1(vnbr, lrbx) && validateOrder1(vnbr, lrby) && validateOrder1(vnbr, lrbz));
+            }
+            if (col_smt)
+            {
+                assert(validateOrder1(vnbr, lvx) && validateOrder1(vnbr, lvy) && validateOrder1(vnbr, lvz));
+                assert(validateOrder1(vnbr, lcfx) && validateOrder1(vnbr, lcfy) && validateOrder1(vnbr, lcfz));
+                assert(validateOrder1(vnbr, lcbx) && validateOrder1(vnbr, lcby) && validateOrder1(vnbr, lcbz));
+            }
+            if (d0_smt)
+            {
+                assert(validateOrder1(vnbr, lvx) && validateOrder1(vnbr, lvy) && validateOrder1(vnbr, lvz));
+                assert(validateOrder1(vnbr, ld0fx) && validateOrder1(vnbr, ld0fy) && validateOrder1(vnbr, ld0fz));
+                assert(validateOrder1(vnbr, ld0bx) && validateOrder1(vnbr, ld0by) && validateOrder1(vnbr, ld0bz));
+            }
+            if (d1_smt)
+            {
+                assert(validateOrder1(vnbr, lvx) && validateOrder1(vnbr, lvy) && validateOrder1(vnbr, lvz));
+                assert(validateOrder1(vnbr, ld1fx) && validateOrder1(vnbr, ld1fy) && validateOrder1(vnbr, ld1fz));
+                assert(validateOrder1(vnbr, ld1bx) && validateOrder1(vnbr, ld1by) && validateOrder1(vnbr, ld1bz));
+            }
+        }
+
         if (row_smt)
         {
             assert(rf != rb);
@@ -760,13 +891,20 @@ void QuadOpt::assemble_fairness(spMat& H, Eigen::VectorXd& B, Eigen::VectorXd &e
             Eigen::Vector3d Vbk(GlobVars[lrbx], GlobVars[lrby], GlobVars[lrbz]);
             double scale0 = (Ver - Vfr).norm();
             double scale1 = (Ver - Vbk).norm();
+            if ((Vbk - Vfr).norm() == 0)
+            {
+                std::cout << "Error: rf, " << rf << ", rb " << rb << "\n"<<"V\n"<<V<<"\n";
+                std::cout<<"Vbk, "<<Vbk.transpose()<<"\nVfr, "<<Vfr.transpose()<<"\n";
+                
+            }
             assert((Vbk - Vfr).norm() > 0);
+            
             counter = i;
-            push_fairness_conditions(tripletes, energy, lvx, lrfx, lrbx, Ver[0], Vfr[0], Vbk[0], counter, scale0, scale1);
+            push_fairness_conditions(tripletes, energy, lvx, lrfx, lrbx, Ver[0], Vfr[0], Vbk[0], counter, scale0, scale1, order);
             counter = i + vnbr;
-            push_fairness_conditions(tripletes, energy, lvy, lrfy, lrby, Ver[1], Vfr[1], Vbk[1], counter, scale0, scale1);
+            push_fairness_conditions(tripletes, energy, lvy, lrfy, lrby, Ver[1], Vfr[1], Vbk[1], counter, scale0, scale1, order);
             counter = i + vnbr * 2;
-            push_fairness_conditions(tripletes, energy, lvz, lrfz, lrbz, Ver[2], Vfr[2], Vbk[2], counter, scale0, scale1);
+            push_fairness_conditions(tripletes, energy, lvz, lrfz, lrbz, Ver[2], Vfr[2], Vbk[2], counter, scale0, scale1, order);
             
         }
 
@@ -779,11 +917,11 @@ void QuadOpt::assemble_fairness(spMat& H, Eigen::VectorXd& B, Eigen::VectorXd &e
             double scale1 = (Ver - Vbk).norm();
             assert((Vbk - Vfr).norm() > 0);
             counter = i + vnbr * 3;
-            push_fairness_conditions(tripletes, energy, lvx, lcfx, lcbx, Ver[0], Vfr[0], Vbk[0], counter, scale0, scale1);
+            push_fairness_conditions(tripletes, energy, lvx, lcfx, lcbx, Ver[0], Vfr[0], Vbk[0], counter, scale0, scale1, order);
             counter = i + vnbr * 4;
-            push_fairness_conditions(tripletes, energy, lvy, lcfy, lcby, Ver[1], Vfr[1], Vbk[1], counter, scale0, scale1);
+            push_fairness_conditions(tripletes, energy, lvy, lcfy, lcby, Ver[1], Vfr[1], Vbk[1], counter, scale0, scale1, order);
             counter = i + vnbr * 5;
-            push_fairness_conditions(tripletes, energy, lvz, lcfz, lcbz, Ver[2], Vfr[2], Vbk[2], counter, scale0, scale1);
+            push_fairness_conditions(tripletes, energy, lvz, lcfz, lcbz, Ver[2], Vfr[2], Vbk[2], counter, scale0, scale1, order);
             
         }
 
@@ -796,11 +934,11 @@ void QuadOpt::assemble_fairness(spMat& H, Eigen::VectorXd& B, Eigen::VectorXd &e
             double scale1 = (Ver - Vbk).norm();
             assert((Vbk - Vfr).norm() > 0);
             counter = i + vnbr * 6;
-            push_fairness_conditions(tripletes, energy, lvx, ld0fx, ld0bx, Ver[0], Vfr[0], Vbk[0], counter, scale0, scale1);
+            push_fairness_conditions(tripletes, energy, lvx, ld0fx, ld0bx, Ver[0], Vfr[0], Vbk[0], counter, scale0, scale1, order);
             counter = i + vnbr * 7;
-            push_fairness_conditions(tripletes, energy, lvy, ld0fy, ld0by, Ver[1], Vfr[1], Vbk[1], counter, scale0, scale1);
+            push_fairness_conditions(tripletes, energy, lvy, ld0fy, ld0by, Ver[1], Vfr[1], Vbk[1], counter, scale0, scale1, order);
             counter = i + vnbr * 8;
-            push_fairness_conditions(tripletes, energy, lvz, ld0fz, ld0bz, Ver[2], Vfr[2], Vbk[2], counter, scale0, scale1);
+            push_fairness_conditions(tripletes, energy, lvz, ld0fz, ld0bz, Ver[2], Vfr[2], Vbk[2], counter, scale0, scale1, order);
         }
         if (d1_smt)
         {
@@ -811,11 +949,11 @@ void QuadOpt::assemble_fairness(spMat& H, Eigen::VectorXd& B, Eigen::VectorXd &e
             double scale1 = (Ver - Vbk).norm();
             assert((Vbk - Vfr).norm() > 0);
             counter = i + vnbr * 9;
-            push_fairness_conditions(tripletes, energy, lvx, ld1fx, ld1bx, Ver[0], Vfr[0], Vbk[0], counter, scale0, scale1);
+            push_fairness_conditions(tripletes, energy, lvx, ld1fx, ld1bx, Ver[0], Vfr[0], Vbk[0], counter, scale0, scale1, order);
             counter = i + vnbr * 10;
-            push_fairness_conditions(tripletes, energy, lvy, ld1fy, ld1by, Ver[1], Vfr[1], Vbk[1], counter, scale0, scale1);
+            push_fairness_conditions(tripletes, energy, lvy, ld1fy, ld1by, Ver[1], Vfr[1], Vbk[1], counter, scale0, scale1, order);
             counter = i + vnbr * 11;
-            push_fairness_conditions(tripletes, energy, lvz, ld1fz, ld1bz, Ver[2], Vfr[2], Vbk[2], counter, scale0, scale1);
+            push_fairness_conditions(tripletes, energy, lvz, ld1fz, ld1bz, Ver[2], Vfr[2], Vbk[2], counter, scale0, scale1, order);
         }
     }
 
@@ -827,10 +965,106 @@ void QuadOpt::assemble_fairness(spMat& H, Eigen::VectorXd& B, Eigen::VectorXd &e
     B = -J.transpose() * energy;
 }
 
+class variableLocator
+{
+public:
+    variableLocator(){};
+    void getLocations(int order, int vnbr, int vid, int rf, int rb, int cf, int cb,
+                      int d0f, int d0b, int d1f, int d1b, int bnm_start_location, int family);
+    // this is to choose which polylines to use for normal vectors.
+    void getLocationsNormalCondition(int order, int vnbr, int vid, int &rf, int &rb, int &cf, int &cb,
+                                                  int d0f, int d0b, int d1f, int d1b, int bnm_start_location, int whichDiagonal);
+    int lvx;
+    int lvy;
+    int lvz;
+    int lfx;
+    int lfy;
+    int lfz;
+    int lbx;
+    int lby;
+    int lbz;
+    int lnx;
+    int lny;
+    int lnz;
+    int lrx;
+    int lry;
+    int lrz;
+
+    int lrfx;
+    int lrfy;
+    int lrfz;
+
+    int lrbx;
+    int lrby;
+    int lrbz;
+
+    int lcfx;
+    int lcfy;
+    int lcfz;
+
+    int lcbx;
+    int lcby;
+    int lcbz;
+};
+
+
+
+void variableLocator::getLocations(int order, int vnbr, int vid, int rf, int rb, int cf, int cb,
+                                   int d0f, int d0b, int d1f, int d1b, int bnm_start_location, int family)
+{
+    if (order == 0)
+    {
+        lvx = vid;
+        lvy = vid + vnbr;
+        lvz = vid + 2 * vnbr;
+        lnx = vnbr * 3 + vid;
+        lny = vnbr * 4 + vid;
+        lnz = vnbr * 5 + vid;
+        lrx = bnm_start_location + vid;
+        lry = bnm_start_location + vid + vnbr;
+        lrz = bnm_start_location + vid + vnbr * 2;
+    }
+
+    if (order == 1)
+    {
+        lvx = 9 * vid;
+        lvy = 9 * vid + 1;
+        lvz = 9 * vid + 2;
+        lnx = 9 * vid + 3;
+        lny = 9 * vid + 4;
+        lnz = 9 * vid + 5;
+        lrx = 9 * vid + 6;
+        lry = 9 * vid + 7;
+        lrz = 9 * vid + 8;
+    }
+
+    if (family == 0) // rows
+    {
+        locatorRules(rf, vnbr, order, lfx, lfy, lfz);
+        locatorRules(rb, vnbr, order, lbx, lby, lbz);
+    }
+    if (family == 1) // cols
+    {
+        locatorRules(cf, vnbr, order, lfx, lfy, lfz);
+        locatorRules(cb, vnbr, order, lbx, lby, lbz);
+    }
+    if (family == 2) // d0
+    {
+        locatorRules(d0f, vnbr, order, lfx, lfy, lfz);
+        locatorRules(d0b, vnbr, order, lbx, lby, lbz);
+    }
+
+    if (family == 3) // d1
+    {
+        locatorRules(d1f, vnbr, order, lfx, lfy, lfz);
+        locatorRules(d1b, vnbr, order, lbx, lby, lbz);
+    }
+}
+
 // bnm_start is the id where the binormal starts in the variable matrix
 // from bnm_start to bnm_start + vnbr * 3 are the binormal variables of this family of curves
 // family: 0: row. 1: col. 2: d0. 3: d1.
-void QuadOpt::assemble_binormal_conditions(spMat &H, Eigen::VectorXd &B, Eigen::VectorXd &energy, int family, int bnm_start, const int rnbr)
+void QuadOpt::assemble_binormal_conditions(spMat &H, Eigen::VectorXd &B, Eigen::VectorXd &energy, int family, int bnm_start, const int order)
 {
     // std::cout<<"check 1, family "<<family<<std::endl;
     std::vector<Trip> tripletes;
@@ -851,66 +1085,37 @@ void QuadOpt::assemble_binormal_conditions(spMat &H, Eigen::VectorXd &B, Eigen::
         int d1f = d1_front[vid];
         int d1b = d1_back[vid];
         // the locations
-        // the vertex
-        int lvx = vid;
-        int lvy = vid + vnbr;
-        int lvz = vid + 2 * vnbr;
+
+        variableLocator locator;
+        locator.getLocations(order, vnbr, vid, rf, rb,
+                             cf, cb, d0f, d0b, d1f, d1b, bnm_start, family);
+            // the vertex
+        int lvx = locator.lvx;
+        int lvy = locator.lvy;
+        int lvz = locator.lvz;
         // the front and back vertices
-        int lfx, lfy, lfz, lbx, lby, lbz;
-        // the binormal vector locations
-        int lrx = bnm_start + vid;
-        int lry = bnm_start + vid + vnbr;
-        int lrz = bnm_start + vid + vnbr * 2;
+        int lfx = locator.lfx;
+        int lfy = locator.lfy;
+        int lfz = locator.lfz;
+        int lbx = locator.lbx;
+        int lby = locator.lby;
+        int lbz = locator.lbz;
+        // int lnx = locator.lnx;
+        // int lny = locator.lny;
+        // int lnz = locator.lnz;
+        int lrx = locator.lrx;
+        int lry = locator.lry;
+        int lrz = locator.lrz;
         bool compute = true;
-        if (family == 0) // rows
-        {
-            lfx = rf;
-            lfy = rf + vnbr;
-            lfz = rf + vnbr * 2;
-
-            lbx = rb;
-            lby = rb + vnbr;
-            lbz = rb + vnbr * 2;
-        }
-        if (family == 1) // cols
-        {
-            lfx = cf;
-            lfy = cf + vnbr;
-            lfz = cf + vnbr * 2;
-
-            lbx = cb;
-            lby = cb + vnbr;
-            lbz = cb + vnbr * 2;
-        }
-        if (family == 2) // d0
-        {
-            lfx = d0f;
-            lfy = d0f + vnbr;
-            lfz = d0f + vnbr * 2;
-
-            lbx = d0b;
-            lby = d0b + vnbr;
-            lbz = d0b + vnbr * 2;
-        }
-
-        if (family == 3) // d1
-        {
-
-            lfx = d1f;
-            lfy = d1f + vnbr;
-            lfz = d1f + vnbr * 2;
-
-            lbx = d1b;
-            lby = d1b + vnbr;
-            lbz = d1b + vnbr * 2;
-        }
+        
         if (lfx < 0 || lbx < 0)
         {
             compute = false;
         }
         
         if(compute == false){ // the vertex is on the boundary
-            if(!ComputeAuxiliaries){
+            if (!ComputeAuxiliaries)
+            {
                 // here we choose doing nothing and care only about inner vertices
             }
             continue;
@@ -1041,8 +1246,9 @@ void push_geodesic_condition(std::vector<Trip> &tripletes, Eigen::VectorXd &ener
 // aux_start_location is the start location of the auxiliaries of this family
 // when order = 0, then the variables are: all the vertices, all the normals, all others...
 // when order = 1, the variables are: ver+normal+binormal, ... ,
-void QuadOpt::assemble_pg_extreme_cases(spMat &H, Eigen::VectorXd &B, Eigen::VectorXd &energy,
-                          const int type, const int family, const int bnm_start_location, const int order)
+void
+QuadOpt::assemble_pg_extreme_cases(spMat &H, Eigen::VectorXd &B, Eigen::VectorXd &energy,
+                                   const int type, const int family, const int bnm_start_location, const int order)
 {
 
     std::vector<Trip> tripletes;
@@ -1075,64 +1281,25 @@ void QuadOpt::assemble_pg_extreme_cases(spMat &H, Eigen::VectorXd &B, Eigen::Vec
         int d1b = d1_back[vid];
 
          // the locations
-        // the vertex
-        int lvx = vid;
-        int lvy = vid + vnbr;
-        int lvz = vid + 2 * vnbr;
-        if (order == 1)
-        {
-            lvx = 9 * vid;
-            lvy = 9 * vid + 1;
-            lvz = 9 * vid + 2;
-        }
+        variableLocator locator;
+        locator.getLocations(order, vnbr, vid, rf, rb,
+                             cf, cb, d0f, d0b, d1f, d1b, bnm_start_location, family);
+            // the vertex
+        int lvx = locator.lvx;
+        int lvy = locator.lvy;
+        int lvz = locator.lvz;
         // the front and back vertices
-        int lfx, lfy, lfz, lbx, lby, lbz;
-        int lnx = vnbr * 3 + vid;
-        int lny = vnbr * 4 + vid;
-        int lnz = vnbr * 5 + vid;
+        int lfx = locator.lfx;
+        int lfy = locator.lfy;
+        int lfz = locator.lfz;
+        int lbx = locator.lbx;
+        int lby = locator.lby;
+        int lbz = locator.lbz;
+        int lnx = locator.lnx;
+        int lny = locator.lny;
+        int lnz = locator.lnz;
         bool compute = true;
-        if (family == 0) // rows
-        {
-            lfx = rf;
-            lfy = rf + vnbr;
-            lfz = rf + vnbr * 2;
-
-            lbx = rb;
-            lby = rb + vnbr;
-            lbz = rb + vnbr * 2;
-        }
-        if (family == 1) // cols
-        {
-            lfx = cf;
-            lfy = cf + vnbr;
-            lfz = cf + vnbr * 2;
-
-            lbx = cb;
-            lby = cb + vnbr;
-            lbz = cb + vnbr * 2;
-        }
-        if (family == 2) // d0
-        {
-            lfx = d0f;
-            lfy = d0f + vnbr;
-            lfz = d0f + vnbr * 2;
-
-            lbx = d0b;
-            lby = d0b + vnbr;
-            lbz = d0b + vnbr * 2;
-        }
-
-        if (family == 3) // d1
-        {
-
-            lfx = d1f;
-            lfy = d1f + vnbr;
-            lfz = d1f + vnbr * 2;
-
-            lbx = d1b;
-            lby = d1b + vnbr;
-            lbz = d1b + vnbr * 2;
-        }
+        
         if (rf < 0 || rb < 0 || cf < 0 || cb < 0)// on the boundary it does not have a normal vector properly defined
         {
             compute = false;
@@ -1167,9 +1334,9 @@ void QuadOpt::assemble_pg_extreme_cases(spMat &H, Eigen::VectorXd &B, Eigen::Vec
         }
         if(type == 2){// geodesic
             counter = i;
-            int lrx = bnm_start_location + i;
-            int lry = bnm_start_location + i + vnbr;
-            int lrz = bnm_start_location + i + vnbr * 2;
+            int lrx = locator.lrx;
+            int lry = locator.lry;
+            int lrz = locator.lrz;
             Eigen::Vector3d r(GlobVars[lrx], GlobVars[lry], GlobVars[lrz]);
             push_geodesic_condition(tripletes, energy, counter, lnx, lny, lnz, lrx, lry, lrz, norm, r);
         }
@@ -1402,7 +1569,120 @@ void QuadOpt::assemble_pg_cases(const double angle_radian, spMat &H, Eigen::Vect
     B = -J.transpose() * energy;
 }
 
-void QuadOpt::assemble_normal_conditions(spMat& H, Eigen::VectorXd& B, Eigen::VectorXd &energy, const int rnbr){
+void variableLocator::getLocationsNormalCondition(int order, int vnbr, int vid, int &rf, int &rb, int &cf, int &cb,
+                                                  int d0f, int d0b, int d1f, int d1b, int bnm_start_location, int whichDiagonal)
+{
+    if (cf < 0)
+    {
+        cf = vid;
+    }
+    if (cb < 0)
+    {
+        cb = vid;
+    }
+    if (order == 0)
+    {
+        lvx = vid;
+        lvy = vid + vnbr;
+        lvz = vid + 2 * vnbr;
+        lnx = vnbr * 3 + vid;
+        lny = vnbr * 4 + vid;
+        lnz = vnbr * 5 + vid;
+        lrx = bnm_start_location + vid;
+        lry = bnm_start_location + vid + vnbr;
+        lrz = bnm_start_location + vid + vnbr * 2;
+    }
+
+    if (order == 1)
+    {
+        lvx = 9 * vid;
+        lvy = 9 * vid + 1;
+        lvz = 9 * vid + 2;
+        lnx = 9 * vid + 3;
+        lny = 9 * vid + 4;
+        lnz = 9 * vid + 5;
+        lrx = 9 * vid + 6;
+        lry = 9 * vid + 7;
+        lrz = 9 * vid + 8;
+    }
+    if (order == 0)
+    {
+        if (rf < 0)
+        {
+            rf = vid;
+        }
+        if (rb < 0)
+        {
+            rb = vid;
+        }
+
+        lrfx = rf;
+        lrfy = rf + vnbr;
+        lrfz = rf + vnbr * 2;
+
+        lrbx = rb;
+        lrby = rb + vnbr;
+        lrbz = rb + vnbr * 2;
+
+        lcfx = cf;
+        lcfy = cf + vnbr;
+        lcfz = cf + vnbr * 2;
+
+        lcbx = cb;
+        lcby = cb + vnbr;
+        lcbz = cb + vnbr * 2;
+    }
+    if (order == 1)
+    {
+        lcfx = 9 * cf;
+        lcfy = 9 * cf + 1;
+        lcfz = 9 * cf + 2;
+
+        lcbx = 9 * cb;
+        lcby = 9 * cb + 1;
+        lcbz = 9 * cb + 2;
+        // int df = d0f;
+        // int db = d0b;
+        // if (whichDiagonal == 1) // choose d1.
+        // {
+        //     df = d1f;
+        //     db = d1b;
+        // }
+
+        // if (df < 0)
+        // {
+        //     df = vid;
+        // }
+        // if (db < 0)
+        // {
+        //     db = vid;
+        // }
+        // lrfx = 9 * df;
+        // lrfy = 9 * df + 1;
+        // lrfz = 9 * df + 2;
+        // lrbx = 9 * db;
+        // lrby = 9 * db + 1;
+        // lrbz = 9 * db + 2;
+        if (rf < 0)
+        {
+            rf = vid;
+        }
+        if (rb < 0)
+        {
+            rb = vid;
+        }
+
+        lrfx = 9 * rf;
+        lrfy = 9 * rf + 1;
+        lrfz = 9 * rf + 2;
+
+        lrbx = 9 * rb;
+        lrby = 9 * rb + 1;
+        lrbz = 9 * rb + 2;
+    }
+}
+
+void QuadOpt::assemble_normal_conditions(spMat& H, Eigen::VectorXd& B, Eigen::VectorXd &energy, const int order){
     std::vector<Trip> tripletes;
     int vnbr = V.rows();
     energy = Eigen::VectorXd::Zero(vnbr * 3); // todo
@@ -1413,106 +1693,51 @@ void QuadOpt::assemble_normal_conditions(spMat& H, Eigen::VectorXd& B, Eigen::Ve
     edge_nm1.reserve(vnbr);
     for (int i = 0; i < vnbr; i++)
     {
-        // the ids
         int vid = i;
         int rf = row_front[vid];
         int rb = row_back[vid];
         int cf = col_front[vid];
         int cb = col_back[vid];
+        int d0f = d0_front[vid];
+        int d0b = d0_back[vid];
+        int d1f = d1_front[vid];
+        int d1b = d1_back[vid];
+ 
         // if on one direction, there is no vertex, we use the current vertex to replace it for normal vector 
         // calculation. In such a way, the orientaion of the normal vector will not change.
-        if (rf < 0)
+        variableLocator locator;
+        locator.getLocationsNormalCondition(order, vnbr, vid, rf, rb,
+                             cf, cb, d0f, d0b, d1f, d1b, -1, WhichDiagonal);
+            // the vertex
+        int lvx = locator.lvx;
+        int lvy = locator.lvy;
+        int lvz = locator.lvz;
+        // the front and back vertices
+
+        int lnx = locator.lnx;
+        int lny = locator.lny;
+        int lnz = locator.lnz;
+
+        int lrfx = locator.lrfx;
+        int lrfy = locator.lrfy;
+        int lrfz = locator.lrfz;
+
+        int lrbx = locator.lrbx;
+        int lrby = locator.lrby;
+        int lrbz = locator.lrbz;
+
+        int lcfx = locator.lcfx;
+        int lcfy = locator.lcfy;
+        int lcfz = locator.lcfz;
+
+        int lcbx = locator.lcbx;
+        int lcby = locator.lcby;
+        int lcbz = locator.lcbz;
+        if (order == 1 && lrbx == lrfx) // when use diagonal to compute normal vectors, this means the diagonal does not exist
         {
-            rf = vid;
-        }
-        if (rb < 0)
-        {
-            rb = vid;
-        }
-        if (cf < 0)
-        {
-            cf = vid;
-        }
-        if (cb < 0)
-        {
-            cb = vid;
+            continue;
         }
 
-        // int d0f = d0_front[vid];
-        // int d0b = d0_back[vid];
-        // int d1f = d1_front[vid];
-        // int d1b = d1_back[vid];
-        // the locations
-        // the vertex
-        int lvx = vid;
-        int lvy = vid + vnbr;
-        int lvz = vid + 2 * vnbr;
-        
-        int lrfx = rf;
-        int lrfy = rf + vnbr;
-        int lrfz = rf + vnbr * 2;
-
-        int lrbx = rb;
-        int lrby = rb + vnbr;
-        int lrbz = rb + vnbr * 2;
-
-        int lcfx = cf;
-        int lcfy = cf + vnbr;
-        int lcfz = cf + vnbr * 2;
-
-        int lcbx = cb;
-        int lcby = cb + vnbr;
-        int lcbz = cb + vnbr * 2;
-
-        int lnx = i + vnbr * 3;
-        int lny = i + vnbr * 4;
-        int lnz = i + vnbr * 5;
-        // bool row_smt = true;
-        // bool col_smt = true;
-        
-        // if (rf < 0 || rb < 0)
-        // {
-        //     row_smt = false;
-        // }
-        // if (cf < 0 || cb < 0)
-        // {
-        //     col_smt = false;
-        // }
-        // if (row_smt == false || col_smt == false)
-        // { // the vertex is on the boundary, need special conditions
-        //     // std::vector<int> topos;//record the vids of the neibouring vers
-        //     // topos.reserve(3);
-        //     // if (rf >= 0)
-        //     // {
-        //     //     topos.push_back(rf);
-        //     // }
-        //     // if (rb >= 0)
-        //     // {
-        //     //     topos.push_back(rb);
-        //     // }
-        //     // if (cf >= 0)
-        //     // {
-        //     //     topos.push_back(cf);
-        //     // }
-        //     // if (cb >= 0)
-        //     // {
-        //     //     topos.push_back(cb);
-        //     // }
-        //     // Eigen::Vector3d AvgNormal(0,0,0);
-        //     // for (int itr = 0; itr < topos.size(); itr++)
-        //     // {
-        //     //     int lneix = topos[itr] + vnbr * 3;
-        //     //     int lneiy = topos[itr] + vnbr * 4;
-        //     //     int lneiz = topos[itr] + vnbr * 5;
-        //     //     Eigen::Vector3d NeiNormal(GlobVars[lneix], GlobVars[lneiy], GlobVars[lneiz]);
-        //     //     AvgNormal += NeiNormal;
-        //     // }
-
-        //     // 
-
-        //     continue;
-        // }
-        
         Eigen::Vector3d Ver(GlobVars[lvx], GlobVars[lvy], GlobVars[lvz]);
         Eigen::Vector3d Vrf(GlobVars[lrfx], GlobVars[lrfy], GlobVars[lrfz]);
         Eigen::Vector3d Vrb(GlobVars[lrbx], GlobVars[lrby], GlobVars[lrbz]);
@@ -1559,7 +1784,8 @@ void QuadOpt::assemble_normal_conditions(spMat& H, Eigen::VectorXd& B, Eigen::Ve
         energy[i] = norm.dot(Vrf - Vrb) / dis0;
         if (isnan(energy[i]))
         {
-            std::cout << "NAN 1\nnorm, " << norm << ", values, " << Vrf << ", " << Vrb << ", dis0, " << dis0 << "\n";
+            std::cout << "NAN 1\nnorm, " << norm.transpose() << ", values, " << Vrf.transpose()
+             << ", " << Vrb.transpose() << ", dis0, " << dis0 << "\n";
         }
 
         // norm * (Vcf - Vcb) = 0
@@ -1932,6 +2158,153 @@ void QuadOpt::opt(){
     }
 }
 
+void QuadOpt::optAAG()
+{
+    int vnbr = V.rows();
+    int order = 1; // the order = 1 means AAG
+    if (GlobVars.size() != varsize)
+    {
+        int sizediff = (varsize - GlobVars.size()) / 9;
+        std::cout << "Assigning variables based on previous ones, there are " << sizediff << " vertices more\n";
+        ComputeAuxiliaries = true;
+        Eigen::VectorXd tmpVar = Eigen::VectorXd::Zero(varsize);
+        if (GlobVars.size() > 0)
+            tmpVar.segment(0, GlobVars.size()) = GlobVars;
+        GlobVars = tmpVar;
+        for (int i = vnbr - sizediff; i < vnbr; i++)
+        {
+            GlobVars[i * 9] = V(i, 0);
+            GlobVars[i * 9 + 1] = V(i, 1);
+            GlobVars[i * 9 + 2] = V(i, 2);
+        }
+    }
+    spMat H;
+    H.resize(varsize, varsize);
+    Eigen::VectorXd B = Eigen::VectorXd::Zero(varsize);
+    Eigen::VectorXd Egravity, Esmth, Enorm, Ebnm0, Ebnm1, Ebnm2, Epg[4];
+
+    spMat Hgravity;  // approximation
+	Eigen::VectorXd Bgravity; // right of laplacian
+	assemble_gravity_AAG(Hgravity, Bgravity, Egravity);
+    H += weight_gravity * Hgravity;
+	B += weight_gravity * Bgravity;
+
+    spMat Hsmth;
+    Eigen::VectorXd Bsmth;
+	assemble_fairness(Hsmth, Bsmth, Esmth, order);
+    H += weight_fairness * Hsmth;
+	B += weight_fairness * Bsmth;
+    spMat Hnorm;
+    Eigen::VectorXd Bnorm;
+    assemble_normal_conditions(Hnorm, Bnorm, Enorm, order); // the 
+    H += weight_pg * Hnorm;
+	B += weight_pg * Bnorm;
+    // AAG, the row is the geodesic, the col is the A, and the chosen diag is another A
+    spMat Hbnm;
+    Eigen::VectorXd Bbnm;
+    int family = -1;
+    family = 0; // row is the geodesic
+    // vertices vnbr * 3, normals vnbr * 3, binormals for G vnbr * 3
+    assemble_binormal_conditions(Hbnm, Bbnm, Ebnm0, family, -1, order);
+    H += weight_pg * Hbnm;
+    B += weight_pg * Bbnm;
+    // G
+    int type = 2; // G
+    spMat Hpg[3];
+    Eigen::VectorXd Bpg[3];
+    assemble_pg_extreme_cases(Hpg[0], Bpg[0], Epg[0], type, family, -1, order);
+
+    // A
+    type = 1;   // A0
+    family = 1; // col
+    assemble_pg_extreme_cases(Hpg[1], Bpg[1], Epg[1], type, family, -1, order);
+
+    // A, the diagonal is another A
+    if (d0_type > 0)
+    {
+        family = 2;
+    }
+    if (d1_type > 0)
+    {
+        family = 3;
+    }
+    type = 1;   // A1
+    assemble_pg_extreme_cases(Hpg[2], Bpg[2], Epg[2], type, family, -1, order);
+
+    H += weight_pg * pg_ratio * (Hpg[0] + Hpg[1] + Hpg[2]);
+    B += weight_pg * pg_ratio * (Bpg[0] + Bpg[1] + Bpg[2]);
+
+    // assemble together
+
+    H += 1e-6 * (weight_mass * gravity_matrix + spMat(Eigen::VectorXd::Ones(varsize).asDiagonal()));
+    Eigen::SimplicialLLT<Eigen::SparseMatrix<double>> solver(H);
+
+	// assert(solver.info() == Eigen::Success);
+	if (solver.info() != Eigen::Success)
+	{
+		// solving failed
+		std::cout << "solver fail" << std::endl;
+		return;
+	}
+	// std::cout<<"solved successfully"<<std::endl;
+    Eigen::VectorXd dx = solver.solve(B).eval();
+    dx *= 0.75;
+    double step_length = dx.norm();
+    if (step_length > max_step)
+    {
+        dx *= max_step / step_length;
+    }
+    GlobVars += dx;
+
+    std::cout << "AAG, ";
+
+    double ev_appro = Egravity.norm();
+    double ev_smt = Esmth.norm();
+    double ev_norm = Enorm.norm();
+    std::cout << "Eclose, " << ev_appro << ", lap, " << ev_smt << ", normal vector, " << ev_norm << ", ";
+
+    double ebi = Ebnm0.norm();
+    std::cout << "bnm, " << ebi << ", GAA, " << Epg[0].norm() << ", " << Epg[1].norm() << ", " << Epg[2].norm() << ", ";
+
+    real_step_length = dx.norm();
+    std::cout << ", stp, " << dx.norm() << ", diagonal types, "<<d0_type<<", "<<d1_type<<", ";
+    std::cout << "\n";
+    // std::cout<<"here 1\n";
+    // convert the data to the mesh format
+    ComputeAuxiliaries = false;
+    for (int i = 0; i < vnbr; i++)
+    {
+        V(i, 0) = GlobVars[i * 9];
+        V(i, 1) = GlobVars[i * 9 + 1];
+        V(i, 2) = GlobVars[i * 9 + 2];
+    }
+    // std::cout<<"here 2\nver nbrs "<<mesh_update.n_vertices()<<"\n";
+    for (CGMesh::VertexIter v_it = mesh_update.vertices_begin(); v_it != mesh_update.vertices_end(); ++v_it)
+    {
+        int vid = v_it.handle().idx();
+        if (vid >= V.rows() || vid < 0)
+        {
+            std::cout << "Error in vid " << vid << std::endl;
+        }
+        assert(vid < V.rows());
+        assert(vid >= 0);
+        mesh_update.point(*v_it) = CGMesh::Point(V(vid, 0), V(vid, 1), V(vid, 2));
+    }
+    // std::cout<<"opt finished\n";
+}
+Eigen::MatrixXd QuadOpt::propagateBoundary()
+{
+    Eigen::MatrixXd result(vNbrInRow, 3);
+    int vnbr = V.rows();
+    int counter = 0;
+    for (int i = vnbr - vNbrInRow; i < vnbr; i++)
+    {
+        result.row(counter) = V.row(i);
+        counter++;
+    }
+    return result;
+}
+
 void QuadOpt::show_curve_families(std::array<Eigen::MatrixXd, 3>& edges){
     // int row_m = rowinfo.size() / 2;
     // int col_m = rowinfo[row_m].size() / 2;
@@ -1991,6 +2364,33 @@ void QuadOpt::show_curve_families(std::array<Eigen::MatrixXd, 3>& edges){
     }
     edges[2] = vec_list_to_matrix(vtp);
     
+}
+
+void QuadOpt::show_diagonals(Eigen::MatrixXd &E0, Eigen::MatrixXd &E1, Eigen::MatrixXd &E2, Eigen::MatrixXd &E3)
+{
+    // int row_m = rowinfo.size() / 2;
+    // int col_m = rowinfo[row_m].size() / 2;
+
+    // int vid = rowinfo[row_m][col_m]; // choose a point in the middle
+    int vnbr = V.rows();
+    Eigen::VectorXi fr = WhichDiagonal == 0 ? d0_front : d1_front;
+    std::vector<Eigen::Vector3d> v0, v1, v2, v3;
+    // Eigen::VectorXi bk = WhichDiagonal == 0 ? d0_back : d1_back;
+    for (int i = 0; i < vnbr; i++)
+    {
+        if (fr[i] >= 0 && row_front(i) >= 0 && col_front(i) >= 0)
+        {
+            v0.push_back(V.row(i));
+            v1.push_back(V.row(fr[i]));
+            v2.push_back(V.row(row_front(i)));
+            v3.push_back(V.row(col_front(i)));
+        }
+    }
+    E0 = vec_list_to_matrix(v0);
+    E1 = vec_list_to_matrix(v1);
+    E2 = vec_list_to_matrix(v2);
+    E3 = vec_list_to_matrix(v3);
+    std::cout<<"rowfront "<<row_front.transpose()<<"\ncolfront "<<col_front.transpose()<<"\nd0front"<<d0_front.transpose()<<"\n";
 }
 void QuadOpt::get_Bnd(Eigen::VectorXi& Bnd){
     int vnbr = V.rows();

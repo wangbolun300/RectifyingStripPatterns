@@ -219,10 +219,12 @@ public:
     
     void opt();
     void optAAG();
+    Eigen::MatrixXd propagateBoundary();
     void reset();
     void load_triangle_mesh_tree(const igl::AABB<Eigen::MatrixXd, 3> &tree, const Eigen::MatrixXd &Vt,
                                  const Eigen::MatrixXi &Ft, const Eigen::MatrixXd &Nt);
     void show_curve_families(std::array<Eigen::MatrixXd, 3>& edges); 
+    void show_diagonals(Eigen::MatrixXd &E0, Eigen::MatrixXd &E1, Eigen::MatrixXd &E2, Eigen::MatrixXd &E3); 
     void extract_binormals(const int family, const int bnm_start, const int vid, Eigen::Vector3d& bi);
     void extract_diagonals(const int family, std::vector<std::vector<int>> &digs);
     void write_polyline_info();
@@ -252,7 +254,7 @@ private:
     Eigen::MatrixXd Ntri;
     int vNbrInRow = -1;
     void get_Bnd(Eigen::VectorXi& Bnd); // the boundary vertices: the net corners
-    void assemble_fairness(spMat& H, Eigen::VectorXd& B, Eigen::VectorXd &energy);
+    void assemble_fairness(spMat& H, Eigen::VectorXd& B, Eigen::VectorXd &energy, const int order = 0);
     void assemble_gravity(spMat& H, Eigen::VectorXd& B, Eigen::VectorXd &energy);
     void assemble_gravity_AAG(spMat& H, Eigen::VectorXd& B, Eigen::VectorXd &energy);
     // type: 0 disabled. 1 means asymptotic, 2 means geodesic, 3 pseudo-geodesic

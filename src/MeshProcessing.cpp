@@ -556,16 +556,24 @@ void MeshProcessing::MeshEdgeDual(CGMesh& coarseMesh, CGMesh& fineMesh, std::vec
 
 void MeshProcessing::matrix2Mesh(CGMesh& mesh, Eigen::MatrixXd& V, Eigen::MatrixXi& F)
 {
+	mesh.clear();
 	int nv = V.rows();
 	std::vector<CGMesh::VertexHandle> vhs;
 	for (int i = 0; i < nv; i++)
 		vhs.push_back(mesh.add_vertex(CGMesh::Point(V(i, 0), V(i, 1), V(i, 2))));
 
 	int nf = F.rows();
+	int fv = F.cols();
 	for (int i = 0; i < nf; i++)
 	{
 		std::vector<CGMesh::VertexHandle>  face_vhandles;
-		face_vhandles.push_back(vhs[F(i, 0)]); face_vhandles.push_back(vhs[F(i, 1)]); face_vhandles.push_back(vhs[F(i, 2)]);
+		face_vhandles.push_back(vhs[F(i, 0)]);
+		face_vhandles.push_back(vhs[F(i, 1)]);
+		face_vhandles.push_back(vhs[F(i, 2)]);
+		if (fv == 4)
+		{
+			face_vhandles.push_back(vhs[F(i, 3)]);
+		}
 		mesh.add_face(face_vhandles);
 	}
 }
