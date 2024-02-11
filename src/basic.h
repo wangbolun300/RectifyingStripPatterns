@@ -253,6 +253,7 @@ private:
     Eigen::MatrixXi Ftri;
     Eigen::MatrixXd Ntri;
     int vNbrInRow = -1;
+    std::vector<Eigen::Vector3d> OriginalCurve;
     void get_Bnd(Eigen::VectorXi& Bnd); // the boundary vertices: the net corners
     void assemble_fairness(spMat& H, Eigen::VectorXd& B, Eigen::VectorXd &energy, const int order = 0);
     void assemble_gravity(spMat& H, Eigen::VectorXd& B, Eigen::VectorXd &energy);

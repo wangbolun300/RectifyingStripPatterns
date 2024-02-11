@@ -736,7 +736,7 @@ void adjustAagOffset(const std::vector<Eigen::Vector3d> &verFix,
         Eigen::Vector3d pf = vers[i - 1] + creases[i - 1]; // offset front
         Eigen::Vector3d pb = vers[i + 1] + creases[i + 1]; // offset back
         Eigen::Vector3d norm = (cver - verFix[i - 1]).cross(cver - verFix[i]).normalized();
-        double error = (cver - pf).cross(cver - pb).dot(norm);
+        double error = (cver - pf).normalized().cross(cver - pb).normalized().dot(norm);
         error = error * error;
         errorAll += error;
     }

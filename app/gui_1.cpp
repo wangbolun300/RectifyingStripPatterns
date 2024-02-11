@@ -2682,6 +2682,26 @@ void lscif::draw_menu2(igl::opengl::glfw::Viewer &viewer, igl::opengl::glfw::img
 				// viewer.data().add_edges(E0, E3, green);
 				// viewer.data().add_edges(E0, E1, blue);
 			}
+			ImGui::SameLine();
+			if (ImGui::Button("Calibrate", ImVec2(ImGui::GetWindowSize().x * 0.25f, 0.0f)))
+			{
+				SinglePly = quad_tool.propagateBoundary();
+				poly_tool.init(SinglePly);
+				int id = viewer.selected_data_index;
+				CGMesh updatemesh = polyline_to_strip_mesh(poly_tool.ply_extracted, poly_tool.bin_extracted, vector_scaling);
+				updateMeshViewer(viewer, updatemesh);
+				meshFileName.push_back("ply_" + meshFileName[id]);
+				Meshes.push_back(updatemesh);
+				viewer.data().add_points(SinglePly, hot_red);
+				viewer.selected_data_index = id;
+				std::cout << "create poly with " << SinglePly.rows() << " points\n";
+				// set up parameters
+				weight_laplacian = 0.0001;
+				weight_pseudo_geodesic = 1;
+				weight_geodesic = 0.01;
+				SingleFoot.clear();
+				SingleCrease.clear();
+			}
 		}
 		// binormals as orthogonal as possible.
 		ImGui::PushStyleColor(ImGuiCol_Button, (ImVec4)ImColor::HSV(0.0f, 0.6f, 0.6f));

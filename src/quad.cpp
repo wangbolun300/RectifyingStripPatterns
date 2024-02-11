@@ -416,6 +416,13 @@ void QuadOpt::initAAG(const std::vector<Eigen::Vector3d> &Vlist, const int rnbr)
     MeshProcessing mp;
     mp.matrix2Mesh(mesh_original, V, F);
     vNbrInRow = rnbr;
+    if (OriginalCurve.size() == 0)
+    {
+        for (int i = 0; i < rnbr; i++)
+        {
+            OriginalCurve.push_back(Vlist[i]);
+        }
+    }
 
     // vertices vnbr * 3, normals vnbr * 3, binormals for G vnbr * 3
     varsize = vnbr * 9;
@@ -681,16 +688,23 @@ void QuadOpt::assemble_gravity_AAG(spMat& H, Eigen::VectorXd& B, Eigen::VectorXd
         // vertices not far away from the original ones
         // (ver - ver^*)^2 = 0
         double scale = 1;
-        if (i < vNbrInRow)
+        if (i >= vNbrInRow)
         {
             scale = 0;
         }
         Eigen::Vector3d verori;
         Eigen::Vector3d vdiff;
+        if (i < vNbrInRow)
+        {
+            verori = OriginalCurve[i];
+        }
+        else
+        {
+            verori[0] = OrigVars[lx];
+            verori[1] = OrigVars[ly];
+            verori[2] = OrigVars[lz];
+        }
 
-        verori[0] = OrigVars[lx];
-        verori[1] = OrigVars[ly];
-        verori[2] = OrigVars[lz];
         vdiff = Eigen::Vector3d(V.row(vid)) - verori;
 
         tripletes.push_back(Trip(i, lx, 2 * vdiff[0] * scale));
