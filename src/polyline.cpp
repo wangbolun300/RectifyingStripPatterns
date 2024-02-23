@@ -866,15 +866,17 @@ void adjustAggOffset(const std::vector<Eigen::Vector3d> &pts_all, const std::vec
     {
         ab[1] = (d1 - ab[0] * r11) / r12 * ratio;
     }
-    // pout_all[bid] += ab[0] * v1 + ab[1] * v3;
+    // pout_all[bid] += ab[0] * v1 + ab[1] * v3; 
 
 
     // the second last point smoothness
     Eigen::Vector3d delta = (pout_all[bid + 1] + pout_all[bid - 1]) / 2 - pout_all[bid];
     pout_all[bid] += delta * ratio; // smoothness 1: row
 
-    // double alpha = 1/()
-    delta = 2 * pout_all[bid - vinrow] - pout_all[bid - 2 * vinrow] - pout_all[bid]; // one order smoothness
+    double alpha = 1/(pout_all[bid] - pout_all[bid - vinrow]).norm();
+    double beta = 1/(pout_all[bid - vinrow] - pout_all[bid - 2 * vinrow]).norm();
+    delta = (alpha + beta) / alpha * pout_all[bid - vinrow] - beta / alpha * pout_all[bid - 2 * vinrow] - pout_all[bid];
+    // delta = 2 * pout_all[bid - vinrow] - pout_all[bid - 2 * vinrow] - pout_all[bid]; // one order smoothness
     pout_all[bid] += delta * ratio; // smoothness 2: col
     pout[vinrow - 2] = pout_all[bid];
     error += pow(((p - p1).normalized()).cross(n1).dot(v2.normalized()), 2);
@@ -883,10 +885,10 @@ void adjustAggOffset(const std::vector<Eigen::Vector3d> &pts_all, const std::vec
     bid = vnbr - 1; // boundary point id
     // the first smooth
     delta = 2 * pout_all[bid - 1] - pout_all[bid - 2] - pout_all[bid]; // one order smoothness
-    pout_all[bid] += delta * ratio;                                    // smoothness
+    pout_all[bid] += delta ;                                    // smoothness
     // the second smooth
     delta = 2 * pout_all[bid - vinrow] - pout_all[bid - 2 * vinrow] - pout_all[bid]; // one order smoothness
-    pout_all[bid] += delta * ratio;                                                  // smoothness
+    pout_all[bid] += delta ;                                                  // smoothness
 
     pout[vinrow - 1] = pout_all[bid];
     std::cout << "squared error before opt, " << error << "\n";
