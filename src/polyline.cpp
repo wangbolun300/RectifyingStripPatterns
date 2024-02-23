@@ -530,13 +530,13 @@ void PolyOpt::init(const std::vector<std::vector<Eigen::Vector3d>> &ply_in, cons
     Front.resize(vnbr);
     Back.resize(vnbr);
     int counter = 0;
-    int csize = 0;
+    // int csize = 0;
     for (int i = 0; i < ply.size(); i++)
     {
-        if (csize < ply[i].size())
-        {
-            csize = ply[i].size();
-        }
+        // if (csize < ply[i].size())
+        // {
+        //     csize = ply[i].size();
+        // }
         for (int j = 0; j < ply[i].size(); j++)
         {
             int lpx = counter;
@@ -599,7 +599,7 @@ void PolyOpt::init(const std::vector<std::vector<Eigen::Vector3d>> &ply_in, cons
     // endpts_signs = endpts.asDiagonal();
     opt_for_polyline = true;
     opt_for_crease = false;
-    MaxNbrPinC = csize;
+    // MaxNbrPinC = csize;
     if(vector_contains_NAN(PlyVars)){
         std::cout<<"INIT ERROR: variables contain NAN"<<std::endl;
     }
@@ -617,82 +617,82 @@ void PolyOpt::init(const Eigen::MatrixXd& ply_in)
     Back.resize(vnbr);
     int counter = 0;
     std::vector<Eigen::Vector3d> binormals;
-    int csize = ply_in.size();
-    binormals.resize(ply_in.size());
+    // int csize = ply_in.size();
+    binormals.resize(ply_in.rows());
 
-        for (int j = 0; j < ply_in.rows(); j++)
+    for (int j = 0; j < ply_in.rows(); j++)
+    {
+        int lpx = counter;
+        int lpy = counter + vnbr;
+        int lpz = counter + vnbr * 2;
+        int lnx = counter + vnbr * 3;
+        int lny = counter + vnbr * 4;
+        int lnz = counter + vnbr * 5;
+        Eigen::Vector3d ver = ply_in.row(j);
+
+        PlyVars[lpx] = ver[0];
+        PlyVars[lpy] = ver[1];
+        PlyVars[lpz] = ver[2];
+        if (j > 0 && j < ply_in.rows() - 1)
         {
-            int lpx = counter;
-            int lpy = counter + vnbr;
-            int lpz = counter + vnbr * 2;
-            int lnx = counter + vnbr * 3;
-            int lny = counter + vnbr * 4;
-            int lnz = counter + vnbr * 5;
-            Eigen::Vector3d ver = ply_in.row(j);
-            
-            PlyVars[lpx] = ver[0];
-            PlyVars[lpy] = ver[1];
-            PlyVars[lpz] = ver[2];
-            if (j > 0 && j < ply_in.rows() - 1)
+            Eigen::Vector3d ver0 = ply_in.row(j - 1);
+            Eigen::Vector3d ver1 = ply_in.row(j + 1);
+            Eigen::Vector3d bin = (ver0 - ver).cross(ver1 - ver);
+            if (bin.norm() == 0)
             {
-                Eigen::Vector3d ver0 = ply_in.row(j - 1);
-                Eigen::Vector3d ver1 = ply_in.row(j + 1);
-                Eigen::Vector3d bin = (ver0 - ver).cross(ver1 - ver);
-                if (bin.norm() == 0)
-                {
-                    bin = Eigen::Vector3d(0, 0, 1);
-                }
-                else{
-                    bin.normalize();
-                }
-                PlyVars[lnx] = bin[0];
-                PlyVars[lny] = bin[1];
-                PlyVars[lnz] = bin[2];
-                binormals[j] = bin;
-            }
-            if (j == 1) // the first binormal will take from the second
-            {
-                PlyVars[vnbr * 3] = binormals[1][0];
-                PlyVars[vnbr * 4] = binormals[1][1];
-                PlyVars[vnbr * 5] = binormals[1][2];
-                binormals[0] = binormals[1];
-
-            }
-            if (j == 0) // first point of the seg
-            {
-                Front[counter] = -1;
+                bin = Eigen::Vector3d(0, 0, 1);
             }
             else
             {
-                Front[counter] = counter - 1;
+                bin.normalize();
             }
-            if (j == ply_in.rows() - 1) // last point of the seg
-            {
-                PlyVars[lnx] = binormals[j - 1][0]; // binormals are taken from the one
-                PlyVars[lny] = binormals[j - 1][1];
-                PlyVars[lnz] = binormals[j - 1][2];
-                binormals[j] = binormals[j - 1];
-                Back[counter] = -1;
-            }
-            else
-            {
-                Back[counter] = counter + 1;
-            }
-
-            counter++;
+            PlyVars[lnx] = bin[0];
+            PlyVars[lny] = bin[1];
+            PlyVars[lnz] = bin[2];
+            binormals[j] = bin;
         }
+        if (j == 1) // the first binormal will take from the second
+        {
+            PlyVars[vnbr * 3] = binormals[1][0];
+            PlyVars[vnbr * 4] = binormals[1][1];
+            PlyVars[vnbr * 5] = binormals[1][2];
+            binormals[0] = binormals[1];
+        }
+        if (j == 0) // first point of the seg
+        {
+            Front[counter] = -1;
+        }
+        else
+        {
+            Front[counter] = counter - 1;
+        }
+        if (j == ply_in.rows() - 1) // last point of the seg
+        {
+            PlyVars[lnx] = binormals[j - 1][0]; // binormals are taken from the one
+            PlyVars[lny] = binormals[j - 1][1];
+            PlyVars[lnz] = binormals[j - 1][2];
+            binormals[j] = binormals[j - 1];
+            Back[counter] = -1;
+        }
+        else
+        {
+            Back[counter] = counter + 1;
+        }
+
+        counter++;
+    }
     OriVars = PlyVars;
     std::vector<std::vector<Eigen::Vector3d>> ply(1), bi(1);
     ply[0] = mat_to_vec_list(ply_in);
     bi[0] = binormals;
     RecMesh = polyline_to_strip_mesh(ply, bi, strip_scale);
 
-    ply_extracted = ply;// to record the topology of the vers
+    ply_extracted = ply; // to record the topology of the vers
     bin_extracted = bi;
     // endpts_signs = endpts.asDiagonal();
     opt_for_polyline = true;
     opt_for_crease = false;
-    MaxNbrPinC = csize;
+    // MaxNbrPinC = csize;
     if(vector_contains_NAN(PlyVars)){
         std::cout<<"INIT ERROR: variables contain NAN"<<std::endl;
     }
@@ -741,6 +741,156 @@ void adjustAagOffset(const std::vector<Eigen::Vector3d> &verFix,
         errorAll += error;
     }
     std::cout << "error is " << errorAll << "\n";
+}
+
+// this function is designed to get the first strip for AGG evolution
+void aggFirstStrip(const std::vector<Eigen::Vector3d> &pts, const std::vector<Eigen::Vector3d> &bnm,
+                   std::vector<Eigen::Vector3d> &pout)
+{
+    int vnbr = pts.size();
+    std::vector<Eigen::Vector3d> result(vnbr);
+    assert(pts.size() == bnm.size());
+    // the m-p is orthogonal to the plane spanned by tangent and n. m is the mid point of the edge.
+    for (int i = 0; i < vnbr - 1; i++)
+    {
+        Eigen::Vector3d normals = ((bnm[i] + bnm[i + 1]) / 2).normalized();
+        double lengths = (pts[i] - pts[i + 1]).norm();
+        Eigen::Vector3d p, direction, tangent;
+        tangent = pts[i + 1] - pts[i];
+        tangent.normalize();
+        direction = normals.cross(tangent).normalized();
+        p = direction * lengths * 1.732 / 2 + (pts[i + 1] + pts[i]) / 2;
+        result[i] = p;
+    }
+    Eigen::Vector3d tangent = pts[vnbr - 1] - pts[vnbr - 2];
+    // Eigen::Vector3d m = (pts[vnbr - 2] + pts[vnbr - 1]) / 2;
+    // auto foot = tangent + m;
+    result[vnbr - 1] = result[vnbr - 2] + tangent;
+    pout = result;
+}
+
+
+// adjust the last boundary of AGG after propagating.
+// the bnms are the binormals of the second last boundary
+void adjustAggOffset(const std::vector<Eigen::Vector3d> &pts_all, const std::vector<Eigen::Vector3d> &bnms,
+                     const int vinrow, std::vector<Eigen::Vector3d> &pout)
+{
+    pout.clear();
+    pout.resize(vinrow);
+    int vnbr = pts_all.size();
+    int ncol = pts_all.size() / vinrow;
+    assert(ncol > 2 && "we don't apply this method on the first strip"); 
+    assert(vinrow == bnms.size());
+    int counter = 0;
+    std::vector<Eigen::Vector3d> pout_all;
+    pout_all = pts_all;
+    double ratio = 0.3;
+    double error = 0;
+    for (int i = 0; i < vinrow - 2; i++)
+    {
+        int bid = (ncol - 1) * vinrow + i; // boundary point id
+        Eigen::Vector3d p = pts_all[bid];
+        Eigen::Vector3d p1 = pts_all[bid - vinrow];
+        Eigen::Vector3d p2 = pts_all[bid - vinrow + 1];
+        Eigen::Vector3d p3 = pts_all[bid - vinrow * 2]; // there is a useless point between p3 and p4
+        Eigen::Vector3d p4 = pts_all[bid - vinrow * 2 + 2];
+        Eigen::Vector3d v1 = p - p1;
+        Eigen::Vector3d v2 = p1 - p3;
+        Eigen::Vector3d v3 = p - p2;
+        Eigen::Vector3d v4 = p2 - p4;
+        Eigen::Vector3d n1 = bnms[i];
+        Eigen::Vector3d n2 = bnms[i + 1];
+
+        double r11 = v1.cross(n1).dot(v2);
+        double r12 = v3.cross(n1).dot(v2);
+        double r21 = v1.cross(n2).dot(v4);
+        double r22 = v3.cross(n2).dot(v4);
+        double d1 = (p1 - p).cross(n1).dot(v2);
+        double d2 = (p2 - p).cross(n2).dot(v4);
+        error += pow(((p - p1).normalized()).cross(n1).dot(v2.normalized()), 2);
+        error += pow(((p - p2).normalized()).cross(n2).dot(v4.normalized()), 2);
+        Eigen::Matrix2d mat, inv;
+        mat << r11, r12, r21, r22;
+        Eigen::Vector2d d;
+        d << d1, d2;
+        bool invertable;
+        mat.computeInverseWithCheck(inv, invertable);
+        Eigen::Vector2d ab;
+        
+        if (invertable)
+        {
+            ab = inv * d * 0.3;
+        }
+        else
+        {
+            ab << 0, 0;
+            if (abs(r11) > 1e-4)
+            {
+                ab[0] = (d1 - ab[1] * r12) / r11 * ratio;
+            }
+            if (abs(r12) > 1e-4)
+            {
+                ab[1] = (d1 - ab[0] * r11) / r12 * ratio;
+            }
+            if (abs(r21) > 1e-4)
+            {
+                ab[0] = (d2 - ab[1] * r22) / r21 * ratio;
+            }
+            if (abs(r22) > 1e-4)
+            {
+                ab[1] = (d2 - ab[0] * r21) / r22 * ratio;
+            }
+        }
+        pout_all[bid] += ab[0] * v1 + ab[1] * v3;
+        pout[i] = pout_all[bid];
+    }
+    // deal with the second last point: only requires p1, p3, n1
+    int bid = vnbr - 2; // boundary point id
+    Eigen::Vector3d p = pts_all[bid];
+    Eigen::Vector3d p1 = pts_all[bid - vinrow];
+    Eigen::Vector3d p2 = pts_all[bid - vinrow + 1];
+    Eigen::Vector3d p3 = pts_all[bid - vinrow * 2]; // there is a useless point between p3 and p4
+    Eigen::Vector3d v1 = p - p1;
+    Eigen::Vector3d v2 = p1 - p3;
+    Eigen::Vector3d v3 = p - p2;
+    Eigen::Vector3d n1 = bnms[vinrow - 2];
+    double r11 = v1.cross(n1).dot(v2);
+    double r12 = v3.cross(n1).dot(v2);
+    double d1 = (p1 - p).cross(n1).dot(v2);
+    Eigen::Vector2d ab(0, 0);
+    if (abs(r11) > 1e-4)
+    {
+        ab[0] = (d1 - ab[1] * r12) / r11 * ratio;
+    }
+    if (abs(r12) > 1e-4)
+    {
+        ab[1] = (d1 - ab[0] * r11) / r12 * ratio;
+    }
+    // pout_all[bid] += ab[0] * v1 + ab[1] * v3;
+
+
+    // the second last point smoothness
+    Eigen::Vector3d delta = (pout_all[bid + 1] + pout_all[bid - 1]) / 2 - pout_all[bid];
+    pout_all[bid] += delta * ratio; // smoothness 1: row
+
+    // double alpha = 1/()
+    delta = 2 * pout_all[bid - vinrow] - pout_all[bid - 2 * vinrow] - pout_all[bid]; // one order smoothness
+    pout_all[bid] += delta * ratio; // smoothness 2: col
+    pout[vinrow - 2] = pout_all[bid];
+    error += pow(((p - p1).normalized()).cross(n1).dot(v2.normalized()), 2);
+
+    // the last point
+    bid = vnbr - 1; // boundary point id
+    // the first smooth
+    delta = 2 * pout_all[bid - 1] - pout_all[bid - 2] - pout_all[bid]; // one order smoothness
+    pout_all[bid] += delta * ratio;                                    // smoothness
+    // the second smooth
+    delta = 2 * pout_all[bid - vinrow] - pout_all[bid - 2 * vinrow] - pout_all[bid]; // one order smoothness
+    pout_all[bid] += delta * ratio;                                                  // smoothness
+
+    pout[vinrow - 1] = pout_all[bid];
+    std::cout << "squared error before opt, " << error << "\n";
+    
 }
 
 // flat points: where franet frame is not properly defined. including: low curvature points, inflection points
@@ -1589,15 +1739,15 @@ void PolyOpt::assemble_angle_condition(spMat& H, Eigen::VectorXd& B, Eigen::Vect
     double cos_angle = cos(angle_radian);
     double sin_angle = sin(angle_radian);
     double percent_filter = 5;//filter 5% of the points close to the end points
-    int nfilter = std::max(MaxNbrPinC * percent_filter / 100 / 2, 1.0); // filter n points on each side.
-
+    // int nfilter = std::max(MaxNbrPinC * percent_filter / 100 / 2, 1.0); // filter n points on each side.
+    // WARNING I removed this nfilter but maybe lower the robustness
     for (int i = 0; i < vnbr; i++)
     {
         int vid = i;
-        if (within_k_pts_to_bnd(Front, Back, vid, nfilter))
-        {
-            continue;
-        }
+        // if (within_k_pts_to_bnd(Front, Back, vid, nfilter))
+        // {
+        //     continue;
+        // }
 
         if (pick_single_line && VinPly.size() > 0)
         {

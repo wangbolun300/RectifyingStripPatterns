@@ -1,4 +1,6 @@
 #include <gui.h>
+#include <igl/project.h>
+#include <igl/unproject.h>
 
 lscif::lscif()
 {
@@ -134,6 +136,11 @@ bool lscif::key_up(igl::opengl::glfw::Viewer &viewer, unsigned char key, int mod
 		draw_strokes = false;
 		return true;
 	}
+	case '5':
+	{
+		keyPress_5 = false;
+		return true;
+	}
 	case GLFW_KEY_X:
 	{
 		keyPress_d = false;
@@ -164,7 +171,11 @@ bool lscif::key_down(igl::opengl::glfw::Viewer &viewer, unsigned char key, int m
 		draw_strokes = true;
 		return true;
 	}
-
+	case '5':
+	{
+		keyPress_5 = true;
+		return true;
+	}
 	case GLFW_KEY_X:
 	{
 		keyPress_d = true;
@@ -253,6 +264,7 @@ bool lscif::mouse_down(igl::opengl::glfw::Viewer &viewer, int button, int modifi
 
 			std::cout << "Selected point:\nposition related to the viewer: " << viewer.current_mouse_x << "___" << viewer.current_mouse_y << std::endl;
 			std::cout << "vid, " << vid << ", fid, " << fid << ", mass_unfiform, " << tools.mass_uniform.coeffRef(vid, vid) << std::endl;
+			std::cout<<"bari, "<<bc.transpose()<<"\n";
 			if (tools.fvalues.rows() > 0)
 			{
 				std::cout << "level set value " << tools.fvalues[vid] << std::endl;
@@ -319,6 +331,17 @@ bool lscif::mouse_down(igl::opengl::glfw::Viewer &viewer, int button, int modifi
 				fid,
 				bc))
 		{
+			std::cout << "viewer...\nviewer\n"
+					  << viewer.core().view
+					  << "\nproj\n"
+					  << viewer.core().proj << "\nport\n"
+					  << viewer.core().viewport << "\n"
+					  << "x, " << x << ", y, " << y << "\n";
+			pSelect3d = viewer.data().V.row(viewer.data().F(fid, 0)) * bc[0] + viewer.data().V.row(viewer.data().F(fid, 1)) * bc[1] + 
+			viewer.data().V.row(viewer.data().F(fid, 2)) * bc[2];
+			std::cout<<"p selection "<<pSelect3d.transpose()<<"\n";
+			viewer.data().set_points(pSelect3d.transpose(), hot_red);
+			return true;
 			int max;
 			bc.maxCoeff(&max);
 			int vid = viewer.data().F(fid, max);
@@ -352,6 +375,25 @@ bool lscif::mouse_down(igl::opengl::glfw::Viewer &viewer, int button, int modifi
 			viewer.data().add_points(igl::slice(viewer.data().V, vids2, 1), sea_green);
 			return true;
 		}
+	}
+	if (keyPress_5)
+	{
+		std::cout<<"the selection point "<<pSelect3d.transpose()<<"\n";
+		int fid;
+		Eigen::Vector3f bc;
+		// Cast a ray in the view direction starting from the mouse position
+		double x = viewer.current_mouse_x;
+		double y = viewer.core().viewport(3) - viewer.current_mouse_y;
+		Eigen::Vector3f Ppro = 
+		igl::project(Eigen::Vector3f(pSelect3d[0],pSelect3d[1],pSelect3d[2]), viewer.core().view, viewer.core().proj, viewer.core().viewport);
+		std::cout << "project screen coord: " << Ppro.transpose() << "\n";
+		Ppro[0] = x;
+		Ppro[1] = y;
+		std::cout << "project new screen coord: " << Ppro.transpose() << "\n";
+		Eigen::Vector3d pfound = 
+		igl::unproject(Eigen::Vector3f(Ppro), viewer.core().view, viewer.core().proj, viewer.core().viewport).template cast<double>();
+		viewer.data().add_points(pfound.transpose(), sea_green);
+		return true;
 	}
 
 	left_button_down = true;

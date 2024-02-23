@@ -137,7 +137,7 @@ public:
     Eigen::MatrixXd Vref;
     Eigen::MatrixXi Fref;
     Eigen::MatrixXd Nref;
-    int MaxNbrPinC = 0;
+    // int MaxNbrPinC = 0;
     bool OrientEndPts = true;
     bool singleLineProcessing = false;// if we only process single line, no need to glid on a surface.
 
@@ -192,6 +192,7 @@ public:
     void init(CGMesh& mesh_in, const std::string& prefix);
     void init(CGMesh& mesh_in);
     void initAAG(const std::vector<Eigen::Vector3d> &Vlist, const int rnbr);
+    void initAGG(const std::vector<Eigen::Vector3d> &Vlist, const int rnbr);
     
     std::vector<std::vector<double>> rowinfo; // to record the adjancency info of rows  
     std::vector<std::vector<double>> colinfo; // to record the adjancency info of cols
@@ -219,6 +220,7 @@ public:
     
     void opt();
     void optAAG();
+    void optAGG();
     Eigen::MatrixXd propagateBoundary();
     void reset();
     void load_triangle_mesh_tree(const igl::AABB<Eigen::MatrixXd, 3> &tree, const Eigen::MatrixXd &Vt,
@@ -261,10 +263,12 @@ private:
     // type: 0 disabled. 1 means asymptotic, 2 means geodesic, 3 pseudo-geodesic
     // family: 0 rows, 1 cols, 2 diagonal NO0, 3 diagonal NO1.
     void assemble_pg_extreme_cases(spMat &H, Eigen::VectorXd &B, Eigen::VectorXd &energy,
-                                   const int type, const int family, const int aux_start_location, const int order = 0);
+                                   const int type, const int family, const int aux_start_location, const int order = 0,
+                                   const int whichBnm = 0);
     void assemble_pg_cases(const double angle_radian, spMat &H, Eigen::VectorXd &B, Eigen::VectorXd &energy,
                            const int family, const int aux_start_location);
-    void assemble_binormal_conditions(spMat &H, Eigen::VectorXd &B, Eigen::VectorXd &energy, int type, int family, const int order = 0);
+    void assemble_binormal_conditions(spMat &H, Eigen::VectorXd &B, Eigen::VectorXd &energy, int family,
+                                      int bnm_start, const int order = 0, const int whichBnm = 0);
     void assemble_normal_conditions(spMat &H, Eigen::VectorXd &B, Eigen::VectorXd &energy, const int order = 0);
 
 public:

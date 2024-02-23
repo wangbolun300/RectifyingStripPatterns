@@ -217,3 +217,9 @@ void readQuadMesh2TriMesh();
 void evaluateGGGConsineConstraints();
 void adjustAagOffset(const std::vector<Eigen::Vector3d> &verFix,
                      const std::vector<Eigen::Vector3d> &vers, std::vector<Eigen::Vector3d> &creases);
+// this function is designed to get the first strip for AGG evolution
+void aggFirstStrip(const std::vector<Eigen::Vector3d> &pts, const std::vector<Eigen::Vector3d> &bnm,
+                   std::vector<Eigen::Vector3d> &pout);
+void adjustAggOffset(const std::vector<Eigen::Vector3d> &pts_all, const std::vector<Eigen::Vector3d> &bnms,
+                     const int vinrow, std::vector<Eigen::Vector3d> &pout);
+void constructRegularF(const int vnbr, const int rnbr, Eigen::MatrixXi &F);

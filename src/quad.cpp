@@ -366,19 +366,26 @@ void QuadOpt::init(CGMesh &mesh_in)
     std::cout<<"Initialized quad mesh: Vnbr, "<<V.rows()<<", BBD, "<<(vmin - vmax).norm()<<std::endl;;
 }
 // the gravity vector show where the vertices are
-void assignAagVertices(Eigen::VectorXd &vars,Eigen::VectorXd &graVec, const int varsize, const std::vector<Eigen::Vector3d> &vers)
+// type == 0: aag.
+// type == 1: agg.
+void assignAagAggVertices(Eigen::VectorXd &vars,Eigen::VectorXd &graVec, const int varsize, const std::vector<Eigen::Vector3d> &vers, bool type)
 {
+    int varForVer = 9;
+    if (type)
+    {
+        varForVer = 12;
+    }
     vars = Eigen::VectorXd::Zero(varsize);
-    assert(varsize == vers.size() * 9);
+    assert(varsize == vers.size() * varForVer);
     graVec = vars;
     for (int i = 0; i < vers.size(); i++)
     {
-        vars[i * 9] = vers[i][0];
-        vars[i * 9 + 1] = vers[i][1];
-        vars[i * 9 + 2] = vers[i][2];
-        graVec[i * 9] = 1;
-        graVec[i * 9 + 1] = 1;
-        graVec[i * 9 + 2] = 1;
+        vars[i * varForVer] = vers[i][0];
+        vars[i * varForVer + 1] = vers[i][1];
+        vars[i * varForVer + 2] = vers[i][2];
+        graVec[i * varForVer] = 1;
+        graVec[i * varForVer + 1] = 1;
+        graVec[i * varForVer + 2] = 1;
     }
 }
 
@@ -403,7 +410,7 @@ void constructRegularF(const int vnbr, const int rnbr, Eigen::MatrixXi &F)
             fnbr++;
         }
     }
-    std::cout<<"check F, \n"<<F<<"\n";
+    // std::cout<<"check F, \n"<<F<<"\n";
 }
 
 void QuadOpt::initAAG(const std::vector<Eigen::Vector3d> &Vlist, const int rnbr)
@@ -432,7 +439,7 @@ void QuadOpt::initAAG(const std::vector<Eigen::Vector3d> &Vlist, const int rnbr)
     load_diagonal_info(row_front, row_back, col_front, col_back, d0_front, d1_front, d0_back, d1_back);
     std::cout << "Topo obtained\n";
     Eigen::VectorXd var_vec;
-    assignAagVertices(OrigVars, var_vec, varsize, Vlist);
+    assignAagAggVertices(OrigVars, var_vec, varsize, Vlist, false);
     std::cout << "variables assigned\n";
     // mesh_original = mesh_in;
     mesh_update = mesh_original;
@@ -454,6 +461,53 @@ void QuadOpt::initAAG(const std::vector<Eigen::Vector3d> &Vlist, const int rnbr)
     std::cout<<"Initialized quad mesh: Vnbr, "<<V.rows()<<", BBD, "<<(vmin - vmax).norm()<<std::endl;;
 }
 
+void QuadOpt::initAGG(const std::vector<Eigen::Vector3d> &Vlist, const int rnbr)
+{
+
+    int vnbr = Vlist.size();
+    V = vec_list_to_matrix(Vlist);
+    std::cout<<"check V, \n"<<V<<"\n";
+    constructRegularF(vnbr, rnbr, F);
+    MeshProcessing mp;
+    mp.matrix2Mesh(mesh_original, V, F);
+    vNbrInRow = rnbr;
+    if (OriginalCurve.size() == 0)
+    {
+        for (int i = 0; i < rnbr; i++)
+        {
+            OriginalCurve.push_back(Vlist[i]);
+        }
+    }
+
+    // vertices vnbr * 3, normals vnbr * 3, binormals for G1 vnbr * 3, binormals for G2 vnbr * 3
+    varsize = vnbr * 12;
+    // row_front and row_back is the geodesic direction.
+    getQuadRowColsRegular(vnbr, rnbr, row_front, row_back, col_front, col_back);
+    std::cout << "Row Col info computed\n";
+    load_diagonal_info(row_front, row_back, col_front, col_back, d0_front, d1_front, d0_back, d1_back);
+    std::cout << "Topo obtained\n";
+    Eigen::VectorXd var_vec;
+    assignAagAggVertices(OrigVars, var_vec, varsize, Vlist, true);
+    std::cout << "variables assigned\n";
+    // mesh_original = mesh_in;
+    mesh_update = mesh_original;
+    verOriginal = Vlist;
+    verUpdate = verOriginal;
+    ComputeAuxiliaries = true;
+    if (WhichDiagonal == 0)
+    {
+        d0_type = 1;
+    }
+    if (WhichDiagonal == 1)
+    {
+        d1_type = 1;
+    }
+    Estimate_PG_Angles = false;
+    gravity_matrix = var_vec.asDiagonal();
+    Eigen::Vector3d vmin(V.col(0).minCoeff(), V.col(1).minCoeff(), V.col(2).minCoeff());
+    Eigen::Vector3d vmax(V.col(0).maxCoeff(), V.col(1).maxCoeff(), V.col(2).maxCoeff());
+    std::cout<<"Initialized quad mesh: Vnbr, "<<V.rows()<<", BBD, "<<(vmin - vmax).norm()<<std::endl;;
+}
 void QuadOpt::reset()
 {
     // re-choose a diagonal
@@ -747,6 +801,12 @@ void locatorRules(int vid, int vnbr, int order, int &x, int &y, int &z)
         y = 9 * vid + 1;
         z = 9 * vid + 2;
     }
+    if (order == 2)
+    {
+        x = 12 * vid;
+        y = 12 * vid + 1;
+        z = 12 * vid + 2;
+    }
 }
 // lv is ver location, lf is front location, lb is back location, cid is the id of the condition
 // (v-f)/scale0 + (v-b)/scale1 = 0
@@ -762,8 +822,7 @@ void push_fairness_conditions(std::vector<Trip> &tripletes, Eigen::VectorXd &ene
         tripletes.push_back(Trip(cid, lb, -1 / scale1));
         energy[cid] = (vval - fval) / scale0 + (vval - bval) / scale1;
     }
-
-    if (order == 1)
+    else
     {
         tripletes.push_back(Trip(cid, lv, 2));
         tripletes.push_back(Trip(cid, lf, -1));
@@ -1003,6 +1062,9 @@ public:
     int lrx;
     int lry;
     int lrz;
+    int lrx1;
+    int lry1;
+    int lrz1;
 
     int lrfx;
     int lrfy;
@@ -1026,6 +1088,11 @@ public:
 void variableLocator::getLocations(int order, int vnbr, int vid, int rf, int rb, int cf, int cb,
                                    int d0f, int d0b, int d1f, int d1b, int bnm_start_location, int family)
 {
+    int nbrOffset = 9;
+    if (order == 2)
+    {
+        nbrOffset = 12;
+    }
     if (order == 0)
     {
         lvx = vid;
@@ -1038,18 +1105,23 @@ void variableLocator::getLocations(int order, int vnbr, int vid, int rf, int rb,
         lry = bnm_start_location + vid + vnbr;
         lrz = bnm_start_location + vid + vnbr * 2;
     }
-
-    if (order == 1)
+    else
     {
-        lvx = 9 * vid;
-        lvy = 9 * vid + 1;
-        lvz = 9 * vid + 2;
-        lnx = 9 * vid + 3;
-        lny = 9 * vid + 4;
-        lnz = 9 * vid + 5;
-        lrx = 9 * vid + 6;
-        lry = 9 * vid + 7;
-        lrz = 9 * vid + 8;
+        lvx = nbrOffset * vid;
+        lvy = nbrOffset * vid + 1;
+        lvz = nbrOffset * vid + 2;
+        lnx = nbrOffset * vid + 3;
+        lny = nbrOffset * vid + 4;
+        lnz = nbrOffset * vid + 5;
+        lrx = nbrOffset * vid + 6;
+        lry = nbrOffset * vid + 7;
+        lrz = nbrOffset * vid + 8;
+    }
+    if(order == 2) // AGG needs another binormal vector
+    {
+        lrx1 = nbrOffset * vid + 9;
+        lry1 = nbrOffset * vid + 10;
+        lrz1 = nbrOffset * vid + 11;
     }
 
     if (family == 0) // rows
@@ -1078,7 +1150,9 @@ void variableLocator::getLocations(int order, int vnbr, int vid, int rf, int rb,
 // bnm_start is the id where the binormal starts in the variable matrix
 // from bnm_start to bnm_start + vnbr * 3 are the binormal variables of this family of curves
 // family: 0: row. 1: col. 2: d0. 3: d1.
-void QuadOpt::assemble_binormal_conditions(spMat &H, Eigen::VectorXd &B, Eigen::VectorXd &energy, int family, int bnm_start, const int order)
+// whichBnm: this variable is for the propagating AGG method (when order == 2) to point out which binormal is used
+void QuadOpt::assemble_binormal_conditions(spMat &H, Eigen::VectorXd &B, Eigen::VectorXd &energy, int family,
+                                           int bnm_start, const int order, const int whichBnm)
 {
     // std::cout<<"check 1, family "<<family<<std::endl;
     std::vector<Trip> tripletes;
@@ -1120,6 +1194,13 @@ void QuadOpt::assemble_binormal_conditions(spMat &H, Eigen::VectorXd &B, Eigen::
         int lrx = locator.lrx;
         int lry = locator.lry;
         int lrz = locator.lrz;
+        if (order == 2 && whichBnm == 1) // AGG, and use the second binormal attached on this vertex
+        {
+            // the binormal is the second one.
+            lrx = locator.lrx1;
+            lry = locator.lry1;
+            lrz = locator.lrz1;
+        }
         bool compute = true;
         
         if (lfx < 0 || lbx < 0)
@@ -1262,7 +1343,8 @@ void push_geodesic_condition(std::vector<Trip> &tripletes, Eigen::VectorXd &ener
 // when order = 1, the variables are: ver+normal+binormal, ... ,
 void
 QuadOpt::assemble_pg_extreme_cases(spMat &H, Eigen::VectorXd &B, Eigen::VectorXd &energy,
-                                   const int type, const int family, const int bnm_start_location, const int order)
+                                   const int type, const int family, const int bnm_start_location, const int order,
+                                   const int whichBnm)
 {
 
     std::vector<Trip> tripletes;
@@ -1351,6 +1433,12 @@ QuadOpt::assemble_pg_extreme_cases(spMat &H, Eigen::VectorXd &B, Eigen::VectorXd
             int lrx = locator.lrx;
             int lry = locator.lry;
             int lrz = locator.lrz;
+            if (order == 2 && whichBnm == 1) // if AGG and choose the second binormal vector on it.
+            {
+                lrx = locator.lrx1;
+                lry = locator.lry1;
+                lrz = locator.lrz1;
+            }
             Eigen::Vector3d r(GlobVars[lrx], GlobVars[lry], GlobVars[lrz]);
             push_geodesic_condition(tripletes, energy, counter, lnx, lny, lnz, lrx, lry, lrz, norm, r);
         }
@@ -1594,6 +1682,11 @@ void variableLocator::getLocationsNormalCondition(int order, int vnbr, int vid, 
     {
         cb = vid;
     }
+    int varOffset = 9;
+    if (order == 2)
+    {
+        varOffset = 12;
+    }
     if (order == 0)
     {
         lvx = vid;
@@ -1602,22 +1695,22 @@ void variableLocator::getLocationsNormalCondition(int order, int vnbr, int vid, 
         lnx = vnbr * 3 + vid;
         lny = vnbr * 4 + vid;
         lnz = vnbr * 5 + vid;
-        lrx = bnm_start_location + vid;
-        lry = bnm_start_location + vid + vnbr;
-        lrz = bnm_start_location + vid + vnbr * 2;
+        // lrx = bnm_start_location + vid;
+        // lry = bnm_start_location + vid + vnbr;
+        // lrz = bnm_start_location + vid + vnbr * 2;
     }
 
-    if (order == 1)
+    else
     {
-        lvx = 9 * vid;
-        lvy = 9 * vid + 1;
-        lvz = 9 * vid + 2;
-        lnx = 9 * vid + 3;
-        lny = 9 * vid + 4;
-        lnz = 9 * vid + 5;
-        lrx = 9 * vid + 6;
-        lry = 9 * vid + 7;
-        lrz = 9 * vid + 8;
+        lvx = varOffset * vid;
+        lvy = varOffset * vid + 1;
+        lvz = varOffset * vid + 2;
+        lnx = varOffset * vid + 3;
+        lny = varOffset * vid + 4;
+        lnz = varOffset * vid + 5;
+        // lrx = varOffset * vid + 6;
+        // lry = varOffset * vid + 7;
+        // lrz = varOffset * vid + 8;
     }
     if (order == 0)
     {
@@ -1646,15 +1739,15 @@ void variableLocator::getLocationsNormalCondition(int order, int vnbr, int vid, 
         lcby = cb + vnbr;
         lcbz = cb + vnbr * 2;
     }
-    if (order == 1)
+    else
     {
-        lcfx = 9 * cf;
-        lcfy = 9 * cf + 1;
-        lcfz = 9 * cf + 2;
+        lcfx = varOffset * cf;
+        lcfy = varOffset * cf + 1;
+        lcfz = varOffset * cf + 2;
 
-        lcbx = 9 * cb;
-        lcby = 9 * cb + 1;
-        lcbz = 9 * cb + 2;
+        lcbx = varOffset * cb;
+        lcby = varOffset * cb + 1;
+        lcbz = varOffset * cb + 2;
         // int df = d0f;
         // int db = d0b;
         // if (whichDiagonal == 1) // choose d1.
@@ -1671,12 +1764,12 @@ void variableLocator::getLocationsNormalCondition(int order, int vnbr, int vid, 
         // {
         //     db = vid;
         // }
-        // lrfx = 9 * df;
-        // lrfy = 9 * df + 1;
-        // lrfz = 9 * df + 2;
-        // lrbx = 9 * db;
-        // lrby = 9 * db + 1;
-        // lrbz = 9 * db + 2;
+        // lrfx = varOffset * df;
+        // lrfy = varOffset * df + 1;
+        // lrfz = varOffset * df + 2;
+        // lrbx = varOffset * db;
+        // lrby = varOffset * db + 1;
+        // lrbz = varOffset * db + 2;
         if (rf < 0)
         {
             rf = vid;
@@ -1686,13 +1779,13 @@ void variableLocator::getLocationsNormalCondition(int order, int vnbr, int vid, 
             rb = vid;
         }
 
-        lrfx = 9 * rf;
-        lrfy = 9 * rf + 1;
-        lrfz = 9 * rf + 2;
+        lrfx = varOffset * rf;
+        lrfy = varOffset * rf + 1;
+        lrfz = varOffset * rf + 2;
 
-        lrbx = 9 * rb;
-        lrby = 9 * rb + 1;
-        lrbz = 9 * rb + 2;
+        lrbx = varOffset * rb;
+        lrby = varOffset * rb + 1;
+        lrbz = varOffset * rb + 2;
     }
 }
 
@@ -1747,10 +1840,10 @@ void QuadOpt::assemble_normal_conditions(spMat& H, Eigen::VectorXd& B, Eigen::Ve
         int lcbx = locator.lcbx;
         int lcby = locator.lcby;
         int lcbz = locator.lcbz;
-        if (order == 1 && lrbx == lrfx) // when use diagonal to compute normal vectors, this means the diagonal does not exist
-        {
-            continue;
-        }
+        // if (order != 0 && lrbx == lrfx) // when use diagonal to compute normal vectors, this means the diagonal does not exist
+        // {
+        //     continue;
+        // }
 
         Eigen::Vector3d Ver(GlobVars[lvx], GlobVars[lvy], GlobVars[lvz]);
         Eigen::Vector3d Vrf(GlobVars[lrfx], GlobVars[lrfy], GlobVars[lrfz]);
@@ -2279,6 +2372,154 @@ void QuadOpt::optAAG()
 
     double ebi = Ebnm0.norm();
     std::cout << "bnm, " << ebi << ", GAA, " << Epg[0].norm() << ", " << Epg[1].norm() << ", " << Epg[2].norm() << ", ";
+
+    real_step_length = dx.norm();
+    std::cout << ", stp, " << dx.norm() << ", diagonal types, "<<d0_type<<", "<<d1_type<<", ";
+    std::cout << "\n";
+    // std::cout<<"here 1\n";
+    // convert the data to the mesh format
+    ComputeAuxiliaries = false;
+    for (int i = 0; i < vnbr; i++)
+    {
+        V(i, 0) = GlobVars[i * 9];
+        V(i, 1) = GlobVars[i * 9 + 1];
+        V(i, 2) = GlobVars[i * 9 + 2];
+    }
+    // std::cout<<"here 2\nver nbrs "<<mesh_update.n_vertices()<<"\n";
+    for (CGMesh::VertexIter v_it = mesh_update.vertices_begin(); v_it != mesh_update.vertices_end(); ++v_it)
+    {
+        int vid = v_it.handle().idx();
+        if (vid >= V.rows() || vid < 0)
+        {
+            std::cout << "Error in vid " << vid << std::endl;
+        }
+        assert(vid < V.rows());
+        assert(vid >= 0);
+        mesh_update.point(*v_it) = CGMesh::Point(V(vid, 0), V(vid, 1), V(vid, 2));
+    }
+    // std::cout<<"opt finished\n";
+}
+
+
+void QuadOpt::optAGG()
+{
+    int vnbr = V.rows();
+    int order = 2; // the order = 1 means AAG, order = 2 is for AGG
+    int varOffset = 12; // AGG has 12 * n variables
+    if (GlobVars.size() != varsize)
+    {
+        int sizediff = (varsize - GlobVars.size()) / varOffset;
+        std::cout << "Assigning variables based on previous ones, there are " << sizediff << " vertices more\n";
+        ComputeAuxiliaries = true;
+        Eigen::VectorXd tmpVar = Eigen::VectorXd::Zero(varsize);
+        if (GlobVars.size() > 0)
+            tmpVar.segment(0, GlobVars.size()) = GlobVars;
+        GlobVars = tmpVar;
+        for (int i = vnbr - sizediff; i < vnbr; i++)
+        {
+            GlobVars[i * varOffset] = V(i, 0);
+            GlobVars[i * varOffset + 1] = V(i, 1);
+            GlobVars[i * varOffset + 2] = V(i, 2);
+        }
+    }
+    spMat H;
+    H.resize(varsize, varsize);
+    Eigen::VectorXd B = Eigen::VectorXd::Zero(varsize);
+    Eigen::VectorXd Egravity, Esmth, Enorm, Ebnm0, Ebnm1, Ebnm2, Epg[4];
+
+    spMat Hgravity;  // approximation
+	Eigen::VectorXd Bgravity; // right of laplacian
+	assemble_gravity_AAG(Hgravity, Bgravity, Egravity);
+    H += weight_gravity * Hgravity;
+	B += weight_gravity * Bgravity;
+
+    spMat Hsmth;
+    Eigen::VectorXd Bsmth;
+	assemble_fairness(Hsmth, Bsmth, Esmth, order);
+    H += weight_fairness * Hsmth;
+	B += weight_fairness * Bsmth;
+    spMat Hnorm;
+    Eigen::VectorXd Bnorm;
+    assemble_normal_conditions(Hnorm, Bnorm, Enorm, order); // the normal vectors
+    H += weight_pg * Hnorm;
+	B += weight_pg * Bnorm;
+    // AAG, the row is the geodesic, the col is the A, and the chosen diag is another A
+    spMat Hbnm;
+    Eigen::VectorXd Bbnm;
+    int family = -1;
+    
+    family = 1; // column is the geodesic
+    assemble_binormal_conditions(Hbnm, Bbnm, Ebnm1, family, -1, order, 1); // 1 means the second binormal vector
+    H += weight_pg * Hbnm;
+    B += weight_pg * Bbnm;
+
+    // G
+    int type = 2; // G1
+    family = 1; // column is the geodesic
+    spMat Hpg[3];
+    Eigen::VectorXd Bpg[3];
+    assemble_pg_extreme_cases(Hpg[0], Bpg[0], Epg[0], type, family, -1, order, 0);
+
+    // A
+    type = 1;   // A
+    family = 0; // row is the asymptotic
+    assemble_pg_extreme_cases(Hpg[1], Bpg[1], Epg[1], type, family, -1, order);
+
+    // A, the diagonal is another A
+    if (d0_type > 0)
+    {
+        family = 2;
+    }
+    if (d1_type > 0)
+    {
+        family = 3;
+    }
+    type = 2;   // G2
+    assemble_pg_extreme_cases(Hpg[2], Bpg[2], Epg[2], type, family, -1, order, 1);
+
+    // another binormal
+    assemble_binormal_conditions(Hbnm, Bbnm, Ebnm0, family, -1, order, 0);// 0 means the first binormal vector
+    H += weight_pg * Hbnm;
+    B += weight_pg * Bbnm;
+
+    H += weight_pg * pg_ratio * (Hpg[0] + Hpg[1] + Hpg[2]);
+    B += weight_pg * pg_ratio * (Bpg[0] + Bpg[1] + Bpg[2]);
+
+    // assemble together
+
+    H += 1e-6 * (weight_mass * gravity_matrix + spMat(Eigen::VectorXd::Ones(varsize).asDiagonal()));
+    Eigen::SimplicialLLT<Eigen::SparseMatrix<double>> solver(H);
+
+	// assert(solver.info() == Eigen::Success);
+	if (solver.info() != Eigen::Success)
+	{
+		// solving failed
+		std::cout << "solver fail" << std::endl;
+		return;
+	}
+	// std::cout<<"solved successfully"<<std::endl;
+    Eigen::VectorXd dx = solver.solve(B).eval();
+    dx *= 0.75;
+    double step_length = dx.norm();
+    if (step_length > max_step)
+    {
+        dx *= max_step / step_length;
+    }
+    GlobVars += dx;
+
+    std::cout << "AGG, ";
+
+    double ev_appro = Egravity.norm();
+    double ev_smt = Esmth.norm();
+    double ev_norm = Enorm.norm();
+    std::cout << "Eclose, " << ev_appro << ", lap, " << ev_smt << ", normal vector, " << ev_norm << ", ";
+
+    double ebi0 = Ebnm0.norm();
+    double ebi1 = Ebnm1.norm();
+    ebi0 *= ebi0;
+    ebi1 *= ebi1;
+    double ebi = sqrt(ebi0 + ebi1);
+    std::cout << "bnm, " << ebi << ", GAG, " << Epg[0].norm() << ", " << Epg[1].norm() << ", " << Epg[2].norm() << ", ";
 
     real_step_length = dx.norm();
     std::cout << ", stp, " << dx.norm() << ", diagonal types, "<<d0_type<<", "<<d1_type<<", ";

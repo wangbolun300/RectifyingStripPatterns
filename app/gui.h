@@ -52,7 +52,9 @@ public:
 
 	bool keyPress_1 = false;
 	bool keyPress_2 = false;
+	bool keyPress_5 = false;
 	bool keyPress_d = false;
+	Eigen::Vector3d pSelect3d;
 
 	// Optimization Parameters
 	double weigth_closeness = 0.0;
