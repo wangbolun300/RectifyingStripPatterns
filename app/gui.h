@@ -55,6 +55,8 @@ public:
 	bool keyPress_5 = false;
 	bool keyPress_d = false;
 	Eigen::Vector3d pSelect3d;
+	int VINROWINPUT = -1; 
+	bool InvertDirectionAGG = false;
 
 	// Optimization Parameters
 	double weigth_closeness = 0.0;

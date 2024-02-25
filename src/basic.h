@@ -160,6 +160,7 @@ public:
     void vertex_matrix_to_polyline(std::vector<std::vector<Eigen::Vector3d>> &ply, Eigen::MatrixXd& V);
     void get_normal_vector_from_reference(const Eigen::MatrixXd& Vr, const Eigen::MatrixXi& Fr, const Eigen::MatrixXd& nr);
     void force_smoothing_binormals();
+    void force_invert_binormals();
     void related_error();// the related error between the strip midlines and the surface
 
 
@@ -215,6 +216,9 @@ public:
     double weight_mass = 1;
     double pg_ratio = 1;// the ratio of diagonal (geodesic) energy to weight_pg
     double max_step = 1;
+    Eigen::MatrixXd B0;
+    Eigen::MatrixXd B1;
+    Eigen::MatrixXd N;
     // int pg1_type = 0;//by default disabled. 1 means asymptotic, 2 means geodesic, 3 pseudo-geodesic
     // int pg2_type = 0;
     
@@ -259,7 +263,7 @@ private:
     void get_Bnd(Eigen::VectorXi& Bnd); // the boundary vertices: the net corners
     void assemble_fairness(spMat& H, Eigen::VectorXd& B, Eigen::VectorXd &energy, const int order = 0);
     void assemble_gravity(spMat& H, Eigen::VectorXd& B, Eigen::VectorXd &energy);
-    void assemble_gravity_AAG(spMat& H, Eigen::VectorXd& B, Eigen::VectorXd &energy);
+    void assemble_gravity_AAG_AGG(spMat& H, Eigen::VectorXd& B, Eigen::VectorXd &energy, int order = 0);
     // type: 0 disabled. 1 means asymptotic, 2 means geodesic, 3 pseudo-geodesic
     // family: 0 rows, 1 cols, 2 diagonal NO0, 3 diagonal NO1.
     void assemble_pg_extreme_cases(spMat &H, Eigen::VectorXd &B, Eigen::VectorXd &energy,

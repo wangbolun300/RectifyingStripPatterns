@@ -2444,7 +2444,8 @@ void lscif::draw_menu2(igl::opengl::glfw::Viewer &viewer, igl::opengl::glfw::img
 		{
 			ImGui::Combo("ChooseDiag", &quad_tool.WhichDiagonal,
 						 "D0\0D1\0\0");
-
+			ImGui::SameLine();
+			ImGui::Checkbox("InvertDirect", &InvertDirectionAGG);
 			if (ImGui::Button("ReadPlyObj", ImVec2(ImGui::GetWindowSize().x * 0.25f, 0.0f)))
 			{
 				std::string fname = igl::file_dialog_open();
@@ -2523,7 +2524,7 @@ void lscif::draw_menu2(igl::opengl::glfw::Viewer &viewer, igl::opengl::glfw::img
 			ImGui::SameLine();
 			if (ImGui::Button("AAGAdjustInit", ImVec2(ImGui::GetWindowSize().x * 0.25f, 0.0f)))
 			{
-				if (SinglePly.rows() == 0)
+				if (SinglePly.rows() == 0 || quad_tool.V.rows() < SinglePly.rows() * 2)
 				{
 					std::cout << "\nLSC: Please init the opt" << std::endl;
 					ImGui::End();
@@ -2592,20 +2593,7 @@ void lscif::draw_menu2(igl::opengl::glfw::Viewer &viewer, igl::opengl::glfw::img
 			ImGui::SameLine();
 			if (ImGui::Button("AAGInvertCreases", ImVec2(ImGui::GetWindowSize().x * 0.25f, 0.0f)))
 			{
-				for (int i = 0; i < SingleCrease.size(); i++)
-				{
-					SingleCrease[i] *= -1;
-				}
-
-				int id = viewer.selected_data_index;
-				std::vector<std::vector<Eigen::Vector3d>> vtmp(1), ctmp(1);
-				vtmp[0] = SingleFoot;
-				ctmp[0] = SingleCrease;
-				CGMesh updatemesh = polyline_to_strip_mesh(vtmp, ctmp, 1, 0, true);
-				updateMeshViewer(viewer, updatemesh);
-				meshFileName.push_back("Invert_" + meshFileName[id]);
-				Meshes.push_back(updatemesh);
-				viewer.selected_data_index = id;
+				poly_tool.force_invert_binormals();
 			}
 			ImGui::SameLine();
 			if (ImGui::Button("DrawDiags", ImVec2(ImGui::GetWindowSize().x * 0.25f, 0.0f)))
@@ -2670,17 +2658,31 @@ void lscif::draw_menu2(igl::opengl::glfw::Viewer &viewer, igl::opengl::glfw::img
 				const Eigen::RowVector3d blue(0.2, 0.2, 0.8);
 				const Eigen::RowVector3d black(0, 0, 0);
 				const Eigen::RowVector3d green(0.2, 0.8, 0.2);
-				// int id = viewer.selected_data_index;
-				// CGMesh updateMesh = quad_tool.mesh_update;
-				// updateMeshViewer(viewer, updateMesh);
-				// meshFileName.push_back("opt_" + meshFileName[id]);
-				// Meshes.push_back(updateMesh);
-				// viewer.selected_data_index = id;
-				// Eigen::MatrixXd E0, E1, E2, E3;
-				// quad_tool.show_diagonals(E0, E1, E2, E3);
-				// viewer.data().add_edges(E0, E2, red);
-				// viewer.data().add_edges(E0, E3, green);
-				// viewer.data().add_edges(E0, E1, blue);
+
+				int id = viewer.selected_data_index;
+				CGMesh updateMesh = quad_tool.mesh_update;
+				updateMeshViewer(viewer, updateMesh);
+				meshFileName.push_back("bnm");
+				Meshes.push_back(updateMesh);
+				viewer.selected_data_index = id;
+				Eigen::MatrixXd E0, E1, E2, E3;
+				if (quad_tool.V.rows() == quad_tool.N.rows())
+				{
+					E0 = quad_tool.V;
+					E1 = quad_tool.V + quad_tool.N * vector_scaling;
+					E2 = quad_tool.V + quad_tool.B0 * vector_scaling;
+					E3 = quad_tool.V + quad_tool.B1 * vector_scaling;
+
+					// quad_tool.show_diagonals(E0, E1, E2, E3);
+					viewer.data().add_edges(E0, E1, red);
+					viewer.data().add_edges(E0, E2, green);
+					viewer.data().add_edges(E0, E3, blue);
+				}
+
+				quad_tool.show_diagonals(E0, E1, E2, E3);
+				viewer.data().add_edges(E0, E2, red);
+				viewer.data().add_edges(E0, E3, green);
+				viewer.data().add_edges(E0, E1, blue);
 			}
 			ImGui::SameLine();
 			if (ImGui::Button("Calibrate", ImVec2(ImGui::GetWindowSize().x * 0.25f, 0.0f)))
@@ -2702,6 +2704,33 @@ void lscif::draw_menu2(igl::opengl::glfw::Viewer &viewer, igl::opengl::glfw::img
 				SingleFoot.clear();
 				SingleCrease.clear();
 			}
+			ImGui::SameLine();
+			if (ImGui::Button("InvertPly", ImVec2(ImGui::GetWindowSize().x * 0.25f, 0.0f)))
+			{
+				std::string fname = igl::file_dialog_open();
+				if (fname.length() == 0)
+				{
+					std::cout << "\nLSC: read mesh failed" << std::endl;
+					ImGui::End();
+					return;
+				}
+				Eigen::MatrixXi Ftri;
+				Eigen::MatrixXd ply, plyinv;
+				igl::readOBJ(fname, ply, Ftri);
+				plyinv.resize(ply.rows(),3);
+				for (int i = 0; i < ply.rows(); i++)
+				{
+					plyinv.row(i) = ply.row(ply.rows() - i - 1);
+				}
+				fname = igl::file_dialog_save();
+				if (fname.length() == 0)
+				{
+					std::cout << "\nLSC: save mesh failed" << std::endl;
+					ImGui::End();
+					return;
+				}
+				igl::writeOBJ(fname, plyinv, Ftri);
+			}
 
 
 
@@ -2712,7 +2741,7 @@ void lscif::draw_menu2(igl::opengl::glfw::Viewer &viewer, igl::opengl::glfw::img
 				std::vector<Eigen::Vector3d> versOut; std::vector<Eigen::Vector3d> directions;
 				std::vector<Eigen::Vector3d> plyin = poly_tool.ply_extracted[0];
 				std::vector<Eigen::Vector3d> binin = poly_tool.bin_extracted[0];
-				aggFirstStrip(plyin, binin, versOut);
+				aggFirstStrip(plyin, binin, versOut, InvertDirectionAGG);
 				directions.resize(plyin.size());
 				for (int i = 0; i < plyin.size(); i++)
 				{
@@ -2735,7 +2764,7 @@ void lscif::draw_menu2(igl::opengl::glfw::Viewer &viewer, igl::opengl::glfw::img
 			ImGui::SameLine();
 			if (ImGui::Button("AggAdjustInit", ImVec2(ImGui::GetWindowSize().x * 0.25f, 0.0f)))
 			{
-				if (SingleFoot.size() == 0)
+				if (SinglePly.rows() == 0 || quad_tool.V.rows() < SinglePly.rows() * 2)
 				{
 					std::cout << "\nLSC: Please init the opt" << std::endl;
 					ImGui::End();
@@ -2856,6 +2885,46 @@ void lscif::draw_menu2(igl::opengl::glfw::Viewer &viewer, igl::opengl::glfw::img
 				meshFileName.push_back("opt_" + meshFileName[id]);
 				Meshes.push_back(updateMesh);
 				viewer.selected_data_index = id;
+			}
+			ImGui::SameLine();
+			ImGui::PushItemWidth(50);
+			
+			ImGui::InputInt("vinrow", &VINROWINPUT, 0, 0);
+			ImGui::SameLine();
+			if (ImGui::Button("easyCheck", ImVec2(ImGui::GetWindowSize().x * 0.25f, 0.0f)))
+			{
+				std::string fname = igl::file_dialog_open();
+				if (fname.length() == 0)
+				{
+					std::cout << "\nLSC: read mesh failed" << std::endl;
+					ImGui::End();
+					return;
+				}
+				Eigen::MatrixXd Vlocal;
+				Eigen::MatrixXi Flocal;
+				igl::readOBJ(fname,Vlocal, Flocal);
+				if (VINROWINPUT == -1 || Vlocal.rows() % VINROWINPUT != 0)
+				{
+					std::cout << "\nLSC: set correct vinrow" << std::endl;
+					ImGui::End();
+					return;
+				}
+				quad_tool.initAGG(mat_to_vec_list(Vlocal), VINROWINPUT); 
+				
+				// 
+				int id = viewer.selected_data_index;
+				CGMesh updatemesh; 
+				MP.matrix2Mesh(updatemesh, Vlocal, Flocal);
+				updateMeshViewer(viewer, updatemesh);
+				meshFileName.push_back("Input");
+				Meshes.push_back(updatemesh);
+				viewer.selected_data_index = id;
+				// set up parameters
+				weight_laplacian = 0.0001;
+				weight_pseudo_geodesic = 0.01;
+				weight_geodesic = 0.01;
+				SingleFoot.clear();
+				SingleCrease.clear();
 			}
 		}
 		// binormals as orthogonal as possible.

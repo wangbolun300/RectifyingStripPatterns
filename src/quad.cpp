@@ -473,7 +473,7 @@ void QuadOpt::initAGG(const std::vector<Eigen::Vector3d> &Vlist, const int rnbr)
     vNbrInRow = rnbr;
     if (OriginalCurve.size() == 0)
     {
-        for (int i = 0; i < rnbr; i++)
+        for (int i = 0; i < rnbr * 2; i++) // AGG we preserve 2 strips
         {
             OriginalCurve.push_back(Vlist[i]);
         }
@@ -724,9 +724,11 @@ void QuadOpt::assemble_gravity(spMat& H, Eigen::VectorXd& B, Eigen::VectorXd &en
     B = -J.transpose() * energy;
 }
 
-void QuadOpt::assemble_gravity_AAG(spMat& H, Eigen::VectorXd& B, Eigen::VectorXd &energy){
-
-    
+void QuadOpt::assemble_gravity_AAG_AGG(spMat& H, Eigen::VectorXd& B, Eigen::VectorXd &energy, int order){
+    int varOffset = 9;
+    if(order == 2){
+        varOffset = 12;
+    }
     std::vector<Trip> tripletes;
     int vnbr = V.rows();
     tripletes.reserve(vnbr * 3);
@@ -734,29 +736,30 @@ void QuadOpt::assemble_gravity_AAG(spMat& H, Eigen::VectorXd& B, Eigen::VectorXd
     for (int i = 0; i < vnbr; i++)
     {
         int vid = i;
-        int lx = vid * 9;
-        int ly = vid * 9 + 1;
-        int lz = vid * 9 + 2;
+        int lx = vid * varOffset;
+        int ly = vid * varOffset + 1;
+        int lz = vid * varOffset + 2;
         Eigen::Vector3d ver = V.row(vid);
 
         // vertices not far away from the original ones
         // (ver - ver^*)^2 = 0
         double scale = 1;
-        if (i >= vNbrInRow)
-        {
-            scale = 0;
-        }
+        // if (i >= vNbrInRow)
+        // {
+        //     scale = 0.1; // weak approximate to the second curve
+        // }
         Eigen::Vector3d verori;
         Eigen::Vector3d vdiff;
-        if (i < vNbrInRow)
+        if (i < OriginalCurve.size())
         {
             verori = OriginalCurve[i];
         }
         else
         {
-            verori[0] = OrigVars[lx];
-            verori[1] = OrigVars[ly];
-            verori[2] = OrigVars[lz];
+            // verori[0] = OrigVars[lx];
+            // verori[1] = OrigVars[ly];
+            // verori[2] = OrigVars[lz];
+            continue;
         }
 
         vdiff = Eigen::Vector3d(V.row(vid)) - verori;
@@ -815,6 +818,10 @@ void push_fairness_conditions(std::vector<Trip> &tripletes, Eigen::VectorXd &ene
                               const double vval, const double fval, const double bval,
                               const int cid, const double scale0, const double scale1, const int order = 0)
 {
+    // tripletes.push_back(Trip(cid, lv, 1 / scale0 + 1 / scale1));
+    // tripletes.push_back(Trip(cid, lf, -1 / scale0));
+    // tripletes.push_back(Trip(cid, lb, -1 / scale1));
+    // energy[cid] = (vval - fval) / scale0 + (vval - bval) / scale1;
     if (order == 0)
     {
         tripletes.push_back(Trip(cid, lv, 1 / scale0 + 1 / scale1));
@@ -2267,6 +2274,14 @@ void QuadOpt::opt(){
 
 void QuadOpt::optAAG()
 {
+    if (WhichDiagonal == 0)
+    {
+        d0_type = 1;
+    }
+    if (WhichDiagonal == 1)
+    {
+        d1_type = 1;
+    }
     int vnbr = V.rows();
     int order = 1; // the order = 1 means AAG
     if (GlobVars.size() != varsize)
@@ -2292,7 +2307,7 @@ void QuadOpt::optAAG()
 
     spMat Hgravity;  // approximation
 	Eigen::VectorXd Bgravity; // right of laplacian
-	assemble_gravity_AAG(Hgravity, Bgravity, Egravity);
+	assemble_gravity_AAG_AGG(Hgravity, Bgravity, Egravity);
     H += weight_gravity * Hgravity;
 	B += weight_gravity * Bgravity;
 
@@ -2400,9 +2415,35 @@ void QuadOpt::optAAG()
     // std::cout<<"opt finished\n";
 }
 
+void collectAggVectors(const Eigen::VectorXd &vars, Eigen::MatrixXd &n,
+                       Eigen::MatrixXd &b0,
+                       Eigen::MatrixXd &b1)
+{
+    int vnbr = vars.size() / 12;
+    n.resize(vnbr,3);
+    b0 = b1 = n;
+    for (int i = 0; i < vnbr; i++)
+    {
+        Eigen::Vector3d p(vars[i * 12],vars[i * 12 + 1],vars[i * 12 + 2]);
+        Eigen::Vector3d nvec(vars[i * 12 + 3],vars[i * 12 + 4],vars[i * 12 + 5]);
+        Eigen::Vector3d b0vec(vars[i * 12 + 6],vars[i * 12 + 7],vars[i * 12 + 8]);
+        Eigen::Vector3d b1vec(vars[i * 12 + 9],vars[i * 12 + 10],vars[i * 12 + 11]);
+        n.row(i) = nvec;
+        b0.row(i) = b0vec;
+        b1.row(i) = b1vec;
+    }
+}
 
 void QuadOpt::optAGG()
 {
+    if (WhichDiagonal == 0)
+    {
+        d0_type = 1;
+    }
+    if (WhichDiagonal == 1)
+    {
+        d1_type = 1;
+    }
     int vnbr = V.rows();
     int order = 2; // the order = 1 means AAG, order = 2 is for AGG
     int varOffset = 12; // AGG has 12 * n variables
@@ -2429,7 +2470,7 @@ void QuadOpt::optAGG()
 
     spMat Hgravity;  // approximation
 	Eigen::VectorXd Bgravity; // right of laplacian
-	assemble_gravity_AAG(Hgravity, Bgravity, Egravity);
+	assemble_gravity_AAG_AGG(Hgravity, Bgravity, Egravity, order);
     H += weight_gravity * Hgravity;
 	B += weight_gravity * Bgravity;
 
@@ -2444,14 +2485,14 @@ void QuadOpt::optAGG()
     H += weight_pg * Hnorm;
 	B += weight_pg * Bnorm;
     // AAG, the row is the geodesic, the col is the A, and the chosen diag is another A
-    spMat Hbnm;
-    Eigen::VectorXd Bbnm;
+    spMat Hbnm0, Hbnm1;
+    Eigen::VectorXd Bbnm0, Bbnm1;
     int family = -1;
     
     family = 1; // column is the geodesic
-    assemble_binormal_conditions(Hbnm, Bbnm, Ebnm1, family, -1, order, 1); // 1 means the second binormal vector
-    H += weight_pg * Hbnm;
-    B += weight_pg * Bbnm;
+    assemble_binormal_conditions(Hbnm0, Bbnm0, Ebnm0, family, -1, order, 0); // 1 means the second binormal vector
+    H += weight_pg * Hbnm0;
+    B += weight_pg * Bbnm0;
 
     // G
     int type = 2; // G1
@@ -2478,9 +2519,9 @@ void QuadOpt::optAGG()
     assemble_pg_extreme_cases(Hpg[2], Bpg[2], Epg[2], type, family, -1, order, 1);
 
     // another binormal
-    assemble_binormal_conditions(Hbnm, Bbnm, Ebnm0, family, -1, order, 0);// 0 means the first binormal vector
-    H += weight_pg * Hbnm;
-    B += weight_pg * Bbnm;
+    assemble_binormal_conditions(Hbnm1, Bbnm1, Ebnm1, family, -1, order, 1);// 0 means the first binormal vector
+    H += weight_pg * Hbnm1;
+    B += weight_pg * Bbnm1;
 
     H += weight_pg * pg_ratio * (Hpg[0] + Hpg[1] + Hpg[2]);
     B += weight_pg * pg_ratio * (Bpg[0] + Bpg[1] + Bpg[2]);
@@ -2529,9 +2570,9 @@ void QuadOpt::optAGG()
     ComputeAuxiliaries = false;
     for (int i = 0; i < vnbr; i++)
     {
-        V(i, 0) = GlobVars[i * 9];
-        V(i, 1) = GlobVars[i * 9 + 1];
-        V(i, 2) = GlobVars[i * 9 + 2];
+        V(i, 0) = GlobVars[i * varOffset];
+        V(i, 1) = GlobVars[i * varOffset + 1];
+        V(i, 2) = GlobVars[i * varOffset + 2];
     }
     // std::cout<<"here 2\nver nbrs "<<mesh_update.n_vertices()<<"\n";
     for (CGMesh::VertexIter v_it = mesh_update.vertices_begin(); v_it != mesh_update.vertices_end(); ++v_it)
@@ -2545,6 +2586,7 @@ void QuadOpt::optAGG()
         assert(vid >= 0);
         mesh_update.point(*v_it) = CGMesh::Point(V(vid, 0), V(vid, 1), V(vid, 2));
     }
+    collectAggVectors(GlobVars, N, B0, B1);
     // std::cout<<"opt finished\n";
 }
 Eigen::MatrixXd QuadOpt::propagateBoundary()

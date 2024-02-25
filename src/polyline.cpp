@@ -745,7 +745,7 @@ void adjustAagOffset(const std::vector<Eigen::Vector3d> &verFix,
 
 // this function is designed to get the first strip for AGG evolution
 void aggFirstStrip(const std::vector<Eigen::Vector3d> &pts, const std::vector<Eigen::Vector3d> &bnm,
-                   std::vector<Eigen::Vector3d> &pout)
+                   std::vector<Eigen::Vector3d> &pout, const bool invertDirection)
 {
     int vnbr = pts.size();
     std::vector<Eigen::Vector3d> result(vnbr);
@@ -759,6 +759,9 @@ void aggFirstStrip(const std::vector<Eigen::Vector3d> &pts, const std::vector<Ei
         tangent = pts[i + 1] - pts[i];
         tangent.normalize();
         direction = normals.cross(tangent).normalized();
+        if(invertDirection){
+            direction *= -1;
+        }
         p = direction * lengths * 1.732 / 2 + (pts[i + 1] + pts[i]) / 2;
         result[i] = p;
     }
@@ -1182,6 +1185,23 @@ void PolyOpt::force_smoothing_binormals(){
                 PlyVars[lnz] = bin[2];
             }
 
+            counter++;
+        }
+    }
+}
+// use this when avoiding flipping of the strips.
+void PolyOpt::force_invert_binormals(){
+    int counter = 0;
+    for (int i = 0; i < ply_extracted.size(); i++)
+    {
+        for (int j = 0; j < ply_extracted[i].size(); j++)
+        {
+            int lnx = counter + VerNbr * 3;
+            int lny = counter + VerNbr * 4;
+            int lnz = counter + VerNbr * 5;
+            PlyVars[lnx] *= -1;
+            PlyVars[lny] *= -1;
+            PlyVars[lnz] *= -1;
             counter++;
         }
     }
