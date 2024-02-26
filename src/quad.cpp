@@ -916,6 +916,10 @@ void QuadOpt::assemble_fairness(spMat& H, Eigen::VectorXd& B, Eigen::VectorXd &e
         bool col_smt = true;
         bool d0_smt = true;
         bool d1_smt = true;
+        // if (order == 2 && i < vNbrInRow * 2) // cancel the smoothness for the first 2 rows
+        // {
+        //     row_smt = false;
+        // }
 
         if (rf < 0 || rb < 0)
         {
