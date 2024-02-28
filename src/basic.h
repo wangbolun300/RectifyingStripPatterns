@@ -203,6 +203,7 @@ public:
     CGMesh mesh_update;
     std::vector<Eigen::Vector3d> verOriginal;
     std::vector<Eigen::Vector3d> verUpdate;
+    std::vector<Eigen::Vector3d> curveRef;
     double real_step_length;
     
     // input from outside
@@ -274,6 +275,7 @@ private:
     void assemble_binormal_conditions(spMat &H, Eigen::VectorXd &B, Eigen::VectorXd &energy, int family,
                                       int bnm_start, const int order = 0, const int whichBnm = 0);
     void assemble_normal_conditions(spMat &H, Eigen::VectorXd &B, Eigen::VectorXd &energy, const int order = 0);
+    void assemble_approximate_curve_conditions(spMat &H, Eigen::VectorXd &B, Eigen::VectorXd &energy);
 
 public:
     // debug tools

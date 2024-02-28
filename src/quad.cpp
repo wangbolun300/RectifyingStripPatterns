@@ -723,6 +723,70 @@ void QuadOpt::assemble_gravity(spMat& H, Eigen::VectorXd& B, Eigen::VectorXd &en
     H = J.transpose() * J;
     B = -J.transpose() * energy;
 }
+// this function approximates the first point in each row to the given curve.
+// this is only used for AGG
+void QuadOpt::assemble_approximate_curve_conditions(spMat &H, Eigen::VectorXd &B, Eigen::VectorXd &energy)
+{
+    int varOffset = 12;
+    int vnbr = V.rows();
+    int rnbr = vnbr / vNbrInRow; // the number of rows
+    std::vector<Trip> tripletes;
+    tripletes.reserve();
+    energy = Eigen::VectorXd::Zero(rnbr * 4);
+
+    for (int i = 0; i < rnbr; i++)
+    {
+        int vid = i * vNbrInRow; // the first point in each row.
+        int lx = vid * varOffset;
+        int ly = vid * varOffset + 1;
+        int lz = vid * varOffset + 2;
+        Eigen::Vector3d ver = V.row(vid);
+        int segid;
+        double tlocal;
+        Eigen::Vector3d plocal;
+        Eigen::Vector3d tangent;
+        // find the projection point of this point on the curve.
+        bool project = projectPointOnCurve(curveRef, ver,
+                                           segid, tlocal, plocal, tangent);
+        if (!project)
+        {
+            continue;
+        }
+
+        // vertices not far away from the original ones
+        // (ver - ver^*)^2 = 0
+        double scale = 1;
+        Eigen::Vector3d verori = plocal;
+        Eigen::Vector3d vdiff;
+        vdiff = Eigen::Vector3d(V.row(vid)) - verori;
+
+        tripletes.push_back(Trip(i, lx, 2 * vdiff[0] * scale));
+        tripletes.push_back(Trip(i, ly, 2 * vdiff[1] * scale));
+        tripletes.push_back(Trip(i, lz, 2 * vdiff[2] * scale));
+
+        energy[i] = vdiff.dot(vdiff) * scale;
+        
+        // ver - plocal - tangent * ||ver - plocal|| = 0: the vertex is moving along the tangent directions
+        scale = (ver - plocal).norm();
+        int sign = (ver - plocal).dot(tangent) > 0 ? -1 : 1;
+
+        tripletes.push_back(Trip(i + rnbr, lx, 1));
+        energy[i + rnbr] = ((ver - plocal) + sign * tangent * scale)[0];
+
+        tripletes.push_back(Trip(i + rnbr * 2, ly, 1));
+        energy[i + rnbr * 2] = ((ver - plocal) + sign * tangent * scale)[1];
+
+        tripletes.push_back(Trip(i + rnbr * 3, lz, 1));
+        energy[i + rnbr * 3] = ((ver - plocal) + sign * tangent * scale)[2];
+    }
+    int nvars = GlobVars.size();
+    int ncondi = energy.size();
+    spMat J;
+    J.resize(ncondi, nvars);
+    J.setFromTriplets(tripletes.begin(), tripletes.end());
+    H = J.transpose() * J;
+    B = -J.transpose() * energy;
+}
 
 void QuadOpt::assemble_gravity_AAG_AGG(spMat& H, Eigen::VectorXd& B, Eigen::VectorXd &energy, int order){
     int varOffset = 9;

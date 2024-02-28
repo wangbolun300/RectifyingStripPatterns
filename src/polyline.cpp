@@ -744,8 +744,9 @@ void adjustAagOffset(const std::vector<Eigen::Vector3d> &verFix,
 }
 
 // this function is designed to get the first strip for AGG evolution
+// para1 is the parameter for the foot point, by default 0.5. para2 is the ratio of largest and smallest offset distances, default 1
 void aggFirstStrip(const std::vector<Eigen::Vector3d> &pts, const std::vector<Eigen::Vector3d> &bnm,
-                   std::vector<Eigen::Vector3d> &pout, const bool invertDirection)
+                   std::vector<Eigen::Vector3d> &pout, const bool invertDirection, const double para1, const double para2)
 {
     int vnbr = pts.size();
     std::vector<Eigen::Vector3d> result(vnbr);
@@ -753,6 +754,7 @@ void aggFirstStrip(const std::vector<Eigen::Vector3d> &pts, const std::vector<Ei
     // the m-p is orthogonal to the plane spanned by tangent and n. m is the mid point of the edge.
     for (int i = 0; i < vnbr - 1; i++)
     {
+        double offRatio = i * (para2 - 1) / (vnbr - 1) + 1;
         Eigen::Vector3d normals = ((bnm[i] + bnm[i + 1]) / 2).normalized();
         double lengths = (pts[i] - pts[i + 1]).norm();
         Eigen::Vector3d p, direction, tangent;
@@ -762,7 +764,7 @@ void aggFirstStrip(const std::vector<Eigen::Vector3d> &pts, const std::vector<Ei
         if(invertDirection){
             direction *= -1;
         }
-        p = direction * lengths * 1.732 / 2 + (pts[i + 1] + pts[i]) / 2;
+        p = direction * lengths * offRatio * 1.732 / 2 + (pts[i + 1] - pts[i]) * para1 + pts[i];
         result[i] = p;
     }
     Eigen::Vector3d tangent = pts[vnbr - 1] - pts[vnbr - 2];
@@ -771,6 +773,48 @@ void aggFirstStrip(const std::vector<Eigen::Vector3d> &pts, const std::vector<Ei
     result[vnbr - 1] = result[vnbr - 2] + tangent;
     pout = result;
 }
+// take a guide curve as the first geodesic 
+// extendVid is the vertex id of the guide curve that is new extended to the mesh
+void aggFirstStripGuideGeodesic(const std::vector<Eigen::Vector3d> &pts, const std::vector<Eigen::Vector3d> &bnm,
+                   std::vector<Eigen::Vector3d> &pout, const std::vector<Eigen::Vector3d>& guide,
+                   const int segid, const double tlocal,
+                    const bool invertDirection)
+{
+    int vnbr = pts.size();
+    std::vector<Eigen::Vector3d> result(vnbr);
+    assert(pts.size() == bnm.size());
+    // the m-p is orthogonal to the plane spanned by tangent and n. m is the mid point of the edge.
+
+    result[0] = tlocal * (guide[segid + 1] - guide[segid]) + guide[segid];// the first point comes from the guide curve
+    double l, t;
+    t = (result[0] - pts[0]).dot(pts[1] - pts[0]) / (pts[1] - pts[0]).dot(pts[1] - pts[0]);
+    l = (pts[0] - result[0] + (pts[1] - pts[0]) * t).norm();
+
+    for (int i = 1; i < vnbr - 1; i++)
+    {
+        
+        Eigen::Vector3d normals = ((bnm[i] + bnm[i + 1]) / 2).normalized();
+        // double lengths = (pts[i] - pts[i + 1]).norm();
+        Eigen::Vector3d p, direction, tangent;
+        tangent = pts[i + 1] - pts[i];
+        tangent.normalize();
+        direction = normals.cross(tangent).normalized();
+        if(invertDirection){
+            direction *= -1;
+        }
+        // double offRatio = i * (para2 - 1) / (vnbr - 1) + 1;
+        Eigen::Vector3d foot = pts[i] + (pts[i + 1] - pts[i]) * t;
+        p = direction * l  + foot;
+        result[i] = p;
+    }
+    Eigen::Vector3d tangent = pts[vnbr - 1] - pts[vnbr - 2];
+    // Eigen::Vector3d m = (pts[vnbr - 2] + pts[vnbr - 1]) / 2;
+    // auto foot = tangent + m;
+    result[vnbr - 1] = result[vnbr - 2] + tangent;
+    pout = result;
+}
+
+
 
 
 // adjust the last boundary of AGG after propagating.
@@ -897,6 +941,162 @@ void adjustAggOffset(const std::vector<Eigen::Vector3d> &pts_all, const std::vec
     std::cout << "squared error before opt, " << error << "\n";
     
 }
+
+// adjust the last boundary of AGG after propagating.
+// the bnms are the binormals of the second last boundary
+// this version takes a input curve as the first geodesic
+void adjustAggOffsetGuideGeodesic(const std::vector<Eigen::Vector3d> &pts_all, const std::vector<Eigen::Vector3d> &bnms,
+                     const int vinrow, const std::vector<Eigen::Vector3d> &guide, int& segid, double& tlocal,
+                     std::vector<Eigen::Vector3d> &pout)
+{
+    pout.clear();
+    pout.resize(vinrow);
+    int vnbr = pts_all.size();
+    int ncol = pts_all.size() / vinrow;
+    assert(ncol > 2 && "we don't apply this method on the first strip"); 
+    assert(vinrow == bnms.size());
+    int counter = 0;
+    std::vector<Eigen::Vector3d> pout_all;
+    pout_all = pts_all;
+    double ratio = 0.3;
+    double error = 0;
+    for (int i = 0; i < vinrow - 2; i++)
+    {
+        int bid = (ncol - 1) * vinrow + i; // boundary point id
+        Eigen::Vector3d p = pts_all[bid];
+        Eigen::Vector3d p1 = pts_all[bid - vinrow];
+        Eigen::Vector3d p2 = pts_all[bid - vinrow + 1];
+        Eigen::Vector3d p3 = pts_all[bid - vinrow * 2]; // there is a useless point between p3 and p4
+        Eigen::Vector3d p4 = pts_all[bid - vinrow * 2 + 2];
+        Eigen::Vector3d v1 = p - p1;
+        Eigen::Vector3d v2 = p1 - p3;
+        Eigen::Vector3d v3 = p - p2;
+        Eigen::Vector3d v4 = p2 - p4;
+        Eigen::Vector3d n1 = bnms[i];
+        Eigen::Vector3d n2 = bnms[i + 1];
+
+        double r11 = v1.cross(n1).dot(v2);
+        double r12 = v3.cross(n1).dot(v2);
+        double r21 = v1.cross(n2).dot(v4);
+        double r22 = v3.cross(n2).dot(v4);
+        double d1 = (p1 - p).cross(n1).dot(v2);
+        double d2 = (p2 - p).cross(n2).dot(v4);
+        error += pow(((p - p1).normalized()).cross(n1).dot(v2.normalized()), 2);
+        error += pow(((p - p2).normalized()).cross(n2).dot(v4.normalized()), 2);
+
+        if (i == 0) // the first point is on the curve: 
+        {
+            Eigen::Vector3d pt0 = guide[segid], pt1 = guide[segid + 1]; // the current position should be pt0 + t * (pt1 - pt0)
+            double left = (pt1 - pt0).cross(n2).dot(v4);
+            double right = (-pt0).cross(n2).dot(v4);
+            double t_target = right / left; // the target position if move a full step. 
+            t_target = (t_target - tlocal) * ratio + tlocal; // this is the target position
+            double target_length = (t_target - tlocal) * (pt0 - pt1).norm(); // the distance need to march along the curve.
+            Eigen::Vector3d pstart = tlocal * (pt1 - pt0) + pt0;
+            int segid_out;
+            Eigen::Vector3d pt;
+            if (target_length > 0)
+            {
+                find_next_pt_on_polyline(segid, guide, target_length, pstart, segid_out, pt);   
+            }
+            else{
+                find_prev_pt_on_polyline(segid, guide, target_length, pstart, segid_out, pt);
+            }
+            segid = segid_out;
+            tlocal = (pt - guide[segid]).norm() / (guide[segid + 1] - guide[segid]).norm();
+
+            pout_all[bid] = pt;
+            pout[i] = pout_all[bid];
+            continue;
+        }
+
+        Eigen::Matrix2d mat, inv;
+        mat << r11, r12, r21, r22;
+        Eigen::Vector2d d;
+        d << d1, d2;
+        bool invertable;
+        mat.computeInverseWithCheck(inv, invertable);
+        Eigen::Vector2d ab;
+        
+        if (invertable)
+        {
+            ab = inv * d * 0.3;
+        }
+        else
+        {
+            ab << 0, 0;
+            if (abs(r11) > 1e-4)
+            {
+                ab[0] = (d1 - ab[1] * r12) / r11 * ratio;
+            }
+            if (abs(r12) > 1e-4)
+            {
+                ab[1] = (d1 - ab[0] * r11) / r12 * ratio;
+            }
+            if (abs(r21) > 1e-4)
+            {
+                ab[0] = (d2 - ab[1] * r22) / r21 * ratio;
+            }
+            if (abs(r22) > 1e-4)
+            {
+                ab[1] = (d2 - ab[0] * r21) / r22 * ratio;
+            }
+        }
+        pout_all[bid] += ab[0] * v1 + ab[1] * v3;
+        pout[i] = pout_all[bid];
+    }
+    // deal with the second last point: only requires p1, p3, n1
+    int bid = vnbr - 2; // boundary point id
+    Eigen::Vector3d p = pts_all[bid];
+    Eigen::Vector3d p1 = pts_all[bid - vinrow];
+    Eigen::Vector3d p2 = pts_all[bid - vinrow + 1];
+    Eigen::Vector3d p3 = pts_all[bid - vinrow * 2]; // there is a useless point between p3 and p4
+    Eigen::Vector3d v1 = p - p1;
+    Eigen::Vector3d v2 = p1 - p3;
+    Eigen::Vector3d v3 = p - p2;
+    Eigen::Vector3d n1 = bnms[vinrow - 2];
+    double r11 = v1.cross(n1).dot(v2);
+    double r12 = v3.cross(n1).dot(v2);
+    double d1 = (p1 - p).cross(n1).dot(v2);
+    Eigen::Vector2d ab(0, 0);
+    if (abs(r11) > 1e-4)
+    {
+        ab[0] = (d1 - ab[1] * r12) / r11 * ratio;
+    }
+    if (abs(r12) > 1e-4)
+    {
+        ab[1] = (d1 - ab[0] * r11) / r12 * ratio;
+    }
+    // pout_all[bid] += ab[0] * v1 + ab[1] * v3; 
+
+
+    // the second last point smoothness
+    Eigen::Vector3d delta = (pout_all[bid + 1] + pout_all[bid - 1]) / 2 - pout_all[bid];
+    pout_all[bid] += delta * ratio; // smoothness 1: row
+
+    double alpha = 1/(pout_all[bid] - pout_all[bid - vinrow]).norm();
+    double beta = 1/(pout_all[bid - vinrow] - pout_all[bid - 2 * vinrow]).norm();
+    delta = (alpha + beta) / alpha * pout_all[bid - vinrow] - beta / alpha * pout_all[bid - 2 * vinrow] - pout_all[bid];
+    // delta = 2 * pout_all[bid - vinrow] - pout_all[bid - 2 * vinrow] - pout_all[bid]; // one order smoothness
+    pout_all[bid] += delta * ratio; // smoothness 2: col
+    pout[vinrow - 2] = pout_all[bid];
+    error += pow(((p - p1).normalized()).cross(n1).dot(v2.normalized()), 2);
+
+    // the last point
+    bid = vnbr - 1; // boundary point id
+    // the first smooth
+    delta = 2 * pout_all[bid - 1] - pout_all[bid - 2] - pout_all[bid]; // one order smoothness
+    pout_all[bid] += delta ;                                    // smoothness
+    // the second smooth
+    delta = 2 * pout_all[bid - vinrow] - pout_all[bid - 2 * vinrow] - pout_all[bid]; // one order smoothness
+    pout_all[bid] += delta ;                                                  // smoothness
+
+    pout[vinrow - 1] = pout_all[bid];
+    std::cout << "squared error before opt, " << error << "\n";
+    
+}
+
+
 
 // flat points: where franet frame is not properly defined. including: low curvature points, inflection points
 void statics_for_curvatures(const Eigen::VectorXd &cvec, std::vector<bool>& flat, double &cthreadshold)

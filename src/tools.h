@@ -219,7 +219,21 @@ void adjustAagOffset(const std::vector<Eigen::Vector3d> &verFix,
                      const std::vector<Eigen::Vector3d> &vers, std::vector<Eigen::Vector3d> &creases);
 // this function is designed to get the first strip for AGG evolution
 void aggFirstStrip(const std::vector<Eigen::Vector3d> &pts, const std::vector<Eigen::Vector3d> &bnm,
-                   std::vector<Eigen::Vector3d> &pout, const bool invertDirection);
+                   std::vector<Eigen::Vector3d> &pout, const bool invertDirection, const double para1 = 0.5, const double para2 = 1);
+void aggFirstStripGuideGeodesic(const std::vector<Eigen::Vector3d> &pts, const std::vector<Eigen::Vector3d> &bnm,
+                   std::vector<Eigen::Vector3d> &pout, const std::vector<Eigen::Vector3d>& guide,
+                   const int segid, const double tlocal,
+                    const bool invertDirection);
 void adjustAggOffset(const std::vector<Eigen::Vector3d> &pts_all, const std::vector<Eigen::Vector3d> &bnms,
                      const int vinrow, std::vector<Eigen::Vector3d> &pout);
 void constructRegularF(const int vnbr, const int rnbr, Eigen::MatrixXi &F);
+std::vector<Eigen::Vector3d> sample_one_polyline_based_on_length(const std::vector<Eigen::Vector3d> &polyline, const int nbr);
+void find_next_pt_on_polyline(const int start_seg, const std::vector<Eigen::Vector3d> &polyline, const double length,
+                              const Eigen::Vector3d &pstart, int &seg, Eigen::Vector3d &pt);
+void find_prev_pt_on_polyline(const int start_seg, const std::vector<Eigen::Vector3d> &polyline, const double length,
+                              const Eigen::Vector3d &pstart, int &seg, Eigen::Vector3d &pt);
+void getRotationVector(const Eigen::Vector3d &vectorRef, const double angleDegree,
+                                  const Eigen::Vector3d &vectorIn, Eigen::Vector3d &vectorOut);     
+Eigen::Matrix3d getRotationMatrix(Eigen::Vector3d vectorBefore, Eigen::Vector3d vectorAfter);    
+bool projectPointOnCurve(const std::vector<Eigen::Vector3d> &curve, const Eigen::Vector3d &pt,
+                         int &segid, double &tlocal, Eigen::Vector3d &plocal, Eigen::Vector3d& tangent);                     

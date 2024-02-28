@@ -55,8 +55,7 @@ public:
 	bool keyPress_5 = false;
 	bool keyPress_d = false;
 	Eigen::Vector3d pSelect3d;
-	int VINROWINPUT = -1; 
-	bool InvertDirectionAGG = false;
+	
 
 	// Optimization Parameters
 	double weigth_closeness = 0.0;
@@ -181,6 +180,14 @@ public:
 	Eigen::MatrixXd SinglePly;// these are for init the AAG
 	std::vector<Eigen::Vector3d> SingleFoot;
 	std::vector<Eigen::Vector3d> SingleCrease;
+	Eigen::MatrixXd RefCurve;
+	Eigen::MatrixXd RefCurveRot;
+	
+	int VINROWINPUT = -1; 
+	bool InvertDirectionAGG = false;
+	double AggPara1 = 0.5;
+	double AggPara2 = 1;
+	double RotRefCurveAngle = 0;
 
 	// functional angles stuff.
 	bool Disable_Changed_Angles = false;

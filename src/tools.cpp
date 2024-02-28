@@ -3199,6 +3199,7 @@ void find_next_pt_on_polyline(const int start_seg, const std::vector<Eigen::Vect
     int nbr = polyline.size();
     double ocu_dis = 0;
     double dis_to_start = length + (polyline[start_seg] - pstart).norm();
+    seg = -1;
     for (int i = start_seg; i < nbr - 1; i++)
     {
         double dis = (polyline[i] - polyline[i + 1]).norm();
@@ -3216,6 +3217,39 @@ void find_next_pt_on_polyline(const int start_seg, const std::vector<Eigen::Vect
     }
     std::cout<<"ERROR OUT OF SEGMENT"<<std::endl;
 }
+// pstart is the start point where t = 0 on this seg
+void find_prev_pt_on_polyline(const int start_seg, const std::vector<Eigen::Vector3d> &polyline, const double length,
+                              const Eigen::Vector3d &pstart, int &seg, Eigen::Vector3d &pt)
+{
+    assert(length >= 0);
+    int nbr = polyline.size();
+    double ocu_dis = 0;
+    double dis_to_start = length - (polyline[start_seg] - pstart).norm();
+    if (dis_to_start < 0)
+    {
+        seg = start_seg;
+        pt = polyline[seg] + (polyline[seg + 1] - polyline[seg]) * dis_to_start / (polyline[seg + 1] - polyline[seg]).norm();
+        return;
+    }
+    seg = -1;
+    for (int i = start_seg - 1; i >= 0; i--)
+    {
+        double dis = (polyline[i] - polyline[i + 1]).norm();
+        ocu_dis += dis;
+        if (ocu_dis > dis_to_start)
+        {                                           // the point should between i and i+1
+            double diff = (ocu_dis - dis_to_start); // the distance the point to i+1
+            double t = diff / dis;
+            assert(t >= 0 && t <= 1);
+            Eigen::Vector3d p = get_3d_ver_from_t(t, polyline[i], polyline[i + 1]);
+            pt = p;
+            seg = i;
+            return;
+        }
+    }
+    std::cout<<"ERROR OUT OF SEGMENT"<<std::endl;
+}
+
 // nbr - 1 is the nbr of segments
 // length is the length of the polyline
 void sample_polyline_and_extend_verlist(const std::vector<Eigen::Vector3d>& polyline, const int nbr, const double length, std::vector<Eigen::Vector3d>& verlist){
@@ -3321,6 +3355,39 @@ std::vector<Eigen::Vector3d> sample_one_polyline_and_binormals_based_on_length(c
     return verlist;
     // std::cout<<"check out out out"<<std::endl;
 }
+std::vector<Eigen::Vector3d> sample_one_polyline_based_on_length(const std::vector<Eigen::Vector3d> &polyline, const int nbr)
+{
+    double length = polyline_length(polyline);
+    double avg = length / (nbr - 1);
+    std::vector<Eigen::Vector3d> verlist;
+    std::vector<int> segid;
+    std::vector<double> tlist;
+    // std::cout<<"check in"<<std::endl;
+    sample_polyline_and_extend_verlist(polyline, nbr, avg, verlist, segid, tlist);
+    // std::cout<<"check out"<<std::endl;
+    // for(int i=0;i<verlist.size();i++){
+    //     int id0 = segid[i];
+    //     double t = tlist[i];
+    //     Eigen::Vector3d b1 = binormals[id0], b2 = binormals[id0 + 1];
+    //     if (b1.dot(b2) < 0)
+    //     {
+    //         b2 *= -1;
+    //     }
+    //     Eigen::Vector3d bn = b1 * (1 - t) + b2 * t;
+    //     bn.normalize();
+    //     if(isnan(bn[0])||isnan(bn[1]) ||isnan(bn[2])){
+    //         std::cout<<"Sampled Binormal has NAN"<<std::endl;
+    //         std::cout<<"b1, "<<b1.transpose()<<std::endl;
+    //         std::cout<<"b2, "<<b2.transpose()<<std::endl;
+    //         std::cout<<"t, "<<t<<std::endl;
+    //         std::cout<<"id0, "<<id0<<std::endl;
+
+    //     }
+    // }
+    return verlist;
+    // std::cout<<"check out out out"<<std::endl;
+}
+
 // void sample_polyline_based_on_length(const std::vector<Eigen::Vector3d>& polyline, const double length)
 void sample_polylines(const std::vector<std::vector<Eigen::Vector3d>> &polylines, const int nbr, const double length_total,
                       std::vector<std::vector<Eigen::Vector3d>> &verlists, double& avg)
@@ -7551,8 +7618,20 @@ void extendMesh(Eigen::MatrixXd& V, Eigen::MatrixXi& F, Eigen::MatrixXd& Va, Eig
 //     mat(2, 1) = vt[1] - vs[0];
 // }
 
+// Rodrigues' rotation formula1: rotate a vector along a random vector
+void getRotationVector(const Eigen::Vector3d &vectorRef, const double angleDegree,
+                                  const Eigen::Vector3d &vectorIn, Eigen::Vector3d &vectorOut)
+{
+    const auto &k = vectorRef;
+    const auto &v = vectorIn;
+    const double angle_radian = angleDegree * LSC_PI / 180;
+    vectorOut = v * cos(angle_radian) + (1 - cos(angle_radian)) * v.dot(k) * k + sin(angle_radian) * v.cross(k);
+    return;
+}
 
-// Rodrigues' rotation formula
+
+
+// Rodrigues' rotation formula2: rotate a vector to the target direction
 Eigen::Matrix3d getRotationMatrix(Eigen::Vector3d vectorBefore, Eigen::Vector3d vectorAfter)
         {
             Eigen::Vector3d vb = vectorBefore.normalized();
@@ -8087,4 +8166,60 @@ void evaluateGGGConsineConstraints()
         energy[vid + vnbr * 2] = e2;
     }
     std::cout << "the total energy is " << energy.norm() << "\n";
+}
+
+// project the point onto a curve
+bool projectPointOnCurve(const std::vector<Eigen::Vector3d> &curve, const Eigen::Vector3d &pt,
+                         int &segid, double &tlocal, Eigen::Vector3d &plocal, Eigen::Vector3d& tangent)
+{
+    segid = -1;
+    double dis_max = std::numeric_limits<double>::max();
+    for (int i = 0; i < curve.size() - 1; i++)
+    {
+        Eigen::Vector3d ps = curve[i], pe = curve[i + 1];
+        double t = (pt - ps).dot(pe - ps) / (pe - ps).dot(pe - ps);
+        if (t < 1e-6 || t > 1 + 1e-6)
+        {
+            continue;
+        }
+        Eigen::Vector3d tangent_left, tangent_right, tangent_this;
+        tangent_this = pe - ps;
+        if (i > 0)
+        {
+            tangent_left = curve[i] - curve[i - 1];
+        }
+        else{
+            tangent_left = tangent_this;
+        }
+        if (i < curve.size() - 2)
+        {
+            tangent_right = curve[i + 2] - curve[i + 1];
+        }
+        else{
+            tangent_right = tangent_this;
+        }
+        if (t < 0.333)
+        {
+            tangent_this = tangent_this + tangent_left;
+        }
+        if (t > 0.667)
+        {
+            tangent_this = tangent_this + tangent_right;
+        }
+        double distance = (ps + (pe - ps) * t - pt).norm(); // the distance between the projection and the point
+        if (dis_max > distance)
+        {
+            dis_max = distance;
+            segid = i;
+            tlocal = t;
+            plocal = ps + (pe - ps) * t;
+            tangent = tangent_this.normalized();
+        }
+    }
+    if (segid >= 0)
+    {
+        return true;
+    }
+
+    return false;
 }

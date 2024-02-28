@@ -2446,6 +2446,9 @@ void lscif::draw_menu2(igl::opengl::glfw::Viewer &viewer, igl::opengl::glfw::img
 						 "D0\0D1\0\0");
 			ImGui::SameLine();
 			ImGui::Checkbox("InvertDirect", &InvertDirectionAGG);
+			ImGui::InputDouble("AggPar1", &AggPara1, 0, 0, "%.4f");
+			ImGui::SameLine();
+			ImGui::InputDouble("AggPar2", &AggPara2, 0, 0, "%.4f");
 			if (ImGui::Button("ReadPlyObj", ImVec2(ImGui::GetWindowSize().x * 0.25f, 0.0f)))
 			{
 				std::string fname = igl::file_dialog_open();
@@ -2741,7 +2744,7 @@ void lscif::draw_menu2(igl::opengl::glfw::Viewer &viewer, igl::opengl::glfw::img
 				std::vector<Eigen::Vector3d> versOut; std::vector<Eigen::Vector3d> directions;
 				std::vector<Eigen::Vector3d> plyin = poly_tool.ply_extracted[0];
 				std::vector<Eigen::Vector3d> binin = poly_tool.bin_extracted[0];
-				aggFirstStrip(plyin, binin, versOut, InvertDirectionAGG);
+				aggFirstStrip(plyin, binin, versOut, InvertDirectionAGG, AggPara1, AggPara2);
 				directions.resize(plyin.size());
 				for (int i = 0; i < plyin.size(); i++)
 				{
@@ -2760,6 +2763,7 @@ void lscif::draw_menu2(igl::opengl::glfw::Viewer &viewer, igl::opengl::glfw::img
 				Meshes.push_back(updatemesh);
 				// viewer.data().add_points(SinglePly, hot_red);
 				viewer.selected_data_index = id;
+				std::cout<<"AGG Curve 2 Strip\n";
 			}
 			ImGui::SameLine();
 			if (ImGui::Button("AggAdjustInit", ImVec2(ImGui::GetWindowSize().x * 0.25f, 0.0f)))
@@ -2887,7 +2891,7 @@ void lscif::draw_menu2(igl::opengl::glfw::Viewer &viewer, igl::opengl::glfw::img
 				viewer.selected_data_index = id;
 			}
 			ImGui::SameLine();
-			ImGui::PushItemWidth(50);
+			ImGui::PushItemWidth(30);
 			
 			ImGui::InputInt("vinrow", &VINROWINPUT, 0, 0);
 			ImGui::SameLine();
@@ -2925,6 +2929,89 @@ void lscif::draw_menu2(igl::opengl::glfw::Viewer &viewer, igl::opengl::glfw::img
 				weight_geodesic = 0.01;
 				SingleFoot.clear();
 				SingleCrease.clear();
+			}
+			if (ImGui::Button("ReadRefCurve", ImVec2(ImGui::GetWindowSize().x * 0.25f, 0.0f)))
+			{
+				std::string fname = igl::file_dialog_open();
+				if (fname.length() == 0)
+				{
+					std::cout << "\nLSC: read mesh failed" << std::endl;
+					ImGui::End();
+					return;
+				}
+				Eigen::MatrixXi Ftri;
+				igl::readOBJ(fname, RefCurve, Ftri);
+
+				int id = viewer.selected_data_index;
+				CGMesh updatemesh;
+				MP.matrix2Mesh(updatemesh, RefCurve, Ftri);
+				updateMeshViewer(viewer, updatemesh);
+				meshFileName.push_back("ply_" + meshFileName[id]);
+				Meshes.push_back(updatemesh);
+				viewer.data().add_points(RefCurve, sea_green);
+				viewer.selected_data_index = id;
+				std::cout << "read poly with " << RefCurve.rows() << " points\n";
+			}
+			ImGui::SameLine();
+			ImGui::InputDouble("CurveRotate", &RotRefCurveAngle, 0, 0, "%.4f");
+			ImGui::SameLine();
+			if (ImGui::Button("TransRotate", ImVec2(ImGui::GetWindowSize().x * 0.25f, 0.0f)))
+			{
+				if (SinglePly.rows() == 0)
+				{
+					std::cout << "\nPlease load the first curve before calling this" << std::endl;
+					ImGui::End();
+					return;
+				}
+				Eigen::Vector3d p1 = SinglePly.row(0); // this is the first point 
+				Eigen::Vector3d tan1 = (SinglePly.row(1) - SinglePly.row(0)).normalized(); // the first tangent 
+				Eigen::Vector3d bin1 = poly_tool.bin_extracted[0][0]; // the first binormal
+				Eigen::Vector3d refTan = bin1.cross(tan1).normalized(); // the N vector
+
+				Eigen::Vector3d p2 = RefCurve.row(0); // this is the first point of the target curve
+				Eigen::Vector3d tan2 = (RefCurve.row(1) - RefCurve.row(0)).normalized();
+
+				Eigen::MatrixXd T = RefCurve.rowwise() - p2.transpose(); // put the whole curve to the origin.
+				Eigen::MatrixXd Ttrans = T.transpose();
+				// rotate the tan2 to the direction of tan1
+				Eigen::MatrixXd RotMat = getRotationMatrix(tan2, refTan);
+				Ttrans = RotMat * Ttrans;
+				T = Ttrans.transpose();
+				// rotate along the reference direction
+				for (int i = 0; i < RefCurve.rows(); i++)
+				{
+					Eigen::Vector3d vecIn = T.row(i), vecOut;
+					getRotationVector(refTan, RotRefCurveAngle, vecIn, vecOut);
+					T.row(i) = vecOut;
+				}
+				T = T.rowwise() + p1.transpose(); // connect the first point to p1
+				RefCurveRot = T;
+
+				int id = viewer.selected_data_index;
+				CGMesh updatemesh;
+				Eigen::MatrixXi Ftri;
+				MP.matrix2Mesh(updatemesh, RefCurveRot, Ftri);
+				updateMeshViewer(viewer, updatemesh);
+				meshFileName.push_back("ply_" + meshFileName[id]);
+				Meshes.push_back(updatemesh);
+				viewer.data().add_points(RefCurveRot, sea_green);
+				viewer.selected_data_index = id;
+				std::cout << "read poly with " << RefCurveRot.rows() << " points\n";
+			}
+			ImGui::SameLine();
+			if (ImGui::Button("saveTransRotate", ImVec2(ImGui::GetWindowSize().x * 0.25f, 0.0f)))
+			{
+				std::string fname = igl::file_dialog_save();
+
+				if (fname.length() == 0)
+				{
+					std::cout << "\nsave mesh failed" << std::endl;
+					ImGui::End();
+					return;
+				}
+				Eigen::MatrixXi Ftri;
+				igl::writeOBJ(fname, RefCurveRot, Ftri);
+				int id = viewer.selected_data_index;
 			}
 		}
 		// binormals as orthogonal as possible.
