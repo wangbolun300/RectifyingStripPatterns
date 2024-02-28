@@ -731,7 +731,7 @@ void QuadOpt::assemble_approximate_curve_conditions(spMat &H, Eigen::VectorXd &B
     int vnbr = V.rows();
     int rnbr = vnbr / vNbrInRow; // the number of rows
     std::vector<Trip> tripletes;
-    tripletes.reserve();
+    tripletes.reserve(rnbr * 6);
     energy = Eigen::VectorXd::Zero(rnbr * 4);
 
     for (int i = 0; i < rnbr; i++)
