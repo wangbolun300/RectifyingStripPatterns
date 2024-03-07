@@ -3193,8 +3193,9 @@ double polyline_total_length(const std::vector<std::vector<Eigen::Vector3d>> &li
     }
     return total;
 }
+// 
 void find_next_pt_on_polyline(const int start_seg, const std::vector<Eigen::Vector3d> &polyline, const double length,
-                              const Eigen::Vector3d &pstart, int &seg, Eigen::Vector3d &pt)
+                              const Eigen::Vector3d &pstart, int &seg, Eigen::Vector3d &pt, double &tlocal)
 {
     int nbr = polyline.size();
     double ocu_dis = 0;
@@ -3212,6 +3213,7 @@ void find_next_pt_on_polyline(const int start_seg, const std::vector<Eigen::Vect
             Eigen::Vector3d p = get_3d_ver_from_t(t, polyline[i + 1], polyline[i]);
             pt = p;
             seg = i;
+            tlocal = 1- t;
             return;
         }
     }
@@ -3264,7 +3266,8 @@ void sample_polyline_and_extend_verlist(const std::vector<Eigen::Vector3d>& poly
     {
         int seg;
         Eigen::Vector3d pt;
-        find_next_pt_on_polyline(start, polyline, avg, verlist.back(), seg, pt);
+        double tlocal;
+        find_next_pt_on_polyline(start, polyline, avg, verlist.back(), seg, pt, tlocal);
         verlist.push_back(pt);
         start=seg;
     }
@@ -3287,7 +3290,8 @@ void sample_polyline_and_extend_verlist(const std::vector<Eigen::Vector3d> &poly
     {
         int seg;
         Eigen::Vector3d pt;
-        find_next_pt_on_polyline(start, polyline, avg, verlist.back(), seg, pt);
+        double tl;
+        find_next_pt_on_polyline(start, polyline, avg, verlist.back(), seg, pt, tl);
         verlist.push_back(pt);
         segid.push_back(seg);
         double local_t = get_t_of_segment(pt, polyline[seg], polyline[seg + 1]);
@@ -5286,6 +5290,7 @@ void construct_single_developable_strips_by_intersect_rectifying_AAG(
     creases[0] = binormals[0];
     // creases[1] = binormals[1];
     creases[vnbr - 2] = binormals[vnbr - 2]; // AAG
+    int nc = 0; // computed intersections not skipped
     // crease[i] is associated with vi and vi+1
     for (int i = 1; i < vnbr - 2; i++)
     {
@@ -5322,6 +5327,7 @@ void construct_single_developable_strips_by_intersect_rectifying_AAG(
             f = (vertices[i] + vertices[i + 1]) / 2;
         }
         else{
+            nc++;
             // (vleft + alpha * tleft - v).dot(nright) = 0
             double alpha = (vertices[i + 1] - vertices[i]).dot(nright) / tleft.dot(nright);
             f = vertices[i] + alpha * tleft;
@@ -5349,6 +5355,7 @@ void construct_single_developable_strips_by_intersect_rectifying_AAG(
     creases[vnbr - 1] *= creases[vnbr - 2].norm() / creases[vnbr - 1].norm();
     vout = foot;
     bout = creases;
+    std::cout<<"not skipped intersection, "<<nc<<"\n";
 }
 void construct_developable_strips_by_intersect_rectifying(){
     std::vector<std::vector<Eigen::Vector3d>> vertices_in, vertices_out;
@@ -6603,7 +6610,7 @@ void obj2csv()
     fout.close();
 }
 void csv2objcurves(){
-    std::cout<<"reading the two families of curves, please provide the prefixes"<<std::endl;
+    std::cout<<"reading the 1 family of curves, please provide the prefixes"<<std::endl;
     std::string fname1 = igl::file_dialog_save();
     // std::string fname2 = igl::file_dialog_save();
     if (fname1.length() == 0)
@@ -8115,6 +8122,53 @@ void readQuadMesh2TriMesh()
     igl::writeOBJ(fnameout + "t0.obj", V, Ftr0);
     igl::writeOBJ(fnameout + "t1.obj", V, Ftr1);
 }
+// this is to deal with a regular patch
+void readQuadMesh2TriMesh(const int vinrow)
+{
+    std::string fname = igl::file_dialog_open();
+    if (fname.length() == 0)
+    {
+        std::cout << "\nLSC: read mesh failed" << std::endl;
+        return;
+    }
+    CGMesh quadmesh;
+    OpenMesh::IO::read_mesh(quadmesh, fname);
+    std::cout << "\nMesh Readed" << std::endl;
+    Eigen::MatrixXd V;
+    Eigen::MatrixXi Fqd, Ftr0, Ftr1;
+    MeshProcessing mp;
+    mp.mesh2Matrix(quadmesh, V, Fqd);
+    Ftr0.resize(Fqd.rows() * 2, 3);
+    Ftr1 = Ftr0;
+    
+    int cnbr = V.rows() / vinrow;
+    std::cout<<"there are "<<vinrow<<" vertices in each row, nbr of vers "<<V.rows()<<"\n";
+    std::cout<<"there are "<<cnbr<<"columns, nbr of triangles "<<Ftr0.rows()<<"\n";
+    int counter = 0;
+    for (int i = 0; i < vinrow - 1; i++)
+    {
+        for (int j = 0; j < cnbr - 1; j++)
+        {
+            int id0 = i + j * vinrow;
+            int id1 = id0 + 1;
+            int id2 = i + 1 + (j + 1) * vinrow;
+            int id3 = i + (j + 1) * vinrow;
+            Ftr0.row(counter) << id0, id1, id2;
+            Ftr0.row(counter + 1) << id0, id2, id3;
+            Ftr1.row(counter) << id0, id1, id3;
+            Ftr1.row(counter + 1) << id1, id2, id3;
+            counter +=2;
+        }
+    }
+
+    std::cout << "Writing the output quads, the prefix...\n";
+    std::string fnameout = igl::file_dialog_save();
+    igl::writeOBJ(fnameout + "t0.obj", V, Ftr0);
+    igl::writeOBJ(fnameout + "t1.obj", V, Ftr1);
+}
+
+
+
 void evaluateGGGConsineConstraints()
 {
     std::string fname = igl::file_dialog_open();
@@ -8222,4 +8276,123 @@ bool projectPointOnCurve(const std::vector<Eigen::Vector3d> &curve, const Eigen:
     }
 
     return false;
+}
+void upsample_and_smooth_curve()
+{
+    double ratio = 0.3;
+    std::string fname = igl::file_dialog_open();
+    if(fname.length()==0){
+        std::cout << "please read curve\n";
+        return;
+    }
+    Eigen::MatrixXd V;
+    Eigen::MatrixXi F;
+    igl::readOBJ(fname, V, F);
+    std::vector<Eigen::Vector3d> vout(V.rows() * 2 - 1);
+    for (int i = 0; i < V.rows(); i++)
+    {
+        vout[i * 2] = V.row(i);
+    }
+    // now vout[0], vout[2], ... are the original data
+    for (int itr = 0; itr < 10; itr++)
+    {
+        double error = 0;
+        for (int i = 0; i < V.rows() - 1; i++)
+        {
+            int vid = 2 * i + 1; // the vid we are looking at
+            if (itr == 0)
+            { // init
+                vout[vid] = (vout[vid - 1] + vout[vid + 1]) / 2;
+                continue;
+            }
+            Eigen::Vector3d delta = (vout[vid - 1] + vout[vid + 1]) / 2 - vout[vid];
+            error += delta.dot(delta);
+            vout[vid] += delta * ratio;
+            if (i > 0)
+            {
+                delta = 2 * vout[vid - 1] - vout[vid - 2] - vout[vid];
+                vout[vid] += delta * ratio;
+                error += delta.dot(delta);
+            }
+            if (i < V.rows() - 2)
+            {
+                delta = 2 * vout[vid + 1] - vout[vid + 2] - vout[vid];
+                vout[vid] += delta * ratio;
+                error += delta.dot(delta);
+            }
+        }
+        std::cout<<"current smoothness error, "<<error<<"\n";
+    }
+    std::cout << "saving files\n";
+    fname = igl::file_dialog_save();
+    if(fname.length()==0){
+        std::cout << "please write down curve name\n";
+        return;
+    }
+    igl::writeOBJ(fname, vec_list_to_matrix(vout), F);
+}
+
+
+void smooth_curve()
+{
+    double ratio = 1;
+    std::string fname = igl::file_dialog_open();
+    if(fname.length()==0){
+        std::cout << "please read curve\n";
+        return;
+    }
+    Eigen::MatrixXd V;
+    Eigen::MatrixXi F;
+    igl::readOBJ(fname, V, F);
+    std::vector<Eigen::Vector3d> vout = mat_to_vec_list(V);
+    // now vout[0], vout[2], ... are the original data
+    for (int itr = 0; itr < 10; itr++)
+    {
+        double error = 0;
+        for (int i = 1; i < V.rows() - 1; i++)
+        {
+            int vid = i; // the vid we are looking at
+            if (itr == 0)
+            { // init
+                vout[vid] = (vout[vid - 1] + vout[vid + 1]) / 2;
+                continue;
+            }
+            Eigen::Vector3d delta = (vout[vid - 1] + vout[vid + 1]) / 2 - vout[vid];
+            error += delta.dot(delta);
+            vout[vid] += delta * ratio;
+        }
+        std::cout<<"current smoothness error, "<<error<<"\n";
+    }
+    std::cout << "saving files\n";
+    fname = igl::file_dialog_save();
+    if(fname.length()==0){
+        std::cout << "please write down curve name\n";
+        return;
+    }
+    igl::writeOBJ(fname, vec_list_to_matrix(vout), F);
+}
+
+void AggFirstStripWithGuideCurve(const std::vector<Eigen::Vector3d> &plyin, const std::vector<Eigen::Vector3d> &binin,
+                                QuadOpt &quad_tool, const Eigen::MatrixXd &RefCurve, std::vector<Eigen::Vector3d> &versOut)
+{
+    double distance = (plyin[0] - plyin[1]).norm();
+    // find the projection on the curve, and use this projected point to find the next one.
+    // march forward from plocal0 to plocal1
+    int segid0, segid1;
+    double tlocal0, tlocal1;
+    Eigen::Vector3d plocal0, tangent0, plocal1;
+    if (quad_tool.V.rows() == 0)
+    {
+        segid0 = 0;
+        tlocal0 = 0;
+        plocal0 = RefCurve.row(0);
+    }
+    else
+        projectPointOnCurve(mat_to_vec_list(RefCurve), plyin[0], segid0, tlocal0, plocal0, tangent0);
+    std::cout << "start from point segid, " << segid0 << ", t, " << tlocal0 << ", point, " << plocal0.transpose() << "\n";
+    std::cout << "march distance, " << distance << "\n";
+    find_next_pt_on_polyline(segid0, mat_to_vec_list(RefCurve), distance,
+                             plocal0, segid1, plocal1, tlocal1);
+    std::cout << "find point segid, " << segid1 << ", t, " << tlocal1 << ", point, " << plocal1.transpose() << "\n";
+    aggFirstStripGuideGeodesic(plyin, binin, versOut, mat_to_vec_list(RefCurve), segid1, tlocal1, false);
 }

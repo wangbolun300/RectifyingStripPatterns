@@ -187,7 +187,10 @@ public:
 	bool InvertDirectionAGG = false;
 	double AggPara1 = 0.5;
 	double AggPara2 = 1;
+	double AggPara3 = 0;
+	double AggPara4 = 0;
 	double RotRefCurveAngle = 0;
+	double RotRefAxisAngle = 0;
 
 	// functional angles stuff.
 	bool Disable_Changed_Angles = false;

@@ -2234,6 +2234,9 @@ void lscif::draw_menu2(igl::opengl::glfw::Viewer &viewer, igl::opengl::glfw::img
 
 			ImGui::Combo("FamilyOfDiag", &quad_tool.WhichDiagonal,
 						 "D0\0D1\0\0");
+			ImGui::SameLine();
+			ImGui::InputInt("vinrow", &quad_tool.vNbrInRow, 0, 0);
+			
 
 			if (ImGui::Button("LoadQuads", ImVec2(ImGui::GetWindowSize().x * 0.25f, 0.0f)))
 			{
@@ -2431,7 +2434,7 @@ void lscif::draw_menu2(igl::opengl::glfw::Viewer &viewer, igl::opengl::glfw::img
 			
 			if (ImGui::Button("Quad2Tri", ImVec2(ImGui::GetWindowSize().x * 0.25f, 0.0f)))
 			{
-				readQuadMesh2TriMesh();
+				readQuadMesh2TriMesh(VINROWINPUT);
 			}
 			ImGui::SameLine();
 			if (ImGui::Button("EvalGGGTri", ImVec2(ImGui::GetWindowSize().x * 0.25f, 0.0f)))
@@ -2446,9 +2449,14 @@ void lscif::draw_menu2(igl::opengl::glfw::Viewer &viewer, igl::opengl::glfw::img
 						 "D0\0D1\0\0");
 			ImGui::SameLine();
 			ImGui::Checkbox("InvertDirect", &InvertDirectionAGG);
+			ImGui::SameLine();
+			ImGui::Checkbox("ApproStrip", &quad_tool.AGGAAGApproInitStrip);
 			ImGui::InputDouble("AggPar1", &AggPara1, 0, 0, "%.4f");
 			ImGui::SameLine();
 			ImGui::InputDouble("AggPar2", &AggPara2, 0, 0, "%.4f");
+			ImGui::InputDouble("AggPar3", &AggPara3, 0, 0, "%.4f");
+			ImGui::SameLine();
+			ImGui::InputDouble("AggPar4", &AggPara4, 0, 0, "%.4f");
 			if (ImGui::Button("ReadPlyObj", ImVec2(ImGui::GetWindowSize().x * 0.25f, 0.0f)))
 			{
 				std::string fname = igl::file_dialog_open();
@@ -2744,7 +2752,26 @@ void lscif::draw_menu2(igl::opengl::glfw::Viewer &viewer, igl::opengl::glfw::img
 				std::vector<Eigen::Vector3d> versOut; std::vector<Eigen::Vector3d> directions;
 				std::vector<Eigen::Vector3d> plyin = poly_tool.ply_extracted[0];
 				std::vector<Eigen::Vector3d> binin = poly_tool.bin_extracted[0];
-				aggFirstStrip(plyin, binin, versOut, InvertDirectionAGG, AggPara1, AggPara2);
+				if(quad_tool.AGGAAGApproInitStrip)
+				{
+					if (quad_tool.V.rows() == 0)
+					{
+						// first strip, use input shape control parameters
+						std::cout<<"Using the current parameters to setup the initial strip to be approximated\n";
+						aggFirstStrip(plyin, binin, versOut, InvertDirectionAGG, AggPara1, AggPara2, AggPara3, AggPara4);
+					}
+					else
+					{
+						// the following curves only use default parameters.
+						aggFirstStrip(plyin, binin, versOut, InvertDirectionAGG);
+					}
+				}
+				else
+				{
+					AggFirstStripWithGuideCurve(plyin, binin,
+												quad_tool, RefCurve, versOut);
+				}
+
 				directions.resize(plyin.size());
 				for (int i = 0; i < plyin.size(); i++)
 				{
@@ -2768,7 +2795,7 @@ void lscif::draw_menu2(igl::opengl::glfw::Viewer &viewer, igl::opengl::glfw::img
 			ImGui::SameLine();
 			if (ImGui::Button("AggAdjustInit", ImVec2(ImGui::GetWindowSize().x * 0.25f, 0.0f)))
 			{
-				if (SinglePly.rows() == 0 || quad_tool.V.rows() < SinglePly.rows() * 2)
+				if (SinglePly.rows() == 0 || SingleFoot.size() == 0 || quad_tool.V.rows() < SinglePly.rows() * 2)
 				{
 					std::cout << "\nLSC: Please init the opt" << std::endl;
 					ImGui::End();
@@ -2861,6 +2888,7 @@ void lscif::draw_menu2(igl::opengl::glfw::Viewer &viewer, igl::opengl::glfw::img
 				quad_tool.pg_ratio = weight_geodesic;
 				quad_tool.weight_mass = weight_mass;
 				quad_tool.max_step = maximal_step_length;
+				quad_tool.weight_curve = weight_angle;
 				if (quad_tool.V.rows() == 0)
 				{
 					std::cout << "\nEmpty quad, please load a quad mesh first" << std::endl;
@@ -2890,12 +2918,12 @@ void lscif::draw_menu2(igl::opengl::glfw::Viewer &viewer, igl::opengl::glfw::img
 				Meshes.push_back(updateMesh);
 				viewer.selected_data_index = id;
 			}
-			ImGui::SameLine();
+			
 			ImGui::PushItemWidth(30);
 			
 			ImGui::InputInt("vinrow", &VINROWINPUT, 0, 0);
 			ImGui::SameLine();
-			if (ImGui::Button("easyCheck", ImVec2(ImGui::GetWindowSize().x * 0.25f, 0.0f)))
+			if (ImGui::Button("easyCheckAGG", ImVec2(ImGui::GetWindowSize().x * 0.25f, 0.0f)))
 			{
 				std::string fname = igl::file_dialog_open();
 				if (fname.length() == 0)
@@ -2918,7 +2946,10 @@ void lscif::draw_menu2(igl::opengl::glfw::Viewer &viewer, igl::opengl::glfw::img
 				// 
 				int id = viewer.selected_data_index;
 				CGMesh updatemesh; 
+				constructRegularF(Vlocal.rows(), VINROWINPUT, Flocal);
 				MP.matrix2Mesh(updatemesh, Vlocal, Flocal);
+				std::cout<<"V\n"<<Vlocal<<"\n";
+				std::cout<<"F\n"<<Flocal<<"\n";
 				updateMeshViewer(viewer, updatemesh);
 				meshFileName.push_back("Input");
 				Meshes.push_back(updatemesh);
@@ -2929,6 +2960,50 @@ void lscif::draw_menu2(igl::opengl::glfw::Viewer &viewer, igl::opengl::glfw::img
 				weight_geodesic = 0.01;
 				SingleFoot.clear();
 				SingleCrease.clear();
+			}
+			ImGui::SameLine();
+			if (ImGui::Button("easyCheckAAG", ImVec2(ImGui::GetWindowSize().x * 0.25f, 0.0f)))
+			{
+				std::string fname = igl::file_dialog_open();
+				if (fname.length() == 0)
+				{
+					std::cout << "\nLSC: read mesh failed" << std::endl;
+					ImGui::End();
+					return;
+				}
+				Eigen::MatrixXd Vlocal;
+				Eigen::MatrixXi Flocal;
+				igl::readOBJ(fname,Vlocal, Flocal);
+				if (VINROWINPUT == -1 || Vlocal.rows() % VINROWINPUT != 0)
+				{
+					std::cout << "\nLSC: set correct vinrow" << std::endl;
+					ImGui::End();
+					return;
+				}
+				quad_tool.initAAG(mat_to_vec_list(Vlocal), VINROWINPUT); 
+				
+				// 
+				int id = viewer.selected_data_index;
+				CGMesh updatemesh;
+				constructRegularF(Vlocal.rows(), VINROWINPUT, Flocal);
+				MP.matrix2Mesh(updatemesh, Vlocal, Flocal);
+				std::cout<<"V\n"<<Vlocal<<"\n";
+				std::cout<<"F\n"<<Flocal<<"\n";
+				updateMeshViewer(viewer, updatemesh);
+				meshFileName.push_back("Input");
+				Meshes.push_back(updatemesh);
+				viewer.selected_data_index = id;
+				// set up parameters
+				weight_laplacian = 0.0001;
+				weight_pseudo_geodesic = 0.01;
+				weight_geodesic = 0.01;
+				SingleFoot.clear();
+				SingleCrease.clear();
+			}
+			ImGui::SameLine();
+			if (ImGui::Button("writeBnmFiles", ImVec2(ImGui::GetWindowSize().x * 0.25f, 0.0f)))
+			{
+				quad_tool.write_polyline_info_propagation();
 			}
 			if (ImGui::Button("ReadRefCurve", ImVec2(ImGui::GetWindowSize().x * 0.25f, 0.0f)))
 			{
@@ -2941,11 +3016,12 @@ void lscif::draw_menu2(igl::opengl::glfw::Viewer &viewer, igl::opengl::glfw::img
 				}
 				Eigen::MatrixXi Ftri;
 				igl::readOBJ(fname, RefCurve, Ftri);
+				quad_tool.curveRef = mat_to_vec_list(RefCurve);
 
 				int id = viewer.selected_data_index;
 				CGMesh updatemesh;
 				MP.matrix2Mesh(updatemesh, RefCurve, Ftri);
-				updateMeshViewer(viewer, updatemesh);
+				updateMeshViewer(viewer, updatemesh); // this is a empty mesh with 0 faces
 				meshFileName.push_back("ply_" + meshFileName[id]);
 				Meshes.push_back(updatemesh);
 				viewer.data().add_points(RefCurve, sea_green);
@@ -2953,8 +3029,11 @@ void lscif::draw_menu2(igl::opengl::glfw::Viewer &viewer, igl::opengl::glfw::img
 				std::cout << "read poly with " << RefCurve.rows() << " points\n";
 			}
 			ImGui::SameLine();
-			ImGui::InputDouble("CurveRotate", &RotRefCurveAngle, 0, 0, "%.4f");
+			ImGui::InputDouble("CurveAngle", &RotRefAxisAngle, 0, 0, "%.4f");
 			ImGui::SameLine();
+			ImGui::InputDouble("CurveRotate", &RotRefCurveAngle, 0, 0, "%.4f");
+			
+			
 			if (ImGui::Button("TransRotate", ImVec2(ImGui::GetWindowSize().x * 0.25f, 0.0f)))
 			{
 				if (SinglePly.rows() == 0)
@@ -2967,6 +3046,8 @@ void lscif::draw_menu2(igl::opengl::glfw::Viewer &viewer, igl::opengl::glfw::img
 				Eigen::Vector3d tan1 = (SinglePly.row(1) - SinglePly.row(0)).normalized(); // the first tangent 
 				Eigen::Vector3d bin1 = poly_tool.bin_extracted[0][0]; // the first binormal
 				Eigen::Vector3d refTan = bin1.cross(tan1).normalized(); // the N vector
+				double l = tan(RotRefAxisAngle * LSC_PI / 180);
+				Eigen::Vector3d refAxis = (refTan + l * tan1).normalized();
 
 				Eigen::Vector3d p2 = RefCurve.row(0); // this is the first point of the target curve
 				Eigen::Vector3d tan2 = (RefCurve.row(1) - RefCurve.row(0)).normalized();
@@ -2974,14 +3055,14 @@ void lscif::draw_menu2(igl::opengl::glfw::Viewer &viewer, igl::opengl::glfw::img
 				Eigen::MatrixXd T = RefCurve.rowwise() - p2.transpose(); // put the whole curve to the origin.
 				Eigen::MatrixXd Ttrans = T.transpose();
 				// rotate the tan2 to the direction of tan1
-				Eigen::MatrixXd RotMat = getRotationMatrix(tan2, refTan);
+				Eigen::MatrixXd RotMat = getRotationMatrix(tan2, refAxis);
 				Ttrans = RotMat * Ttrans;
 				T = Ttrans.transpose();
 				// rotate along the reference direction
 				for (int i = 0; i < RefCurve.rows(); i++)
 				{
 					Eigen::Vector3d vecIn = T.row(i), vecOut;
-					getRotationVector(refTan, RotRefCurveAngle, vecIn, vecOut);
+					getRotationVector(refAxis, RotRefCurveAngle, vecIn, vecOut);
 					T.row(i) = vecOut;
 				}
 				T = T.rowwise() + p1.transpose(); // connect the first point to p1
@@ -2990,7 +3071,7 @@ void lscif::draw_menu2(igl::opengl::glfw::Viewer &viewer, igl::opengl::glfw::img
 				int id = viewer.selected_data_index;
 				CGMesh updatemesh;
 				Eigen::MatrixXi Ftri;
-				MP.matrix2Mesh(updatemesh, RefCurveRot, Ftri);
+				MP.matrix2Mesh(updatemesh, RefCurveRot, Ftri);// this is a empty mesh with 0 faces
 				updateMeshViewer(viewer, updatemesh);
 				meshFileName.push_back("ply_" + meshFileName[id]);
 				Meshes.push_back(updatemesh);
@@ -3012,6 +3093,16 @@ void lscif::draw_menu2(igl::opengl::glfw::Viewer &viewer, igl::opengl::glfw::img
 				Eigen::MatrixXi Ftri;
 				igl::writeOBJ(fname, RefCurveRot, Ftri);
 				int id = viewer.selected_data_index;
+			}
+			ImGui::SameLine();
+			if (ImGui::Button("upsampleCurve", ImVec2(ImGui::GetWindowSize().x * 0.25f, 0.0f)))
+			{
+				upsample_and_smooth_curve();
+			}
+			ImGui::SameLine();
+			if (ImGui::Button("smoothCurve", ImVec2(ImGui::GetWindowSize().x * 0.25f, 0.0f)))
+			{
+				smooth_curve();
 			}
 		}
 		// binormals as orthogonal as possible.

@@ -156,6 +156,11 @@ void getQuadRowCols(CGMesh &mesh_in, Eigen::VectorXi &rf, Eigen::VectorXi &rb, E
                 if (id0 == id1)
                 {
                     std::cout << "ERROR in getQuadRowCols, wrong neighboring info!\n";
+                    std::cout << ids[0] << ", " << ids[1] << ", " << ids[2] << ", " << ids[3] << ", " << ids[4] << ", \n";
+                    std::cout<<"rf, "<<rf.transpose()<<"\n";
+                    std::cout<<"rb, "<<rb.transpose()<<"\n";
+                    std::cout<<"cf, "<<cf.transpose()<<"\n";
+                    std::cout<<"cb, "<<cb.transpose()<<"\n";
                     exit(0);
                 }
             }
@@ -343,11 +348,9 @@ void QuadOpt::init(CGMesh &mesh_in)
         varsize = vnbr * 12;
 
     }
-    
 
-
-    getQuadRowCols(mesh_in, row_front, row_back, col_front, col_back);
-    std::cout << "Row Col info computed\n";
+    getQuadRowColsRegular(vnbr, vNbrInRow, row_front, row_back, col_front, col_back);
+    std::cout << "Row Col info computed:\n"<<vnbr<<" vertices, each row has "<<vNbrInRow<<" vertices\n";
     load_diagonal_info(row_front, row_back, col_front, col_back, d0_front, d1_front, d0_back, d1_back);
     OrigVars = Eigen::VectorXd::Zero(varsize);
     OrigVars.segment(0, vnbr) = V.col(0);
@@ -418,14 +421,14 @@ void QuadOpt::initAAG(const std::vector<Eigen::Vector3d> &Vlist, const int rnbr)
 
     int vnbr = Vlist.size();
     V = vec_list_to_matrix(Vlist);
-    std::cout<<"check V, \n"<<V<<"\n";
+    // std::cout<<"check V, \n"<<V<<"\n";
     constructRegularF(vnbr, rnbr, F);
     MeshProcessing mp;
     mp.matrix2Mesh(mesh_original, V, F);
     vNbrInRow = rnbr;
     if (OriginalCurve.size() == 0)
     {
-        for (int i = 0; i < rnbr; i++)
+        for (int i = 0; i < rnbr * 2; i++)
         {
             OriginalCurve.push_back(Vlist[i]);
         }
@@ -466,7 +469,7 @@ void QuadOpt::initAGG(const std::vector<Eigen::Vector3d> &Vlist, const int rnbr)
 
     int vnbr = Vlist.size();
     V = vec_list_to_matrix(Vlist);
-    std::cout<<"check V, \n"<<V<<"\n";
+    // std::cout<<"check V, \n"<<V<<"\n";
     constructRegularF(vnbr, rnbr, F);
     MeshProcessing mp;
     mp.matrix2Mesh(mesh_original, V, F);
@@ -725,6 +728,7 @@ void QuadOpt::assemble_gravity(spMat& H, Eigen::VectorXd& B, Eigen::VectorXd &en
 }
 // this function approximates the first point in each row to the given curve.
 // this is only used for AGG
+// if the reference curve exists, enable the approximation
 void QuadOpt::assemble_approximate_curve_conditions(spMat &H, Eigen::VectorXd &B, Eigen::VectorXd &energy)
 {
     int varOffset = 12;
@@ -732,53 +736,66 @@ void QuadOpt::assemble_approximate_curve_conditions(spMat &H, Eigen::VectorXd &B
     int rnbr = vnbr / vNbrInRow; // the number of rows
     std::vector<Trip> tripletes;
     tripletes.reserve(rnbr * 6);
+    // std::cout<<"in the assemble_approximate_curve_conditions\n";
     energy = Eigen::VectorXd::Zero(rnbr * 4);
-
-    for (int i = 0; i < rnbr; i++)
-    {
-        int vid = i * vNbrInRow; // the first point in each row.
-        int lx = vid * varOffset;
-        int ly = vid * varOffset + 1;
-        int lz = vid * varOffset + 2;
-        Eigen::Vector3d ver = V.row(vid);
-        int segid;
-        double tlocal;
-        Eigen::Vector3d plocal;
-        Eigen::Vector3d tangent;
-        // find the projection point of this point on the curve.
-        bool project = projectPointOnCurve(curveRef, ver,
-                                           segid, tlocal, plocal, tangent);
-        if (!project)
+    if (curveRef.size() > 0)
+        for (int i = 0; i < rnbr; i++)
         {
-            continue;
+            int vid = i * vNbrInRow; // the first point in each row.
+            int lx = vid * varOffset;
+            int ly = vid * varOffset + 1;
+            int lz = vid * varOffset + 2;
+            // std::cout<<"vid "<<vid<<"\n";
+            Eigen::Vector3d ver = V.row(vid);
+            int segid;
+            double tlocal;
+            Eigen::Vector3d plocal;
+            Eigen::Vector3d tangent;
+            // find the projection point of this point on the curve.
+            bool project = true;
+            if (i == 0)
+            {
+                plocal = curveRef[0];
+            }
+            else
+                project = projectPointOnCurve(curveRef, ver, segid, tlocal, plocal, tangent);
+
+            // std::cout<<"tangent "<<tangent.transpose()<<<<""<<"\n";
+            if (!project)
+            {
+                continue;
+            }
+
+            // vertices not far away from the original ones
+            // (ver - ver^*)^2 = 0
+            double scale = 1;
+            Eigen::Vector3d verori = plocal;
+            Eigen::Vector3d vdiff;
+            vdiff = Eigen::Vector3d(V.row(vid)) - verori;
+
+            tripletes.push_back(Trip(i, lx, 2 * vdiff[0] * scale));
+            tripletes.push_back(Trip(i, ly, 2 * vdiff[1] * scale));
+            tripletes.push_back(Trip(i, lz, 2 * vdiff[2] * scale));
+
+            energy[i] = vdiff.dot(vdiff) * scale;
+            if (i == 0)
+            {
+                continue;
+            }
+
+            // ver - plocal - tangent * ||ver - plocal|| = 0: the vertex is moving along the tangent directions
+            scale = (ver - plocal).norm();
+            int sign = (ver - plocal).dot(tangent) > 0 ? -1 : 1;
+
+            tripletes.push_back(Trip(i + rnbr, lx, 1));
+            energy[i + rnbr] = ((ver - plocal) + sign * tangent * scale)[0];
+
+            tripletes.push_back(Trip(i + rnbr * 2, ly, 1));
+            energy[i + rnbr * 2] = ((ver - plocal) + sign * tangent * scale)[1];
+
+            tripletes.push_back(Trip(i + rnbr * 3, lz, 1));
+            energy[i + rnbr * 3] = ((ver - plocal) + sign * tangent * scale)[2];
         }
-
-        // vertices not far away from the original ones
-        // (ver - ver^*)^2 = 0
-        double scale = 1;
-        Eigen::Vector3d verori = plocal;
-        Eigen::Vector3d vdiff;
-        vdiff = Eigen::Vector3d(V.row(vid)) - verori;
-
-        tripletes.push_back(Trip(i, lx, 2 * vdiff[0] * scale));
-        tripletes.push_back(Trip(i, ly, 2 * vdiff[1] * scale));
-        tripletes.push_back(Trip(i, lz, 2 * vdiff[2] * scale));
-
-        energy[i] = vdiff.dot(vdiff) * scale;
-        
-        // ver - plocal - tangent * ||ver - plocal|| = 0: the vertex is moving along the tangent directions
-        scale = (ver - plocal).norm();
-        int sign = (ver - plocal).dot(tangent) > 0 ? -1 : 1;
-
-        tripletes.push_back(Trip(i + rnbr, lx, 1));
-        energy[i + rnbr] = ((ver - plocal) + sign * tangent * scale)[0];
-
-        tripletes.push_back(Trip(i + rnbr * 2, ly, 1));
-        energy[i + rnbr * 2] = ((ver - plocal) + sign * tangent * scale)[1];
-
-        tripletes.push_back(Trip(i + rnbr * 3, lz, 1));
-        energy[i + rnbr * 3] = ((ver - plocal) + sign * tangent * scale)[2];
-    }
     int nvars = GlobVars.size();
     int ncondi = energy.size();
     spMat J;
@@ -786,6 +803,7 @@ void QuadOpt::assemble_approximate_curve_conditions(spMat &H, Eigen::VectorXd &B
     J.setFromTriplets(tripletes.begin(), tripletes.end());
     H = J.transpose() * J;
     B = -J.transpose() * energy;
+    // std::cout<<"out of the assemble_approximate_curve_conditions\n";
 }
 
 void QuadOpt::assemble_gravity_AAG_AGG(spMat& H, Eigen::VectorXd& B, Eigen::VectorXd &energy, int order){
@@ -814,7 +832,8 @@ void QuadOpt::assemble_gravity_AAG_AGG(spMat& H, Eigen::VectorXd& B, Eigen::Vect
         // }
         Eigen::Vector3d verori;
         Eigen::Vector3d vdiff;
-        if (i < OriginalCurve.size())
+        int nbrOfAppro = AGGAAGApproInitStrip? vNbrInRow * 2: vNbrInRow; // if approximate to the first strip, need the first 2 rows of mesh.
+        if (i < nbrOfAppro)
         {
             verori = OriginalCurve[i];
         }
@@ -2537,10 +2556,15 @@ void QuadOpt::optAGG()
     Eigen::VectorXd Egravity, Esmth, Enorm, Ebnm0, Ebnm1, Ebnm2, Epg[4];
 
     spMat Hgravity;  // approximation
-	Eigen::VectorXd Bgravity; // right of laplacian
+	Eigen::VectorXd Bgravity; // right of approximation
 	assemble_gravity_AAG_AGG(Hgravity, Bgravity, Egravity, order);
     H += weight_gravity * Hgravity;
 	B += weight_gravity * Bgravity;
+    spMat HCurve;  // approximation to curve
+	Eigen::VectorXd BCurve, ECurve; // right of approximation to curve
+    assemble_approximate_curve_conditions(HCurve, BCurve, ECurve);
+    H += weight_curve * HCurve;
+	B += weight_curve * BCurve;
 
     spMat Hsmth;
     Eigen::VectorXd Bsmth;
@@ -2621,7 +2645,7 @@ void QuadOpt::optAGG()
     double ev_appro = Egravity.norm();
     double ev_smt = Esmth.norm();
     double ev_norm = Enorm.norm();
-    std::cout << "Eclose, " << ev_appro << ", lap, " << ev_smt << ", normal vector, " << ev_norm << ", ";
+    std::cout << "Eclose, " << ev_appro<<", Ecurve, "<<ECurve.norm() << ", lap, " << ev_smt << ", normal vector, " << ev_norm << ", ";
 
     double ebi0 = Ebnm0.norm();
     double ebi1 = Ebnm1.norm();
@@ -2675,7 +2699,7 @@ void QuadOpt::show_curve_families(std::array<Eigen::MatrixXd, 3>& edges){
     // int col_m = rowinfo[row_m].size() / 2;
 
     // int vid = rowinfo[row_m][col_m]; // choose a point in the middle
-    int vid = mesh_original.n_vertices() / 2;
+    int vid = mesh_original.n_vertices() / 3;
 
     std::vector<Eigen::Vector3d> vtp;
     int vcurrent = vid;
@@ -2906,6 +2930,57 @@ void QuadOpt::extract_binormals(const int family, const int bnm_start, const int
         }
     }
 }
+void QuadOpt::extract_binormals_propagation(const int family, const int vid, Eigen::Vector3d& bi, int varsOff)
+{
+    int vnbr = V.rows();
+    int rf = row_front[vid];
+    int rb = row_back[vid];
+    int cf = col_front[vid];
+    int cb = col_back[vid];
+    int d0f = d0_front[vid];
+    int d0b = d0_back[vid];
+    int d1f = d1_front[vid];
+    int d1b = d1_back[vid];
+    // the locations
+    // the vertex
+    int lvx = vid * varsOff;
+    int lvy = vid * varsOff + 1;
+    int lvz = vid * varsOff + 2;
+    // the front and back vertices
+    int lfx, lfy, lfz, lbx, lby, lbz;
+    // the binormal vector locations
+    if (varsOff == 9)
+    { // AAG
+        if (family == 0) // g
+        {
+            bi << GlobVars[vid * varsOff + 6], GlobVars[vid * varsOff + 7], GlobVars[vid * varsOff + 8];
+            return;
+        }
+        if(family == 1 || family == 2 || family == 3) // the column A or the diagonal A
+        {
+            bi << GlobVars[vid * varsOff + 3], GlobVars[vid * varsOff + 4], GlobVars[vid * varsOff + 5];
+            return;
+        }
+    }
+    if (varsOff == 12)
+    { // AGG
+        if (family == 0) // A
+        {
+            bi << GlobVars[vid * varsOff + 3], GlobVars[vid * varsOff + 4], GlobVars[vid * varsOff + 5];
+            return;
+        }
+        if(family == 1) // column G
+        {
+            bi << GlobVars[vid * varsOff + 6], GlobVars[vid * varsOff + 7], GlobVars[vid * varsOff + 8];
+            return;
+        }
+        if (family == 2 || family == 3) // the diagonal G
+        {
+            bi << GlobVars[vid * varsOff + 9], GlobVars[vid * varsOff + 10], GlobVars[vid * varsOff + 11];
+            return;
+        }
+    }
+}
 void QuadOpt::extract_diagonals(const int family, std::vector<std::vector<int>> &digs){
     std::vector<std::vector<int>> curves;
     int vnbr = V.rows();
@@ -3008,13 +3083,43 @@ void QuadOpt::extract_diagonals(const int family, std::vector<std::vector<int>> 
 //         }
 //     }
 // }
+void computeColRowInfo(const int vnbr, const int vinrow, std::vector<std::vector<double>> &rowinfo, std::vector<std::vector<double>> &colinfo)
+{
+    rowinfo.clear();
+    colinfo.clear();
+    int cnbr = vnbr / vinrow;
+    for (int i = 0; i < cnbr; i++)
+    {
+        int start = i * vinrow;
+        std::vector<double> cvec;
+        for (int j = start; j < start + vinrow; j++)
+        {
+            cvec.push_back(j);
+        }
+        rowinfo.push_back(cvec);
+    }
+    for (int i = 0; i < vinrow; i++)
+    {
+        std::vector<double> rvec;
+        for (int j = 0; j < cnbr; j++)
+        {
+            rvec.push_back(i + vinrow * j);
+        }
+        colinfo.push_back(rvec);
+    }
+}
 
 void QuadOpt::write_polyline_info(){
     // the iterations might look weird, because in our data the info are in the form of 0, 1, 2, -1, -1, 3, 4, ...
     if (rowinfo.size() == 0 || colinfo.size() == 0)
     {
-        std::cout << "Please use the other initialization method to give rowinfo and col info\n";
-        return;
+        if (vNbrInRow <= 0)
+        {
+            std::cout<<"please input the vinrow variable to tell me how many vertices in each row\n";
+            return;
+        }
+        computeColRowInfo(V.rows(), vNbrInRow, rowinfo, colinfo);
+
     }
     PolyOpt plytool;
     Eigen::VectorXi Bnd;
@@ -3169,6 +3274,192 @@ void QuadOpt::write_polyline_info(){
                 tmpc.push_back(V.row(diagonals[i][j]));
                 Eigen::Vector3d localb;
                 extract_binormals(family, 0, diagonals[i][j], localb);
+                tmpb.push_back(localb);
+                tmpi.push_back(diagonals[i][j]);
+            }
+            if (!tmpc.empty())
+            {
+                cv.push_back(tmpc);
+                bn.push_back(tmpb);
+                iddiags.push_back(tmpi);
+            }
+        }
+        plytool.orient_binormals_of_plyline(bn, bout0);
+        write_polyline_xyz(cv, fname + "_d");
+        write_polyline_xyz(bout0, fname + "_d_b");
+    }
+    plytool.orient_binormals_of_plyline(bi_rows, bout1);
+    write_polyline_xyz(lines_rows, fname+"_r");
+    write_polyline_xyz(bout1, fname + "_r_b");
+    plytool.orient_binormals_of_plyline(bi_cols, bout2);
+    write_polyline_xyz(lines_cols, fname+"_c");
+    write_polyline_xyz(bout2, fname + "_c_b");
+    std::cout << "files get saved" << std::endl;
+}
+
+void QuadOpt::write_polyline_info_propagation(){
+    // the iterations might look weird, because in our data the info are in the form of 0, 1, 2, -1, -1, 3, 4, ...
+    int WhichType = varsize == V.rows() * 9 ? 0 : 1; // 0 is AAG, 1 is AGG
+    int varsOff = WhichType == 0 ? 9 : 12;
+    if (rowinfo.size() == 0 || colinfo.size() == 0)
+    {
+        std::cout << "Please use the other initialization method to give rowinfo and col info\n";
+        return;
+    }
+    PolyOpt plytool;
+    Eigen::VectorXi Bnd;
+    get_Bnd(Bnd);
+    std::string fname = igl::file_dialog_save();
+    if (fname.length() == 0)
+    {
+        std::cout << "\nLSC: save mesh failed, please type down the correct name" << std::endl;
+        return;
+    }
+    std::vector<std::vector<Eigen::Vector3d>> lines_rows, lines_cols,
+        bi_rows, bi_cols;
+    std::vector<std::vector<int>> idrows, idcols, iddiags;
+    int vnbr = V.rows();
+    // extract the family 0
+    int family = 0;
+    int bnm_start = vnbr * 6;
+    std::cout<<"Row: ";
+    std::vector<Eigen::Vector3d> line, binormal;
+    std::vector<int> ids;
+    for (int i = 0; i < rowinfo.size(); i++)
+    {
+        line.clear();
+        binormal.clear();
+        ids.clear();
+
+        for (int j = 0; j < rowinfo[i].size(); j++)
+        {
+            int vid = rowinfo[i][j];
+            if (vid < 0 || Bnd[vid] == 1)
+            {
+                if (line.size() > 0)
+                {
+                    int real_size = line.size();
+                    if (real_size > 2)
+                    {
+                        lines_rows.push_back(line);
+                        bi_rows.push_back(binormal);
+                        idrows.push_back(ids);
+                    }
+                    line.clear();
+                    binormal.clear();
+                    ids.clear();
+                }
+                continue;
+            }
+            if (Bnd[vid] != 1)
+            {
+                Eigen::Vector3d b_local;
+                extract_binormals_propagation(family, vid, b_local, varsOff);
+                line.push_back(V.row(vid));
+                binormal.push_back(b_local);
+                ids.push_back(vid);
+            }
+        }
+        if (line.size() > 0)
+        {
+            int real_size = line.size();
+            if (real_size > 2)
+            {
+                lines_rows.push_back(line);
+                bi_rows.push_back(binormal);
+                idrows.push_back(ids);
+            }
+        }
+    }
+    family = 1;
+    bnm_start =  vnbr * 12;
+    std::cout<<"Col: ";
+    for (int i = 0; i < colinfo.size(); i++)
+    {
+        line.clear();
+        binormal.clear();
+        ids.clear();
+
+        for (int j = 0; j < colinfo[i].size(); j++)
+        {
+            int vid = colinfo[i][j];
+            if (vid < 0 || Bnd[vid] == 1)
+            {
+                if (line.size() > 0)
+                {
+                    int real_size = line.size();
+                    if (real_size > 2)
+                    {
+                        lines_cols.push_back(line);
+                        bi_cols.push_back(binormal);
+                        idcols.push_back(ids);
+                    }
+
+                    line.clear();
+                    binormal.clear();
+                    ids.clear();
+                }
+                continue;
+            }
+            if (Bnd[vid] != 1)
+            {
+                Eigen::Vector3d b_local;
+                extract_binormals_propagation(family, vid, b_local, varsOff);
+                line.push_back(V.row(vid));
+                binormal.push_back(b_local);
+                ids.push_back(vid);
+            }
+        }
+        if (line.size() > 0)
+        {
+            int real_size = line.size();
+            if (real_size > 2)
+            {
+                lines_cols.push_back(line);
+                bi_cols.push_back(binormal);
+                idcols.push_back(ids);
+            }
+        }
+    }
+
+    
+    std::vector<std::vector<Eigen::Vector3d>> bout0, bout1, bout2;
+    if (1) // use diagonals
+    {
+        std::vector<std::vector<int>> diagonals;
+        int family = WhichDiagonal == 0 ? 2 : 3;
+        extract_diagonals(family, diagonals);
+        std::cout<<"Nbr of Diagonals: "<<diagonals.size()<<std::endl;;
+        std::vector<std::vector<Eigen::Vector3d>> cv, bn;
+        for (int i = 0; i < diagonals.size(); i++)
+        {
+            // for (int j = 0; j < diagonals[i].size(); j++)
+            // {
+            //     std::cout << diagonals[i][j] << ", ";
+            // }
+            // std::cout << "\n";
+            std::vector<Eigen::Vector3d> tmpc, tmpb;
+            std::vector<int> tmpi;
+            for (int j = 0; j < diagonals[i].size(); j++)
+            {
+                int vid = diagonals[i][j];
+                if (Bnd[vid] == 1)
+                {
+                    if (!tmpc.empty())
+                    {
+                        cv.push_back(tmpc);
+                        bn.push_back(tmpb);
+                        iddiags.push_back(tmpi);
+                    }
+                    tmpc.clear();
+                    tmpb.clear();
+                    tmpi.clear();
+                    continue;
+                }
+                tmpc.push_back(V.row(diagonals[i][j]));
+                Eigen::Vector3d localb;
+                // extract_binormals(family, 0, diagonals[i][j], localb);
+                extract_binormals_propagation(family, diagonals[i][j], localb, varsOff);
                 tmpb.push_back(localb);
                 tmpi.push_back(diagonals[i][j]);
             }

@@ -745,15 +745,22 @@ void adjustAagOffset(const std::vector<Eigen::Vector3d> &verFix,
 
 // this function is designed to get the first strip for AGG evolution
 // para1 is the parameter for the foot point, by default 0.5. para2 is the ratio of largest and smallest offset distances, default 1
+// para3 and para4 are the start and end angles (in degree) of offset direction rotating along the tangent vector.
 void aggFirstStrip(const std::vector<Eigen::Vector3d> &pts, const std::vector<Eigen::Vector3d> &bnm,
-                   std::vector<Eigen::Vector3d> &pout, const bool invertDirection, const double para1, const double para2)
+                   std::vector<Eigen::Vector3d> &pout, const bool invertDirection, const double para1, const double para2, 
+                   const double para3, const double para4)
 {
     int vnbr = pts.size();
     std::vector<Eigen::Vector3d> result(vnbr);
     assert(pts.size() == bnm.size());
+    double angle_radian0 = para3 * LSC_PI / 180;
+    double angle_radian1 = para4 * LSC_PI / 180;
+    double angle_delta = (angle_radian1 - angle_radian0) / (vnbr - 1);
+    // std::cout<<"the offset length along n, ";
     // the m-p is orthogonal to the plane spanned by tangent and n. m is the mid point of the edge.
     for (int i = 0; i < vnbr - 1; i++)
     {
+        double angle_radian = angle_radian0 + i * angle_delta;
         double offRatio = i * (para2 - 1) / (vnbr - 1) + 1;
         Eigen::Vector3d normals = ((bnm[i] + bnm[i + 1]) / 2).normalized();
         double lengths = (pts[i] - pts[i + 1]).norm();
@@ -764,6 +771,11 @@ void aggFirstStrip(const std::vector<Eigen::Vector3d> &pts, const std::vector<Ei
         if(invertDirection){
             direction *= -1;
         }
+        // rotate against tangent
+        double l = tan(angle_radian);
+        // std::cout<<l<<",";
+        direction = direction + l * normals;
+        direction.normalize();
         p = direction * lengths * offRatio * 1.732 / 2 + (pts[i + 1] - pts[i]) * para1 + pts[i];
         result[i] = p;
     }
@@ -997,7 +1009,8 @@ void adjustAggOffsetGuideGeodesic(const std::vector<Eigen::Vector3d> &pts_all, c
             Eigen::Vector3d pt;
             if (target_length > 0)
             {
-                find_next_pt_on_polyline(segid, guide, target_length, pstart, segid_out, pt);   
+                double tl;
+                find_next_pt_on_polyline(segid, guide, target_length, pstart, segid_out, pt, tl);   
             }
             else{
                 find_prev_pt_on_polyline(segid, guide, target_length, pstart, segid_out, pt);

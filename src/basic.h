@@ -194,7 +194,7 @@ public:
     void init(CGMesh& mesh_in);
     void initAAG(const std::vector<Eigen::Vector3d> &Vlist, const int rnbr);
     void initAGG(const std::vector<Eigen::Vector3d> &Vlist, const int rnbr);
-    
+    int vNbrInRow = -1;
     std::vector<std::vector<double>> rowinfo; // to record the adjancency info of rows  
     std::vector<std::vector<double>> colinfo; // to record the adjancency info of cols
     Eigen::MatrixXi F;
@@ -204,6 +204,7 @@ public:
     std::vector<Eigen::Vector3d> verOriginal;
     std::vector<Eigen::Vector3d> verUpdate;
     std::vector<Eigen::Vector3d> curveRef;
+    bool AGGAAGApproInitStrip = false; // approximate the first strip instead of the first curve
     double real_step_length;
     
     // input from outside
@@ -215,6 +216,7 @@ public:
     double weight_pg;
     double weight_gravity;
     double weight_mass = 1;
+    double weight_curve = 0;
     double pg_ratio = 1;// the ratio of diagonal (geodesic) energy to weight_pg
     double max_step = 1;
     Eigen::MatrixXd B0;
@@ -233,8 +235,10 @@ public:
     void show_curve_families(std::array<Eigen::MatrixXd, 3>& edges); 
     void show_diagonals(Eigen::MatrixXd &E0, Eigen::MatrixXd &E1, Eigen::MatrixXd &E2, Eigen::MatrixXd &E3); 
     void extract_binormals(const int family, const int bnm_start, const int vid, Eigen::Vector3d& bi);
+    void extract_binormals_propagation(const int family, const int vid, Eigen::Vector3d& bi, int varsOff);
     void extract_diagonals(const int family, std::vector<std::vector<int>> &digs);
     void write_polyline_info();
+    void write_polyline_info_propagation();
     // void evaluateGGGcosineConstraints();
     Eigen::MatrixXd Debugtool;
 private:
@@ -259,7 +263,7 @@ private:
     Eigen::MatrixXd Vtri;
     Eigen::MatrixXi Ftri;
     Eigen::MatrixXd Ntri;
-    int vNbrInRow = -1;
+    
     std::vector<Eigen::Vector3d> OriginalCurve;
     void get_Bnd(Eigen::VectorXi& Bnd); // the boundary vertices: the net corners
     void assemble_fairness(spMat& H, Eigen::VectorXd& B, Eigen::VectorXd &energy, const int order = 0);
