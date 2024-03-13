@@ -189,6 +189,7 @@ public:
 	double AggPara2 = 1;
 	double AggPara3 = 0;
 	double AggPara4 = 0;
+	double AggPara5 = 1;
 	double RotRefCurveAngle = 0;
 	double RotRefAxisAngle = 0;
 

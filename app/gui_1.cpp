@@ -2457,6 +2457,7 @@ void lscif::draw_menu2(igl::opengl::glfw::Viewer &viewer, igl::opengl::glfw::img
 			ImGui::InputDouble("AggPar3", &AggPara3, 0, 0, "%.4f");
 			ImGui::SameLine();
 			ImGui::InputDouble("AggPar4", &AggPara4, 0, 0, "%.4f");
+			ImGui::InputDouble("AggPar5", &AggPara5, 0, 0, "%.4f");
 			if (ImGui::Button("ReadPlyObj", ImVec2(ImGui::GetWindowSize().x * 0.25f, 0.0f)))
 			{
 				std::string fname = igl::file_dialog_open();
@@ -2514,10 +2515,29 @@ void lscif::draw_menu2(igl::opengl::glfw::Viewer &viewer, igl::opengl::glfw::img
 			ImGui::SameLine();
 			if (ImGui::Button("AAGPlanIntersect", ImVec2(ImGui::GetWindowSize().x * 0.25f, 0.0f)))
 			{
+				if (poly_tool.ply_extracted[0].empty())
+				{
+					std::cout << "\nPlease calibrate" << std::endl;
+					ImGui::End();
+					return;
+				}
 				std::vector<Eigen::Vector3d> versOff; std::vector<Eigen::Vector3d> cresOff;
 				std::vector<Eigen::Vector3d> plyin = poly_tool.ply_extracted[0];
 				std::vector<Eigen::Vector3d> binin = poly_tool.bin_extracted[0];
-				construct_single_developable_strips_by_intersect_rectifying_AAG(plyin, binin, versOff, cresOff);
+				if (quad_tool.vNbrInRow<0)
+				{ // if there are only 1 polyline, use old init
+					construct_single_developable_strips_by_intersect_rectifying_AAG(plyin, binin, versOff, cresOff, 
+					AggPara1, AggPara2, AggPara3, AggPara4, AggPara5);
+				}
+				else // if there are >= 2 polylines, use new init
+				{
+					int cnbr = quad_tool.V.rows()/quad_tool.vNbrInRow;
+					int stt = (cnbr-2)*quad_tool.vNbrInRow;
+					construct_single_developable_strips_by_intersect_rectifying_AAG_followings(
+						mat_to_vec_list(quad_tool.V.bottomRows(quad_tool.vNbrInRow)),mat_to_vec_list(quad_tool.V.block(stt, 0, quad_tool.vNbrInRow,3)),
+						versOff, cresOff, AggPara5);
+				}
+				
 				SingleFoot = versOff;
 				SingleCrease = cresOff;
 				int id = viewer.selected_data_index;
@@ -2634,6 +2654,7 @@ void lscif::draw_menu2(igl::opengl::glfw::Viewer &viewer, igl::opengl::glfw::img
 				quad_tool.pg_ratio = weight_geodesic;
 				quad_tool.weight_mass = weight_mass;
 				quad_tool.max_step = maximal_step_length;
+				quad_tool.weight_curve = weight_angle;
 				if (quad_tool.V.rows() == 0)
 				{
 					std::cout << "\nEmpty quad, please load a quad mesh first" << std::endl;
@@ -2742,6 +2763,31 @@ void lscif::draw_menu2(igl::opengl::glfw::Viewer &viewer, igl::opengl::glfw::img
 				}
 				igl::writeOBJ(fname, plyinv, Ftri);
 			}
+			ImGui::SameLine();
+			if (ImGui::Button("SimpleOffsetAAG", ImVec2(ImGui::GetWindowSize().x * 0.25f, 0.0f)))
+			{
+				std::vector<Eigen::Vector3d> versOff; std::vector<Eigen::Vector3d> cresOff;
+				std::vector<Eigen::Vector3d> plyin = poly_tool.ply_extracted[0];
+				std::vector<Eigen::Vector3d> binin = poly_tool.bin_extracted[0];
+				int cnbr = quad_tool.V.rows() / quad_tool.vNbrInRow;
+				int stt = (cnbr - 2) * quad_tool.vNbrInRow;
+				construct_single_strips_simpliest_strategy(
+					mat_to_vec_list(quad_tool.V.bottomRows(quad_tool.vNbrInRow)), mat_to_vec_list(quad_tool.V.block(stt, 0, quad_tool.vNbrInRow, 3)),
+					versOff, cresOff);
+
+				SingleFoot = versOff;
+				SingleCrease = cresOff;
+				int id = viewer.selected_data_index;
+				std::vector<std::vector<Eigen::Vector3d>> vtmp(1), ctmp(1);
+				vtmp[0] = versOff;
+				ctmp[0] = cresOff;
+				CGMesh updatemesh = polyline_to_strip_mesh(vtmp, ctmp, 1, 0, true);
+				updateMeshViewer(viewer, updatemesh);
+				meshFileName.push_back("inter_" + meshFileName[id]);
+				Meshes.push_back(updatemesh);
+				viewer.data().add_points(SinglePly, hot_red);
+				viewer.selected_data_index = id;
+			}
 
 
 
@@ -2750,26 +2796,48 @@ void lscif::draw_menu2(igl::opengl::glfw::Viewer &viewer, igl::opengl::glfw::img
 			if (ImGui::Button("AGGCurve2Strip", ImVec2(ImGui::GetWindowSize().x * 0.25f, 0.0f)))
 			{
 				std::vector<Eigen::Vector3d> versOut; std::vector<Eigen::Vector3d> directions;
-				std::vector<Eigen::Vector3d> plyin = poly_tool.ply_extracted[0];
-				std::vector<Eigen::Vector3d> binin = poly_tool.bin_extracted[0];
-				if(quad_tool.AGGAAGApproInitStrip)
+				std::vector<Eigen::Vector3d> plyin;// = poly_tool.ply_extracted[0];
+				std::vector<Eigen::Vector3d> binin;// = poly_tool.bin_extracted[0];
+
+				if (!quad_tool.AGGAAGApproInitStrip)
 				{
 					if (quad_tool.V.rows() == 0)
 					{
 						// first strip, use input shape control parameters
 						std::cout<<"Using the current parameters to setup the initial strip to be approximated\n";
+						plyin = poly_tool.ply_extracted[0];
+						binin = poly_tool.bin_extracted[0];
 						aggFirstStrip(plyin, binin, versOut, InvertDirectionAGG, AggPara1, AggPara2, AggPara3, AggPara4);
 					}
 					else
 					{
-						// the following curves only use default parameters.
-						aggFirstStrip(plyin, binin, versOut, InvertDirectionAGG);
+						// the following uses the strip instead of polylines.
+						int cnbr = quad_tool.V.rows()/quad_tool.vNbrInRow;
+						int stt = (cnbr-2)*quad_tool.vNbrInRow;
+						plyin = mat_to_vec_list(quad_tool.V.bottomRows(quad_tool.vNbrInRow));
+						binin = mat_to_vec_list(vec_list_to_matrix(plyin) - quad_tool.V.block(stt, 0, quad_tool.vNbrInRow, 3));
+						aggFirstStrip_following(plyin, mat_to_vec_list(quad_tool.V.block(stt, 0, quad_tool.vNbrInRow, 3)),
+												versOut, InvertDirectionAGG, AggPara1, AggPara2, AggPara3, AggPara4);
 					}
 				}
 				else
 				{
-					AggFirstStripWithGuideCurve(plyin, binin,
-												quad_tool, RefCurve, versOut);
+					if (quad_tool.V.rows() == 0)
+					{
+						plyin = poly_tool.ply_extracted[0];
+						binin = poly_tool.bin_extracted[0];
+						AggFirstStripWithGuideCurve(plyin, binin,
+													quad_tool, RefCurve, versOut);
+					}
+					else{
+						// the following uses the strip instead of polylines.
+						int cnbr = quad_tool.V.rows()/quad_tool.vNbrInRow;
+						int stt = (cnbr-2)*quad_tool.vNbrInRow;
+						plyin = mat_to_vec_list(quad_tool.V.bottomRows(quad_tool.vNbrInRow));
+						binin = mat_to_vec_list(vec_list_to_matrix(plyin) - quad_tool.V.block(stt, 0, quad_tool.vNbrInRow, 3));
+						aggFirstStrip_following(plyin, mat_to_vec_list(quad_tool.V.block(stt, 0, quad_tool.vNbrInRow, 3)),
+												versOut, InvertDirectionAGG, AggPara1, AggPara2, AggPara3, AggPara4);
+					}
 				}
 
 				directions.resize(plyin.size());
@@ -2777,7 +2845,6 @@ void lscif::draw_menu2(igl::opengl::glfw::Viewer &viewer, igl::opengl::glfw::img
 				{
 					directions[i] = versOut[i] - plyin[i];
 				}
-				// construct_single_developable_strips_by_intersect_rectifying_AAG(plyin, binin, versOut, directions);
 				SingleFoot = versOut;
 				SingleCrease = binin;
 				int id = viewer.selected_data_index;
@@ -2795,13 +2862,14 @@ void lscif::draw_menu2(igl::opengl::glfw::Viewer &viewer, igl::opengl::glfw::img
 			ImGui::SameLine();
 			if (ImGui::Button("AggAdjustInit", ImVec2(ImGui::GetWindowSize().x * 0.25f, 0.0f)))
 			{
-				if (SinglePly.rows() == 0 || SingleFoot.size() == 0 || quad_tool.V.rows() < SinglePly.rows() * 2)
+				std::cout<<"Adjust: size check, "<<SingleFoot.size()<<", "<<SingleCrease.size()<<"\n";
+				if (SingleFoot.size() == 0 || quad_tool.V.rows() < SinglePly.rows() * 2)
 				{
 					std::cout << "\nLSC: Please init the opt" << std::endl;
 					ImGui::End();
 					return;
 				}
-				std::cout<<"Adjust: size check, "<<SingleFoot.size()<<", "<<SingleCrease.size()<<"\n";
+				
 				std::vector<Eigen::Vector3d> vall;
 				int vinrow = SingleFoot.size();
 				// the propagate will add the optimized offset point into the list
@@ -2809,13 +2877,12 @@ void lscif::draw_menu2(igl::opengl::glfw::Viewer &viewer, igl::opengl::glfw::img
 				Eigen::MatrixXd VallMat(quad_tool.V.rows() + vinrow, 3);
 				VallMat.topRows(quad_tool.V.rows()) = quad_tool.V;
 				assert(SingleFoot.size() > 0);
-				assert(SingleCrease.size() > 0);
 				VallMat.bottomRows(vinrow) = vec_list_to_matrix(SingleFoot);
 
 				vall = mat_to_vec_list(VallMat);
 				assert(vall.size() > 0);
 				std::vector<Eigen::Vector3d> footOut;
-				adjustAggOffset(vall, SingleCrease, vinrow, footOut);
+				adjustAggOffset(vall, vinrow, footOut);
 				SingleFoot = footOut;
 				VallMat.bottomRows(vinrow) = vec_list_to_matrix(SingleFoot);
 				int id = viewer.selected_data_index;
@@ -3034,7 +3101,7 @@ void lscif::draw_menu2(igl::opengl::glfw::Viewer &viewer, igl::opengl::glfw::img
 			ImGui::InputDouble("CurveRotate", &RotRefCurveAngle, 0, 0, "%.4f");
 			
 			
-			if (ImGui::Button("TransRotate", ImVec2(ImGui::GetWindowSize().x * 0.25f, 0.0f)))
+			if (ImGui::Button("TransRotateAGG", ImVec2(ImGui::GetWindowSize().x * 0.25f, 0.0f)))
 			{
 				if (SinglePly.rows() == 0)
 				{
@@ -3080,6 +3147,52 @@ void lscif::draw_menu2(igl::opengl::glfw::Viewer &viewer, igl::opengl::glfw::img
 				std::cout << "read poly with " << RefCurveRot.rows() << " points\n";
 			}
 			ImGui::SameLine();
+			if (ImGui::Button("TransRotateAAG", ImVec2(ImGui::GetWindowSize().x * 0.25f, 0.0f)))
+			{
+				if (SinglePly.rows() == 0)
+				{
+					std::cout << "\nPlease load the first curve before calling this" << std::endl;
+					ImGui::End();
+					return;
+				}
+				Eigen::Vector3d p1 = SinglePly.row(0); // this is the first point 
+				Eigen::Vector3d tan1 = (SinglePly.row(1) - SinglePly.row(0)).normalized(); // the first tangent 
+				Eigen::Vector3d bin1 = poly_tool.bin_extracted[0][0]; // the first binormal
+				Eigen::Vector3d refTan = bin1.cross(tan1).normalized(); // the N vector
+				double l = tan(RotRefAxisAngle * LSC_PI / 180);
+				Eigen::Vector3d refAxis = (bin1 + l * tan1).normalized(); // the main difference with AGG: the curve is orthogonal to the normal vector
+
+				Eigen::Vector3d p2 = RefCurve.row(0); // this is the first point of the target curve
+				Eigen::Vector3d tan2 = (RefCurve.row(1) - RefCurve.row(0)).normalized();
+
+				Eigen::MatrixXd T = RefCurve.rowwise() - p2.transpose(); // put the whole curve to the origin.
+				Eigen::MatrixXd Ttrans = T.transpose();
+				// rotate the tan2 to the direction of tan1
+				Eigen::MatrixXd RotMat = getRotationMatrix(tan2, refAxis);
+				Ttrans = RotMat * Ttrans;
+				T = Ttrans.transpose();
+				// rotate along the reference direction
+				for (int i = 0; i < RefCurve.rows(); i++)
+				{
+					Eigen::Vector3d vecIn = T.row(i), vecOut;
+					getRotationVector(refAxis, RotRefCurveAngle, vecIn, vecOut);
+					T.row(i) = vecOut;
+				}
+				T = T.rowwise() + p1.transpose(); // connect the first point to p1
+				RefCurveRot = T;
+
+				int id = viewer.selected_data_index;
+				CGMesh updatemesh;
+				Eigen::MatrixXi Ftri;
+				MP.matrix2Mesh(updatemesh, RefCurveRot, Ftri);// this is a empty mesh with 0 faces
+				updateMeshViewer(viewer, updatemesh);
+				meshFileName.push_back("ply_" + meshFileName[id]);
+				Meshes.push_back(updatemesh);
+				viewer.data().add_points(RefCurveRot, sea_green);
+				viewer.selected_data_index = id;
+				std::cout << "read poly with " << RefCurveRot.rows() << " points\n";
+			}
+			
 			if (ImGui::Button("saveTransRotate", ImVec2(ImGui::GetWindowSize().x * 0.25f, 0.0f)))
 			{
 				std::string fname = igl::file_dialog_save();

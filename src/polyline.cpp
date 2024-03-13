@@ -705,7 +705,7 @@ void PolyOpt::init(const Eigen::MatrixXd& ply_in)
 void adjustAagOffset(const std::vector<Eigen::Vector3d> &verFix,
                      const std::vector<Eigen::Vector3d> &vers, std::vector<Eigen::Vector3d> &creases)
 {
-    const double step = 0.3;
+    const double step = 0.8;
     int vnbr = vers.size();
     spMat H;
     Eigen::VectorXd B;
@@ -727,6 +727,8 @@ void adjustAagOffset(const std::vector<Eigen::Vector3d> &verFix,
         double delta = (alpha - 1) * step; // rescale to be more accurate.
         creases[i] *= delta + 1;
     }
+    creases[0] = creases[1];
+    creases[vnbr - 1] = creases[vnbr - 2];
 
     // evaluation
     double errorAll = 0;
@@ -763,6 +765,61 @@ void aggFirstStrip(const std::vector<Eigen::Vector3d> &pts, const std::vector<Ei
         double angle_radian = angle_radian0 + i * angle_delta;
         double offRatio = i * (para2 - 1) / (vnbr - 1) + 1;
         Eigen::Vector3d normals = ((bnm[i] + bnm[i + 1]) / 2).normalized();
+        double lengths = (pts[i] - pts[i + 1]).norm();
+        Eigen::Vector3d p, direction, tangent;
+        tangent = pts[i + 1] - pts[i];
+        tangent.normalize();
+        direction = normals.cross(tangent).normalized();
+        if(invertDirection){
+            direction *= -1;
+        }
+        // rotate against tangent
+        double l = tan(angle_radian);
+        // std::cout<<l<<",";
+        direction = direction + l * normals;
+        direction.normalize();
+        p = direction * lengths * offRatio * 1.732 / 2 + (pts[i + 1] - pts[i]) * para1 + pts[i];
+        result[i] = p;
+    }
+    Eigen::Vector3d tangent = pts[vnbr - 1] - pts[vnbr - 2];
+    // Eigen::Vector3d m = (pts[vnbr - 2] + pts[vnbr - 1]) / 2;
+    // auto foot = tangent + m;
+    result[vnbr - 1] = result[vnbr - 2] + tangent;
+    pout = result;
+}
+// this version uses a more robust version to get normal vectors
+// ptslast is the curve next to pts.
+void aggFirstStrip_following(const std::vector<Eigen::Vector3d> &pts, const std::vector<Eigen::Vector3d> &ptslast,
+                   std::vector<Eigen::Vector3d> &pout, const bool invertDirection, const double para1, const double para2, 
+                   const double para3, const double para4)
+{
+    int vnbr = pts.size();
+    std::vector<Eigen::Vector3d> result(vnbr);
+    double angle_radian0 = para3 * LSC_PI / 180;
+    double angle_radian1 = para4 * LSC_PI / 180;
+    double angle_delta = (angle_radian1 - angle_radian0) / (vnbr - 1);
+    // std::cout<<"the offset length along n, ";
+    // the m-p is orthogonal to the plane spanned by tangent and n. m is the mid point of the edge.
+    std::vector<Eigen::Vector3d> ns(vnbr);
+    for (int i = 0; i < vnbr; i++)
+    {
+        int fr = i + 1;
+        int bk = i - 1;
+        if (i == 0)
+        {
+            bk = i;
+        }
+        if (i == vnbr - 1)
+        {
+            fr = i;
+        }
+        ns[i] = (ptslast[i] - pts[i]).cross(pts[fr] - pts[bk]).normalized();
+    }
+    for (int i = 0; i < vnbr - 1; i++)
+    {
+        double angle_radian = angle_radian0 + i * angle_delta;
+        double offRatio = i * (para2 - 1) / (vnbr - 1) + 1;
+        Eigen::Vector3d normals= ((ns[i] + ns[i + 1]) / 2).normalized();
         double lengths = (pts[i] - pts[i + 1]).norm();
         Eigen::Vector3d p, direction, tangent;
         tangent = pts[i + 1] - pts[i];
@@ -831,7 +888,7 @@ void aggFirstStripGuideGeodesic(const std::vector<Eigen::Vector3d> &pts, const s
 
 // adjust the last boundary of AGG after propagating.
 // the bnms are the binormals of the second last boundary
-void adjustAggOffset(const std::vector<Eigen::Vector3d> &pts_all, const std::vector<Eigen::Vector3d> &bnms,
+void adjustAggOffset(const std::vector<Eigen::Vector3d> &pts_all,
                      const int vinrow, std::vector<Eigen::Vector3d> &pout)
 {
     pout.clear();
@@ -839,12 +896,26 @@ void adjustAggOffset(const std::vector<Eigen::Vector3d> &pts_all, const std::vec
     int vnbr = pts_all.size();
     int ncol = pts_all.size() / vinrow;
     assert(ncol > 2 && "we don't apply this method on the first strip"); 
-    assert(vinrow == bnms.size());
     int counter = 0;
     std::vector<Eigen::Vector3d> pout_all;
     pout_all = pts_all;
     double ratio = 0.3;
     double error = 0;
+    std::vector<Eigen::Vector3d> ns(vinrow);
+    for (int i = 0; i < vinrow; i++)
+    {
+        int fr = (ncol - 1) * vinrow + i + 1;
+        int bk = (ncol - 1) * vinrow + i - 1;
+        if (i == 0)
+        {
+            bk = (ncol - 1) * vinrow + i;
+        }
+        if (i == vinrow - 1)
+        {
+            fr = (ncol - 1) * vinrow + i;
+        }
+        ns[i] = (pts_all[(ncol - 2) * vinrow + i] - pts_all[(ncol - 1) * vinrow + i]).cross(pts_all[fr] - pts_all[bk]).normalized();
+    }
     for (int i = 0; i < vinrow - 2; i++)
     {
         int bid = (ncol - 1) * vinrow + i; // boundary point id
@@ -857,8 +928,8 @@ void adjustAggOffset(const std::vector<Eigen::Vector3d> &pts_all, const std::vec
         Eigen::Vector3d v2 = p1 - p3;
         Eigen::Vector3d v3 = p - p2;
         Eigen::Vector3d v4 = p2 - p4;
-        Eigen::Vector3d n1 = bnms[i];
-        Eigen::Vector3d n2 = bnms[i + 1];
+        Eigen::Vector3d n1 = ns[i];
+        Eigen::Vector3d n2 = ns[i + 1];
 
         double r11 = v1.cross(n1).dot(v2);
         double r12 = v3.cross(n1).dot(v2);
@@ -912,7 +983,7 @@ void adjustAggOffset(const std::vector<Eigen::Vector3d> &pts_all, const std::vec
     Eigen::Vector3d v1 = p - p1;
     Eigen::Vector3d v2 = p1 - p3;
     Eigen::Vector3d v3 = p - p2;
-    Eigen::Vector3d n1 = bnms[vinrow - 2];
+    Eigen::Vector3d n1 = ns[vinrow - 2];
     double r11 = v1.cross(n1).dot(v2);
     double r12 = v3.cross(n1).dot(v2);
     double d1 = (p1 - p).cross(n1).dot(v2);

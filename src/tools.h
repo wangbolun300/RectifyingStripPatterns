@@ -166,7 +166,8 @@ void write_unfold_single_strip(int which_curve = 0);
 void construct_single_developable_strips_by_intersect_rectifying(const int which);
 void construct_single_developable_strips_by_intersect_rectifying_AAG(
     const std::vector<Eigen::Vector3d> &vertices, const std::vector<Eigen::Vector3d> &binormals,
-    std::vector<Eigen::Vector3d> &vout, std::vector<Eigen::Vector3d> &bout);
+    std::vector<Eigen::Vector3d> &vout, std::vector<Eigen::Vector3d> &bout, const double para1 = 0.5, const double para2 = 1, 
+                   const double para3 = 0, const double para4 = 0, const double para5 = 1);
 void construct_developable_strips_by_intersect_rectifying();
 void draw_catenaries_on_cylinder();           
 
@@ -218,6 +219,12 @@ void readQuadMesh2TriMesh(const int vinrow);
 void evaluateGGGConsineConstraints();
 void adjustAagOffset(const std::vector<Eigen::Vector3d> &verFix,
                      const std::vector<Eigen::Vector3d> &vers, std::vector<Eigen::Vector3d> &creases);
+void construct_single_developable_strips_by_intersect_rectifying_AAG_followings(
+    const std::vector<Eigen::Vector3d> &vertices, const std::vector<Eigen::Vector3d> &slVers,
+    std::vector<Eigen::Vector3d> &vout, std::vector<Eigen::Vector3d> &bout, const double para5 = 1);
+void construct_single_strips_simpliest_strategy(
+    const std::vector<Eigen::Vector3d> &vertices, const std::vector<Eigen::Vector3d> &slVers,
+    std::vector<Eigen::Vector3d> &vout, std::vector<Eigen::Vector3d> &bout);    
 // this function is designed to get the first strip for AGG evolution
 void aggFirstStrip(const std::vector<Eigen::Vector3d> &pts, const std::vector<Eigen::Vector3d> &bnm,
                    std::vector<Eigen::Vector3d> &pout, const bool invertDirection, const double para1 = 0.5, const double para2 = 1,
@@ -228,7 +235,10 @@ void aggFirstStripGuideGeodesic(const std::vector<Eigen::Vector3d> &pts, const s
                     const bool invertDirection);
 void AggFirstStripWithGuideCurve(const std::vector<Eigen::Vector3d> &plyin, const std::vector<Eigen::Vector3d> &binin,
                                 QuadOpt &quad_tool, const Eigen::MatrixXd &RefCurve, std::vector<Eigen::Vector3d> &versOut);
-void adjustAggOffset(const std::vector<Eigen::Vector3d> &pts_all, const std::vector<Eigen::Vector3d> &bnms,
+void aggFirstStrip_following(const std::vector<Eigen::Vector3d> &pts, const std::vector<Eigen::Vector3d> &ptslast,
+                   std::vector<Eigen::Vector3d> &pout, const bool invertDirection, const double para1 = 0.5, const double para2 = 1,
+                   const double para3 = 0, const double para4 = 0);                                
+void adjustAggOffset(const std::vector<Eigen::Vector3d> &pts_all,
                      const int vinrow, std::vector<Eigen::Vector3d> &pout);
 void constructRegularF(const int vnbr, const int rnbr, Eigen::MatrixXi &F);
 std::vector<Eigen::Vector3d> sample_one_polyline_based_on_length(const std::vector<Eigen::Vector3d> &polyline, const int nbr);

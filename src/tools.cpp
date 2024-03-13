@@ -5265,9 +5265,13 @@ void construct_single_developable_strips_by_intersect_rectifying(
     bout = creases;
 }
 // this is for initialize AAG, thus the offsets should be uniform, the generated mesh should also be uniform.
+// para1 is the parameter for the foot point, by default 0.5. para2 is the ratio of largest and smallest offset distances, default 1
+// para3 and para4 are the start and end angles (in degree) of offset direction rotating along the tangent vector.
+// para5 is the length of offset, by default 1.
 void construct_single_developable_strips_by_intersect_rectifying_AAG(
     const std::vector<Eigen::Vector3d> &vertices, const std::vector<Eigen::Vector3d> &binormals,
-    std::vector<Eigen::Vector3d> &vout, std::vector<Eigen::Vector3d> &bout)
+    std::vector<Eigen::Vector3d> &vout, std::vector<Eigen::Vector3d> &bout, const double para1, const double para2, 
+                   const double para3, const double para4, const double para5)
 {
 
     int vnbr = vertices.size();
@@ -5283,17 +5287,18 @@ void construct_single_developable_strips_by_intersect_rectifying_AAG(
     tangents.back() = (vertices[vnbr - 1] - vertices[vnbr - 2]).normalized();
     tangents[1] = ((vertices[1] - vertices[0]).normalized() + (vertices[2] - vertices[1]).normalized()).normalized();
 
-    foot.front() = (vertices[0] + vertices[1]) / 2;
+    foot.front() = para1 * (vertices[1] - vertices[0]) + vertices[0];
     // foot[1] = vertices[1];
-    foot[vnbr - 2] = (vertices[vnbr - 1] + vertices[vnbr - 2]) / 2;// set up the second last foot for AAG
-
-    creases[0] = binormals[0];
-    // creases[1] = binormals[1];
-    creases[vnbr - 2] = binormals[vnbr - 2]; // AAG
+    foot[vnbr - 2] = para1 * (vertices[vnbr - 2] - vertices[vnbr - 1]) + vertices[vnbr - 1];
+    double angle_radian0 = para3 * LSC_PI / 180;
+    double angle_radian1 = para4 * LSC_PI / 180;
+    double angle_delta = (angle_radian1 - angle_radian0) / (vnbr - 1);
+    
     int nc = 0; // computed intersections not skipped
     // crease[i] is associated with vi and vi+1
     for (int i = 1; i < vnbr - 2; i++)
     {
+        double angle_radian = angle_radian0 + i * angle_delta;
         Eigen::Vector3d dirl = (vertices[i + 1] - vertices[i]).normalized();
         Eigen::Vector3d dirr = (vertices[i + 2] - vertices[i + 1]).normalized();
 
@@ -5328,31 +5333,246 @@ void construct_single_developable_strips_by_intersect_rectifying_AAG(
         }
         else{
             nc++;
-            // (vleft + alpha * tleft - v).dot(nright) = 0
-            double alpha = (vertices[i + 1] - vertices[i]).dot(nright) / tleft.dot(nright);
-            f = vertices[i] + alpha * tleft;
+            // (footleft + alpha * tleft - v).dot(nright) = 0
+            std::cout<<"check1\n";
+            std::cout<<"ver, "<<vertices[i + 1]<<", f "<<foot[i-1]<<", n "<<nright<<", tleft, "<<tleft<<"\n";
+            double alpha = (vertices[i + 1] - foot[i-1]).dot(nright) / tleft.dot(nright);
+            std::cout<<"alpha "<<alpha<<"\n\n";
+            f = foot[i-1] + alpha * tleft;
         }
-        tright = (vertices[i] - f).normalized();
+        // tright = (vertices[i] - f).normalized();
+        double l = tan(angle_radian);
+        Eigen::Vector3d norm = (vertices[i + 1] - vertices[i]).cross(c).normalized();
+        double cl = c.norm();
+        c = c.normalized() + l * norm;
+        c.normalize();
+        c = c * cl;
         tangents[i + 1] = tright;
-        foot[i] = f;
+        foot[i] = f + (vertices[i + 1] - vertices[i]) * (para1 - 0.5); // when para1 = 0.5, exactly on f. otherwise, glid on tangent
         creases[i] = c;
     }
+    creases[0] = creases[1];
+    creases[vnbr - 2] = creases[vnbr - 3]; // AAG
     // just got the foot and crease from 1~vnbr-3. for 0 and vnbr-2 is easy to obtain, next deal with vnbr-1
     // use 3 order smoothness condition v3 = v0 - 3v1 + 3v2
     foot[vnbr - 1] = foot[vnbr - 4] - 3 * foot[vnbr - 3] + 3 * foot[vnbr - 2]; // the target foot point
-    Eigen::Vector3d cm4 = foot[vnbr - 4] + creases[vnbr - 4];
-    Eigen::Vector3d cm3 = foot[vnbr - 3] + creases[vnbr - 3];
-    Eigen::Vector3d cm2 = foot[vnbr - 2] + creases[vnbr - 2];
-    Eigen::Vector3d cm = cm4 - 3 * cm3 + 3 * cm2; // the target offset point
+    // Eigen::Vector3d cm4 = foot[vnbr - 4] + creases[vnbr - 4];
+    // Eigen::Vector3d cm3 = foot[vnbr - 3] + creases[vnbr - 3];
+    // Eigen::Vector3d cm2 = foot[vnbr - 2] + creases[vnbr - 2];
+    // Eigen::Vector3d cm = cm4 - 3 * cm3 + 3 * cm2; // the target offset point
 
-    creases[vnbr - 1] = cm - foot[vnbr - 1]; // the target crease.
+    
 
     // unitscale the creases so that the shape can be uniform.
     for (int i = 0; i < vnbr - 1; i++){
         double length = (vertices[i] - vertices[i + 1]).norm();
+        double offRatio = i * (para2 - 1) / (vnbr - 1) + 1;
+        // creases[i].normalize();
+        creases[i] *= offRatio * length * sqrt(3) / 2 * para5;
+    }
+    double offRatio = para2 / ((vnbr - 2) * (para2 - 1) / (vnbr - 1) + 1); // this is not the same defination. this is to make sure the "lengh" is para2
+    creases[vnbr - 1] = offRatio * creases[vnbr - 2]; // the target crease.
+    vout = foot;
+    bout = creases;
+    std::cout<<"not skipped intersection, "<<nc<<"\n";
+}
+
+// this is for initialize AAG, thus the offsets should be uniform, the generated mesh should also be uniform.
+// this is to construct the 3rd, 4th ... polylines but not the second.
+// slVers are the vertices of the second last row of vertices
+void construct_single_developable_strips_by_intersect_rectifying_AAG_followings(
+    const std::vector<Eigen::Vector3d> &vertices, const std::vector<Eigen::Vector3d> &slVers,
+    std::vector<Eigen::Vector3d> &vout, std::vector<Eigen::Vector3d> &bout, const double para5)
+{
+
+    int vnbr = vertices.size();
+    // the creases lines are constructed by foot points and creases
+    // the foot is the intersection of the line and the right plane. vout and crease construct the strip
+    std::vector<Eigen::Vector3d> tangents, creases, foot;
+    tangents.resize(vnbr);
+    creases.resize(vnbr);
+    foot.resize(vnbr);
+
+
+    tangents.front() = (vertices[1] - vertices[0]).normalized();
+    tangents.back() = (vertices[vnbr - 1] - vertices[vnbr - 2]).normalized();
+    tangents[1] = ((vertices[1] - vertices[0]).normalized() + (vertices[2] - vertices[1]).normalized()).normalized();
+
+    foot.front() = (vertices[0] + vertices[1]) / 2;
+    // foot[1] = vertices[1];
+    foot[vnbr - 2] = (vertices[vnbr - 1] + vertices[vnbr - 2]) / 2;// set up the second last foot for AAG
+
+    
+    int nc = 0; // computed intersections not skipped
+    // crease[i] is associated with vi and vi+1
+    for (int i = 1; i < vnbr - 2; i++)
+    {
+        Eigen::Vector3d dirl = (vertices[i + 1] - vertices[i]).normalized();
+        Eigen::Vector3d dirr = (vertices[i + 2] - vertices[i + 1]).normalized();
+
+        // tangents
+        Eigen::Vector3d tleft = tangents[i];
+        Eigen::Vector3d tright = (dirl + dirr).normalized();
+         // normals of the both planes
+        Eigen::Vector3d nleft = (slVers[i] - vertices[i]).cross(slVers[i+1] - vertices[i]).normalized();
+        Eigen::Vector3d nright = (slVers[i+1] - vertices[i+1]).cross(slVers[i+2] - vertices[i+1]).normalized();;
+        // binormals
+        Eigen::Vector3d bleft = nleft.cross(tleft).normalized();
+        if(bleft.dot(vertices[i]-slVers[i])<0){ // always propagate to the correct directions
+            bleft *= -1;
+        }
+        // Eigen::Vector3d bright = binormals[i + 1];
+       
+        // this crease direction is the intersection of the both planes. if the planes are parallel, use the binormal.
+        Eigen::Vector3d c = nleft.cross(nright);
+        bool parallel = false;
+        if (c.norm() < 1e-4)
+        {
+            c = bleft;
+            parallel = true;
+        }
+        c.normalize();
+        if (c.dot(bleft) < 0)
+        {
+            c *= -1;
+        }
+        double scale = 1 / c.dot(bleft);
+        c *= scale;
+        // the foot point is the intersection of the left tangent with the right plane
+        Eigen::Vector3d f;
+        if(parallel){
+            f = (vertices[i] + vertices[i + 1]) / 2;
+        }
+        else{
+            nc++;
+            // (footleft + alpha * tleft - v).dot(nright) = 0
+            std::cout<<"check1\n";
+            std::cout<<"ver, "<<vertices[i + 1]<<", f "<<foot[i-1]<<", n "<<nright<<", tleft, "<<tleft<<"\n";
+            double alpha = (vertices[i + 1] - foot[i-1]).dot(nright) / tleft.dot(nright);
+            std::cout<<"alpha "<<alpha<<"\n\n";
+            f = foot[i-1] + alpha * tleft;
+        }
+        // tright = (vertices[i] - f).normalized();
+        tangents[i + 1] = tright;
+        foot[i] = f;
+        creases[i] = c;
+    }
+    creases[0] = creases[1];
+    creases[vnbr - 2] = creases[vnbr - 3]; // AAG
+    // just got the foot and crease from 1~vnbr-3. for 0 and vnbr-2 is easy to obtain, next deal with vnbr-1
+    // use 3 order smoothness condition v3 = v0 - 3v1 + 3v2
+    foot[vnbr - 1] = foot[vnbr - 4] - 3 * foot[vnbr - 3] + 3 * foot[vnbr - 2]; // the target foot point
+    // Eigen::Vector3d cm4 = foot[vnbr - 4] + creases[vnbr - 4];
+    // Eigen::Vector3d cm3 = foot[vnbr - 3] + creases[vnbr - 3];
+    // Eigen::Vector3d cm2 = foot[vnbr - 2] + creases[vnbr - 2];
+    // Eigen::Vector3d cm = cm4 - 3 * cm3 + 3 * cm2; // the target offset point
+
+    
+
+    // unitscale the creases so that the shape can be uniform.
+    for (int i = 0; i < vnbr - 1; i++){
+        double length = (vertices[i] - vertices[i + 1]).norm();
+        // creases[i].normalize();
+        creases[i] *= length * sqrt(3) / 2 * para5;
+    }
+    creases[vnbr - 1] = creases[vnbr - 2]; // the target crease.
+    vout = foot;
+    bout = creases;
+    std::cout<<"not skipped intersection, "<<nc<<"\n";
+}
+
+void construct_single_strips_simpliest_strategy(
+    const std::vector<Eigen::Vector3d> &vertices, const std::vector<Eigen::Vector3d> &slVers,
+    std::vector<Eigen::Vector3d> &vout, std::vector<Eigen::Vector3d> &bout)
+{
+
+    int vnbr = vertices.size();
+    // the creases lines are constructed by foot points and creases
+    // the foot is the intersection of the line and the right plane. vout and crease construct the strip
+    std::vector<Eigen::Vector3d> tangents, creases, foot;
+    tangents.resize(vnbr);
+    creases.resize(vnbr);
+    foot.resize(vnbr);
+
+
+    tangents.front() = (vertices[1] - vertices[0]).normalized();
+    tangents.back() = (vertices[vnbr - 1] - vertices[vnbr - 2]).normalized();
+    tangents[1] = ((vertices[1] - vertices[0]).normalized() + (vertices[2] - vertices[1]).normalized()).normalized();
+
+    foot.front() = (vertices[0] + vertices[1]) / 2;
+    // foot[1] = vertices[1];
+    foot[vnbr - 2] = (vertices[vnbr - 1] + vertices[vnbr - 2]) / 2;// set up the second last foot for AAG
+
+    
+    int nc = 0; // computed intersections not skipped
+    // crease[i] is associated with vi and vi+1
+    for (int i = 1; i < vnbr - 2; i++)
+    {
+        Eigen::Vector3d dirl = (vertices[i + 1] - vertices[i]).normalized();
+        Eigen::Vector3d dirr = (vertices[i + 2] - vertices[i + 1]).normalized();
+
+        // tangents
+        Eigen::Vector3d tleft = tangents[i];
+        Eigen::Vector3d tright = (dirl + dirr).normalized();
+         // normals of the both planes
+        Eigen::Vector3d nleft = (slVers[i] - vertices[i]).cross(slVers[i+1] - vertices[i]).normalized();
+        Eigen::Vector3d nright = (slVers[i+1] - vertices[i+1]).cross(slVers[i+2] - vertices[i+1]).normalized();;
+        // binormals
+        Eigen::Vector3d bleft = nleft.cross(tleft).normalized();
+        if(bleft.dot(vertices[i]-slVers[i])<0){ // always propagate to the correct directions
+            bleft *= -1;
+        }
+        // Eigen::Vector3d bright = binormals[i + 1];
+       
+        // this crease direction is the intersection of the both planes. if the planes are parallel, use the binormal.
+        Eigen::Vector3d c = nleft.cross(nright);
+        bool parallel = false;
+        // the simpliest strategy takes all the binormals as the c.
+        c = bleft;
+        parallel = true;
+
+        c.normalize();
+
+        double scale = 1 / c.dot(bleft);
+        c *= scale;
+        // the foot point is the intersection of the left tangent with the right plane
+        Eigen::Vector3d f;
+        if(parallel){
+            f = (vertices[i] + vertices[i + 1]) / 2;
+        }
+        else{
+            nc++;
+            // (footleft + alpha * tleft - v).dot(nright) = 0
+            std::cout<<"check1\n";
+            std::cout<<"ver, "<<vertices[i + 1]<<", f "<<foot[i-1]<<", n "<<nright<<", tleft, "<<tleft<<"\n";
+            double alpha = (vertices[i + 1] - foot[i-1]).dot(nright) / tleft.dot(nright);
+            std::cout<<"alpha "<<alpha<<"\n\n";
+            f = foot[i-1] + alpha * tleft;
+        }
+        // tright = (vertices[i] - f).normalized();
+        tangents[i + 1] = tright;
+        foot[i] = f;
+        creases[i] = c;
+    }
+    creases[0] = creases[1];
+    creases[vnbr - 2] = creases[vnbr - 3]; // AAG
+    // just got the foot and crease from 1~vnbr-3. for 0 and vnbr-2 is easy to obtain, next deal with vnbr-1
+    // use 3 order smoothness condition v3 = v0 - 3v1 + 3v2
+    foot[vnbr - 1] = foot[vnbr - 4] - 3 * foot[vnbr - 3] + 3 * foot[vnbr - 2]; // the target foot point
+    // Eigen::Vector3d cm4 = foot[vnbr - 4] + creases[vnbr - 4];
+    // Eigen::Vector3d cm3 = foot[vnbr - 3] + creases[vnbr - 3];
+    // Eigen::Vector3d cm2 = foot[vnbr - 2] + creases[vnbr - 2];
+    // Eigen::Vector3d cm = cm4 - 3 * cm3 + 3 * cm2; // the target offset point
+
+    
+
+    // unitscale the creases so that the shape can be uniform.
+    for (int i = 0; i < vnbr - 1; i++){
+        double length = (vertices[i] - vertices[i + 1]).norm();
+        // creases[i].normalize();
         creases[i] *= length * sqrt(3) / 2;
     }
-    creases[vnbr - 1] *= creases[vnbr - 2].norm() / creases[vnbr - 1].norm();
+    creases[vnbr - 1] = creases[vnbr - 2]; // the target crease.
     vout = foot;
     bout = creases;
     std::cout<<"not skipped intersection, "<<nc<<"\n";

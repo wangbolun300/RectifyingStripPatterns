@@ -727,11 +727,14 @@ void QuadOpt::assemble_gravity(spMat& H, Eigen::VectorXd& B, Eigen::VectorXd &en
     B = -J.transpose() * energy;
 }
 // this function approximates the first point in each row to the given curve.
-// this is only used for AGG
+// this is only used for AAG and AGG
 // if the reference curve exists, enable the approximation
-void QuadOpt::assemble_approximate_curve_conditions(spMat &H, Eigen::VectorXd &B, Eigen::VectorXd &energy)
+void QuadOpt::assemble_approximate_curve_conditions(spMat &H, Eigen::VectorXd &B, Eigen::VectorXd &energy, const int order)
 {
-    int varOffset = 12;
+    int varOffset = 9;
+    if(order == 2){
+        varOffset = 12;
+    }
     int vnbr = V.rows();
     int rnbr = vnbr / vNbrInRow; // the number of rows
     std::vector<Trip> tripletes;
@@ -2398,6 +2401,12 @@ void QuadOpt::optAAG()
     H += weight_gravity * Hgravity;
 	B += weight_gravity * Bgravity;
 
+    spMat HCurve;  // approximation to curve
+	Eigen::VectorXd BCurve, ECurve; // right of approximation to curve
+    assemble_approximate_curve_conditions(HCurve, BCurve, ECurve, order);
+    H += weight_curve * HCurve;
+	B += weight_curve * BCurve;
+    
     spMat Hsmth;
     Eigen::VectorXd Bsmth;
 	assemble_fairness(Hsmth, Bsmth, Esmth, order);
@@ -2470,7 +2479,7 @@ void QuadOpt::optAAG()
     double ev_appro = Egravity.norm();
     double ev_smt = Esmth.norm();
     double ev_norm = Enorm.norm();
-    std::cout << "Eclose, " << ev_appro << ", lap, " << ev_smt << ", normal vector, " << ev_norm << ", ";
+    std::cout << "Eclose, " << ev_appro<<", Ecurve, "<<ECurve.norm() << ", lap, " << ev_smt << ", normal vector, " << ev_norm << ", ";
 
     double ebi = Ebnm0.norm();
     std::cout << "bnm, " << ebi << ", GAA, " << Epg[0].norm() << ", " << Epg[1].norm() << ", " << Epg[2].norm() << ", ";
@@ -2562,7 +2571,7 @@ void QuadOpt::optAGG()
 	B += weight_gravity * Bgravity;
     spMat HCurve;  // approximation to curve
 	Eigen::VectorXd BCurve, ECurve; // right of approximation to curve
-    assemble_approximate_curve_conditions(HCurve, BCurve, ECurve);
+    assemble_approximate_curve_conditions(HCurve, BCurve, ECurve, order);
     H += weight_curve * HCurve;
 	B += weight_curve * BCurve;
 
