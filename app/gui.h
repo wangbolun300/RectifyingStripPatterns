@@ -37,6 +37,8 @@ public:
 	lscif();
 	igl::Timer timer_global;
 	double time_total = 0;
+	double time_propagation = 0;
+	int propagation_itr = 0;
 	int iteration_total = 0;
 	std::vector<double> errorlist;
 	std::vector<double> timelist; 

@@ -588,6 +588,9 @@ void lscif::draw_menu1(igl::opengl::glfw::Viewer &viewer, igl::opengl::glfw::img
 				std::cout << "Total Time: " << time_total << std::endl;
 				std::cout << "Total Iterations: " << iteration_total << std::endl;
 				std::cout << "AVG Time: " << time_total / iteration_total << std::endl;
+				std::cout<<"Total Propagation time "<<time_propagation<<"\n";
+				std::cout<<"Total Propagation itr "<<propagation_itr<<"\n";
+				std::cout<<"Average Propagation time "<<time_propagation/ propagation_itr<<"\n";
 			}
 			ImGui::SameLine();
 			if (ImGui::Button("TimerErrorReset", ImVec2(ImGui::GetWindowSize().x * 0.23f, 0.0f)))
@@ -2521,6 +2524,7 @@ void lscif::draw_menu2(igl::opengl::glfw::Viewer &viewer, igl::opengl::glfw::img
 					ImGui::End();
 					return;
 				}
+				timer_global.start();
 				std::vector<Eigen::Vector3d> versOff; std::vector<Eigen::Vector3d> cresOff;
 				std::vector<Eigen::Vector3d> plyin = poly_tool.ply_extracted[0];
 				std::vector<Eigen::Vector3d> binin = poly_tool.bin_extracted[0];
@@ -2542,6 +2546,9 @@ void lscif::draw_menu2(igl::opengl::glfw::Viewer &viewer, igl::opengl::glfw::img
 				
 				SingleFoot = versOff;
 				SingleCrease = cresOff;
+				timer_global.stop();
+				time_propagation += timer_global.getElapsedTimeInSec();
+				propagation_itr ++;
 				int id = viewer.selected_data_index;
 				std::vector<std::vector<Eigen::Vector3d>> vtmp(1), ctmp(1);
 				vtmp[0] = versOff;
@@ -2563,7 +2570,10 @@ void lscif::draw_menu2(igl::opengl::glfw::Viewer &viewer, igl::opengl::glfw::img
 					ImGui::End();
 					return;
 				}
+				timer_global.start();
 				adjustAagOffset(mat_to_vec_list(SinglePly), SingleFoot, SingleCrease);
+				timer_global.stop();
+				time_propagation += timer_global.getElapsedTimeInSec();
 				int id = viewer.selected_data_index;
 				std::vector<std::vector<Eigen::Vector3d>> vtmp(1), ctmp(1);
 				vtmp[0] = SingleFoot;
@@ -2800,7 +2810,7 @@ void lscif::draw_menu2(igl::opengl::glfw::Viewer &viewer, igl::opengl::glfw::img
 				std::vector<Eigen::Vector3d> versOut; std::vector<Eigen::Vector3d> directions;
 				std::vector<Eigen::Vector3d> plyin;// = poly_tool.ply_extracted[0];
 				std::vector<Eigen::Vector3d> binin;// = poly_tool.bin_extracted[0];
-
+				timer_global.start();
 				if (!quad_tool.AGGAAGApproInitStrip)
 				{
 					if (quad_tool.V.rows() == 0)
@@ -2849,6 +2859,9 @@ void lscif::draw_menu2(igl::opengl::glfw::Viewer &viewer, igl::opengl::glfw::img
 				}
 				SingleFoot = versOut;
 				SingleCrease = binin;
+				timer_global.stop();
+				time_propagation += timer_global.getElapsedTimeInSec();
+				propagation_itr++;
 				int id = viewer.selected_data_index;
 				std::vector<std::vector<Eigen::Vector3d>> vtmp(1), ctmp(1);
 				vtmp[0] = plyin;
@@ -2871,7 +2884,7 @@ void lscif::draw_menu2(igl::opengl::glfw::Viewer &viewer, igl::opengl::glfw::img
 					ImGui::End();
 					return;
 				}
-				
+				timer_global.start();
 				std::vector<Eigen::Vector3d> vall;
 				int vinrow = SingleFoot.size();
 				// the propagate will add the optimized offset point into the list
@@ -2887,6 +2900,8 @@ void lscif::draw_menu2(igl::opengl::glfw::Viewer &viewer, igl::opengl::glfw::img
 				adjustAggOffset(vall, vinrow, footOut);
 				SingleFoot = footOut;
 				VallMat.bottomRows(vinrow) = vec_list_to_matrix(SingleFoot);
+				timer_global.stop();
+				time_propagation+=timer_global.getElapsedTimeInSec();
 				int id = viewer.selected_data_index;
 				MeshProcessing mp;
 				CGMesh updateMesh;
