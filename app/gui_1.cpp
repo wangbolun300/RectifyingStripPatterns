@@ -2526,11 +2526,13 @@ void lscif::draw_menu2(igl::opengl::glfw::Viewer &viewer, igl::opengl::glfw::img
 				std::vector<Eigen::Vector3d> binin = poly_tool.bin_extracted[0];
 				if (quad_tool.vNbrInRow<0)
 				{ // if there are only 1 polyline, use old init
+					std::cout<<"plane intersection 1\n";
 					construct_single_developable_strips_by_intersect_rectifying_AAG(plyin, binin, versOff, cresOff, 
 					AggPara1, AggPara2, AggPara3, AggPara4, AggPara5);
 				}
 				else // if there are >= 2 polylines, use new init
 				{
+					std::cout<<"plane intersection 2\n";
 					int cnbr = quad_tool.V.rows()/quad_tool.vNbrInRow;
 					int stt = (cnbr-2)*quad_tool.vNbrInRow;
 					construct_single_developable_strips_by_intersect_rectifying_AAG_followings(
