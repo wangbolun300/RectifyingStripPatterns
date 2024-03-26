@@ -864,7 +864,50 @@ void QuadOpt::assemble_gravity_AAG_AGG(spMat& H, Eigen::VectorXd& B, Eigen::Vect
     H = J.transpose() * J;
     B = -J.transpose() * energy;
 }
+void QuadOpt::assemble_gravity_ApproOriginal(spMat& H, Eigen::VectorXd& B, Eigen::VectorXd &energy)
+{
+    
+    std::vector<Trip> tripletes;
+    int vnbr = V.rows();
+    tripletes.reserve(vnbr * 3);
+    energy = Eigen::VectorXd::Zero(vnbr);
+    for (int i = 0; i < vnbr; i++)
+    {
+        int vid = i;
+        int lx = vid;
+        int ly = vid + vnbr;
+        int lz = vid + vnbr * 2;
+        Eigen::Vector3d ver = V.row(vid);
 
+        // vertices not far away from the original ones
+        // (ver - ver^*)^2 = 0
+        double scale = 1;
+        // if (i >= vNbrInRow)
+        // {
+        //     scale = 0.1; // weak approximate to the second curve
+        // }
+        Eigen::Vector3d verori;
+        verori[0] = OrigVars[lx];
+        verori[1] = OrigVars[ly];
+        verori[2] = OrigVars[lz];
+        Eigen::Vector3d vdiff;
+
+        vdiff = Eigen::Vector3d(V.row(vid)) - verori;
+
+        tripletes.push_back(Trip(i, lx, 2 * vdiff[0] * scale));
+        tripletes.push_back(Trip(i, ly, 2 * vdiff[1] * scale));
+        tripletes.push_back(Trip(i, lz, 2 * vdiff[2] * scale));
+
+        energy[i] = vdiff.dot(vdiff) * scale;
+    }
+    int nvars = GlobVars.size();
+    int ncondi = energy.size();
+    spMat J;
+    J.resize(ncondi, nvars);
+    J.setFromTriplets(tripletes.begin(), tripletes.end());
+    H = J.transpose() * J;
+    B = -J.transpose() * energy;
+}
 void QuadOpt::load_triangle_mesh_tree(const igl::AABB<Eigen::MatrixXd, 3> &tree, const Eigen::MatrixXd &Vt,
                                       const Eigen::MatrixXi &Ft, const Eigen::MatrixXd &Nt)
 {
@@ -1550,6 +1593,12 @@ QuadOpt::assemble_pg_extreme_cases(spMat &H, Eigen::VectorXd &B, Eigen::VectorXd
 void QuadOpt::assemble_pg_cases(const double angle_radian, spMat &H, Eigen::VectorXd &B, Eigen::VectorXd &energy,
                                 const int family, const int bnm_start_location)
 {
+    if(angle_radian == 90 * LSC_PI / 180.)
+    {
+        std::cout<<"G...\n";
+        assemble_pg_extreme_cases(H,B, energy,2,family,bnm_start_location);
+        return;
+    }
     std::vector<Trip> tripletes;
     int vnbr = V.rows();
     int energy_size = 0;
@@ -2054,7 +2103,7 @@ void QuadOpt::opt(){
 
     spMat Hgravity;  // approximation
 	Eigen::VectorXd Bgravity; // right of laplacian
-	assemble_gravity(Hgravity, Bgravity, Egravity);
+	assemble_gravity_ApproOriginal(Hgravity, Bgravity, Egravity);
     H += weight_gravity * Hgravity;
 	B += weight_gravity * Bgravity;
 
@@ -2709,7 +2758,8 @@ void QuadOpt::show_curve_families(std::array<Eigen::MatrixXd, 3>& edges){
 
     // int vid = rowinfo[row_m][col_m]; // choose a point in the middle
     int vid = mesh_original.n_vertices() / 3;
-
+    std::cout<<"rowback\n"<<row_back<<"\n";
+    std::cout<<"colback\n"<<col_back<<"\n";
     std::vector<Eigen::Vector3d> vtp;
     int vcurrent = vid;
     for (int i = 0;; i++)// rows
@@ -2750,6 +2800,7 @@ void QuadOpt::show_curve_families(std::array<Eigen::MatrixXd, 3>& edges){
     {
         ajc = d1_back;
     }
+    std::cout<<"diag_back\n"<<ajc<<"\n";
     for (int i = 0;; i++) // diagonals
     {
         if (ajc[vcurrent] < 0)

@@ -269,6 +269,7 @@ private:
     void assemble_fairness(spMat& H, Eigen::VectorXd& B, Eigen::VectorXd &energy, const int order = 0);
     void assemble_gravity(spMat& H, Eigen::VectorXd& B, Eigen::VectorXd &energy);
     void assemble_gravity_AAG_AGG(spMat& H, Eigen::VectorXd& B, Eigen::VectorXd &energy, int order = 0);
+    void assemble_gravity_ApproOriginal(spMat& H, Eigen::VectorXd& B, Eigen::VectorXd &energy);
     // type: 0 disabled. 1 means asymptotic, 2 means geodesic, 3 pseudo-geodesic
     // family: 0 rows, 1 cols, 2 diagonal NO0, 3 diagonal NO1.
     void assemble_pg_extreme_cases(spMat &H, Eigen::VectorXd &B, Eigen::VectorXd &energy,
