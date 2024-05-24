@@ -283,6 +283,7 @@ void classifyOriginalQuads(const Eigen::MatrixXd &V, const Eigen::MatrixXi &F, c
     {
         flags[pIn[i]] = true;
     }
+    // std::cout<<"cutted fids\n";
     for (int i = 0; i < fnbr; i++)
     {
         int counter = 0;
@@ -308,8 +309,17 @@ void classifyOriginalQuads(const Eigen::MatrixXd &V, const Eigen::MatrixXi &F, c
         {
             quadCut.push_back(i);
             fvin.push_back(inside);
+            // std::cout<<i<<", ";
+            if(i==304)
+            {
+                std::cout << "checking " << i << ", the counter, " << counter << " verin, " << inside[0] << ", " << inside[1] << ", " << inside[2]
+                          << ", " << inside[3] << "\n";
+                std::cout<<"the face, "<< F.row(i)<<"\n";      
+            }
         }
+        
     }
+    std::cout<<"\n";
 }
 
 void findALlIntersections(const CGMesh &mesh, const Eigen::MatrixXd &V, const Eigen::MatrixXi &F,
@@ -358,6 +368,7 @@ int edgeCutted(const int vf, const int vt, const Eigen::Vector4i &quad, CGMesh &
     if (!f0 || !f1)
     {
         std::cout<<"the edge is not in the quad!!!\n";
+        std::cout<<"the edge: "<<vf<<", "<<vt<<", the quad, "<<quad.transpose()<<"\n";
         exit(0);
     }
     if (in0 == in1)
@@ -397,14 +408,21 @@ std::vector<int> fromCutPtToCutPt(const std::vector<int> &vloop, const int start
         exit(0);
     }
     result.push_back(vloop[start]);
+    bool found = false;
     for (int i = 1; i < vloop.size(); i++)
     {
         int id = (i + start) % vloop.size();
         result.push_back(vloop[id]);
         if (vloop[id] >= vnbr)
         {
+            found = true;
             break;
         }
+    }
+    if(!found)
+    {
+        std::cout<<"the loop end point is not found!\n";
+        exit(0);
     }
     return result;
 }
@@ -435,14 +453,72 @@ void classifyVloop(const std::vector<bool> &Vflags, const std::vector<int> &vloo
         if(!Vflags[ps[1][1]])
         {
             std::cout<<"Both the two polygons are outside!\n";
+            std::cout<<"the vnbr "<<vnbr<<"\n";
+            for(auto r : ps[0])
+            {
+                std::cout<<r<<", ("<<Vflags[r]<<"), ";
+            }
+            std::cout<<"\n";
+            for(auto r : ps[1])
+            {
+                std::cout<<r<<", ("<<Vflags[r]<<"), ";
+            }
+            std::cout<<"\n";
             exit(0);
         }
     }
     return;
 }
 
+void sortBoundaryEdgesIntoLoop(const std::vector<std::array<int, 2>> &bes, std::vector<int> &loop)
+{
+    int enbr = bes.size();
+    std::vector<bool> echecked(enbr, false); 
+    loop.push_back(bes[0][0]);
+    loop.push_back(bes[0][1]);
+    echecked[0] = true;
+    int nbrChecked = 1;
+    while(1)
+    {
+        if (nbrChecked == enbr - 1)
+        {
+            break;
+        }
+        int id = loop.back();
+        for (int i = 0; i < enbr; i++)
+        {
+            if(echecked[i])
+            {
+                continue;
+            }
+            if (id == bes[i][0] || id == bes[i][1])
+            {
+                if (id == bes[i][0])
+                {
+                    loop.push_back(bes[i][1]);
+                }
+                else{
+                    loop.push_back(bes[i][0]);
+                }
+                echecked[i] = true;
+                nbrChecked++;
+            }
+        }
+    }
 
+
+}
+
+bool verInQuad(const int vid, const Eigen::Vector4i& face)
+{
+    if(vid==face[0]||vid==face[1]||vid==face[2]||vid==face[3])
+    {
+        return true;
+    }
+    return false;
+}
 // bLoop is the boundary loop
+// split the quads into 
 void splitIntersectedQuads(CGMesh &mesh, const Eigen::MatrixXd &V, const Eigen::MatrixXi &F,
                            const Eigen::MatrixXd &Vl, const std::vector<CGMesh::EdgeHandle> &ehs,
                            const std::vector<int> &quadCut, const std::vector<std::array<bool, 4>> &fvin,
@@ -454,17 +530,31 @@ void splitIntersectedQuads(CGMesh &mesh, const Eigen::MatrixXd &V, const Eigen::
     // the generated quads, triangles and pentagons.
     
     std::vector<std::array<int,2>> bEdges; // boundary edges
+    
     for (int i = 0; i < quadCut.size(); i++)
     {
         CGMesh::FaceHandle fh = mesh.face_handle(quadCut[i]);
-        std::vector<int> vloop; // the loop for the face
+        std::vector<int> vloop;                // the loop for the face
         // iterate over the 4 edges, if there is a cut, add the vertex into the loop.
         for (CGMesh::FaceHalfedgeIter fh_it = mesh.fh_begin(fh); fh_it != mesh.fh_end(fh); ++fh_it)
         {
             OpenMesh::HalfedgeHandle hh = mesh.halfedge_handle(fh_it);
             int vfrom = mesh.from_vertex_handle(hh).idx();
             int vto = mesh.to_vertex_handle(hh).idx();
+
             vloop.push_back(vfrom);
+
+            if(!verInQuad(vfrom, F.row(quadCut[i])))
+            {
+                std::cout<<"ver is not in!\n";
+                exit(0);
+            }
+            if(!verInQuad(vto, F.row(quadCut[i])))
+            {
+                std::cout<<"ver is not in!\n";
+                exit(0);
+            }
+            
             int iid = edgeCutted(vfrom, vto, F.row(quadCut[i]), mesh, ehs, fvin[i]);
             if (iid < 0)
             { // not cutted, continue;
@@ -483,6 +573,30 @@ void splitIntersectedQuads(CGMesh &mesh, const Eigen::MatrixXd &V, const Eigen::
         // classify the cutted quad into two polygons. keep the inner one.
         std::vector<int> poly;
         std::array<int, 2> be;
+        bool foundin = false;
+        for(int vid : vloop)
+        {
+            if (vid < vnbr)
+            {
+                if(Vflags[vid])
+                {
+                    foundin = true;
+                }
+            }
+        }
+        if (!foundin)
+        {
+            std::cout << "error: the cutted quad doesn't have any inside ver, fid, " << quadCut[i] << "\n";
+            std::cout << "face, " << F.row(quadCut[i]) << "\n";
+            std::cout << "loop: \n";
+            for (int vid : vloop)
+            {
+                std::cout << vid << ", ";
+            }
+            std::cout << "\n";
+
+            // exit(0);
+        }
         classifyVloop(Vflags, vloop, vnbr, poly, be);
         bEdges.push_back(be);
         int psize = poly.size();
@@ -505,10 +619,62 @@ void splitIntersectedQuads(CGMesh &mesh, const Eigen::MatrixXd &V, const Eigen::
         }
     }
     // sort the boundary edges into a loop
+    sortBoundaryEdgesIntoLoop(bEdges, bLoop);
 }
 
-// void findConnectivityForInnerVertices()
+// returns the halfedge id of the edge v0-v1
+int whichHalfedge(const int v0, const int v1, CGMesh &mesh, const std::vector<CGMesh::EdgeHandle> &ehs)
+{
 
+    for (int i = 0; i < ehs.size(); i++)
+    {
+        CGMesh::HalfedgeHandle hh = mesh.halfedge_handle(ehs[i], 0);
+        int vf = mesh.from_vertex_handle(hh).idx();
+        int vt = mesh.to_vertex_handle(hh).idx();
+        if ((v0 == vf && v1 == vt) || (v0 == vt && v1 == vf))
+        {
+            return i;
+        }
+    }
+    std::cout << "We cannot find the halfedge!\n";
+    exit(0);
+}
+
+void findConnectivityForInnerVertices(const std::vector<bool> &Vflags, const std::vector<int> &pin, const int vnbr,
+                                      CGMesh &mesh, const std::vector<CGMesh::EdgeHandle> &ehs,
+                                      std::vector<std::array<int,4>>& connect)
+{
+    for (int i = 0; i < pin.size(); i++)
+    {
+        CGMesh::VertexHandle vh = mesh.vertex_handle(pin[i]);
+        std::vector<int> nbs; // neighbours
+        for (CGMesh::VertexOHalfedgeIter voh_it = mesh.voh_begin(vh); voh_it != mesh.voh_end(vh); ++voh_it)
+        {
+            CGMesh::HalfedgeHandle hh = mesh.halfedge_handle(voh_it);
+            int idout = mesh.to_vertex_handle(hh).idx();
+            if (idout == pin[i])
+            {
+                std::cout << "from and to are the same!\n";
+                exit(0);
+            }
+            if(Vflags[idout]) // this vertex is inside the boundary loop, add it into the neighbours
+            {
+                nbs.push_back(idout);
+            }
+            else // this vertex is outside, then check which halfedge it is.
+            {
+                int vid = whichHalfedge(pin[i], idout, mesh, ehs) + vnbr;
+                nbs.push_back(vid);
+            }
+        }
+        if (nbs.size() != 4)
+        {
+            std::cout << "the nbr of neighbors should be 4!\n";
+            exit(0);
+        }
+        connect.push_back({nbs[0], nbs[1], nbs[2], nbs[3]});
+    }
+}
 
 void cutBoundaryGenerateTopology()
 {
@@ -546,14 +712,18 @@ void cutBoundaryGenerateTopology()
     // find all the intersections on the edges.
     findALlIntersections(mesh, Vquad, Fquad, Vcurve, ehs, intersections);
     std::cout << "find intersection point nbr, " << ehs.size() << "\n";
-    // get the cutted polygons.
+    // get the cutted polygons and the boundary loop
     // the triangles, the quads and the pentagons
     std::vector<std::array<int,3>> rT;
     std::vector<std::array<int,4>> rQ;
     std::vector<std::array<int,5>> rP;
-    splitIntersectedQuads(mesh, Vquad, Fquad, Vcurve, ehs, quadCut, fvin, vFlags, rQ, rT, rP);
+    std::vector<int> bLoop;
+    splitIntersectedQuads(mesh, Vquad, Fquad, Vcurve, ehs, quadCut, fvin, vFlags, rQ, rT, rP, bLoop);
+    std::vector<std::array<int,4>> connect;
+    findConnectivityForInnerVertices(vFlags, pin, vnbr, mesh, ehs, connect);
 
     // get the connection for all the inner vertices.
+
 
     // write the points inside
     igl::writeOBJ("/Users/wangb0d/Desktop/tmp/Khusrav/CRPC/send/pIn.obj", Vin, Eigen::MatrixXi());
