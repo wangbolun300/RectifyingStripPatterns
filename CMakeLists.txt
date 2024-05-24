@@ -40,7 +40,8 @@ igl_include(core)
 igl_include(opengl)
 igl_include(glfw)
 igl_include(imgui)
-target_link_libraries(lsc PUBLIC igl::core igl::opengl igl::glfw igl::imgui Eigen3::Eigen)
+igl_include(predicates)
+target_link_libraries(lsc PUBLIC igl::core igl::opengl igl::glfw igl::imgui Eigen3::Eigen igl::predicates)
 
 if(WIN32)
 

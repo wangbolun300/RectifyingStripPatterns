@@ -1,4 +1,5 @@
 #include <gui.h>
+#include <lsc/dev.h>
 void lscif::draw_menu1(igl::opengl::glfw::Viewer &viewer, igl::opengl::glfw::imgui::ImGuiPlugin &plugin,
 					   igl::opengl::glfw::imgui::ImGuiMenu &menu)
 {
@@ -117,6 +118,7 @@ void lscif::draw_menu1(igl::opengl::glfw::Viewer &viewer, igl::opengl::glfw::img
 			// {
 			// 	std::cout<<light.row(i).dot(target_light)<<std::endl;
 			// }
+			cutBoundaryGenerateTopology();
 		}
 		ImGui::SameLine();
 		if (ImGui::Button("UseUnitScaleMesh", ImVec2(ImGui::GetWindowSize().x * 0.25f, 0.0f)))

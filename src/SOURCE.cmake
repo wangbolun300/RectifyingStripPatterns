@@ -18,6 +18,8 @@ src/interaction.cpp
 src/interaction.h
 src/topology.cpp
 src/quad.cpp
+src/dev.cpp
+src/dev.h
 )
 ################################################################################
 # Subfolders
