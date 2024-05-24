@@ -5,6 +5,7 @@
 #include <igl/segment_segment_intersect.h>
 #include <igl/predicates/predicates.h>
 #include <igl/writeOBJ.h>
+#include <ofstream>
 inline int orient2d(
     const Eigen::Vector2d& p, const Eigen::Vector2d& q, const Eigen::Vector2d& r)
 {
@@ -172,13 +173,14 @@ int ray_source_in_loop(const Eigen::Vector3d& p0in, const Eigen::Vector3d& p1in,
     }
     return ni % 2;
 }
-Eigen::Vector2d edge_loop_intersectionPoint(const Eigen::Vector2d &p0, const Eigen::Vector2d &p1,
-                                            const Eigen::MatrixXd &Vl, bool& found, int& round)
+Eigen::Vector3d edge_loop_intersectionPoint(const Eigen::Vector2d &p0, const Eigen::Vector2d &p1,
+                                            const Eigen::Vector3d &pp0, const Eigen::Vector3d &pp1,
+                                            const Eigen::MatrixXd &Vl, bool &found, int &round)
 {
     int vnbr = Vl.rows();
     int eid = -1;
     found = false;
-    Eigen::Vector2d result(-1, -1);
+    Eigen::Vector3d result(-1, -1, -1);
     round = -1;
     for (int i = 0; i < vnbr; i++)
     {
@@ -216,9 +218,8 @@ Eigen::Vector2d edge_loop_intersectionPoint(const Eigen::Vector2d &p0, const Eig
                 t0 = 1;
                 round = 1;
             }
-            Eigen::Vector3d i3 = p03 + t0 * (p13 - p03);
-            result[0] = i3[0];
-            result[1] = i3[1];
+            Eigen::Vector3d i3 = pp0 + t0 * (pp1 - pp0);
+            result = i3;
             found = true;
 
         }
@@ -324,7 +325,7 @@ void classifyOriginalQuads(const Eigen::MatrixXd &V, const Eigen::MatrixXi &F, c
 
 void findALlIntersections(const CGMesh &mesh, const Eigen::MatrixXd &V, const Eigen::MatrixXi &F,
                           const Eigen::MatrixXd &Vl, std::vector<CGMesh::EdgeHandle> &ehs,
-                          std::vector<Eigen::Vector2d> &intersections)
+                          std::vector<Eigen::Vector3d> &intersections)
 {
     for (CGMesh::EdgeIter e_it = mesh.edges_begin(); e_it != mesh.edges_end(); ++e_it)
     {   
@@ -335,7 +336,7 @@ void findALlIntersections(const CGMesh &mesh, const Eigen::MatrixXd &V, const Ei
         Eigen::Vector2d p0(V(vid0, 0), V(vid0, 1)), p1(V(vid1, 0), V(vid1, 1));
         bool found = false;
         int round;
-        Eigen::Vector2d intersection = edge_loop_intersectionPoint(p0, p1, Vl, found, round);
+        Eigen::Vector3d intersection = edge_loop_intersectionPoint(p0, p1, V.row(vid0), V.row(vid1), Vl, found, round);
         if(found)
         {
             ehs.push_back(eh);
@@ -731,6 +732,102 @@ void findConnectivityForInnerVertices(const std::vector<bool> &Vflags, const std
     }
 }
 
+Eigen::MatrixXd connectVertexList(const Eigen::MatrixXd&V0, const std::vector<Eigen::Vector3d>& V1)
+{
+    int vnbr = V0.rows()+V1.size();
+    Eigen::MatrixXd V(vnbr, 3);
+    V.topRows(V0.rows()) = V0;
+    V.bottomRows(V1.size()) = vec_list_to_matrix(V1);
+    return V;
+}
+
+void remapVertices(const int vnbr, const int vnbrAll, const Eigen::MatrixXd &Vall,
+                   const std::vector<bool> &flags, std::vector<int> &map, Eigen::MatrixXd &Vclean)
+{
+    int counter = 0;
+    map = std::vector<int>(vnbrAll, -1);
+    for (int i = 0; i < flags.size(); i++)
+    {
+        if (flags[i])
+        {
+            map[i] = counter;
+            counter++;
+        }
+    }
+    for (int i = flags.size(); i < vnbrAll; i++)
+    {
+        map[i] = counter;
+        counter++;
+    }
+    Vclean.resize(counter, 3);
+    for(int i=0;i<map.size();i++)
+    {
+        if(map[i]>=0)
+        {
+            Vclean.row(map[i]) = Vall.row(i);
+        }
+    }
+}
+
+void cleanFaceList(const std::vector<int> &map, const std::vector<int> &quadFull, const Eigen::MatrixXi &F,
+                   Eigen::MatrixXi &Fclean)
+{
+    Fclean.resize(quadFull.size(), 4);
+    for (int i = 0; i < quadFull.size(); i++)
+    {
+        Eigen::Vector4i qd = F.row(quadFull[i]);
+        Fclean.row(i) << map[qd[0]], map[qd[1]],
+            map[qd[2]], map[qd[3]];
+        if (map[qd[0]] < 0 || map[qd[1]] < 0 ||
+            map[qd[2]] < 0 || map[qd[3]] < 0)
+        {
+            std::cout<<"wrong in map!\n";
+            exit(0);
+        }
+    }
+
+}
+template <typename T>
+void cleanFaceList(const std::vector<int> &map, std::vector<T>& faces, const int order)
+{
+    std::vector<T> fcp = faces;
+    for(int i=0;i<faces.size();i++)
+    {
+        for(int j=0;j<order;j++)
+        {
+            fcp[i][j] = map[faces[i][j]];
+            if(map[faces[i][j]]<0)
+            {
+                std::cout<<"error in templated face cleaner!\n";
+                exit(0);
+            }
+        }
+    }
+    faces = fcp;
+}
+
+template <typename T>
+void writeObjPly(const std::string filename, const Eigen::MatrixXd& V, const std::vector<T>& F, const int order)
+{
+    std::ofstream fout;
+    fout.open(filename);
+    for (int i = 0; i < V.rows(); i++)
+    {
+        fout << "v " << V(i, 0) << " " << V(i, 1) << " " << V(i, 2) << "\n";
+    }
+    for(int i=0;i<F.rows();i++)
+    {
+        fout<<"f";
+        for(int j=0;j<order;j++)
+        {
+            fout<<" "<<F[i][j];
+        }
+        fout<<"\n";
+    }
+    fout.close();
+
+}
+
 
 void cutBoundaryGenerateTopology()
 {
@@ -764,7 +861,7 @@ void cutBoundaryGenerateTopology()
     CGMesh mesh;
     mp.matrix2Mesh(mesh, Vquad, Fquad);
     std::vector<CGMesh::EdgeHandle> ehs;
-    std::vector<Eigen::Vector2d> intersections;
+    std::vector<Eigen::Vector3d> intersections;
     // find all the intersections on the edges.
     findALlIntersections(mesh, Vquad, Fquad, Vcurve, ehs, intersections);
     std::cout << "find intersection point nbr, " << ehs.size() << "\n";
@@ -779,6 +876,20 @@ void cutBoundaryGenerateTopology()
     std::vector<std::array<int,4>> connect;
     // get the connection for all the inner vertices.
     findConnectivityForInnerVertices(vFlags, pin, vnbr, mesh, ehs, connect);
+    Eigen::MatrixXd Vall = connectVertexList(Vquad, intersections);
+
+    // clean the data
+    std::vector<int> map;
+    Eigen::MatrixXd Vclean;
+    remapVertices(vnbr, Vall.rows(), Vall, vFlags, map, Vclean);
+    Eigen::MatrixXi quadsClean;
+    // clean the face lists
+    cleanFaceList(map, quadFull, Fquad, quadsClean);
+    cleanFaceList(map, rQ, 4);
+    cleanFaceList(map, rT, 3);
+    cleanFaceList(map, rP, 5);
+    // write them
+    xx
 
     
 
