@@ -310,12 +310,12 @@ void classifyOriginalQuads(const Eigen::MatrixXd &V, const Eigen::MatrixXi &F, c
             quadCut.push_back(i);
             fvin.push_back(inside);
             // std::cout<<i<<", ";
-            if(i==304)
-            {
-                std::cout << "checking " << i << ", the counter, " << counter << " verin, " << inside[0] << ", " << inside[1] << ", " << inside[2]
-                          << ", " << inside[3] << "\n";
-                std::cout<<"the face, "<< F.row(i)<<"\n";      
-            }
+            // if(i==304)
+            // {
+            //     std::cout << "checking " << i << ", the counter, " << counter << " verin, " << inside[0] << ", " << inside[1] << ", " << inside[2]
+            //               << ", " << inside[3] << "\n";
+            //     std::cout<<"the face, "<< F.row(i)<<"\n";      
+            // }
         }
         
     }
@@ -536,23 +536,44 @@ void splitIntersectedQuads(CGMesh &mesh, const Eigen::MatrixXd &V, const Eigen::
         CGMesh::FaceHandle fh = mesh.face_handle(quadCut[i]);
         std::vector<int> vloop;                // the loop for the face
         // iterate over the 4 edges, if there is a cut, add the vertex into the loop.
-        for (CGMesh::FaceHalfedgeIter fh_it = mesh.fh_begin(fh); fh_it != mesh.fh_end(fh); ++fh_it)
+        CGMesh::FaceHalfedgeIter fh_it = mesh.fh_begin(fh);
+        OpenMesh::HalfedgeHandle hh = fh_it.handle();
+
+        for (int j = 0; j < 4; j++)
         {
-            OpenMesh::HalfedgeHandle hh = mesh.halfedge_handle(fh_it);
+            hh = mesh.next_halfedge_handle(hh);
             int vfrom = mesh.from_vertex_handle(hh).idx();
             int vto = mesh.to_vertex_handle(hh).idx();
+            for(int c : vloop)
+            {
+                if(c==vfrom)
+                {
+                    std::cout<<"the vertex is already in \nwhich edge "<<j<<"\n";
+                    exit(0);
+                }
+            }
 
             vloop.push_back(vfrom);
-
+            bool notin = false;
             if(!verInQuad(vfrom, F.row(quadCut[i])))
             {
-                std::cout<<"ver is not in!\n";
-                exit(0);
+                std::cout<<"ver is not in!\n"<<vfrom<<"\n";
+                notin = true;
             }
             if(!verInQuad(vto, F.row(quadCut[i])))
             {
-                std::cout<<"ver is not in!\n";
-                exit(0);
+                std::cout<<"ver is not in!\n"<<vfrom<<"\n";
+                notin = true;
+            }
+            if(notin)
+            {
+                std::cout<<"face , "<<F.row(quadCut[i])<<"\nwhich edge, "<<j<<"\n";
+                std::cout<<"the face vertices itr:\n";
+                for(CGMesh::FaceVertexIter fvitr = mesh.fv_begin(fh);fvitr != mesh.fv_end(fh); ++fvitr)
+                {
+                    std::cout<<fvitr.handle().idx()<<", ";
+                }
+                std::cout<<"\n";
             }
             
             int iid = edgeCutted(vfrom, vto, F.row(quadCut[i]), mesh, ehs, fvin[i]);
@@ -565,6 +586,44 @@ void splitIntersectedQuads(CGMesh &mesh, const Eigen::MatrixXd &V, const Eigen::
                 vloop.push_back(iid + vnbr);
             }
         }
+
+        // for (CGMesh::FaceEdgeIter fh_it = mesh.fe_begin(fh); fh_it != mesh.fe_end(fh); ++fh_it)
+        // {
+        //     OpenMesh::HalfedgeHandle hh = mesh.halfedge_handle(fh_it, 0);
+        //     int vfrom = mesh.from_vertex_handle(hh).idx();
+        //     int vto = mesh.to_vertex_handle(hh).idx();
+        //     for(int c : vloop)
+        //     {
+        //         if(c==vfrom)
+        //         {
+        //             std::cout<<"the vertex is already in \n";
+        //             exit(0);
+        //         }
+        //     }
+
+        //     vloop.push_back(vfrom);
+
+        //     if(!verInQuad(vfrom, F.row(quadCut[i])))
+        //     {
+        //         std::cout<<"ver is not in!\n";
+        //         exit(0);
+        //     }
+        //     if(!verInQuad(vto, F.row(quadCut[i])))
+        //     {
+        //         std::cout<<"ver is not in!\n";
+        //         exit(0);
+        //     }
+            
+        //     int iid = edgeCutted(vfrom, vto, F.row(quadCut[i]), mesh, ehs, fvin[i]);
+        //     if (iid < 0)
+        //     { // not cutted, continue;
+        //         continue;
+        //     }
+        //     else
+        //     {
+        //         vloop.push_back(iid + vnbr);
+        //     }
+        // }
         if (vloop.size() != 6)
         {
             std::cout << "The vloop has " << vloop.size() << " vertices!\n";
@@ -650,7 +709,7 @@ void findConnectivityForInnerVertices(const std::vector<bool> &Vflags, const std
         std::vector<int> nbs; // neighbours
         for (CGMesh::VertexOHalfedgeIter voh_it = mesh.voh_begin(vh); voh_it != mesh.voh_end(vh); ++voh_it)
         {
-            CGMesh::HalfedgeHandle hh = mesh.halfedge_handle(voh_it);
+            CGMesh::HalfedgeHandle hh = voh_it.handle();
             int idout = mesh.to_vertex_handle(hh).idx();
             if (idout == pin[i])
             {
@@ -667,14 +726,11 @@ void findConnectivityForInnerVertices(const std::vector<bool> &Vflags, const std
                 nbs.push_back(vid);
             }
         }
-        if (nbs.size() != 4)
-        {
-            std::cout << "the nbr of neighbors should be 4!\n";
-            exit(0);
-        }
-        connect.push_back({nbs[0], nbs[1], nbs[2], nbs[3]});
+        if(nbs.size() == 4) // record only the valence 4 vertices
+            connect.push_back({nbs[0], nbs[1], nbs[2], nbs[3]});
     }
 }
+
 
 void cutBoundaryGenerateTopology()
 {
@@ -719,10 +775,12 @@ void cutBoundaryGenerateTopology()
     std::vector<std::array<int,5>> rP;
     std::vector<int> bLoop;
     splitIntersectedQuads(mesh, Vquad, Fquad, Vcurve, ehs, quadCut, fvin, vFlags, rQ, rT, rP, bLoop);
+    std::cout<<"new generated quads, "<<rQ.size()<<", trians, "<<rT.size()<<", pentas, "<<rP.size()<<"\n";
     std::vector<std::array<int,4>> connect;
+    // get the connection for all the inner vertices.
     findConnectivityForInnerVertices(vFlags, pin, vnbr, mesh, ehs, connect);
 
-    // get the connection for all the inner vertices.
+    
 
 
     // write the points inside
