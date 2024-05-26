@@ -5,7 +5,7 @@
 #include <igl/segment_segment_intersect.h>
 #include <igl/predicates/predicates.h>
 #include <igl/writeOBJ.h>
-#include <ofstream>
+#include <fstream>
 inline int orient2d(
     const Eigen::Vector2d& p, const Eigen::Vector2d& q, const Eigen::Vector2d& r)
 {
@@ -702,7 +702,7 @@ int whichHalfedge(const int v0, const int v1, CGMesh &mesh, const std::vector<CG
 
 void findConnectivityForInnerVertices(const std::vector<bool> &Vflags, const std::vector<int> &pin, const int vnbr,
                                       CGMesh &mesh, const std::vector<CGMesh::EdgeHandle> &ehs,
-                                      std::vector<std::array<int,4>>& connect)
+                                      std::vector<std::array<int,5>>& connect)
 {
     for (int i = 0; i < pin.size(); i++)
     {
@@ -728,7 +728,7 @@ void findConnectivityForInnerVertices(const std::vector<bool> &Vflags, const std
             }
         }
         if(nbs.size() == 4) // record only the valence 4 vertices
-            connect.push_back({nbs[0], nbs[1], nbs[2], nbs[3]});
+            connect.push_back({pin[i], nbs[0], nbs[1], nbs[2], nbs[3]});
     }
 }
 
@@ -770,14 +770,14 @@ void remapVertices(const int vnbr, const int vnbrAll, const Eigen::MatrixXd &Val
 }
 
 void cleanFaceList(const std::vector<int> &map, const std::vector<int> &quadFull, const Eigen::MatrixXi &F,
-                   Eigen::MatrixXi &Fclean)
+                   std::vector<std::array<int,4>> &Fclean)
 {
-    Fclean.resize(quadFull.size(), 4);
+    Fclean.resize(quadFull.size());
     for (int i = 0; i < quadFull.size(); i++)
     {
         Eigen::Vector4i qd = F.row(quadFull[i]);
-        Fclean.row(i) << map[qd[0]], map[qd[1]],
-            map[qd[2]], map[qd[3]];
+        Fclean[i] ={ map[qd[0]], map[qd[1]],
+            map[qd[2]], map[qd[3]]};
         if (map[qd[0]] < 0 || map[qd[1]] < 0 ||
             map[qd[2]] < 0 || map[qd[3]] < 0)
         {
@@ -805,27 +805,92 @@ void cleanFaceList(const std::vector<int> &map, std::vector<T>& faces, const int
     }
     faces = fcp;
 }
+void cleanLoopList(const std::vector<int> &map, std::vector<int>& loop)
+{
+    std::vector<int> fcp = loop;
+    for (int i = 0; i < loop.size(); i++)
+    {
+        fcp[i] = map[loop[i]];
+    }
+    loop = fcp;
+}
 
 template <typename T>
-void writeObjPly(const std::string filename, const Eigen::MatrixXd& V, const std::vector<T>& F, const int order)
+void writeObjPly(const std::string filename, const Eigen::MatrixXd &V, const std::vector<int> &vmap,
+                 const std::vector<T> &F, const int order)
 {
     std::ofstream fout;
     fout.open(filename);
     for (int i = 0; i < V.rows(); i++)
     {
-        fout << "v " << V(i, 0) << " " << V(i, 1) << " " << V(i, 2) << "\n";
+        if (vmap[i] >= 0)
+            fout << "v " << V(i, 0) << " " << V(i, 1) << " " << V(i, 2) << "\n";
     }
-    for(int i=0;i<F.rows();i++)
+    for (int i = 0; i < F.size(); i++)
     {
-        fout<<"f";
-        for(int j=0;j<order;j++)
-        {
-            fout<<" "<<F[i][j];
-        }
-        fout<<"\n";
+        fout << "f";
+       
+            for (int j = 0; j < order; j++)
+            {
+                fout << " " << F[i][j] + 1;
+            }
+        fout << "\n";
     }
     fout.close();
+}
+void writeObjPly(const std::string filename, const Eigen::MatrixXd &V, const std::vector<int> &vmap,
+                 const std::vector<int> &F)
+{
+    std::ofstream fout;
+    fout.open(filename);
+    for (int i = 0; i < V.rows(); i++)
+    {
+        if (vmap[i] >= 0)
+            fout << "v " << V(i, 0) << " " << V(i, 1) << " " << V(i, 2) << "\n";
+    }
+    for (int i = 0; i < F.size(); i++)
+    {
+        fout << "f";
 
+        fout << "," << F[i] + 1;
+
+        fout << "\n";
+    }
+    fout.close();
+}
+
+void writeObjLoop(const std::string filename, const Eigen::MatrixXd &V, const std::vector<int> &vmap,
+                  const std::vector<int> &Loop)
+{
+    std::ofstream fout;
+    fout.open(filename);
+    for (int i = 0; i < V.rows(); i++)
+    {
+        if (vmap[i] >= 0)
+            fout << "v " << V(i, 0) << " " << V(i, 1) << " " << V(i, 2) << "\n";
+    }
+    for (int i = 0; i < Loop.size() - 1; i++)
+    {
+        fout << "l " << Loop[i] + 1 << " " << Loop[i + 1] + 1;
+
+        fout << "\n";
+    }
+    fout << "l " << Loop.back() + 1 << " " << Loop.front() + 1;
+    fout.close();
+}
+
+void writeSomePoints(const std::string filename, const Eigen::MatrixXd &V, const std::vector<int> &vmap,
+                  const std::vector<std::array<int, 5>> &connect, int cid)
+{
+    std::ofstream fout;
+    fout.open(filename);
+    for (int i = 0; i < V.rows(); i++)
+    {
+        if (vmap[i] >= 0)
+            fout << "v " << V(i, 0) << " " << V(i, 1) << " " << V(i, 2) << "\n";
+    }
+    fout<<"f "<<connect[cid][0]+1<<" "<<connect[cid][1]+1<<" "<<connect[cid][2]+1<<"\n";
+    fout<<"f "<<connect[cid][0]+1<<" "<<connect[cid][3]+1<<" "<<connect[cid][4]+1<<"\n";
 }
 
 
@@ -873,7 +938,7 @@ void cutBoundaryGenerateTopology()
     std::vector<int> bLoop;
     splitIntersectedQuads(mesh, Vquad, Fquad, Vcurve, ehs, quadCut, fvin, vFlags, rQ, rT, rP, bLoop);
     std::cout<<"new generated quads, "<<rQ.size()<<", trians, "<<rT.size()<<", pentas, "<<rP.size()<<"\n";
-    std::vector<std::array<int,4>> connect;
+    std::vector<std::array<int,5>> connect;
     // get the connection for all the inner vertices.
     findConnectivityForInnerVertices(vFlags, pin, vnbr, mesh, ehs, connect);
     Eigen::MatrixXd Vall = connectVertexList(Vquad, intersections);
@@ -882,18 +947,31 @@ void cutBoundaryGenerateTopology()
     std::vector<int> map;
     Eigen::MatrixXd Vclean;
     remapVertices(vnbr, Vall.rows(), Vall, vFlags, map, Vclean);
-    Eigen::MatrixXi quadsClean;
+    std::vector<std::array<int,4>> quadsClean;
     // clean the face lists
     cleanFaceList(map, quadFull, Fquad, quadsClean);
     cleanFaceList(map, rQ, 4);
     cleanFaceList(map, rT, 3);
     cleanFaceList(map, rP, 5);
+    // clean the connectivity
+    cleanFaceList(map, connect, 5);
+    // clean the boundary loop
+    cleanLoopList(map, bLoop);
     // write them
-    xx
+    writeObjPly("/Users/wangb0d/Desktop/tmp/Khusrav/CRPC/send/rQF.obj", Vall, map, quadsClean, 4);
+    writeObjPly("/Users/wangb0d/Desktop/tmp/Khusrav/CRPC/send/rQ.obj", Vall, map, rQ, 4);
+    writeObjPly("/Users/wangb0d/Desktop/tmp/Khusrav/CRPC/send/rT.obj", Vall, map, rT, 3);
+    writeObjPly("/Users/wangb0d/Desktop/tmp/Khusrav/CRPC/send/rP.obj", Vall, map, rP, 5);
+    writeObjPly("/Users/wangb0d/Desktop/tmp/Khusrav/CRPC/send/connect.txt", Vall, map, connect, 5);
+    writeObjLoop("/Users/wangb0d/Desktop/tmp/Khusrav/CRPC/send/loop.obj", Vall, map, bLoop);
+    writeObjPly("/Users/wangb0d/Desktop/tmp/Khusrav/CRPC/send/loop.txt", Vall, map, bLoop);
+    std::cout<<"connection size "<<connect.size()<<"\n";
+    writeSomePoints("/Users/wangb0d/Desktop/tmp/Khusrav/CRPC/send/test.obj", Vall, map, connect, 766);
 
-    
+    // test and plot the connectivity
 
 
-    // write the points inside
-    igl::writeOBJ("/Users/wangb0d/Desktop/tmp/Khusrav/CRPC/send/pIn.obj", Vin, Eigen::MatrixXi());
+
+        // write the points inside
+    // igl::writeOBJ("/Users/wangb0d/Desktop/tmp/Khusrav/CRPC/send/pIn.obj", Vin, Eigen::MatrixXi());
 }
