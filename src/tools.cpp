@@ -5697,7 +5697,7 @@ void write_curve_into_xyz_file(const Eigen::MatrixXd &V, const Eigen::MatrixXi &
 
 // unfinished
 // ply is the moving one, curve is the fixed one
-bool ply_ply_distance(const std::vector<Eigen::Vector3d> &ply, const std::vector<Eigen::Vector3d> &curve,
+void ply_ply_distance(const std::vector<Eigen::Vector3d> &ply, const std::vector<Eigen::Vector3d> &curve,
                       double &distance)
 {
 

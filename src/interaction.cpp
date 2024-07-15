@@ -2,6 +2,9 @@
 #include <lsc/tools.h>
 #include <igl/opengl/glfw/Viewer.h>
 #include <igl/heat_geodesics.h>
+#ifdef WIN32
+#include<windows.h> 
+#endif
 // assign default arguments for interactive design.
 void AssignAutoRunDefaultArgs(AutoRunArgs &args, const bool compute_pg)
 {
@@ -82,7 +85,11 @@ void collect_2d_positions(igl::opengl::glfw::Viewer &viewer, const double time_l
         xs.push_back(x);
         ys.push_back(y);
         std::cout<<"before getting one pt"<<std::endl;
+#ifdef WIN32
+		Sleep(time_interval);
+#else
         sleep(time_interval);
+#endif
         std::cout<<" one pt got, ("<<x<<", "<<y<<")"<<std::endl;
     }
 }
