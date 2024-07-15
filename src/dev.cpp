@@ -893,7 +893,7 @@ void writeSomePoints(const std::string filename, const Eigen::MatrixXd &V, const
     fout<<"f "<<connect[cid][0]+1<<" "<<connect[cid][3]+1<<" "<<connect[cid][4]+1<<"\n";
 }
 
-
+ 
 void cutBoundaryGenerateTopology()
 {
     Eigen::MatrixXd Vquad, Vcurve;
