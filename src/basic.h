@@ -194,6 +194,7 @@ public:
     void init(CGMesh& mesh_in);
     void initAAG(const std::vector<Eigen::Vector3d> &Vlist, const int rnbr);
     void initAGG(const std::vector<Eigen::Vector3d> &Vlist, const int rnbr);
+	void initGGG(const std::vector<Eigen::Vector3d> &Vlist, const int rnbr);
     int vNbrInRow = -1;
     std::vector<std::vector<double>> rowinfo; // to record the adjancency info of rows  
     std::vector<std::vector<double>> colinfo; // to record the adjancency info of cols
@@ -228,6 +229,7 @@ public:
     void opt();
     void optAAG();
     void optAGG();
+	void optGGG();
     Eigen::MatrixXd propagateBoundary();
     void reset();
     void load_triangle_mesh_tree(const igl::AABB<Eigen::MatrixXd, 3> &tree, const Eigen::MatrixXd &Vt,

@@ -371,13 +371,18 @@ void QuadOpt::init(CGMesh &mesh_in)
 // the gravity vector show where the vertices are
 // type == 0: aag.
 // type == 1: agg.
-void assignAagAggVertices(Eigen::VectorXd &vars,Eigen::VectorXd &graVec, const int varsize, const std::vector<Eigen::Vector3d> &vers, bool type)
+// type == 2: ggg
+void assignAagAggVertices(Eigen::VectorXd &vars,Eigen::VectorXd &graVec, const int varsize, const std::vector<Eigen::Vector3d> &vers, int type)
 {
     int varForVer = 9;
-    if (type)
+    if (type == 1)
     {
         varForVer = 12;
     }
+	if (type == 2)
+	{
+		varForVer = 15;
+	}
     vars = Eigen::VectorXd::Zero(varsize);
     assert(varsize == vers.size() * varForVer);
     graVec = vars;
@@ -442,7 +447,7 @@ void QuadOpt::initAAG(const std::vector<Eigen::Vector3d> &Vlist, const int rnbr)
     load_diagonal_info(row_front, row_back, col_front, col_back, d0_front, d1_front, d0_back, d1_back);
     std::cout << "Topo obtained\n";
     Eigen::VectorXd var_vec;
-    assignAagAggVertices(OrigVars, var_vec, varsize, Vlist, false);
+    assignAagAggVertices(OrigVars, var_vec, varsize, Vlist, 0);
     std::cout << "variables assigned\n";
     // mesh_original = mesh_in;
     mesh_update = mesh_original;
@@ -490,7 +495,7 @@ void QuadOpt::initAGG(const std::vector<Eigen::Vector3d> &Vlist, const int rnbr)
     load_diagonal_info(row_front, row_back, col_front, col_back, d0_front, d1_front, d0_back, d1_back);
     std::cout << "Topo obtained\n";
     Eigen::VectorXd var_vec;
-    assignAagAggVertices(OrigVars, var_vec, varsize, Vlist, true);
+    assignAagAggVertices(OrigVars, var_vec, varsize, Vlist, 1);
     std::cout << "variables assigned\n";
     // mesh_original = mesh_in;
     mesh_update = mesh_original;
@@ -510,6 +515,54 @@ void QuadOpt::initAGG(const std::vector<Eigen::Vector3d> &Vlist, const int rnbr)
     Eigen::Vector3d vmin(V.col(0).minCoeff(), V.col(1).minCoeff(), V.col(2).minCoeff());
     Eigen::Vector3d vmax(V.col(0).maxCoeff(), V.col(1).maxCoeff(), V.col(2).maxCoeff());
     std::cout<<"Initialized quad mesh: Vnbr, "<<V.rows()<<", BBD, "<<(vmin - vmax).norm()<<std::endl;;
+}
+
+void QuadOpt::initGGG(const std::vector<Eigen::Vector3d> &Vlist, const int rnbr)
+{
+
+	int vnbr = Vlist.size();
+	V = vec_list_to_matrix(Vlist);
+	// std::cout<<"check V, \n"<<V<<"\n";
+	constructRegularF(vnbr, rnbr, F);
+	MeshProcessing mp;
+	mp.matrix2Mesh(mesh_original, V, F);
+	vNbrInRow = rnbr;
+	if (OriginalCurve.size() == 0)
+	{
+		for (int i = 0; i < rnbr * 2; i++) // GGG we preserve 2 strips
+		{
+			OriginalCurve.push_back(Vlist[i]);
+		}
+	}
+
+	// vertices vnbr * 3, normals vnbr * 3, binormals for G1 vnbr * 3, binormals for G2 vnbr * 3, binormals for G3 vnbr * 3
+	varsize = vnbr * 15;
+	// row_front and row_back is the geodesic direction.
+	getQuadRowColsRegular(vnbr, rnbr, row_front, row_back, col_front, col_back);
+	std::cout << "Row Col info computed\n";
+	load_diagonal_info(row_front, row_back, col_front, col_back, d0_front, d1_front, d0_back, d1_back);
+	std::cout << "Topo obtained\n";
+	Eigen::VectorXd var_vec;
+	assignAagAggVertices(OrigVars, var_vec, varsize, Vlist, 2);
+	std::cout << "variables assigned\n";
+	// mesh_original = mesh_in;
+	mesh_update = mesh_original;
+	verOriginal = Vlist;
+	verUpdate = verOriginal;
+	ComputeAuxiliaries = true;
+	if (WhichDiagonal == 0)
+	{
+		d0_type = 1;
+	}
+	if (WhichDiagonal == 1)
+	{
+		d1_type = 1;
+	}
+	Estimate_PG_Angles = false;
+	gravity_matrix = var_vec.asDiagonal();
+	Eigen::Vector3d vmin(V.col(0).minCoeff(), V.col(1).minCoeff(), V.col(2).minCoeff());
+	Eigen::Vector3d vmax(V.col(0).maxCoeff(), V.col(1).maxCoeff(), V.col(2).maxCoeff());
+	std::cout << "Initialized quad mesh: Vnbr, " << V.rows() << ", BBD, " << (vmin - vmax).norm() << std::endl;;
 }
 void QuadOpt::reset()
 {
@@ -2738,6 +2791,167 @@ void QuadOpt::optAGG()
     }
     collectAggVectors(GlobVars, N, B0, B1);
     // std::cout<<"opt finished\n";
+}
+void QuadOpt::optGGG()
+{
+	// TODO
+	if (WhichDiagonal == 0)
+	{
+		d0_type = 1;
+	}
+	if (WhichDiagonal == 1)
+	{
+		d1_type = 1;
+	}
+	int vnbr = V.rows();
+	int order = 2; // the order = 1 means AAG, order = 2 is for AGG, order = 3 is for GGG.
+	int varOffset = 15; // GGG has 15 * n variables
+	if (GlobVars.size() != varsize)
+	{
+		int sizediff = (varsize - GlobVars.size()) / varOffset;
+		std::cout << "Assigning variables based on previous ones, there are " << sizediff << " vertices more\n";
+		ComputeAuxiliaries = true;
+		Eigen::VectorXd tmpVar = Eigen::VectorXd::Zero(varsize);
+		if (GlobVars.size() > 0)
+			tmpVar.segment(0, GlobVars.size()) = GlobVars;
+		GlobVars = tmpVar;
+		for (int i = vnbr - sizediff; i < vnbr; i++)
+		{
+			GlobVars[i * varOffset] = V(i, 0);
+			GlobVars[i * varOffset + 1] = V(i, 1);
+			GlobVars[i * varOffset + 2] = V(i, 2);
+		}
+	}
+	spMat H;
+	H.resize(varsize, varsize);
+	Eigen::VectorXd B = Eigen::VectorXd::Zero(varsize);
+	Eigen::VectorXd Egravity, Esmth, Enorm, Ebnm0, Ebnm1, Ebnm2, Epg[4];
+
+	spMat Hgravity;  // approximation
+	Eigen::VectorXd Bgravity; // right of approximation
+	assemble_gravity_AAG_AGG(Hgravity, Bgravity, Egravity, order);
+	H += weight_gravity * Hgravity;
+	B += weight_gravity * Bgravity;
+	spMat HCurve;  // approximation to curve
+	Eigen::VectorXd BCurve, ECurve; // right of approximation to curve
+	assemble_approximate_curve_conditions(HCurve, BCurve, ECurve, order);
+	H += weight_curve * HCurve;
+	B += weight_curve * BCurve;
+
+	spMat Hsmth;
+	Eigen::VectorXd Bsmth;
+	assemble_fairness(Hsmth, Bsmth, Esmth, order);
+	H += weight_fairness * Hsmth;
+	B += weight_fairness * Bsmth;
+	spMat Hnorm;
+	Eigen::VectorXd Bnorm;
+	assemble_normal_conditions(Hnorm, Bnorm, Enorm, order); // the normal vectors
+	H += weight_pg * Hnorm;
+	B += weight_pg * Bnorm;
+	// AAG, the row is the geodesic, the col is the A, and the chosen diag is another A
+	spMat Hbnm0, Hbnm1;
+	Eigen::VectorXd Bbnm0, Bbnm1;
+	int family = -1;
+
+	family = 1; // column is the geodesic
+	assemble_binormal_conditions(Hbnm0, Bbnm0, Ebnm0, family, -1, order, 0); // 1 means the second binormal vector
+	H += weight_pg * Hbnm0;
+	B += weight_pg * Bbnm0;
+
+	// G
+	int type = 2; // G1
+	family = 1; // column is the geodesic
+	spMat Hpg[3];
+	Eigen::VectorXd Bpg[3];
+	assemble_pg_extreme_cases(Hpg[0], Bpg[0], Epg[0], type, family, -1, order, 0);
+
+	// A
+	type = 1;   // A
+	family = 0; // row is the asymptotic
+	assemble_pg_extreme_cases(Hpg[1], Bpg[1], Epg[1], type, family, -1, order);
+
+	// A, the diagonal is another A
+	if (d0_type > 0)
+	{
+		family = 2;
+	}
+	if (d1_type > 0)
+	{
+		family = 3;
+	}
+	type = 2;   // G2
+	assemble_pg_extreme_cases(Hpg[2], Bpg[2], Epg[2], type, family, -1, order, 1);
+
+	// another binormal
+	assemble_binormal_conditions(Hbnm1, Bbnm1, Ebnm1, family, -1, order, 1);// 0 means the first binormal vector
+	H += weight_pg * Hbnm1;
+	B += weight_pg * Bbnm1;
+
+	H += weight_pg * pg_ratio * (Hpg[0] + Hpg[1] + Hpg[2]);
+	B += weight_pg * pg_ratio * (Bpg[0] + Bpg[1] + Bpg[2]);
+
+	// assemble together
+
+	H += 1e-6 * (weight_mass * gravity_matrix + spMat(Eigen::VectorXd::Ones(varsize).asDiagonal()));
+	Eigen::SimplicialLLT<Eigen::SparseMatrix<double>> solver(H);
+
+	// assert(solver.info() == Eigen::Success);
+	if (solver.info() != Eigen::Success)
+	{
+		// solving failed
+		std::cout << "solver fail" << std::endl;
+		return;
+	}
+	// std::cout<<"solved successfully"<<std::endl;
+	Eigen::VectorXd dx = solver.solve(B).eval();
+	dx *= 0.75;
+	double step_length = dx.norm();
+	if (step_length > max_step)
+	{
+		dx *= max_step / step_length;
+	}
+	GlobVars += dx;
+
+	std::cout << "AGG, ";
+
+	double ev_appro = Egravity.norm();
+	double ev_smt = Esmth.norm();
+	double ev_norm = Enorm.norm();
+	std::cout << "Eclose, " << ev_appro << ", Ecurve, " << ECurve.norm() << ", lap, " << ev_smt << ", normal vector, " << ev_norm << ", ";
+
+	double ebi0 = Ebnm0.norm();
+	double ebi1 = Ebnm1.norm();
+	ebi0 *= ebi0;
+	ebi1 *= ebi1;
+	double ebi = sqrt(ebi0 + ebi1);
+	std::cout << "bnm, " << ebi << ", GAG, " << Epg[0].norm() << ", " << Epg[1].norm() << ", " << Epg[2].norm() << ", ";
+
+	real_step_length = dx.norm();
+	std::cout << ", stp, " << dx.norm() << ", diagonal types, " << d0_type << ", " << d1_type << ", ";
+	std::cout << "\n";
+	// std::cout<<"here 1\n";
+	// convert the data to the mesh format
+	ComputeAuxiliaries = false;
+	for (int i = 0; i < vnbr; i++)
+	{
+		V(i, 0) = GlobVars[i * varOffset];
+		V(i, 1) = GlobVars[i * varOffset + 1];
+		V(i, 2) = GlobVars[i * varOffset + 2];
+	}
+	// std::cout<<"here 2\nver nbrs "<<mesh_update.n_vertices()<<"\n";
+	for (CGMesh::VertexIter v_it = mesh_update.vertices_begin(); v_it != mesh_update.vertices_end(); ++v_it)
+	{
+		int vid = v_it.handle().idx();
+		if (vid >= V.rows() || vid < 0)
+		{
+			std::cout << "Error in vid " << vid << std::endl;
+		}
+		assert(vid < V.rows());
+		assert(vid >= 0);
+		mesh_update.point(*v_it) = CGMesh::Point(V(vid, 0), V(vid, 1), V(vid, 2));
+	}
+	collectAggVectors(GlobVars, N, B0, B1);
+	// std::cout<<"opt finished\n";
 }
 Eigen::MatrixXd QuadOpt::propagateBoundary()
 {

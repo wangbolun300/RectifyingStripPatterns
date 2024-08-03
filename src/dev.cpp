@@ -898,9 +898,9 @@ void cutBoundaryGenerateTopology()
 {
     Eigen::MatrixXd Vquad, Vcurve;
     Eigen::MatrixXi Fquad, Fcurve;
-
-    igl::readOBJ("/Users/wangb0d/Desktop/tmp/Khusrav/CRPC/send/0.obj", Vquad, Fquad);
-    igl::readOBJ("/Users/wangb0d/Desktop/tmp/Khusrav/CRPC/send/curve2d.obj", Vcurve, Fcurve);
+	std::string foldername = "F:\\tmp\\Khusrav\\CRPC\\0718\\";
+    igl::readOBJ(foldername + "0.obj", Vquad, Fquad);
+    igl::readOBJ(foldername + "curve.obj", Vcurve, Fcurve);
     int vnbr = Vquad.rows();
     int fnbr = Fquad.rows();
     Eigen::MatrixXd Vproj = Vquad; // prject the vertices onto 2d
@@ -958,20 +958,21 @@ void cutBoundaryGenerateTopology()
     // clean the boundary loop
     cleanLoopList(map, bLoop);
     // write them
-    writeObjPly("/Users/wangb0d/Desktop/tmp/Khusrav/CRPC/send/rQF.obj", Vall, map, quadsClean, 4);
-    writeObjPly("/Users/wangb0d/Desktop/tmp/Khusrav/CRPC/send/rQ.obj", Vall, map, rQ, 4);
-    writeObjPly("/Users/wangb0d/Desktop/tmp/Khusrav/CRPC/send/rT.obj", Vall, map, rT, 3);
-    writeObjPly("/Users/wangb0d/Desktop/tmp/Khusrav/CRPC/send/rP.obj", Vall, map, rP, 5);
-    writeObjPly("/Users/wangb0d/Desktop/tmp/Khusrav/CRPC/send/connect.txt", Vall, map, connect, 5);
-    writeObjLoop("/Users/wangb0d/Desktop/tmp/Khusrav/CRPC/send/loop.obj", Vall, map, bLoop);
-    writeObjPly("/Users/wangb0d/Desktop/tmp/Khusrav/CRPC/send/loop.txt", Vall, map, bLoop);
+	
+    writeObjPly(foldername + "rQF.obj", Vall, map, quadsClean, 4);
+    writeObjPly(foldername + "rQ.obj", Vall, map, rQ, 4);
+    writeObjPly(foldername + "rT.obj", Vall, map, rT, 3);
+    writeObjPly(foldername + "rP.obj", Vall, map, rP, 5);
+    writeObjPly(foldername + "connect.txt", Vall, map, connect, 5);
+    writeObjLoop(foldername + "loop.obj", Vall, map, bLoop);
+    writeObjPly(foldername + "loop.txt", Vall, map, bLoop);
     std::cout<<"connection size "<<connect.size()<<"\n";
-    writeSomePoints("/Users/wangb0d/Desktop/tmp/Khusrav/CRPC/send/test.obj", Vall, map, connect, 766);
+    //writeSomePoints(foldername + "test.obj", Vall, map, connect, 766);
 
     // test and plot the connectivity
 
 
 
         // write the points inside
-    // igl::writeOBJ("/Users/wangb0d/Desktop/tmp/Khusrav/CRPC/send/pIn.obj", Vin, Eigen::MatrixXi());
+    // igl::writeOBJ(foldername + "pIn.obj", Vin, Eigen::MatrixXi());
 }

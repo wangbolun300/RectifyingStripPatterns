@@ -240,6 +240,11 @@ void aggFirstStrip_following(const std::vector<Eigen::Vector3d> &pts, const std:
                    const double para3 = 0, const double para4 = 0);                                
 void adjustAggOffset(const std::vector<Eigen::Vector3d> &pts_all,
                      const int vinrow, std::vector<Eigen::Vector3d> &pout);
+void GGGFirstStrip_following(const std::vector<Eigen::Vector3d> &vertices, const std::vector<Eigen::Vector3d> &slVers,
+	std::vector<Eigen::Vector3d> &vout);
+void gggFirstStrip(const std::vector<Eigen::Vector3d> &pts, const std::vector<Eigen::Vector3d> &bnm,
+	std::vector<Eigen::Vector3d> &pout, const bool invertDirection, const double para1, const double para2,
+	const double para3, const double para4);
 void constructRegularF(const int vnbr, const int rnbr, Eigen::MatrixXi &F);
 std::vector<Eigen::Vector3d> sample_one_polyline_based_on_length(const std::vector<Eigen::Vector3d> &polyline, const int nbr);
 void find_next_pt_on_polyline(const int start_seg, const std::vector<Eigen::Vector3d> &polyline, const double length,

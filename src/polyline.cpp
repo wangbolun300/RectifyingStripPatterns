@@ -787,6 +787,127 @@ void aggFirstStrip(const std::vector<Eigen::Vector3d> &pts, const std::vector<Ei
     result[vnbr - 1] = result[vnbr - 2] + tangent;
     pout = result;
 }
+
+// this function is designed to get the first strip for AAG evolution
+// para1 is the parameter for the offset point, by default 0.5. para2 is the ratio of largest and smallest offset distances, default 1
+// para3 and para4 are the start and end angles (in degree) of offset direction rotating along the tangent vector.
+void gggFirstStrip(const std::vector<Eigen::Vector3d> &pts, const std::vector<Eigen::Vector3d> &bnm,
+	std::vector<Eigen::Vector3d> &pout, const bool invertDirection, const double para1, const double para2,
+	const double para3, const double para4)
+{
+	int vnbr = pts.size();
+	std::vector<Eigen::Vector3d> result(vnbr);
+	assert(pts.size() == bnm.size());
+	double angle_radian0 = para3 * LSC_PI / 180;
+	double angle_radian1 = para4 * LSC_PI / 180;
+	double angle_delta = (angle_radian1 - angle_radian0) / (vnbr - 1);
+	// std::cout<<"the offset length along n, ";
+	// the m-p is orthogonal to the plane spanned by tangent and n. m is the mid point of the edge.
+	for (int i = 0; i < vnbr; i++)
+	{
+		double angle_radian = angle_radian0 + i * angle_delta;
+		double offRatio = i * (para2 - 1) / (vnbr - 1) + 1;
+		
+		double lengths;
+		Eigen::Vector3d p, direction = bnm[i], tangent, normal;
+		Eigen::Vector3d vfr, vbk;
+		if (i == 0)
+		{
+			tangent = (pts[1] - pts[0]).normalized();
+			lengths = (pts[1] - pts[0]).norm() * 2;
+			vfr = pts[1];
+			vbk = 2 * pts[0] - pts[1];
+		}
+		else if (i == vnbr - 1)
+		{
+			tangent = (pts[vnbr - 1] - pts[vnbr - 2]).normalized();
+			lengths = (pts[vnbr - 1] - pts[vnbr - 2]).norm() * 2;
+			vfr = 2 * pts[vnbr - 1] - pts[vnbr - 2];
+			vbk = pts[vnbr - 2];
+		}
+		else
+		{
+			tangent = (pts[i + 1] - pts[i - 1]).normalized();
+			lengths = (pts[i + 1] - pts[i - 1]).norm();
+			vfr = pts[i + 1];
+			vbk = pts[i - 1];
+		}
+
+		if (invertDirection) {
+			direction *= -1;
+		}
+		normal = tangent.cross(direction).normalized();
+		// rotate against tangent
+		double l = tan(angle_radian);
+		// std::cout<<l<<",";
+		direction = direction + l * normal;
+		direction.normalize();
+		p = direction * lengths * offRatio * 1.732 / 2 + (vfr - vbk) * para1 + vbk;
+		result[i] = p;
+	}
+	pout = result;
+}
+// return the symmetric point of p w.r.t. the line defined by the point lp and the direction ld
+Eigen::Vector3d symmetricPoint(const Eigen::Vector3d& p, const Eigen::Vector3d& lp, const Eigen::Vector3d& ld)
+{
+	Eigen::Vector3d vec1 = (lp - p).normalized().cross(ld);
+	if (vec1.norm() < 1e-9)
+	{
+		return lp; // if the point is too close to the line, return the same point
+	}
+	vec1.normalize();
+	Eigen::Vector3d vec2 = vec1.cross(ld).normalized();
+	double alpha = (lp - p).dot(ld);
+	double beta = (lp - p).dot(vec2);
+	return beta * vec2 - alpha * ld + lp;
+}
+// return the smooth cross point of two edges.
+Eigen::Vector3d smoothCrossing(const Eigen::Vector3d& a0, const Eigen::Vector3d& a1, const Eigen::Vector3d& b0, const Eigen::Vector3d& b1)
+{
+	Eigen::Vector3d p0 = 2 * a1 - a0;
+	Eigen::Vector3d p1 = 2 * b1 - b0;
+	return (p0 + p1) / 2;
+}
+
+// this function is designed to compute GGG propagation
+// para5 is the strip width parameter. by default 1, the generated triangles are equilateral triangles
+// slVers are the vertices of the second last row of vertices
+void GGGFirstStrip_following(const std::vector<Eigen::Vector3d> &vertices, const std::vector<Eigen::Vector3d> &slVers,
+	std::vector<Eigen::Vector3d> &vout)
+{
+
+	int vnbr = vertices.size();
+	std::vector<Eigen::Vector3d> voff(vnbr); // collect the offset vertices
+	for (int i = 1; i < vnbr - 2; i++)
+	{
+		Eigen::Vector3d n1 = (vertices[i] - slVers[i]).cross(vertices[i - 1] - vertices[i + 1]).normalized();
+		Eigen::Vector3d n2 = (vertices[i + 1] - slVers[i + 1]).cross(vertices[i] - vertices[i + 2]).normalized();
+		Eigen::Vector3d sym1 = symmetricPoint(slVers[i], vertices[i], n1);
+		Eigen::Vector3d sym2 = symmetricPoint(slVers[i + 2], vertices[i + 1], n2);
+		// compute the two edge directions
+		Eigen::Vector3d dir1 = (sym1 - vertices[i]).normalized();
+		Eigen::Vector3d dir2 = (sym2 - vertices[i + 1]).normalized();
+		// compute the two edge lengths
+		double elength = (vertices[i + 1] - vertices[i]).norm();
+		double calpha = (vertices[i - 1] - vertices[i]).normalized().dot((slVers[i] - vertices[i]).normalized()); // cos(alpha)
+		double cbeta = (vertices[i + 2] - vertices[i + 1]).normalized().dot((slVers[i + 2] - vertices[i + 1]).normalized()); // cos(beta)
+		double salpha = sqrt(1 - calpha * calpha); // sin(alpha)
+		double sbeta = sqrt(1 - cbeta * cbeta); // sin(beta)
+		double gamma = LSC_PI - (acos(calpha) + acos(cbeta));
+		double sconst = elength / sin(gamma);
+		double alength = sconst * salpha;
+		double blength = sconst * sbeta;
+		// get the two vertices
+		Eigen::Vector3d v1 = dir1 * blength + vertices[i]; 
+		Eigen::Vector3d v2 = dir2 * alength + vertices[i + 1];
+		voff[i] = (v1 + v2) / 2;
+	}
+	// decide the 0th, the n-2nd and the n-1st simply using smoothness.
+	voff[0] = smoothCrossing(slVers[0], vertices[1], voff[2], voff[1]);
+	voff[vnbr - 2] = smoothCrossing(slVers[vnbr - 2], vertices[vnbr - 2], voff[vnbr - 4], voff[vnbr - 3]);
+	voff[vnbr - 1] = smoothCrossing(slVers[vnbr - 1], vertices[vnbr - 1], voff[vnbr - 3], voff[vnbr - 2]);
+	vout = voff;
+}
 // this version uses a more robust version to get normal vectors
 // ptslast is the curve next to pts.
 void aggFirstStrip_following(const std::vector<Eigen::Vector3d> &pts, const std::vector<Eigen::Vector3d> &ptslast,

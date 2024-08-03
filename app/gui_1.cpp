@@ -2965,7 +2965,7 @@ void lscif::draw_menu2(igl::opengl::glfw::Viewer &viewer, igl::opengl::glfw::img
 				SingleFoot.clear();
 				SingleCrease.clear();
 			}
-			
+			ImGui::SameLine();
 			if (ImGui::Button("OptAGG", ImVec2(ImGui::GetWindowSize().x * 0.25f, 0.0f)))
 			{
 				quad_tool.weight_fairness = weight_laplacian;
@@ -3235,6 +3235,144 @@ void lscif::draw_menu2(igl::opengl::glfw::Viewer &viewer, igl::opengl::glfw::img
 			if (ImGui::Button("smoothCurve", ImVec2(ImGui::GetWindowSize().x * 0.25f, 0.0f)))
 			{
 				smooth_curve();
+			}
+			if (ImGui::Button("GGGCurve2Strip", ImVec2(ImGui::GetWindowSize().x * 0.25f, 0.0f)))
+			{
+				if (poly_tool.ply_extracted[0].empty())
+				{
+					std::cout << "\nPlease calibrate" << std::endl;
+					ImGui::End();
+					return;
+				}
+				timer_global.start();
+				std::vector<Eigen::Vector3d> versOut; std::vector<Eigen::Vector3d> directions;
+				std::vector<Eigen::Vector3d> plyin;// = poly_tool.ply_extracted[0];
+				std::vector<Eigen::Vector3d> binin;// = poly_tool.bin_extracted[0];
+				if (quad_tool.vNbrInRow < 0)
+				{ // if there are only 1 polyline, use the parameters to compute the first strip, similar method as the AAG first strip
+					
+					gggFirstStrip(plyin, binin, versOut, InvertDirectionAGG, AggPara1, AggPara2, AggPara3, AggPara4);
+					
+				}
+				else // if there are >= 2 polylines, use new init
+				{
+					std::cout << "plane intersection 2\n";
+					int cnbr = quad_tool.V.rows() / quad_tool.vNbrInRow;
+					int stt = (cnbr - 2)*quad_tool.vNbrInRow;
+					GGGFirstStrip_following(mat_to_vec_list(quad_tool.V.bottomRows(quad_tool.vNbrInRow)), 
+						mat_to_vec_list(quad_tool.V.block(stt, 0, quad_tool.vNbrInRow, 3)), versOut);
+				}
+
+				directions.resize(plyin.size());
+				for (int i = 0; i < plyin.size(); i++)
+				{
+					directions[i] = versOut[i] - plyin[i];
+				}
+				SingleFoot = versOut;
+				SingleCrease = binin;
+				timer_global.stop();
+				time_propagation += timer_global.getElapsedTimeInSec();
+				propagation_itr++;
+				int id = viewer.selected_data_index;
+				std::vector<std::vector<Eigen::Vector3d>> vtmp(1), ctmp(1);
+				vtmp[0] = plyin;
+				ctmp[0] = directions;
+				CGMesh updatemesh = polyline_to_strip_mesh(vtmp, ctmp, 1, 0, true);
+				updateMeshViewer(viewer, updatemesh);
+				meshFileName.push_back("inter_" + meshFileName[id]);
+				Meshes.push_back(updatemesh);
+				// viewer.data().add_points(SinglePly, hot_red);
+				viewer.selected_data_index = id;
+				std::cout << "GGG Curve 2 Strip\n";
+			}
+			ImGui::SameLine();
+			if (ImGui::Button("GGGPropagate", ImVec2(ImGui::GetWindowSize().x * 0.25f, 0.0f)))
+			{
+				int vinrow = SingleFoot.size();
+				if (SingleFoot.size() == 0)
+				{
+					std::cout << "\nLSC: Please init the opt" << std::endl;
+					ImGui::End();
+					return;
+				}
+				if (quad_tool.V.rows() == 0) // the first strip, add the original curve and the offset
+				{
+					std::vector<Eigen::Vector3d> vall(vinrow * 2);
+					for (int i = 0; i < vinrow; i++)
+					{
+						vall[i] = poly_tool.ply_extracted[0][i];
+						vall[i + vinrow] = SingleFoot[i];
+					}
+					quad_tool.initGGG(vall, vinrow);
+				}
+				else // the propagate will add the optimized offset point into the list
+				{
+					Eigen::MatrixXd VallMat(quad_tool.V.rows() + vinrow, 3);
+					VallMat.topRows(quad_tool.V.rows()) = quad_tool.V;
+					assert(SingleFoot.size() > 0);
+					assert(SingleCrease.size() > 0);
+					VallMat.bottomRows(vinrow) = vec_list_to_matrix(SingleFoot);
+
+					std::vector<Eigen::Vector3d> vall = mat_to_vec_list(VallMat);
+					assert(vall.size() > 0);
+					quad_tool.initGGG(vall, vinrow);
+				}
+				// 
+				Eigen::MatrixXd bdrVers = quad_tool.propagateBoundary();
+				poly_tool.init(bdrVers);
+				int id = viewer.selected_data_index;
+				CGMesh updatemesh = polyline_to_strip_mesh(poly_tool.ply_extracted, poly_tool.bin_extracted, vector_scaling);
+				updateMeshViewer(viewer, updatemesh);
+				meshFileName.push_back("ply_" + meshFileName[id]);
+				Meshes.push_back(updatemesh);
+				viewer.data().add_points(bdrVers, hot_red);
+				viewer.selected_data_index = id;
+				std::cout << "create poly with " << bdrVers.rows() << " points\n";
+				// set up parameters
+				weight_laplacian = 0.0001;
+				weight_pseudo_geodesic = 1;
+				weight_geodesic = 0.01;
+				SingleFoot.clear();
+				SingleCrease.clear();
+			}
+			ImGui::SameLine();
+			if (ImGui::Button("OptGGG", ImVec2(ImGui::GetWindowSize().x * 0.25f, 0.0f)))
+			{
+				quad_tool.weight_fairness = weight_laplacian;
+				quad_tool.weight_gravity = weight_boundary;
+				quad_tool.weight_pg = weight_pseudo_geodesic;
+				quad_tool.pg_ratio = weight_geodesic;
+				quad_tool.weight_mass = weight_mass;
+				quad_tool.max_step = maximal_step_length;
+				quad_tool.weight_curve = weight_angle;
+				if (quad_tool.V.rows() == 0)
+				{
+					std::cout << "\nEmpty quad, please load a quad mesh first" << std::endl;
+					ImGui::End();
+					return;
+				}
+				timer_global.start();
+				for (int i = 0; i < OpIter; i++)
+				{
+					quad_tool.optAGG();
+					iteration_total++;
+					if (quad_tool.real_step_length < 1e-16 && i != 0)
+					{ // step length actually is the value for the last step
+						std::cout << "optimization converges " << std::endl;
+						break;
+					}
+				}
+				timer_global.stop();
+				time_total += timer_global.getElapsedTimeInSec();
+
+				std::cout << "waiting for instruction..." << std::endl;
+				// MP.MeshUnitScale(inputMesh, updatedMesh);
+				int id = viewer.selected_data_index;
+				CGMesh updateMesh = quad_tool.mesh_update;
+				updateMeshViewer(viewer, updateMesh);
+				meshFileName.push_back("opt_" + meshFileName[id]);
+				Meshes.push_back(updateMesh);
+				viewer.selected_data_index = id;
 			}
 		}
 		// binormals as orthogonal as possible.
