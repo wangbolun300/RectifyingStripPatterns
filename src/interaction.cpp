@@ -814,3 +814,130 @@ void lsTools::Run_Level_Set_Opt_interactive(const bool compute_pg)
     std::cout<<"\n";
     Last_Opt_Mesh = false;
 }
+// here we reimplement the function igl::unproject_onto_mesh
+//
+
+float product1(const Eigen::Matrix4f &m1, const Eigen::Matrix4f &m2, int row, int col)
+{
+	return Eigen::Vector4f(m1.row(row)).dot(Eigen::Vector4f(m2.col(col)));
+}
+Eigen::Matrix4f product(const Eigen::Matrix4f &m1, const Eigen::Matrix4f &m2)
+{
+	Eigen::Matrix4f result;
+	for (int i = 0; i < 4; i++)
+	{
+		for (int j = 0; j < 4; j++)
+		{
+			result(i, j) = product1(m1, m2, i, j);
+		}
+	}
+	return result;
+}
+
+ void unproject(
+	 const Eigen::Vector3f& win,
+	 const Eigen::Matrix4f& model,
+	 const Eigen::Matrix4f& proj,
+	 const Eigen::Vector4f& viewport,
+	 Eigen::Vector3f & scene)
+ {
+	 const int n = 1;
+
+
+	 Eigen::Matrix4f Inverse =
+		 product(proj, model).inverse();
+	 std::cout << "inv,\n" << Inverse << "\n";
+	 Eigen::Matrix<float, 4, 1> tmp;
+	 tmp.col(0) = Eigen::Vector4f(win(0), win(1), win(2), 1);
+	 tmp(0, 0) = (tmp(0, 0) - viewport(0)) / viewport(2);
+	 tmp(1, 0) = (tmp(1, 0) - viewport(1)) / viewport(3);
+	 tmp = tmp.array() * 2.0f - 1.0f;
+	 std::cout << "tmp,\n" << tmp.transpose() << "\n";
+
+	 Eigen::Matrix<float, 4, 1> obj = Inverse * tmp;
+	 obj /= obj(3);
+
+	 scene << obj(0, 0), obj(1, 0), obj(2, 0);
+ }
+
+void unproject_ray(
+	const Eigen::Vector2f& pos,
+	const Eigen::Matrix4f& model,
+	const Eigen::Matrix4f& proj,
+	const Eigen::Vector4f& viewport,
+	Eigen::Vector3f & s,
+	Eigen::Vector3f & dir)
+{
+	using namespace std;
+	using namespace Eigen;
+	// Source and direction on screen
+	Eigen::Vector3f win_s(pos(0, 0), pos(1, 0), 0);
+	Eigen::Vector3f win_d(pos(0, 0), pos(1, 0), 1);
+	// Source, destination and direction in world
+	Eigen::Vector3f d;
+	unproject(win_s, model, proj, viewport, s);
+	unproject(win_d, model, proj, viewport, d);
+	std::cout << "wins " << win_s.transpose() << ", wind, " << win_d.transpose() <<", d, "<<d.transpose()<< "\n";
+	dir = d - s;
+}
+
+
+
+bool unproject_onto_mesh(
+	const Eigen::Vector2f& pos,
+	const Eigen::Matrix4f& model,
+	const Eigen::Matrix4f& proj,
+	const Eigen::Vector4f& viewport,
+	const std::function<
+	bool(
+		const Eigen::Vector3f&,
+		const Eigen::Vector3f&,
+		igl::Hit &)
+	> & shoot_ray,
+	int & fid,
+	Eigen::Vector3f & bc)
+{
+	using namespace std;
+	using namespace Eigen;
+	Vector3f s, dir;
+	unproject_ray(pos, model, proj, viewport, s, dir);
+	igl::Hit hit;
+	std::cout << "s " << s.transpose() << ", dir, " << dir.transpose() << "\n";
+	shoot_ray(s, dir, hit);
+	if (!shoot_ray(s, dir, hit))
+	{
+		return false;
+	}
+	bc.resize(3, 1);
+	bc << 1.0 - hit.u - hit.v, hit.u, hit.v;
+	fid = hit.id;
+	return true;
+}
+
+bool lsc_unproject_onto_mesh(
+	const Eigen::Vector2f& pos,
+	const Eigen::Matrix4f& model,
+	const Eigen::Matrix4f& proj,
+	const Eigen::Vector4f& viewport,
+	const Eigen::MatrixXd& V,
+	const Eigen::MatrixXi & F,
+	int & fid,
+	Eigen::Vector3f & bc)
+{
+	using namespace std;
+	using namespace Eigen;
+	const auto & shoot_ray = [&V, &F](
+		const Eigen::Vector3f& s,
+		const Eigen::Vector3f& dir,
+		igl::Hit & hit)->bool
+	{
+		std::vector<igl::Hit> hits;
+		if (!ray_mesh_intersect(s, dir, V, F, hits))
+		{
+			return false;
+		}
+		hit = hits[0];
+		return true;
+	};
+	return unproject_onto_mesh(pos, model, proj, viewport, shoot_ray, fid, bc);
+}

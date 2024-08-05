@@ -38,3 +38,12 @@ class AutoRunArgs{
     
 };
 void AssignAutoRunDefaultArgs(AutoRunArgs &args, const bool compute_pg);
+bool lsc_unproject_onto_mesh(
+	const Eigen::Vector2f& pos,
+	const Eigen::Matrix4f& model,
+	const Eigen::Matrix4f& proj,
+	const Eigen::Vector4f& viewport,
+	const Eigen::MatrixXd& V,
+	const Eigen::MatrixXi & F,
+	int & fid,
+	Eigen::Vector3f & bc);

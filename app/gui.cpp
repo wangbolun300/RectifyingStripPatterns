@@ -230,7 +230,7 @@ bool lscif::mouse_down(igl::opengl::glfw::Viewer &viewer, int button, int modifi
 		// Cast a ray in the view direction starting from the mouse position
 		double x = viewer.current_mouse_x;
 		double y = viewer.core().viewport(3) - viewer.current_mouse_y;
-		if (igl::unproject_onto_mesh(
+		if (lsc_unproject_onto_mesh(
 				Eigen::Vector2f(x, y),
 				viewer.core().view,
 				viewer.core().proj,
@@ -305,7 +305,7 @@ bool lscif::mouse_down(igl::opengl::glfw::Viewer &viewer, int button, int modifi
 				viewer.data().add_edges(tools.V - vector_scaling * ground, tools.V + vector_scaling * ground, pure_blk);
 			}
 
-			// viewer.data().add_points(igl::slice(viewer.data().V, vids, 1), hot_red);
+			 viewer.data().add_points(igl::slice(viewer.data().V, vids, 1), hot_red);
 			// viewer.data().set_points(igl::slice(viewer.data().V, vids, 1), hot_red);
 			viewer.data().add_points(igl::slice(viewer.data().V, vids, 1), hot_red);
 			Eigen::MatrixXd pts;
@@ -321,8 +321,7 @@ bool lscif::mouse_down(igl::opengl::glfw::Viewer &viewer, int button, int modifi
 		// Cast a ray in the view direction starting from the mouse position
 		double x = viewer.current_mouse_x;
 		double y = viewer.core().viewport(3) - viewer.current_mouse_y;
-		std::cout << "Before unprojecting, x "<<x<<", y "<<y<<"\n";
-		bool unprojected = igl::unproject_onto_mesh(
+		bool unprojected = lsc_unproject_onto_mesh(
 			Eigen::Vector2f(x, y),
 			viewer.core().view,
 			viewer.core().proj,
@@ -331,7 +330,16 @@ bool lscif::mouse_down(igl::opengl::glfw::Viewer &viewer, int button, int modifi
 			viewer.data().F,
 			fid,
 			bc); 
-		std::cout << "after unprojecting\n";
+		/*bool iglupr = igl::unproject_onto_mesh(
+			Eigen::Vector2f(x, y),
+			viewer.core().view,
+			viewer.core().proj,
+			viewer.core().viewport,
+			viewer.data().V,
+			viewer.data().F,
+			fid,
+			bc); 
+		std::cout << "unprojected, " << unprojected << ", iglupr, " << iglupr << "\n";*/
 		if (unprojected)
 		{
 			std::cout << "viewer...\nviewer\n"
@@ -340,43 +348,15 @@ bool lscif::mouse_down(igl::opengl::glfw::Viewer &viewer, int button, int modifi
 					  << viewer.core().proj << "\nport\n"
 					  << viewer.core().viewport << "\n"
 					  << "x, " << x << ", y, " << y << "\n";
-			pSelect3d = viewer.data().V.row(viewer.data().F(fid, 0)) * bc[0] + viewer.data().V.row(viewer.data().F(fid, 1)) * bc[1] + 
-			viewer.data().V.row(viewer.data().F(fid, 2)) * bc[2];
+			int max;
+			bc.maxCoeff(&max);
+			int vid = viewer.data().F(fid, max);;
+			pSelect3d =
+				viewer.data().V.row(vid);
 			std::cout<<"p selection "<<pSelect3d.transpose()<<"\n";
 			viewer.data().set_points(pSelect3d.transpose(), hot_red);
 			return true;
-			int max;
-			bc.maxCoeff(&max);
-			int vid = viewer.data().F(fid, max);
 
-			if (VertexType[vid] != 2)
-				VertexType[vid] = 2;
-			else
-				VertexType[vid] = 0;
-
-			std::vector<int> fixedVid;
-			std::vector<int> controlVid;
-			for (int i = 0; i < viewer.data().V.size(); i++)
-			{
-				if (VertexType[i] == 1)
-					fixedVid.push_back(i);
-				if (VertexType[i] == 2)
-					controlVid.push_back(i);
-			}
-
-			Eigen::VectorXi vids = Eigen::Map<Eigen::VectorXi, Eigen::Unaligned>(fixedVid.data(), fixedVid.size());
-			Eigen::VectorXi vids2 = Eigen::Map<Eigen::VectorXi, Eigen::Unaligned>(controlVid.data(), controlVid.size());
-
-			std::cout << "Selected point:\nposition related to the viewer: " << viewer.current_mouse_x << "___" << viewer.current_mouse_y << std::endl;
-			std::cout << "vid, " << vid << ", fid, " << fid << std::endl;
-			if (tools.fvalues.rows() > 0)
-			{
-				std::cout << "level set value " << tools.fvalues[vid] << std::endl;
-			}
-			std::cout << "point position: (" << viewer.data().V(vid, 0) << ", " << viewer.data().V(vid, 1) << ", " << viewer.data().V(vid, 2) << ")\n\n";
-			viewer.data().set_points(igl::slice(viewer.data().V, vids, 1), hot_red);
-			viewer.data().add_points(igl::slice(viewer.data().V, vids2, 1), sea_green);
-			return true;
 		}
 	}
 	if (keyPress_5)
