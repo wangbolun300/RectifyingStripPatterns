@@ -788,6 +788,10 @@ void QuadOpt::assemble_approximate_curve_conditions(spMat &H, Eigen::VectorXd &B
     if(order == 2){
         varOffset = 12;
     }
+	if (order == 3)
+	{
+		varOffset = 15;
+	}
     int vnbr = V.rows();
     int rnbr = vnbr / vNbrInRow; // the number of rows
     std::vector<Trip> tripletes;
@@ -867,6 +871,10 @@ void QuadOpt::assemble_gravity_AAG_AGG(spMat& H, Eigen::VectorXd& B, Eigen::Vect
     if(order == 2){
         varOffset = 12;
     }
+	if (order == 3)
+	{
+		varOffset = 15;
+	}
     std::vector<Trip> tripletes;
     int vnbr = V.rows();
     tripletes.reserve(vnbr * 3);
@@ -979,6 +987,7 @@ void locatorRules(int vid, int vnbr, int order, int &x, int &y, int &z)
         x = vid;
         y = vid + vnbr;
         z = vid + vnbr * 2;
+		return;
     }
     if (order == 1)
     {
@@ -992,6 +1001,12 @@ void locatorRules(int vid, int vnbr, int order, int &x, int &y, int &z)
         y = 12 * vid + 1;
         z = 12 * vid + 2;
     }
+	if (order == 3)
+	{
+		x = 15 * vid;
+		y = 15 * vid + 1;
+		z = 15 * vid + 2;
+	}
 }
 // lv is ver location, lf is front location, lb is back location, cid is the id of the condition
 // (v-f)/scale0 + (v-b)/scale1 = 0
@@ -1034,7 +1049,7 @@ void QuadOpt::assemble_fairness(spMat& H, Eigen::VectorXd& B, Eigen::VectorXd &e
 
     std::vector<Trip> tripletes;
     int vnbr = V.rows();
-    energy = Eigen::VectorXd::Zero(vnbr * 12);//todo
+    energy = Eigen::VectorXd::Zero(vnbr * 12);//each family takes vnbr * 3 constraints, there are at most 4 families
     tripletes.reserve(vnbr * 12 * 3);
     int counter = 0;
     for (int i = 0; i < vnbr; i++)
@@ -1258,6 +1273,9 @@ public:
     int lrx1;
     int lry1;
     int lrz1;
+	int lrx2;
+	int lry2;
+	int lrz2;
 
     int lrfx;
     int lrfy;
@@ -1286,6 +1304,10 @@ void variableLocator::getLocations(int order, int vnbr, int vid, int rf, int rb,
     {
         nbrOffset = 12;
     }
+	if (order == 3)
+	{
+		nbrOffset = 15;
+	}
     if (order == 0)
     {
         lvx = vid;
@@ -1310,11 +1332,17 @@ void variableLocator::getLocations(int order, int vnbr, int vid, int rf, int rb,
         lry = nbrOffset * vid + 7;
         lrz = nbrOffset * vid + 8;
     }
-    if(order == 2) // AGG needs another binormal vector
+    if(order == 2 || order == 3) // AGG, GGG needs another binormal vector
     {
         lrx1 = nbrOffset * vid + 9;
         lry1 = nbrOffset * vid + 10;
         lrz1 = nbrOffset * vid + 11;
+		if (order == 3)
+		{
+			lrx2 = nbrOffset * vid + 12;
+			lry2 = nbrOffset * vid + 13;
+			lrz2 = nbrOffset * vid + 14;
+		}
     }
 
     if (family == 0) // rows
@@ -1343,7 +1371,7 @@ void variableLocator::getLocations(int order, int vnbr, int vid, int rf, int rb,
 // bnm_start is the id where the binormal starts in the variable matrix
 // from bnm_start to bnm_start + vnbr * 3 are the binormal variables of this family of curves
 // family: 0: row. 1: col. 2: d0. 3: d1.
-// whichBnm: this variable is for the propagating AGG method (when order == 2) to point out which binormal is used
+// whichBnm: this variable is for the propagating AGG, GGG method (when order == 2 or 3) to point out which binormal is used
 void QuadOpt::assemble_binormal_conditions(spMat &H, Eigen::VectorXd &B, Eigen::VectorXd &energy, int family,
                                            int bnm_start, const int order, const int whichBnm)
 {
@@ -1387,13 +1415,19 @@ void QuadOpt::assemble_binormal_conditions(spMat &H, Eigen::VectorXd &B, Eigen::
         int lrx = locator.lrx;
         int lry = locator.lry;
         int lrz = locator.lrz;
-        if (order == 2 && whichBnm == 1) // AGG, and use the second binormal attached on this vertex
+        if ((order == 2 || order == 3) && whichBnm == 1) // AGG or GGG and use the second binormal attached on this vertex
         {
             // the binormal is the second one.
             lrx = locator.lrx1;
             lry = locator.lry1;
             lrz = locator.lrz1;
         }
+		if (order == 3 && whichBnm == 2)// GGG, and use the third binormal on this vertex
+		{
+			lrx = locator.lrx2;
+			lry = locator.lry2;
+			lrz = locator.lrz2;
+		}
         bool compute = true;
         
         if (lfx < 0 || lbx < 0)
@@ -1533,7 +1567,8 @@ void push_geodesic_condition(std::vector<Trip> &tripletes, Eigen::VectorXd &ener
 // type: 0 disabled. 1 means asymptotic, 2 means geodesic, 3 pseudo-geodesic
 // aux_start_location is the start location of the auxiliaries of this family
 // when order = 0, then the variables are: all the vertices, all the normals, all others...
-// when order = 1, the variables are: ver+normal+binormal, ... ,
+// when order = 1 (AAG), the variables are: ver+normal+binormal, ... ,
+// when order = 2, or 3, it means AGG or GGG
 void
 QuadOpt::assemble_pg_extreme_cases(spMat &H, Eigen::VectorXd &B, Eigen::VectorXd &energy,
                                    const int type, const int family, const int bnm_start_location, const int order,
@@ -1626,12 +1661,19 @@ QuadOpt::assemble_pg_extreme_cases(spMat &H, Eigen::VectorXd &B, Eigen::VectorXd
             int lrx = locator.lrx;
             int lry = locator.lry;
             int lrz = locator.lrz;
-            if (order == 2 && whichBnm == 1) // if AGG and choose the second binormal vector on it.
-            {
-                lrx = locator.lrx1;
-                lry = locator.lry1;
-                lrz = locator.lrz1;
-            }
+			if ((order == 2 || order == 3) && whichBnm == 1) // AGG or GGG and use the second binormal attached on this vertex
+			{
+				// the binormal is the second one.
+				lrx = locator.lrx1;
+				lry = locator.lry1;
+				lrz = locator.lrz1;
+			}
+			if (order == 3 && whichBnm == 2)// GGG, and use the third binormal on this vertex
+			{
+				lrx = locator.lrx2;
+				lry = locator.lry2;
+				lrz = locator.lrz2;
+			}
             Eigen::Vector3d r(GlobVars[lrx], GlobVars[lry], GlobVars[lrz]);
             push_geodesic_condition(tripletes, energy, counter, lnx, lny, lnz, lrx, lry, lrz, norm, r);
         }
@@ -1886,6 +1928,10 @@ void variableLocator::getLocationsNormalCondition(int order, int vnbr, int vid, 
     {
         varOffset = 12;
     }
+	if (order == 3)
+	{
+		varOffset = 15;
+	}
     if (order == 0)
     {
         lvx = vid;
@@ -2794,7 +2840,6 @@ void QuadOpt::optAGG()
 }
 void QuadOpt::optGGG()
 {
-	// TODO
 	if (WhichDiagonal == 0)
 	{
 		d0_type = 1;
@@ -2804,7 +2849,7 @@ void QuadOpt::optGGG()
 		d1_type = 1;
 	}
 	int vnbr = V.rows();
-	int order = 2; // the order = 1 means AAG, order = 2 is for AGG, order = 3 is for GGG.
+	int order = 3; // the order = 1 means AAG, order = 2 is for AGG, order = 3 is for GGG.
 	int varOffset = 15; // GGG has 15 * n variables
 	if (GlobVars.size() != varsize)
 	{
@@ -2848,27 +2893,27 @@ void QuadOpt::optGGG()
 	assemble_normal_conditions(Hnorm, Bnorm, Enorm, order); // the normal vectors
 	H += weight_pg * Hnorm;
 	B += weight_pg * Bnorm;
-	// AAG, the row is the geodesic, the col is the A, and the chosen diag is another A
-	spMat Hbnm0, Hbnm1;
-	Eigen::VectorXd Bbnm0, Bbnm1;
-	int family = -1;
-
-	family = 1; // column is the geodesic
-	assemble_binormal_conditions(Hbnm0, Bbnm0, Ebnm0, family, -1, order, 0); // 1 means the second binormal vector
-	H += weight_pg * Hbnm0;
-	B += weight_pg * Bbnm0;
-
-	// G
-	int type = 2; // G1
-	family = 1; // column is the geodesic
+	// GGG constraints
+	spMat Hbnm0, Hbnm1, Hbnm2;
+	Eigen::VectorXd Bbnm0, Bbnm1, Bbnm2;
 	spMat Hpg[3];
 	Eigen::VectorXd Bpg[3];
+	int family = -1;
+	int type = 2; // Geodesic
+
+	family = 0; // row is the geodesic
+	assemble_binormal_conditions(Hbnm0, Bbnm0, Ebnm0, family, -1, order, 0); 
+	H += weight_pg * Hbnm0;
+	B += weight_pg * Bbnm0;
+	// G
 	assemble_pg_extreme_cases(Hpg[0], Bpg[0], Epg[0], type, family, -1, order, 0);
 
-	// A
-	type = 1;   // A
-	family = 0; // row is the asymptotic
-	assemble_pg_extreme_cases(Hpg[1], Bpg[1], Epg[1], type, family, -1, order);
+	// G
+	family = 1; // colomn is the geodesic
+	assemble_binormal_conditions(Hbnm1, Bbnm1, Ebnm1, family, -1, order, 1); // 1 means the second binormal vector
+	H += weight_pg * Hbnm1;
+	B += weight_pg * Bbnm1;
+	assemble_pg_extreme_cases(Hpg[1], Bpg[1], Epg[1], type, family, -1, order, 1);
 
 	// A, the diagonal is another A
 	if (d0_type > 0)
@@ -2879,13 +2924,13 @@ void QuadOpt::optGGG()
 	{
 		family = 3;
 	}
-	type = 2;   // G2
-	assemble_pg_extreme_cases(Hpg[2], Bpg[2], Epg[2], type, family, -1, order, 1);
-
 	// another binormal
-	assemble_binormal_conditions(Hbnm1, Bbnm1, Ebnm1, family, -1, order, 1);// 0 means the first binormal vector
-	H += weight_pg * Hbnm1;
-	B += weight_pg * Bbnm1;
+	assemble_binormal_conditions(Hbnm2, Bbnm2, Ebnm2, family, -1, order, 2);// 0 means the first binormal vector
+	H += weight_pg * Hbnm2;
+	B += weight_pg * Bbnm2;
+	assemble_pg_extreme_cases(Hpg[2], Bpg[2], Epg[2], type, family, -1, order, 2);
+
+	
 
 	H += weight_pg * pg_ratio * (Hpg[0] + Hpg[1] + Hpg[2]);
 	B += weight_pg * pg_ratio * (Bpg[0] + Bpg[1] + Bpg[2]);
@@ -2921,10 +2966,12 @@ void QuadOpt::optGGG()
 
 	double ebi0 = Ebnm0.norm();
 	double ebi1 = Ebnm1.norm();
+	double ebi2 = Ebnm2.norm();
 	ebi0 *= ebi0;
 	ebi1 *= ebi1;
-	double ebi = sqrt(ebi0 + ebi1);
-	std::cout << "bnm, " << ebi << ", GAG, " << Epg[0].norm() << ", " << Epg[1].norm() << ", " << Epg[2].norm() << ", ";
+	ebi2 *= ebi2;
+	double ebi = sqrt(ebi0 + ebi1 + ebi2);
+	std::cout << "bnm, " << ebi << ", GGG, " << Epg[0].norm() << ", " << Epg[1].norm() << ", " << Epg[2].norm() << ", ";
 
 	real_step_length = dx.norm();
 	std::cout << ", stp, " << dx.norm() << ", diagonal types, " << d0_type << ", " << d1_type << ", ";

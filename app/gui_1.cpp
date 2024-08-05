@@ -3087,10 +3087,50 @@ void lscif::draw_menu2(igl::opengl::glfw::Viewer &viewer, igl::opengl::glfw::img
 				SingleCrease.clear();
 			}
 			ImGui::SameLine();
+			if (ImGui::Button("easyCheckGGG", ImVec2(ImGui::GetWindowSize().x * 0.25f, 0.0f)))
+			{
+				std::string fname = igl::file_dialog_open();
+				if (fname.length() == 0)
+				{
+					std::cout << "\nLSC: read mesh failed" << std::endl;
+					ImGui::End();
+					return;
+				}
+				Eigen::MatrixXd Vlocal;
+				Eigen::MatrixXi Flocal;
+				igl::readOBJ(fname, Vlocal, Flocal);
+				if (VINROWINPUT == -1 || Vlocal.rows() % VINROWINPUT != 0)
+				{
+					std::cout << "\nLSC: set correct vinrow" << std::endl;
+					ImGui::End();
+					return;
+				}
+				quad_tool.initGGG(mat_to_vec_list(Vlocal), VINROWINPUT);
+
+				// 
+				int id = viewer.selected_data_index;
+				CGMesh updatemesh;
+				constructRegularF(Vlocal.rows(), VINROWINPUT, Flocal);
+				MP.matrix2Mesh(updatemesh, Vlocal, Flocal);
+				std::cout << "V\n" << Vlocal << "\n";
+				std::cout << "F\n" << Flocal << "\n";
+				updateMeshViewer(viewer, updatemesh);
+				meshFileName.push_back("Input");
+				Meshes.push_back(updatemesh);
+				viewer.selected_data_index = id;
+				// set up parameters
+				weight_laplacian = 0.0001;
+				weight_pseudo_geodesic = 0.01;
+				weight_geodesic = 0.01;
+				SingleFoot.clear();
+				SingleCrease.clear();
+			}
+			
 			if (ImGui::Button("writeBnmFiles", ImVec2(ImGui::GetWindowSize().x * 0.25f, 0.0f)))
 			{
 				quad_tool.write_polyline_info_propagation();
 			}
+			ImGui::SameLine();
 			if (ImGui::Button("ReadRefCurve", ImVec2(ImGui::GetWindowSize().x * 0.25f, 0.0f)))
 			{
 				std::string fname = igl::file_dialog_open();
@@ -3238,29 +3278,27 @@ void lscif::draw_menu2(igl::opengl::glfw::Viewer &viewer, igl::opengl::glfw::img
 			}
 			if (ImGui::Button("GGGCurve2Strip", ImVec2(ImGui::GetWindowSize().x * 0.25f, 0.0f)))
 			{
-				if (poly_tool.ply_extracted[0].empty())
-				{
-					std::cout << "\nPlease calibrate" << std::endl;
-					ImGui::End();
-					return;
-				}
 				timer_global.start();
 				std::vector<Eigen::Vector3d> versOut; std::vector<Eigen::Vector3d> directions;
 				std::vector<Eigen::Vector3d> plyin;// = poly_tool.ply_extracted[0];
 				std::vector<Eigen::Vector3d> binin;// = poly_tool.bin_extracted[0];
 				if (quad_tool.vNbrInRow < 0)
 				{ // if there are only 1 polyline, use the parameters to compute the first strip, similar method as the AAG first strip
-					
+					std::cout << "GGG computing the first offset layer\n";
+					plyin = poly_tool.ply_extracted[0];
+					binin = poly_tool.bin_extracted[0];
 					gggFirstStrip(plyin, binin, versOut, InvertDirectionAGG, AggPara1, AggPara2, AggPara3, AggPara4);
 					
 				}
 				else // if there are >= 2 polylines, use new init
 				{
-					std::cout << "plane intersection 2\n";
+					std::cout << "GGG computing offset layer\n";
+					plyin = mat_to_vec_list(quad_tool.V.bottomRows(quad_tool.vNbrInRow));
 					int cnbr = quad_tool.V.rows() / quad_tool.vNbrInRow;
 					int stt = (cnbr - 2)*quad_tool.vNbrInRow;
 					GGGFirstStrip_following(mat_to_vec_list(quad_tool.V.bottomRows(quad_tool.vNbrInRow)), 
 						mat_to_vec_list(quad_tool.V.block(stt, 0, quad_tool.vNbrInRow, 3)), versOut);
+					std::cout << "GGG computing offset layer finished!\n";
 				}
 
 				directions.resize(plyin.size());
@@ -3268,6 +3306,7 @@ void lscif::draw_menu2(igl::opengl::glfw::Viewer &viewer, igl::opengl::glfw::img
 				{
 					directions[i] = versOut[i] - plyin[i];
 				}
+				std::cout << "check 1\n";
 				SingleFoot = versOut;
 				SingleCrease = binin;
 				timer_global.stop();
@@ -3277,6 +3316,7 @@ void lscif::draw_menu2(igl::opengl::glfw::Viewer &viewer, igl::opengl::glfw::img
 				std::vector<std::vector<Eigen::Vector3d>> vtmp(1), ctmp(1);
 				vtmp[0] = plyin;
 				ctmp[0] = directions;
+				std::cout << "check 2\n";
 				CGMesh updatemesh = polyline_to_strip_mesh(vtmp, ctmp, 1, 0, true);
 				updateMeshViewer(viewer, updatemesh);
 				meshFileName.push_back("inter_" + meshFileName[id]);
@@ -3317,17 +3357,6 @@ void lscif::draw_menu2(igl::opengl::glfw::Viewer &viewer, igl::opengl::glfw::img
 					assert(vall.size() > 0);
 					quad_tool.initGGG(vall, vinrow);
 				}
-				// 
-				Eigen::MatrixXd bdrVers = quad_tool.propagateBoundary();
-				poly_tool.init(bdrVers);
-				int id = viewer.selected_data_index;
-				CGMesh updatemesh = polyline_to_strip_mesh(poly_tool.ply_extracted, poly_tool.bin_extracted, vector_scaling);
-				updateMeshViewer(viewer, updatemesh);
-				meshFileName.push_back("ply_" + meshFileName[id]);
-				Meshes.push_back(updatemesh);
-				viewer.data().add_points(bdrVers, hot_red);
-				viewer.selected_data_index = id;
-				std::cout << "create poly with " << bdrVers.rows() << " points\n";
 				// set up parameters
 				weight_laplacian = 0.0001;
 				weight_pseudo_geodesic = 1;
@@ -3354,7 +3383,7 @@ void lscif::draw_menu2(igl::opengl::glfw::Viewer &viewer, igl::opengl::glfw::img
 				timer_global.start();
 				for (int i = 0; i < OpIter; i++)
 				{
-					quad_tool.optAGG();
+					quad_tool.optGGG();
 					iteration_total++;
 					if (quad_tool.real_step_length < 1e-16 && i != 0)
 					{ // step length actually is the value for the last step
