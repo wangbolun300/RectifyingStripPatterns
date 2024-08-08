@@ -3403,7 +3403,87 @@ void lscif::draw_menu2(igl::opengl::glfw::Viewer &viewer, igl::opengl::glfw::img
 				Meshes.push_back(updateMesh);
 				viewer.selected_data_index = id;
 			}
+			ImGui::SameLine();
+			ImGui::Checkbox("GGGEditPt", &quad_tool.GggEnableEditing);
+			if (ImGui::Button("easyCheckIso", ImVec2(ImGui::GetWindowSize().x * 0.25f, 0.0f)))
+			{
+				std::string fname = igl::file_dialog_open();
+				if (fname.length() == 0)
+				{
+					std::cout << "\nLSC: read mesh failed" << std::endl;
+					ImGui::End();
+					return;
+				}
+				Eigen::MatrixXd Vlocal;
+				Eigen::MatrixXi Flocal;
+				igl::readOBJ(fname, Vlocal, Flocal);
+				if (VINROWINPUT == -1 || Vlocal.rows() % VINROWINPUT != 0)
+				{
+					std::cout << "\nLSC: set correct vinrow" << std::endl;
+					ImGui::End();
+					return;
+				}
+				quad_tool.initISO(mat_to_vec_list(Vlocal), VINROWINPUT);
+
+				// 
+				int id = viewer.selected_data_index;
+				CGMesh updatemesh;
+				constructRegularF(Vlocal.rows(), VINROWINPUT, Flocal);
+				MP.matrix2Mesh(updatemesh, Vlocal, Flocal);
+				std::cout << "V\n" << Vlocal << "\n";
+				std::cout << "F\n" << Flocal << "\n";
+				updateMeshViewer(viewer, updatemesh);
+				meshFileName.push_back("Input");
+				Meshes.push_back(updatemesh);
+				viewer.selected_data_index = id;
+				// set up parameters
+				weight_laplacian = 0.0001;
+				weight_pseudo_geodesic = 0.01;
+				weight_geodesic = 0.01;
+				SingleFoot.clear();
+				SingleCrease.clear();
+			}
+			ImGui::SameLine();
+			if (ImGui::Button("OptISO", ImVec2(ImGui::GetWindowSize().x * 0.25f, 0.0f)))
+			{
+				quad_tool.weight_fairness = weight_laplacian;
+				quad_tool.weight_gravity = weight_boundary;
+				quad_tool.weight_pg = weight_pseudo_geodesic;
+				quad_tool.pg_ratio = weight_geodesic;
+				quad_tool.weight_mass = weight_mass;
+				quad_tool.max_step = maximal_step_length;
+				quad_tool.weight_curve = weight_angle;
+				if (quad_tool.V.rows() == 0)
+				{
+					std::cout << "\nEmpty quad, please load a quad mesh first" << std::endl;
+					ImGui::End();
+					return;
+				}
+				timer_global.start();
+				for (int i = 0; i < OpIter; i++)
+				{
+					quad_tool.optISO();
+					iteration_total++;
+					if (quad_tool.real_step_length < 1e-16 && i != 0)
+					{ // step length actually is the value for the last step
+						std::cout << "optimization converges " << std::endl;
+						break;
+					}
+				}
+				timer_global.stop();
+				time_total += timer_global.getElapsedTimeInSec();
+
+				std::cout << "waiting for instruction..." << std::endl;
+				// MP.MeshUnitScale(inputMesh, updatedMesh);
+				int id = viewer.selected_data_index;
+				CGMesh updateMesh = quad_tool.mesh_update;
+				updateMeshViewer(viewer, updateMesh);
+				meshFileName.push_back("opt_" + meshFileName[id]);
+				Meshes.push_back(updateMesh);
+				viewer.selected_data_index = id;
+			}
 		}
+		
 		// binormals as orthogonal as possible.
 		ImGui::PushStyleColor(ImGuiCol_Button, (ImVec4)ImColor::HSV(0.0f, 0.6f, 0.6f));
 		ImGui::PushStyleColor(ImGuiCol_ButtonHovered, (ImVec4)ImColor::HSV(0.0f, 0.7f, 0.7f));

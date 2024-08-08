@@ -368,6 +368,64 @@ void QuadOpt::init(CGMesh &mesh_in)
     Eigen::Vector3d vmax(V.col(0).maxCoeff(), V.col(1).maxCoeff(), V.col(2).maxCoeff());
     std::cout<<"Initialized quad mesh: Vnbr, "<<V.rows()<<", BBD, "<<(vmin - vmax).norm()<<std::endl;;
 }
+void QuadOpt::initISO(const std::vector<Eigen::Vector3d> &Vlist, const int rnbr)
+{
+	int vnbr = Vlist.size();
+	V = vec_list_to_matrix(Vlist);
+	// std::cout<<"check V, \n"<<V<<"\n";
+	constructRegularF(vnbr, rnbr, F);
+	MeshProcessing mp;
+	mp.matrix2Mesh(mesh_original, V, F);
+	vNbrInRow = rnbr;
+	if (OriginalCurve.size() == 0)
+	{
+		for (int i = 0; i < rnbr * 2; i++) // GGG we preserve 2 strips
+		{
+			OriginalCurve.push_back(Vlist[i]);
+		}
+	}
+	int fnbr = F.rows();
+	varsize = vnbr * 3;
+	d0Lengths.resize(fnbr);
+	d1Lengths.resize(fnbr);
+	d0d1dots.resize(fnbr);
+	for (int i = 0; i < fnbr; i++)
+	{
+		Eigen::Vector3d v0 = V.row(F(i, 0));
+		Eigen::Vector3d v1 = V.row(F(i, 1));
+		Eigen::Vector3d v2 = V.row(F(i, 2));
+		Eigen::Vector3d v3 = V.row(F(i, 3));
+		d0Lengths[i] = (v0 - v2).norm();
+		d1Lengths[i] = (v1 - v3).norm();
+		d0d1dots[i] = (v0 - v2).dot(v1 - v3);
+	}
+	if (vNbrInRow <= 0)
+	{
+		std::cout << "Please set the parameter vNbrInRow!\n";
+		return;
+	}
+	std::cout << "check 1\n";
+	getQuadRowColsRegular(vnbr, vNbrInRow, row_front, row_back, col_front, col_back);
+	std::cout << "Row Col info computed:\n" << vnbr << " vertices, each row has " << vNbrInRow << " vertices\n";
+	load_diagonal_info(row_front, row_back, col_front, col_back, d0_front, d1_front, d0_back, d1_back);
+	OrigVars = Eigen::VectorXd::Zero(varsize);
+	for (int i = 0; i < vnbr; i++)
+	{
+		OrigVars[3 * i] = V(i, 0);
+		OrigVars[3 * i + 1] = V(i, 1);
+		OrigVars[3 * i + 2] = V(i, 2);
+	}
+	std::cout << "check 2\n";
+	mesh_update = mesh_original;
+	ComputeAuxiliaries = true;
+	Eigen::VectorXd grav_vec = Eigen::VectorXd::Ones(vnbr * 3);
+	Eigen::VectorXd var_vec = Eigen::VectorXd::Zero(varsize);
+	var_vec.segment(0, vnbr * 3) = grav_vec;
+	gravity_matrix = var_vec.asDiagonal();
+	Eigen::Vector3d vmin(V.col(0).minCoeff(), V.col(1).minCoeff(), V.col(2).minCoeff());
+	Eigen::Vector3d vmax(V.col(0).maxCoeff(), V.col(1).maxCoeff(), V.col(2).maxCoeff());
+	std::cout << "Initialized quad mesh: Vnbr, " << V.rows() << ", BBD, " << (vmin - vmax).norm() << std::endl;;
+}
 // the gravity vector show where the vertices are
 // type == 0: aag.
 // type == 1: agg.
@@ -865,6 +923,90 @@ void QuadOpt::assemble_approximate_curve_conditions(spMat &H, Eigen::VectorXd &B
     B = -J.transpose() * energy;
     // std::cout<<"out of the assemble_approximate_curve_conditions\n";
 }
+void QuadOpt::assemble_isometric_condition(spMat &H, Eigen::VectorXd &B, Eigen::VectorXd &energy)
+{
+	int vnbr = V.rows();
+	int fnbr = F.rows();
+	std::vector<Trip> tripletes;
+	tripletes.reserve(24 * fnbr);
+	energy = Eigen::VectorXd::Zero(fnbr * 3);
+	for (int i = 0; i < fnbr; i++)
+	{
+		int v0 = F(i, 0);
+		int v1 = F(i, 1);
+		int v2 = F(i, 2);
+		int v3 = F(i, 3);
+
+		int l0x = v0 * 3;
+		int l0y = v0 * 3 + 1;
+		int l0z = v0 * 3 + 2;
+
+		int l1x = v1 * 3;
+		int l1y = v1 * 3 + 1;
+		int l1z = v1 * 3 + 2;
+
+		int l2x = v2 * 3;
+		int l2y = v2 * 3 + 1;
+		int l2z = v2 * 3 + 2;
+
+		int l3x = v3 * 3;
+		int l3y = v3 * 3 + 1;
+		int l3z = v3 * 3 + 2;
+		
+		// (v0 - v2)^2 - l^2 = 0
+		tripletes.push_back(Trip(3 * i, l0x, 2 * V(v0, 0) - 2 * V(v2, 0)));
+		tripletes.push_back(Trip(3 * i, l0y, 2 * V(v0, 1) - 2 * V(v2, 1)));
+		tripletes.push_back(Trip(3 * i, l0z, 2 * V(v0, 2) - 2 * V(v2, 2)));
+
+		tripletes.push_back(Trip(3 * i, l2x, 2 * V(v2, 0) - 2 * V(v0, 0)));
+		tripletes.push_back(Trip(3 * i, l2y, 2 * V(v2, 1) - 2 * V(v0, 1)));
+		tripletes.push_back(Trip(3 * i, l2z, 2 * V(v2, 2) - 2 * V(v0, 2)));
+		
+		double length = Eigen::Vector3d(V.row(v0) - V.row(v2)).norm();
+		energy[3 * i] = length * length - d0Lengths[i] * d0Lengths[i];
+
+		// (v1 - v3)^2 - l^2 = 0
+		tripletes.push_back(Trip(3 * i + 1, l1x, 2 * V(v1, 0) - 2 * V(v3, 0)));
+		tripletes.push_back(Trip(3 * i + 1, l1y, 2 * V(v1, 1) - 2 * V(v3, 1)));
+		tripletes.push_back(Trip(3 * i + 1, l1z, 2 * V(v1, 2) - 2 * V(v3, 2)));
+
+		tripletes.push_back(Trip(3 * i + 1, l3x, 2 * V(v3, 0) - 2 * V(v1, 0)));
+		tripletes.push_back(Trip(3 * i + 1, l3y, 2 * V(v3, 1) - 2 * V(v1, 1)));
+		tripletes.push_back(Trip(3 * i + 1, l3z, 2 * V(v3, 2) - 2 * V(v1, 2)));
+
+		length = Eigen::Vector3d(V.row(v1) - V.row(v3)).norm();
+		energy[3 * i + 1] = length * length - d1Lengths[i] * d1Lengths[i];
+
+		// (v0 - v2) * (v1 - v3) - cosin(angle) = 0
+		Eigen::Vector3d V02 = V.row(v0) - V.row(v2);
+		Eigen::Vector3d V13 = V.row(v1) - V.row(v3);
+
+		tripletes.push_back(Trip(3 * i + 2, l0x, V13[0]));
+		tripletes.push_back(Trip(3 * i + 2, l0y, V13[1]));
+		tripletes.push_back(Trip(3 * i + 2, l0z, V13[2]));
+
+		tripletes.push_back(Trip(3 * i + 2, l2x, -V13[0]));
+		tripletes.push_back(Trip(3 * i + 2, l2y, -V13[1]));
+		tripletes.push_back(Trip(3 * i + 2, l2z, -V13[2]));
+
+		tripletes.push_back(Trip(3 * i + 2, l1x, V02[0]));
+		tripletes.push_back(Trip(3 * i + 2, l1y, V02[1]));
+		tripletes.push_back(Trip(3 * i + 2, l1z, V02[2]));
+
+		tripletes.push_back(Trip(3 * i + 2, l3x, -V02[0]));
+		tripletes.push_back(Trip(3 * i + 2, l3y, -V02[1]));
+		tripletes.push_back(Trip(3 * i + 2, l3z, -V02[2]));
+
+		energy[3 * i + 2] = V02.dot(V13) - d0d1dots[0];
+	}
+	int nvars = GlobVars.size();
+	int ncondi = energy.size();
+	spMat J;
+	J.resize(ncondi, nvars);
+	J.setFromTriplets(tripletes.begin(), tripletes.end());
+	H = J.transpose() * J;
+	B = -J.transpose() * energy;
+}
 
 void QuadOpt::assemble_gravity_AAG_AGG(spMat& H, Eigen::VectorXd& B, Eigen::VectorXd &energy, int order){
     int varOffset = 9;
@@ -874,6 +1016,10 @@ void QuadOpt::assemble_gravity_AAG_AGG(spMat& H, Eigen::VectorXd& B, Eigen::Vect
 	if (order == 3)
 	{
 		varOffset = 15;
+	}
+	if (order == 4)
+	{
+		varOffset = 3;
 	}
     std::vector<Trip> tripletes;
     int vnbr = V.rows();
@@ -903,11 +1049,19 @@ void QuadOpt::assemble_gravity_AAG_AGG(spMat& H, Eigen::VectorXd& B, Eigen::Vect
         }
         else
         {
-            // verori[0] = OrigVars[lx];
-            // verori[1] = OrigVars[ly];
-            // verori[2] = OrigVars[lz];
-            continue;
-        }
+			if (GggEnableEditing) {
+				if (i == GggEditingVid)
+				{
+					verori = GggTargetPosition;
+				}
+				else
+				{
+					continue;
+				}
+			}
+			else
+				continue;
+		}
 
         vdiff = Eigen::Vector3d(V.row(vid)) - verori;
 
@@ -1006,6 +1160,12 @@ void locatorRules(int vid, int vnbr, int order, int &x, int &y, int &z)
 		x = 15 * vid;
 		y = 15 * vid + 1;
 		z = 15 * vid + 2;
+	}
+	if (order == 4)
+	{
+		x = 3 * vid;
+		y = 3 * vid + 1;
+		z = 3 * vid + 2;
 	}
 }
 // lv is ver location, lf is front location, lb is back location, cid is the id of the condition
@@ -2957,7 +3117,7 @@ void QuadOpt::optGGG()
 	}
 	GlobVars += dx;
 
-	std::cout << "AGG, ";
+	std::cout << "GGG, ";
 
 	double ev_appro = Egravity.norm();
 	double ev_smt = Esmth.norm();
@@ -2997,9 +3157,105 @@ void QuadOpt::optGGG()
 		assert(vid >= 0);
 		mesh_update.point(*v_it) = CGMesh::Point(V(vid, 0), V(vid, 1), V(vid, 2));
 	}
-	collectAggVectors(GlobVars, N, B0, B1);
-	// std::cout<<"opt finished\n";
 }
+void QuadOpt::optISO()
+{
+	int vnbr = V.rows();
+	int order = 4; // the order = 1 means AAG, order = 2 is for AGG, order = 3 is for GGG, order = 4 is for isometric deformation.
+	int varOffset = 3; // isometric deformation has 3 * n variables
+	if (GlobVars.size() != varsize)
+	{
+		int sizediff = (varsize - GlobVars.size()) / varOffset;
+		std::cout << "Assigning variables based on previous ones, there are " << sizediff << " vertices more\n";
+		ComputeAuxiliaries = true;
+		Eigen::VectorXd tmpVar = Eigen::VectorXd::Zero(varsize);
+		if (GlobVars.size() > 0)
+			tmpVar.segment(0, GlobVars.size()) = GlobVars;
+		GlobVars = tmpVar;
+		for (int i = vnbr - sizediff; i < vnbr; i++)
+		{
+			GlobVars[i * varOffset] = V(i, 0);
+			GlobVars[i * varOffset + 1] = V(i, 1);
+			GlobVars[i * varOffset + 2] = V(i, 2);
+		}
+	}
+	spMat H, Hiso;
+	H.resize(varsize, varsize);
+	Eigen::VectorXd B = Eigen::VectorXd::Zero(varsize), Biso;
+	Eigen::VectorXd Egravity, Esmth, Eiso;
+
+	spMat Hgravity;  // approximation
+	Eigen::VectorXd Bgravity; // right of approximation
+	assemble_gravity_AAG_AGG(Hgravity, Bgravity, Egravity, order);
+	H += weight_gravity * Hgravity;
+	B += weight_gravity * Bgravity;
+
+	spMat Hsmth;
+	Eigen::VectorXd Bsmth;
+	assemble_fairness(Hsmth, Bsmth, Esmth, order);
+	H += weight_fairness * Hsmth;
+	B += weight_fairness * Bsmth;
+	
+	assemble_isometric_condition(Hiso, Biso, Eiso);
+
+	H += weight_pg * Hiso;
+	B += weight_pg * Biso;
+
+	// assemble together
+
+	H += 1e-6 * (weight_mass * gravity_matrix + spMat(Eigen::VectorXd::Ones(varsize).asDiagonal()));
+	Eigen::SimplicialLLT<Eigen::SparseMatrix<double>> solver(H);
+
+	// assert(solver.info() == Eigen::Success);
+	if (solver.info() != Eigen::Success)
+	{
+		// solving failed
+		std::cout << "solver fail" << std::endl;
+		return;
+	}
+	// std::cout<<"solved successfully"<<std::endl;
+	Eigen::VectorXd dx = solver.solve(B).eval();
+	dx *= 0.75;
+	double step_length = dx.norm();
+	if (step_length > max_step)
+	{
+		dx *= max_step / step_length;
+	}
+	GlobVars += dx;
+
+	std::cout << "ISO, ";
+
+	double ev_appro = Egravity.norm();
+	double ev_smt = Esmth.norm();
+	double ev_iso = Eiso.norm();
+	std::cout << "Eclose, " << ev_appro << ", lap, " << ev_smt << ", isometric, " << ev_iso;
+
+	real_step_length = dx.norm();
+	std::cout << ", stp, " << real_step_length;
+	std::cout << "\n";
+	// std::cout<<"here 1\n";
+	// convert the data to the mesh format
+	ComputeAuxiliaries = false;
+	for (int i = 0; i < vnbr; i++)
+	{
+		V(i, 0) = GlobVars[i * varOffset];
+		V(i, 1) = GlobVars[i * varOffset + 1];
+		V(i, 2) = GlobVars[i * varOffset + 2];
+	}
+	// std::cout<<"here 2\nver nbrs "<<mesh_update.n_vertices()<<"\n";
+	for (CGMesh::VertexIter v_it = mesh_update.vertices_begin(); v_it != mesh_update.vertices_end(); ++v_it)
+	{
+		int vid = v_it.handle().idx();
+		if (vid >= V.rows() || vid < 0)
+		{
+			std::cout << "Error in vid " << vid << std::endl;
+		}
+		assert(vid < V.rows());
+		assert(vid >= 0);
+		mesh_update.point(*v_it) = CGMesh::Point(V(vid, 0), V(vid, 1), V(vid, 2));
+	}
+}
+
 Eigen::MatrixXd QuadOpt::propagateBoundary()
 {
     Eigen::MatrixXd result(vNbrInRow, 3);

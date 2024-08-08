@@ -192,6 +192,7 @@ public:
     void init(CGMesh& mesh_in, const std::vector<std::vector<double>> rowinfo, const std::vector<std::vector<double>>colinfo);
     void init(CGMesh& mesh_in, const std::string& prefix);
     void init(CGMesh& mesh_in);
+	void initISO(const std::vector<Eigen::Vector3d> &Vlist, const int rnbr);
     void initAAG(const std::vector<Eigen::Vector3d> &Vlist, const int rnbr);
     void initAGG(const std::vector<Eigen::Vector3d> &Vlist, const int rnbr);
 	void initGGG(const std::vector<Eigen::Vector3d> &Vlist, const int rnbr);
@@ -206,6 +207,9 @@ public:
     std::vector<Eigen::Vector3d> verUpdate;
     std::vector<Eigen::Vector3d> curveRef;
     bool AGGAAGApproInitStrip = false; // approximate the first strip instead of the first curve
+	bool GggEnableEditing = false;
+	int GggEditingVid = -1;
+	Eigen::Vector3d GggTargetPosition;
     double real_step_length;
     
     // input from outside
@@ -230,6 +234,7 @@ public:
     void optAAG();
     void optAGG();
 	void optGGG();
+	void optISO();
     Eigen::MatrixXd propagateBoundary();
     void reset();
     void load_triangle_mesh_tree(const igl::AABB<Eigen::MatrixXd, 3> &tree, const Eigen::MatrixXd &Vt,
@@ -265,6 +270,10 @@ private:
     Eigen::MatrixXd Vtri;
     Eigen::MatrixXi Ftri;
     Eigen::MatrixXd Ntri;
+	// some variables for isometric deformations
+	Eigen::VectorXd d0Lengths;
+	Eigen::VectorXd d1Lengths;
+	Eigen::VectorXd d0d1dots;
     
     std::vector<Eigen::Vector3d> OriginalCurve;
     void get_Bnd(Eigen::VectorXi& Bnd); // the boundary vertices: the net corners
@@ -283,6 +292,7 @@ private:
                                       int bnm_start, const int order = 0, const int whichBnm = 0);
     void assemble_normal_conditions(spMat &H, Eigen::VectorXd &B, Eigen::VectorXd &energy, const int order = 0);
     void assemble_approximate_curve_conditions(spMat &H, Eigen::VectorXd &B, Eigen::VectorXd &energy, const int order);
+	void assemble_isometric_condition(spMat &H, Eigen::VectorXd &B, Eigen::VectorXd &energy);
 
 public:
     // debug tools

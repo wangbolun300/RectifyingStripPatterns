@@ -878,19 +878,19 @@ void GGGFirstStrip_following(const std::vector<Eigen::Vector3d> &vertices, const
 
 	int vnbr = vertices.size();
 	std::vector<Eigen::Vector3d> voff(vnbr); // collect the offset vertices
-	for (int i = 1; i < vnbr - 2; i++)
+	for (int i = 2; i < vnbr - 1; i++)
 	{
-		Eigen::Vector3d n1 = (vertices[i] - slVers[i]).cross(vertices[i - 1] - vertices[i + 1]).normalized();
-		Eigen::Vector3d n2 = (vertices[i + 1] - slVers[i + 1]).cross(vertices[i] - vertices[i + 2]).normalized();
+		Eigen::Vector3d n1 = (vertices[i] - slVers[i]).cross(vertices[i + 1] - vertices[i - 1]).normalized();
+		Eigen::Vector3d n2 = (vertices[i - 1] - slVers[i - 1]).cross(vertices[i] - vertices[i-2]).normalized();
 		Eigen::Vector3d sym1 = symmetricPoint(slVers[i], vertices[i], n1);
-		Eigen::Vector3d sym2 = symmetricPoint(slVers[i + 2], vertices[i + 1], n2);
+		Eigen::Vector3d sym2 = symmetricPoint(slVers[i - 2], vertices[i - 1], n2);
 		// compute the two edge directions
 		Eigen::Vector3d dir1 = (sym1 - vertices[i]).normalized();
-		Eigen::Vector3d dir2 = (sym2 - vertices[i + 1]).normalized();
+		Eigen::Vector3d dir2 = (sym2 - vertices[i - 1]).normalized();
 		// compute the two edge lengths
-		double elength = (vertices[i + 1] - vertices[i]).norm();
-		double calpha = (vertices[i - 1] - vertices[i]).normalized().dot((slVers[i] - vertices[i]).normalized()); // cos(alpha)
-		double cbeta = (vertices[i + 2] - vertices[i + 1]).normalized().dot((slVers[i + 2] - vertices[i + 1]).normalized()); // cos(beta)
+		double elength = (vertices[i - 1] - vertices[i]).norm();
+		double calpha = (vertices[i + 1] - vertices[i]).normalized().dot((slVers[i] - vertices[i]).normalized()); // cos(alpha)
+		double cbeta = (vertices[i - 2] - vertices[i - 1]).normalized().dot((slVers[i - 2] - vertices[i - 1]).normalized()); // cos(beta)
 		double salpha = sqrt(1 - calpha * calpha); // sin(alpha)
 		double sbeta = sqrt(1 - cbeta * cbeta); // sin(beta)
 		double gamma = LSC_PI - (acos(calpha) + acos(cbeta));
@@ -899,13 +899,13 @@ void GGGFirstStrip_following(const std::vector<Eigen::Vector3d> &vertices, const
 		double blength = sconst * sbeta;
 		// get the two vertices
 		Eigen::Vector3d v1 = dir1 * blength + vertices[i]; 
-		Eigen::Vector3d v2 = dir2 * alength + vertices[i + 1];
+		Eigen::Vector3d v2 = dir2 * alength + vertices[i - 1];
 		voff[i] = (v1 + v2) / 2;
 	}
 	// decide the 0th, the n-2nd and the n-1st simply using smoothness.
-	voff[0] = smoothCrossing(slVers[0], vertices[1], voff[2], voff[1]);
-	voff[vnbr - 2] = smoothCrossing(slVers[vnbr - 2], vertices[vnbr - 2], voff[vnbr - 4], voff[vnbr - 3]);
 	voff[vnbr - 1] = smoothCrossing(slVers[vnbr - 1], vertices[vnbr - 1], voff[vnbr - 3], voff[vnbr - 2]);
+	voff[1] = smoothCrossing(slVers[1], vertices[1], voff[3], voff[2]);
+	voff[0] = smoothCrossing(slVers[0], vertices[0], voff[2], voff[1]);
 	vout = voff;
 }
 // this version uses a more robust version to get normal vectors

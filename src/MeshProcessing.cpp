@@ -21,12 +21,12 @@ std::vector<int> MeshProcessing::meshCorners(CGMesh& mesh)
 std::vector<int> MeshProcessing::MeshVertexClassificationBlackWhite(CGMesh& mesh)
 {
 	int nVerts = mesh.n_vertices();
-	if (nVerts<1)
+	if (nVerts < 1)
 	{
 		std::cout << "Please Update the Reference Mesh" << std::endl;
 		std::vector<int> none;
 		return none;
-	}	
+	}
 	std::vector<int> vType(nVerts, -1);
 
 	std::vector<int> stVts;
@@ -160,7 +160,7 @@ std::vector<int> MeshProcessing::MeshFaceClassificationCube4types(CGMesh& mesh, 
 			CGMesh::FaceHandle fh = mesh.face_handle(stfs[i]);
 			for (CGMesh::FaceHalfedgeIter fh_it = mesh.fh_begin(fh); fh_it != mesh.fh_end(fh); ++fh_it)
 			{
-				CGMesh::HalfedgeHandle oph = mesh.opposite_halfedge_handle(fh_it);					
+				CGMesh::HalfedgeHandle oph = mesh.opposite_halfedge_handle(fh_it);
 				if (!mesh.is_boundary(oph))
 				{
 					CGMesh::HalfedgeHandle nexth = mesh.next_halfedge_handle(mesh.next_halfedge_handle(oph));
@@ -204,7 +204,7 @@ std::vector<int> MeshProcessing::MeshFaceClassificationCube4types(CGMesh& mesh, 
 	{
 		int fid = f_it.handle().idx();
 		int t = fType[fid];
-		if (t==0 || t==1)
+		if (t == 0 || t == 1)
 		{
 			for (CGMesh::FaceHalfedgeIter fh_it = mesh.fh_begin(f_it); fh_it != (mesh.fh_end(f_it)); ++fh_it)
 			{
@@ -218,8 +218,8 @@ std::vector<int> MeshProcessing::MeshFaceClassificationCube4types(CGMesh& mesh, 
 					int vid1 = mesh.from_vertex_handle(nexth).idx();
 					int vid2 = mesh.to_vertex_handle(nexth).idx();
 					vType[vid1] = 1 - t; vType[vid2] = 1 - t;
-				}		
-			}			
+				}
+			}
 		}
 	}
 
@@ -319,8 +319,8 @@ spMat MeshProcessing::SubdivCoarseMesh_CaltmullClack(CGMesh& coarseMesh, CGMesh&
 		std::vector<OpenMesh::VertexHandle> vhs;
 		std::vector<double> w;
 
-		if(coarseMesh.is_boundary(v_it))
-		{ 
+		if (coarseMesh.is_boundary(v_it))
+		{
 			if (coarseMesh.valence(v_it) == 2)
 			{
 				vhs.push_back(v_it.handle()); w.push_back(1.0);
@@ -333,7 +333,7 @@ spMat MeshProcessing::SubdivCoarseMesh_CaltmullClack(CGMesh& coarseMesh, CGMesh&
 					if (coarseMesh.is_boundary(vv_it))
 					{
 						vhs.push_back(vv_it.handle()); w.push_back(0.125);
-					}						
+					}
 				}
 			}
 		}
@@ -359,7 +359,7 @@ spMat MeshProcessing::SubdivCoarseMesh_CaltmullClack(CGMesh& coarseMesh, CGMesh&
 		for (int i = 0; i < vhs.size(); i++)
 			p = coarseMesh.point(vhs[i]) * w[i] + p;
 
-		vh=fineMesh.add_vertex(CGMesh::Point(p[0], p[1], p[2]));
+		vh = fineMesh.add_vertex(CGMesh::Point(p[0], p[1], p[2]));
 		vecvh.push_back(vh);
 
 		for (int i = 0; i < vhs.size(); i++)
@@ -382,7 +382,7 @@ spMat MeshProcessing::SubdivCoarseMesh_CaltmullClack(CGMesh& coarseMesh, CGMesh&
 		else
 		{
 			vhs.push_back(vh1); vhs.push_back(vh2);
-			w.push_back(3.0/8); w.push_back(3.0/8);
+			w.push_back(3.0 / 8); w.push_back(3.0 / 8);
 			vhs.push_back(coarseMesh.to_vertex_handle(coarseMesh.next_halfedge_handle(hh))); w.push_back(1.0 / 16);
 			vhs.push_back(coarseMesh.from_vertex_handle(coarseMesh.prev_halfedge_handle(hh))); w.push_back(1.0 / 16);
 
@@ -412,7 +412,7 @@ spMat MeshProcessing::SubdivCoarseMesh_CaltmullClack(CGMesh& coarseMesh, CGMesh&
 		for (CGMesh::FaceVertexIter fv_it = coarseMesh.fv_begin(f_it); fv_it != coarseMesh.fv_end(f_it); ++fv_it)
 		{
 			vhs.push_back(fv_it.handle());
-			w.push_back(1.0/fvn);
+			w.push_back(1.0 / fvn);
 		}
 		OpenMesh::Vec3d p(0, 0, 0);
 		for (int i = 0; i < vhs.size(); i++)
@@ -430,7 +430,7 @@ spMat MeshProcessing::SubdivCoarseMesh_CaltmullClack(CGMesh& coarseMesh, CGMesh&
 	int ne = coarseMesh.n_edges();
 	for (CGMesh::FaceIter f_it = coarseMesh.faces_begin(); f_it != coarseMesh.faces_end(); ++f_it) // new point for face
 	{
-		
+
 		int fid = f_it.handle().idx();
 		for (CGMesh::FaceHalfedgeIter fh_it = coarseMesh.fh_begin(f_it); fh_it != coarseMesh.fh_end(f_it); ++fh_it)
 		{
@@ -438,7 +438,7 @@ spMat MeshProcessing::SubdivCoarseMesh_CaltmullClack(CGMesh& coarseMesh, CGMesh&
 			int eid1 = coarseMesh.edge_handle(fh_it.current_halfedge_handle()).idx();
 			int eid2 = coarseMesh.edge_handle(coarseMesh.next_halfedge_handle(fh_it)).idx();
 			int vid = coarseMesh.to_vertex_handle(fh_it).idx();
-			vhs.push_back(vecvh[fid+nv+ne]); vhs.push_back(vecvh[eid1+nv]);  vhs.push_back(vecvh[vid]); vhs.push_back(vecvh[eid2+nv]);
+			vhs.push_back(vecvh[fid + nv + ne]); vhs.push_back(vecvh[eid1 + nv]);  vhs.push_back(vecvh[vid]); vhs.push_back(vecvh[eid2 + nv]);
 			fineMesh.add_face(vhs);
 		}
 	}
@@ -515,7 +515,7 @@ void MeshProcessing::MeshEdgeDual(CGMesh& coarseMesh, CGMesh& fineMesh, std::vec
 			{
 				vhs.push_back(vecvh[veceid[i]]);
 			}
-			if(vhs.size()==4)
+			if (vhs.size() == 4)
 				fineMesh.add_face(vhs);
 		}
 
@@ -534,7 +534,7 @@ void MeshProcessing::MeshEdgeDual(CGMesh& coarseMesh, CGMesh& fineMesh, std::vec
 				int eid = ve_it.handle().idx();
 				veceid.push_back(eid);
 			}
-			if (veceid.size() ==2)
+			if (veceid.size() == 2)
 				continue;
 
 			std::vector<OpenMesh::VertexHandle> vhs;
@@ -579,7 +579,7 @@ void MeshProcessing::matrix2Mesh(CGMesh& mesh, Eigen::MatrixXd& V, Eigen::Matrix
 }
 
 
- void MeshProcessing::mesh2Matrix(CGMesh& mesh, Eigen::MatrixXd& V, Eigen::MatrixXi& F)
+void MeshProcessing::mesh2Matrix(CGMesh& mesh, Eigen::MatrixXd& V, Eigen::MatrixXi& F)
 {
 	int nv = mesh.n_vertices();
 	V = Eigen::MatrixXd(nv, 3);
@@ -612,22 +612,22 @@ void MeshProcessing::matrix2Mesh(CGMesh& mesh, Eigen::MatrixXd& V, Eigen::Matrix
 		F.row(i) << Fvids[3 * i], Fvids[3 * i + 1], Fvids[3 * i + 2];
 }
 
- 
- void MeshProcessing::meshEdges(CGMesh& mesh, Eigen::MatrixXi& E)
- {
-	 int ne = mesh.n_edges();
-	 E = Eigen::MatrixXi(ne, 2);
-	 int i = 0;
-	 for (CGMesh::EdgeIter e_it = mesh.edges_begin(); e_it != mesh.edges_end(); ++e_it)
-	 {
-		 OpenMesh::HalfedgeHandle hh = mesh.halfedge_handle(e_it, 0);
-		 if (!hh.is_valid()) hh = mesh.halfedge_handle(e_it, 1);
-		 int i1 = mesh.from_vertex_handle(hh).idx();
-		 int i2 = mesh.to_vertex_handle(hh).idx();
-		 E.row(i) << i1,i2;
-		 i++;
-	 }
- }
+
+void MeshProcessing::meshEdges(CGMesh& mesh, Eigen::MatrixXi& E)
+{
+	int ne = mesh.n_edges();
+	E = Eigen::MatrixXi(ne, 2);
+	int i = 0;
+	for (CGMesh::EdgeIter e_it = mesh.edges_begin(); e_it != mesh.edges_end(); ++e_it)
+	{
+		OpenMesh::HalfedgeHandle hh = mesh.halfedge_handle(e_it, 0);
+		if (!hh.is_valid()) hh = mesh.halfedge_handle(e_it, 1);
+		int i1 = mesh.from_vertex_handle(hh).idx();
+		int i2 = mesh.to_vertex_handle(hh).idx();
+		E.row(i) << i1, i2;
+		i++;
+	}
+}
 
 
 void MeshProcessing::MeshUpdate(CGMesh& originMesh, CGMesh& updatedMesh, std::vector<double>& pts)
@@ -759,9 +759,9 @@ void MeshProcessing::meshPlanarity(CGMesh& inputMesh, std::vector<double>& plana
 			int n = 0;
 			for (int i = 0; i <= pts.size() - 4; i++)
 			{
-				OpenMesh::Vec3d pt1, pt2, pt3, pt4,c;
-				double f,s;
-				pt1 = pts[i]; pt2 = pts[i+1]; pt3 = pts[i+2]; pt4 = pts[i+3];
+				OpenMesh::Vec3d pt1, pt2, pt3, pt4, c;
+				double f, s;
+				pt1 = pts[i]; pt2 = pts[i + 1]; pt3 = pts[i + 2]; pt4 = pts[i + 3];
 				c = (pt1 - pt3) % (pt2 - pt4);
 				c.normalize();
 				f = fabs((pt2 - pt1) | c);
@@ -771,7 +771,7 @@ void MeshProcessing::meshPlanarity(CGMesh& inputMesh, std::vector<double>& plana
 			}
 			p = p / n;
 		}
-		planarity.push_back(p);		
+		planarity.push_back(p);
 	}
 }
 
@@ -792,6 +792,5 @@ void MeshProcessing::meshFaceCenter(CGMesh& inputMesh, std::vector<OpenMesh::Vec
 		fcen.push_back(fceni);
 	}
 }
-
 
 

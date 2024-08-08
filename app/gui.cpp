@@ -262,9 +262,9 @@ bool lscif::mouse_down(igl::opengl::glfw::Viewer &viewer, int button, int modifi
 			Eigen::VectorXi vids = Eigen::Map<Eigen::VectorXi, Eigen::Unaligned>(fixedVid.data(), fixedVid.size());
 			Eigen::VectorXi vids2 = Eigen::Map<Eigen::VectorXi, Eigen::Unaligned>(controlVid.data(), controlVid.size());
 
-			std::cout << "Selected point:\nposition related to the viewer: " << viewer.current_mouse_x << "___" << viewer.current_mouse_y << std::endl;
-			std::cout << "vid, " << vid << ", fid, " << fid << ", mass_unfiform, " << tools.mass_uniform.coeffRef(vid, vid) << std::endl;
-			std::cout<<"bari, "<<bc.transpose()<<"\n";
+			//std::cout << "Selected point:\nposition related to the viewer: " << viewer.current_mouse_x << "___" << viewer.current_mouse_y << std::endl;
+			/*std::cout << "vid, " << vid << ", fid, " << fid << ", mass_unfiform, " << tools.mass_uniform.coeffRef(vid, vid) << std::endl;
+			std::cout<<"bari, "<<bc.transpose()<<"\n";*/
 			if (tools.fvalues.rows() > 0)
 			{
 				std::cout << "level set value " << tools.fvalues[vid] << std::endl;
@@ -342,18 +342,19 @@ bool lscif::mouse_down(igl::opengl::glfw::Viewer &viewer, int button, int modifi
 		std::cout << "unprojected, " << unprojected << ", iglupr, " << iglupr << "\n";*/
 		if (unprojected)
 		{
-			std::cout << "viewer...\nviewer\n"
+			/*std::cout << "viewer...\nviewer\n"
 					  << viewer.core().view
 					  << "\nproj\n"
 					  << viewer.core().proj << "\nport\n"
 					  << viewer.core().viewport << "\n"
-					  << "x, " << x << ", y, " << y << "\n";
+					  << "x, " << x << ", y, " << y << "\n";*/
 			int max;
 			bc.maxCoeff(&max);
-			int vid = viewer.data().F(fid, max);;
+			int vid = viewer.data().F(fid, max);
+			quad_tool.GggEditingVid = vid;
 			pSelect3d =
 				viewer.data().V.row(vid);
-			std::cout<<"p selection "<<pSelect3d.transpose()<<"\n";
+			std::cout<<"vertexId "<<vid<< ", position  "<<pSelect3d.transpose()<<"\n";
 			viewer.data().set_points(pSelect3d.transpose(), hot_red);
 			return true;
 
@@ -376,6 +377,7 @@ bool lscif::mouse_down(igl::opengl::glfw::Viewer &viewer, int button, int modifi
 		Eigen::Vector3d pfound = 
 		igl::unproject(Eigen::Vector3f(Ppro), viewer.core().view, viewer.core().proj, viewer.core().viewport).template cast<double>();
 		viewer.data().add_points(pfound.transpose(), sea_green);
+		quad_tool.GggTargetPosition = pfound;
 		return true;
 	}
 

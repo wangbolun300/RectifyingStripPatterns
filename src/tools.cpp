@@ -5334,10 +5334,10 @@ void construct_single_developable_strips_by_intersect_rectifying_AAG(
         else{
             nc++;
             // (footleft + alpha * tleft - v).dot(nright) = 0
-            std::cout<<"check1\n";
-            std::cout<<"ver, "<<vertices[i + 1]<<", f "<<foot[i-1]<<", n "<<nright<<", tleft, "<<tleft<<"\n";
+            //std::cout<<"check1\n";
+            //std::cout<<"ver, "<<vertices[i + 1]<<", f "<<foot[i-1]<<", n "<<nright<<", tleft, "<<tleft<<"\n";
             double alpha = (vertices[i + 1] - foot[i-1]).dot(nright) / tleft.dot(nright);
-            std::cout<<"alpha "<<alpha<<"\n\n";
+            //std::cout<<"alpha "<<alpha<<"\n\n";
             f = foot[i-1] + alpha * tleft;
         }
         // tright = (vertices[i] - f).normalized();
@@ -5446,10 +5446,10 @@ void construct_single_developable_strips_by_intersect_rectifying_AAG_followings(
         else{
             nc++;
             // (footleft + alpha * tleft - v).dot(nright) = 0
-            std::cout<<"check1\n";
-            std::cout<<"ver, "<<vertices[i + 1]<<", f "<<foot[i-1]<<", n "<<nright<<", tleft, "<<tleft<<"\n";
+            //std::cout<<"check1\n";
+            //std::cout<<"ver, "<<vertices[i + 1]<<", f "<<foot[i-1]<<", n "<<nright<<", tleft, "<<tleft<<"\n";
             double alpha = (vertices[i + 1] - foot[i-1]).dot(nright) / tleft.dot(nright);
-            std::cout<<"alpha "<<alpha<<"\n\n";
+            //std::cout<<"alpha "<<alpha<<"\n\n";
             f = foot[i-1] + alpha * tleft;
         }
         // tright = (vertices[i] - f).normalized();
@@ -8355,10 +8355,10 @@ void readQuadMesh2TriMesh(const int vinrow)
     OpenMesh::IO::read_mesh(quadmesh, fname);
     std::cout << "\nMesh Readed" << std::endl;
     Eigen::MatrixXd V;
-    Eigen::MatrixXi Fqd, Ftr0, Ftr1;
+    Eigen::MatrixXi Fqd, Ftr0, Ftr1;// Fqd actually are triangles
     MeshProcessing mp;
     mp.mesh2Matrix(quadmesh, V, Fqd);
-    Ftr0.resize(Fqd.rows() * 2, 3);
+    Ftr0.resize(Fqd.rows(), 3);
     Ftr1 = Ftr0;
     
     int cnbr = V.rows() / vinrow;
@@ -8383,8 +8383,9 @@ void readQuadMesh2TriMesh(const int vinrow)
 
     std::cout << "Writing the output quads, the prefix...\n";
     std::string fnameout = igl::file_dialog_save();
-    igl::writeOBJ(fnameout + "t0.obj", V, Ftr0);
-    igl::writeOBJ(fnameout + "t1.obj", V, Ftr1);
+    igl::writeOBJ(fnameout + "_t0.obj", V, Ftr0);
+    igl::writeOBJ(fnameout + "_t1.obj", V, Ftr1); 
+	//std::cout << "check Ftr0\n"<<Ftr0<<"\n";
 }
 
 
