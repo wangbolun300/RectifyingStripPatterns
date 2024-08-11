@@ -3482,6 +3482,41 @@ void lscif::draw_menu2(igl::opengl::glfw::Viewer &viewer, igl::opengl::glfw::img
 				Meshes.push_back(updateMesh);
 				viewer.selected_data_index = id;
 			}
+			ImGui::SameLine();
+			if (ImGui::Button("PropagationErrorCSV", ImVec2(ImGui::GetWindowSize().x * 0.25f, 0.0f)))
+			{
+				if (quad_tool.error_eval.size() == 0)
+				{
+					std::cout << "the error list is empty" << std::endl;
+					ImGui::End();
+				}
+				std::cout << "write errors and smoothness, please provide the prefix" << std::endl;
+				std::string fname = igl::file_dialog_save();
+				if (fname.length() == 0)
+				{
+					std::cout << "please provide prefix of the output files\n";
+					ImGui::End();
+				}
+				else
+				{
+					std::ofstream file;
+					file.open(fname + "e.csv");
+					for (int i = 0; i < quad_tool.error_eval.size(); i++)
+					{
+						file << quad_tool.error_eval[i] << "\n";
+					}
+					file.close();
+
+					file.open(fname + "s.csv");
+					for (int i = 0; i < quad_tool.smt_eval.size(); i++)
+					{
+						file << quad_tool.smt_eval[i] << "\n";
+					}
+					file.close();
+
+					std::cout << "csv files saved" << std::endl;
+				}
+			}
 		}
 		
 		// binormals as orthogonal as possible.

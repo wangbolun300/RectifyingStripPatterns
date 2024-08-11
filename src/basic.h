@@ -211,6 +211,9 @@ public:
 	int GggEditingVid = -1;
 	Eigen::Vector3d GggTargetPosition;
     double real_step_length;
+	// evaluation of the error and the smoothness. For now it is only for the propagation method.
+	std::vector<double> error_eval; 
+	std::vector<double> smt_eval;
     
     // input from outside
     double angle_degree0;

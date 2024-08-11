@@ -2790,7 +2790,10 @@ void QuadOpt::optAAG()
     std::cout << "Eclose, " << ev_appro<<", Ecurve, "<<ECurve.norm() << ", lap, " << ev_smt << ", normal vector, " << ev_norm << ", ";
 
     double ebi = Ebnm0.norm();
-    std::cout << "bnm, " << ebi << ", GAA, " << Epg[0].norm() << ", " << Epg[1].norm() << ", " << Epg[2].norm() << ", ";
+	double egeo = Epg[0].norm();
+	double ea1 = Epg[1].norm();
+	double ea2 = Epg[2].norm();
+    std::cout << "bnm, " << ebi << ", GAA, " << egeo << ", " << ea1 << ", " << ea2 << ", ";
 
     real_step_length = dx.norm();
     std::cout << ", stp, " << dx.norm() << ", diagonal types, "<<d0_type<<", "<<d1_type<<", ";
@@ -2816,6 +2819,9 @@ void QuadOpt::optAAG()
         assert(vid >= 0);
         mesh_update.point(*v_it) = CGMesh::Point(V(vid, 0), V(vid, 1), V(vid, 2));
     }
+	double error_all = ev_norm * ev_norm + ebi * ebi + egeo * egeo + ea1 * ea1 + ea2 * ea2;
+	error_eval.push_back(error_all);
+	smt_eval.push_back(ev_smt * ev_smt);
     // std::cout<<"opt finished\n";
 }
 
