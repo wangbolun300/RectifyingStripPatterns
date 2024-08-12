@@ -8617,3 +8617,111 @@ void AggFirstStripWithGuideCurve(const std::vector<Eigen::Vector3d> &plyin, cons
     std::cout << "find point segid, " << segid1 << ", t, " << tlocal1 << ", point, " << plocal1.transpose() << "\n";
     aggFirstStripGuideGeodesic(plyin, binin, versOut, mat_to_vec_list(RefCurve), segid1, tlocal1, false);
 }
+
+// approximate the first two points, the target point, and maintain smoothness.
+bool solveCurveEditing(const std::vector<Eigen::Vector3d>& curvein, const int pid, const Eigen::Vector3d& position,
+	Eigen::VectorXd &vars, std::vector<Eigen::Vector3d>& curve)
+{
+	Eigen::MatrixXd verMat = vec_list_to_matrix(curvein);
+	int vnbr = curvein.size();
+	int varsize = vnbr * 3;
+	if (vars.size() == 0)
+	{
+		vars = Eigen::VectorXd::Zero(varsize);
+		vars.segment(0, vnbr) = verMat.col(0);
+		vars.segment(vnbr, vnbr) = verMat.col(1);
+		vars.segment(vnbr * 2, vnbr) = verMat.col(2);
+	}
+	
+	spMat H = 1e-6 * spMat(Eigen::VectorXd::Ones(varsize).asDiagonal());
+	std::vector<Trip> tripletes;
+	tripletes.reserve(vnbr * 3);
+	Eigen::VectorXd energy = Eigen::VectorXd::Zero(vnbr * 3), B = energy;
+
+	double lambda_fair = 1e-4;
+	double lambda_appro = 100;
+	// the vector for constructing approximating constraints
+	Eigen::VectorXd approVec = Eigen::VectorXd::Zero(varsize);
+	approVec[0] = lambda_appro;
+	approVec[1] = lambda_appro;
+	approVec[2] = lambda_appro;
+	approVec[3] = lambda_appro;
+	approVec[4] = lambda_appro;
+	approVec[5] = lambda_appro;
+	approVec[pid * 3] = lambda_appro;
+	approVec[pid * 3 + 1] = lambda_appro;
+	approVec[pid * 3 + 2] = lambda_appro; // TODO: this is not complete. The energy shoudl be computed too.
+	B[0] = curvein[0][0] - vars[0];
+	B[1] = curvein[0][1] - vars[1];
+	B[2] = curvein[0][2] - vars[2];
+	B[3] = curvein[1][0] - vars[3];
+	B[4] = curvein[1][1] - vars[4];
+	B[5] = curvein[1][2] - vars[5];
+	B[pid * 3] = curvein[pid][0] - vars[pid * 3];
+	B[pid * 3 + 1] = curvein[pid][1] - vars[pid * 3 + 1];
+	B[pid * 3 + 2] = curvein[pid][2] - vars[pid * 3 + 2];
+	B *= lambda_appro;
+
+	H += spMat(approVec.asDiagonal());
+	// assemble smoothness
+	for (int i = 1; i < vnbr - 1; i++)
+	{
+		int lvx = i * 3;
+		int lvy = i * 3 + 1;
+		int lvz = i * 3 + 2;
+
+		int lfx = (i-1) * 3;
+		int lfy = (i-1) * 3 + 1;
+		int lfz = (i-1) * 3 + 2;
+
+		int lbx = (i + 1) * 3;
+		int lby = (i + 1) * 3 + 1;
+		int lbz = (i + 1) * 3 + 2;
+
+		// 2 * vx - fx - bx = 0
+		int cid = i * 3;
+		tripletes.push_back(Trip(cid, lvx, 2));
+		tripletes.push_back(Trip(cid, lfx, -1));
+		tripletes.push_back(Trip(cid, lbx, -1));
+		energy[cid] = (vars[lvx] - vars[lfx]) + (vars[lvx] - vars[lbx]);
+
+		// 2 * vy - fy - by = 0
+		cid = i * 3 + 1;
+		tripletes.push_back(Trip(cid, lvy, 2));
+		tripletes.push_back(Trip(cid, lfy, -1));
+		tripletes.push_back(Trip(cid, lby, -1));
+		energy[cid] = (vars[lvy] - vars[lfy]) + (vars[lvy] - vars[lby]);
+
+		// 2 * vz - fz - bz = 0
+		cid = i * 3 + 2;
+		tripletes.push_back(Trip(cid, lvz, 2));
+		tripletes.push_back(Trip(cid, lfz, -1));
+		tripletes.push_back(Trip(cid, lbz, -1));
+		energy[cid] = (vars[lvz] - vars[lfz]) + (vars[lvz] - vars[lbz]);
+	}
+
+	spMat J;
+	J.resize(energy.size(), vars.size());
+	J.setFromTriplets(tripletes.begin(), tripletes.end());
+	H += lambda_fair * J.transpose() * J;
+	B += -lambda_fair * J.transpose() * energy;
+
+	Eigen::SimplicialLLT<Eigen::SparseMatrix<double>> solver(H);
+
+	// assert(solver.info() == Eigen::Success);
+	if (solver.info() != Eigen::Success)
+	{
+		// solving failed
+		std::cout << "solver fail" << std::endl;
+		return;
+	}
+
+	Eigen::VectorXd dx = solver.solve(B).eval();
+	vars += dx;
+
+	verMat.col(0) = vars.segment(0, vnbr);
+	verMat.col(1) = vars.segment(vnbr, vnbr);
+	verMat.col(2) = vars.segment(vnbr * 2, vnbr);
+
+	curve = mat_to_vec_list(verMat);
+}

@@ -370,14 +370,15 @@ bool lscif::mouse_down(igl::opengl::glfw::Viewer &viewer, int button, int modifi
 		double y = viewer.core().viewport(3) - viewer.current_mouse_y;
 		Eigen::Vector3f Ppro = 
 		igl::project(Eigen::Vector3f(pSelect3d[0],pSelect3d[1],pSelect3d[2]), viewer.core().view, viewer.core().proj, viewer.core().viewport);
-		std::cout << "project screen coord: " << Ppro.transpose() << "\n";
+		//std::cout << "project screen coord: " << Ppro.transpose() << "\n";
 		Ppro[0] = x;
 		Ppro[1] = y;
-		std::cout << "project new screen coord: " << Ppro.transpose() << "\n";
+		//std::cout << "project new screen coord: " << Ppro.transpose() << "\n";
 		Eigen::Vector3d pfound = 
 		igl::unproject(Eigen::Vector3f(Ppro), viewer.core().view, viewer.core().proj, viewer.core().viewport).template cast<double>();
 		viewer.data().add_points(pfound.transpose(), sea_green);
 		quad_tool.GggTargetPosition = pfound;
+		std::cout << "Target position, " << pfound.transpose() << "\n";
 		return true;
 	}
 

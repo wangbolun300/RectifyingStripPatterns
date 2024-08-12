@@ -3276,6 +3276,38 @@ void lscif::draw_menu2(igl::opengl::glfw::Viewer &viewer, igl::opengl::glfw::img
 			{
 				smooth_curve();
 			}
+			ImGui::InputInt("selectCurvePtID", &SELECTED_CURVE_PT, 0, 0);
+			ImGui::SameLine();
+			if (ImGui::Button("selectCurvePt", ImVec2(ImGui::GetWindowSize().x * 0.25f, 0.0f)))
+			{
+				if (quad_tool.curveRef.empty() || SELECTED_CURVE_PT < 0 || SELECTED_CURVE_PT >= quad_tool.curveRef.size())
+				{
+					std::cout << "\nplease load the curve, or the selected id is out of range" << std::endl;
+					ImGui::End();
+					return;
+				}
+				std::cout << "selected curve point id " << SELECTED_CURVE_PT << ", it's position is " << quad_tool.curveRef[SELECTED_CURVE_PT].transpose() << "\n";
+				pSelect3d =
+					quad_tool.curveRef[SELECTED_CURVE_PT];
+				viewer.data().set_points(pSelect3d.transpose(), hot_red);
+				std::cout << "Next, please hold \"5\" to select the target position\n";
+			}
+			if (ImGui::Button("EditCurve", ImVec2(ImGui::GetWindowSize().x * 0.25f, 0.0f)))
+			{
+				/*if (quad_tool.curveRef.empty() || SELECTED_CURVE_PT < 0 || SELECTED_CURVE_PT >= quad_tool.curveRef.size())
+				{
+					std::cout << "\nplease load the curve, or the selected id is out of range" << std::endl;
+					ImGui::End();
+					return;
+				}*/
+				TARGET_CURVE_POSITION = quad_tool.GggTargetPosition;
+				std::cout << "target curve position is  " << TARGET_CURVE_POSITION.transpose() << "\n";
+				/*pSelect3d =
+					SELECTED_CURVE_POSITION;
+				viewer.data().set_points(pSelect3d.transpose(), hot_red);*/
+
+				//std::cout << "Next, please hold \"5\" to select the target position\n";
+			}
 			if (ImGui::Button("GGGCurve2Strip", ImVec2(ImGui::GetWindowSize().x * 0.25f, 0.0f)))
 			{
 				timer_global.start();

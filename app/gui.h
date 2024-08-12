@@ -186,6 +186,8 @@ public:
 	Eigen::MatrixXd RefCurveRot;
 	
 	int VINROWINPUT = -1; 
+	int SELECTED_CURVE_PT = -1;
+	Eigen::Vector3d TARGET_CURVE_POSITION;
 	bool InvertDirectionAGG = false;
 	double AggPara1 = 0.5;
 	double AggPara2 = 1;
