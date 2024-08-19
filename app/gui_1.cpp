@@ -3034,8 +3034,6 @@ void lscif::draw_menu2(igl::opengl::glfw::Viewer &viewer, igl::opengl::glfw::img
 				CGMesh updatemesh; 
 				constructRegularF(Vlocal.rows(), VINROWINPUT, Flocal);
 				MP.matrix2Mesh(updatemesh, Vlocal, Flocal);
-				std::cout<<"V\n"<<Vlocal<<"\n";
-				std::cout<<"F\n"<<Flocal<<"\n";
 				updateMeshViewer(viewer, updatemesh);
 				meshFileName.push_back("Input");
 				Meshes.push_back(updatemesh);
@@ -3073,8 +3071,6 @@ void lscif::draw_menu2(igl::opengl::glfw::Viewer &viewer, igl::opengl::glfw::img
 				CGMesh updatemesh;
 				constructRegularF(Vlocal.rows(), VINROWINPUT, Flocal);
 				MP.matrix2Mesh(updatemesh, Vlocal, Flocal);
-				std::cout<<"V\n"<<Vlocal<<"\n";
-				std::cout<<"F\n"<<Flocal<<"\n";
 				updateMeshViewer(viewer, updatemesh);
 				meshFileName.push_back("Input");
 				Meshes.push_back(updatemesh);
@@ -3112,8 +3108,6 @@ void lscif::draw_menu2(igl::opengl::glfw::Viewer &viewer, igl::opengl::glfw::img
 				CGMesh updatemesh;
 				constructRegularF(Vlocal.rows(), VINROWINPUT, Flocal);
 				MP.matrix2Mesh(updatemesh, Vlocal, Flocal);
-				std::cout << "V\n" << Vlocal << "\n";
-				std::cout << "F\n" << Flocal << "\n";
 				updateMeshViewer(viewer, updatemesh);
 				meshFileName.push_back("Input");
 				Meshes.push_back(updatemesh);
@@ -3152,7 +3146,7 @@ void lscif::draw_menu2(igl::opengl::glfw::Viewer &viewer, igl::opengl::glfw::img
 				Meshes.push_back(updatemesh);
 				viewer.data().add_points(RefCurve, sea_green);
 				viewer.selected_data_index = id;
-				std::cout << "read poly with " << RefCurve.rows() << " points\n";
+				std::cout << "read poly with " << RefCurve.rows() << " points\n V\n" << RefCurve << "\n";
 			}
 			ImGui::SameLine();
 			ImGui::InputDouble("CurveAngle", &RotRefAxisAngle, 0, 0, "%.4f");
@@ -3292,6 +3286,7 @@ void lscif::draw_menu2(igl::opengl::glfw::Viewer &viewer, igl::opengl::glfw::img
 				viewer.data().set_points(pSelect3d.transpose(), hot_red);
 				std::cout << "Next, please hold \"5\" to select the target position\n";
 			}
+			ImGui::SameLine();
 			if (ImGui::Button("EditCurve", ImVec2(ImGui::GetWindowSize().x * 0.25f, 0.0f)))
 			{
 				/*if (quad_tool.curveRef.empty() || SELECTED_CURVE_PT < 0 || SELECTED_CURVE_PT >= quad_tool.curveRef.size())
@@ -3301,12 +3296,48 @@ void lscif::draw_menu2(igl::opengl::glfw::Viewer &viewer, igl::opengl::glfw::img
 					return;
 				}*/
 				TARGET_CURVE_POSITION = quad_tool.GggTargetPosition;
-				std::cout << "target curve position is  " << TARGET_CURVE_POSITION.transpose() << "\n";
+				std::cout << "run 10 iterations of curve editing  " << "\n";
+				std::vector<Eigen::Vector3d> curvein = quad_tool.curveRef, curveout;
+				Eigen::VectorXd vars;
+				for (int i = 0; i < 10; i++)
+				{
+					bool solved = solveCurveEditing(curvein, SELECTED_CURVE_PT, quad_tool.GggTargetPosition,
+						vars, curveout);
+				}
+				quad_tool.curveRef = curveout;
+				RefCurve = vec_list_to_matrix(quad_tool.curveRef);
+				std::cout << "Edit curve finished\n";
+				int id = viewer.selected_data_index;
+				CGMesh updatemesh;
+				Eigen::MatrixXi Ftri;
+				MP.matrix2Mesh(updatemesh, RefCurve, Ftri);
+				updateMeshViewer(viewer, updatemesh); // this is a empty mesh with 0 faces
+				meshFileName.push_back("ply_" + meshFileName[id]);
+				Meshes.push_back(updatemesh);
+				viewer.data().add_points(RefCurve, sea_green);
+				viewer.selected_data_index = id;
+				std::cout << "V edited\n" << RefCurve << "\n";
 				/*pSelect3d =
 					SELECTED_CURVE_POSITION;
 				viewer.data().set_points(pSelect3d.transpose(), hot_red);*/
 
 				//std::cout << "Next, please hold \"5\" to select the target position\n";
+			}
+			ImGui::SameLine();
+			if (ImGui::Button("SaveEditedCurve", ImVec2(ImGui::GetWindowSize().x * 0.25f, 0.0f)))
+			{
+				std::string fname = igl::file_dialog_save();
+
+				if (fname.length() == 0)
+				{
+					std::cout << "\nsave mesh failed" << std::endl;
+					ImGui::End();
+					return;
+				}
+				Eigen::MatrixXi Ftri;
+				igl::writeOBJ(fname, RefCurve, Ftri);
+				int id = viewer.selected_data_index;
+				std::cout << "saved" << std::endl;
 			}
 			if (ImGui::Button("GGGCurve2Strip", ImVec2(ImGui::GetWindowSize().x * 0.25f, 0.0f)))
 			{
@@ -3462,8 +3493,6 @@ void lscif::draw_menu2(igl::opengl::glfw::Viewer &viewer, igl::opengl::glfw::img
 				CGMesh updatemesh;
 				constructRegularF(Vlocal.rows(), VINROWINPUT, Flocal);
 				MP.matrix2Mesh(updatemesh, Vlocal, Flocal);
-				std::cout << "V\n" << Vlocal << "\n";
-				std::cout << "F\n" << Flocal << "\n";
 				updateMeshViewer(viewer, updatemesh);
 				meshFileName.push_back("Input");
 				Meshes.push_back(updatemesh);

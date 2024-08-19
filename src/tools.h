@@ -258,3 +258,5 @@ bool projectPointOnCurve(const std::vector<Eigen::Vector3d> &curve, const Eigen:
                          int &segid, double &tlocal, Eigen::Vector3d &plocal, Eigen::Vector3d& tangent);           
 void upsample_and_smooth_curve();
 void smooth_curve();
+bool solveCurveEditing(const std::vector<Eigen::Vector3d>& curvein, const int pid, const Eigen::Vector3d& position,
+	Eigen::VectorXd &vars, std::vector<Eigen::Vector3d>& curve);

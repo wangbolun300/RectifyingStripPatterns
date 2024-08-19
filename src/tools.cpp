@@ -8622,15 +8622,17 @@ void AggFirstStripWithGuideCurve(const std::vector<Eigen::Vector3d> &plyin, cons
 bool solveCurveEditing(const std::vector<Eigen::Vector3d>& curvein, const int pid, const Eigen::Vector3d& position,
 	Eigen::VectorXd &vars, std::vector<Eigen::Vector3d>& curve)
 {
-	Eigen::MatrixXd verMat = vec_list_to_matrix(curvein);
 	int vnbr = curvein.size();
 	int varsize = vnbr * 3;
 	if (vars.size() == 0)
 	{
 		vars = Eigen::VectorXd::Zero(varsize);
-		vars.segment(0, vnbr) = verMat.col(0);
-		vars.segment(vnbr, vnbr) = verMat.col(1);
-		vars.segment(vnbr * 2, vnbr) = verMat.col(2);
+		for (int i = 0; i < vnbr; i++)
+		{
+			vars[3 * i] = curvein[i][0];
+			vars[3 * i + 1] = curvein[i][1];
+			vars[3 * i + 2] = curvein[i][2];
+		}
 	}
 	
 	spMat H = 1e-6 * spMat(Eigen::VectorXd::Ones(varsize).asDiagonal());
@@ -8657,9 +8659,9 @@ bool solveCurveEditing(const std::vector<Eigen::Vector3d>& curvein, const int pi
 	B[3] = curvein[1][0] - vars[3];
 	B[4] = curvein[1][1] - vars[4];
 	B[5] = curvein[1][2] - vars[5];
-	B[pid * 3] = curvein[pid][0] - vars[pid * 3];
-	B[pid * 3 + 1] = curvein[pid][1] - vars[pid * 3 + 1];
-	B[pid * 3 + 2] = curvein[pid][2] - vars[pid * 3 + 2];
+	B[pid * 3] = position[0] - vars[pid * 3];
+	B[pid * 3 + 1] = position[1] - vars[pid * 3 + 1];
+	B[pid * 3 + 2] = position[2] - vars[pid * 3 + 2];
 	B *= lambda_appro;
 
 	H += spMat(approVec.asDiagonal());
@@ -8713,15 +8715,18 @@ bool solveCurveEditing(const std::vector<Eigen::Vector3d>& curvein, const int pi
 	{
 		// solving failed
 		std::cout << "solver fail" << std::endl;
-		return;
+		return false;
 	}
 
 	Eigen::VectorXd dx = solver.solve(B).eval();
 	vars += dx;
-
-	verMat.col(0) = vars.segment(0, vnbr);
-	verMat.col(1) = vars.segment(vnbr, vnbr);
-	verMat.col(2) = vars.segment(vnbr * 2, vnbr);
-
-	curve = mat_to_vec_list(verMat);
+	std::cout << "step size " << dx.norm() << "\n";
+	curve.resize(vnbr);
+	for (int i = 0; i < vnbr; i++)
+	{
+		curve[i][0] = vars[3 * i];
+		curve[i][1] = vars[3 * i + 1];
+		curve[i][2] = vars[3 * i + 2];
+	}
+	return true;
 }
