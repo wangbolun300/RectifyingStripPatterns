@@ -5350,6 +5350,7 @@ bool ply_ply_distance(const std::vector<Eigen::Vector3d> &ply, const std::vector
         }
     }
     distance = dis_max;
+	return true;
 
 }
 
