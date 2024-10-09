@@ -8,15 +8,21 @@ If you use our code in your project, please consider citing the [original paper]
 
 ```bibtex
 @article{Wang:2023:Rectifying,
-    title        = {Rectifying Strip Patterns},
-    author       = {Bolun Wang and Hui Wang and Eike Schling and Helmut Pottmann},
-    year         = 2023,
-    month        = oct,
-    journal      = {ACM Transactions on Graphics},
-    volume       = XX,
-    number       = XX,
-    articleno    = 256,
-    numpages     = XX
+    author = {Wang, Bolun and Wang, Hui and Schling, Eike and Pottmann, Helmut},
+title = {Rectifying Strip Patterns},
+year = {2023},
+issue_date = {December 2023},
+publisher = {Association for Computing Machinery},
+address = {New York, NY, USA},
+volume = {42},
+number = {6},
+issn = {0730-0301},
+url = {https://doi.org/10.1145/3618378},
+doi = {10.1145/3618378},
+month = {dec},
+articleno = {256},
+numpages = {18},
+keywords = {architectural geometry, computational design, computational fabrication, gridshell, pseudo-geodesic, shading system}
 }
 ```
 
