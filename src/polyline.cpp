@@ -2343,31 +2343,37 @@ void load_diagonal_info(const Eigen::VectorXi &row_front, const Eigen::VectorXi 
                         const Eigen::VectorXi &col_back, Eigen::VectorXi &d0_front, Eigen::VectorXi &d1_front,
                         Eigen::VectorXi &d0_back, Eigen::VectorXi &d1_back)
 {
-    int vnbr = row_front.size();
-    d0_front = Eigen::VectorXi::Ones(vnbr) * -1;
-    d0_back = d0_front;
-    d1_front = d0_front;
-    d1_back = d0_front;
-    for (int i = 0; i < vnbr; i++)
-    {
-        int id = i;
-        int rfid = row_front(id);
-        int rbid = row_back(id);
-        int cfid = col_front(id);
-        int cbid = col_back(id);
-        if (rfid < 0 || rbid < 0 || cfid < 0 || cbid < 0) // if it is a boundary vertex, skip
-        {
-            continue;
-        }
-        int lu = row_front(cfid); // upleft
-        int ld = row_back(cfid);
-        int ru = row_front(cbid);
-        int rd = row_back(cbid);
-        d0_front[id] = lu;
-        d0_back[id] = rd;
-        d1_front[id] = ld;
-        d1_back[id] = ru;
-    }
+	int vnbr = row_front.size();
+	d0_front = Eigen::VectorXi::Ones(vnbr) * -1;
+	d0_back = d0_front;
+	d1_front = d0_front;
+	d1_back = d0_front;
+	for (int i = 0; i < vnbr; i++)
+	{
+		int id = i;
+		int rfid = row_front(id);
+		int rbid = row_back(id);
+		int cfid = col_front(id);
+		int cbid = col_back(id);
+		if (rfid < 0 || rbid < 0 || cfid < 0 || cbid < 0) // if it is a boundary vertex, skip
+		{
+			continue;
+		}
+		if (cfid >= 0)
+		{
+			int lu = row_front(cfid); // upleft
+			d0_front[id] = lu;
+			int ld = row_back(cfid);
+			d1_front[id] = ld;
+		}
+		if (cbid >= 0)
+		{
+			int ru = row_front(cbid);
+			int rd = row_back(cbid);
+			d0_back[id] = rd;
+			d1_back[id] = ru;
+		}
+	}
 }
 
 // get the row and col info directly from openmesh.
@@ -2411,6 +2417,11 @@ void getQuadRowCols(CGMesh &mesh_in, Eigen::VectorXi &rf, Eigen::VectorXi &rb, E
             
             counter++;
         }
+		if (counter != 4)
+		{
+			std::cout << "the face - he iterator is wrong!\n";
+			exit(0);
+		}
     }
     // validation
     for (int i = 0; i < vnbr; i++)
@@ -2519,8 +2530,72 @@ void QuadOpt::init(CGMesh &mesh_in, const std::string &prefix)
     Eigen::Vector3d vmax(V.col(0).maxCoeff(), V.col(1).maxCoeff(), V.col(2).maxCoeff());
     std::cout<<"Initialized quad mesh: Vnbr, "<<V.rows()<<", BBD, "<<(vmin - vmax).norm()<<std::endl;;
 }
+// get the row and col info from a regular mesh, prescribed vnbr in one row: rnbr.
+void getQuadRowColsRegular(const int vnbr, const int rnbr, Eigen::VectorXi &rf, Eigen::VectorXi &rb, Eigen::VectorXi &cf, Eigen::VectorXi &cb)
+{
+	int cnbr = vnbr / rnbr;
+	rf = -Eigen::VectorXi::Ones(vnbr);
+	rb = rf;
+	cf = rf;
+	cb = rf;
+	for (int i = 0; i < cnbr; i++)
+	{
+		for (int j = 0; j < rnbr; j++)
+		{
+			int vid = i * rnbr + j;
+			assert(vid >= 0);
+			assert(vid < vnbr);
+			int vfr, vbk, vlf, vrt;
+			// front
+			if (j == 0)
+			{
+				vfr = -1;
+			}
+			else
+			{
+				vfr = vid - 1;
+			}
+			// back
+			if (j == rnbr - 1)
+			{
+				vbk = -1;
+			}
+			else
+			{
+				vbk = vid + 1;
+			}
+			// left
+			if (i == 0)
+			{
+				vlf = -1;
+			}
+			else
+			{
+				vlf = vid - rnbr;
+			}
+			// right
+			if (i == cnbr - 1)
+			{
+				vrt = -1;
+			}
+			else
+			{
+				vrt = vid + rnbr;
+			}
 
-void QuadOpt::init(CGMesh &mesh_in)
+			// assign the values.
+			rf[vid] = vfr;
+			rb[vid] = vbk;
+			cf[vid] = vlf;
+			cb[vid] = vrt;
+			assert(vfr < vnbr);
+			assert(vbk < vnbr);
+			assert(vlf < vnbr);
+			assert(vrt < vnbr);
+		}
+	}
+}
+void QuadOpt::init(CGMesh &mesh_in, int vinrow)
 {
     MP.mesh2Matrix(mesh_in, V, F);
     // for (int i = 0; i < rowinfo.size(); i++)
@@ -2563,8 +2638,8 @@ void QuadOpt::init(CGMesh &mesh_in)
     }
     
 
-
-    getQuadRowCols(mesh_in, row_front, row_back, col_front, col_back);
+	getQuadRowColsRegular(vnbr, vinrow, row_front, row_back, col_front, col_back);
+    //getQuadRowCols(mesh_in, row_front, row_back, col_front, col_back);
     std::cout << "Row Col info computed\n";
     load_diagonal_info(row_front, row_back, col_front, col_back, d0_front, d1_front, d0_back, d1_back);
     OrigVars = Eigen::VectorXd::Zero(varsize);
@@ -2815,10 +2890,14 @@ void push_fairness_conditions(std::vector<Trip> &tripletes, Eigen::VectorXd &ene
                               const double vval, const double fval, const double bval,
                               const int cid, const double scale0, const double scale1)
 {
-    tripletes.push_back(Trip(cid, lv, 1 / scale0 + 1 / scale1));
+    /*tripletes.push_back(Trip(cid, lv, 1 / scale0 + 1 / scale1));
     tripletes.push_back(Trip(cid, lf, -1 / scale0));
     tripletes.push_back(Trip(cid, lb, -1 / scale1));
-    energy[cid] = (vval - fval) / scale0 + (vval - bval) / scale1;
+    energy[cid] = (vval - fval) / scale0 + (vval - bval) / scale1;*/
+	tripletes.push_back(Trip(cid, lv, 2));
+	tripletes.push_back(Trip(cid, lf, -1));
+	tripletes.push_back(Trip(cid, lb, -1));
+	energy[cid] = (vval - fval) + (vval - bval);
 }
 
 void QuadOpt::assemble_fairness(spMat& H, Eigen::VectorXd& B, Eigen::VectorXd &energy){
@@ -3930,7 +4009,7 @@ void QuadOpt::opt(){
         
     }
     if (OptType == 4)
-    { // AAGG, the diagonal is geodesic that requires binormals
+    { // AAGG, the row and cols are geodesics that requires binormals
         spMat Hbnm, Hbnm1;
         Eigen::VectorXd Bbnm, Bbnm1;
         // int family = -1;
@@ -3944,12 +4023,12 @@ void QuadOpt::opt(){
         // }
         // vertices vnbr * 3, normals vnbr * 3, binormals for G0 vnbr * 3, binormals for G1 vnbr * 3  
         int bnm_start0 = vnbr * 6;
-        assemble_binormal_conditions(Hbnm, Bbnm, Ebnm0, 2, bnm_start0);
+        assemble_binormal_conditions(Hbnm, Bbnm, Ebnm0, 0, bnm_start0);
         H += weight_pg * Hbnm;
         B += weight_pg * Bbnm;
 
         int bnm_start1 = vnbr * 9;
-        assemble_binormal_conditions(Hbnm1, Bbnm1, Ebnm1, 3, bnm_start1);
+        assemble_binormal_conditions(Hbnm1, Bbnm1, Ebnm1, 1, bnm_start1);
         H += weight_pg * Hbnm1;
         B += weight_pg * Bbnm1;
 
@@ -3959,18 +4038,18 @@ void QuadOpt::opt(){
         Eigen::VectorXd Bpg[4];
         // G
         int type = 2; // G
-        assemble_pg_extreme_cases(Hpg[0], Bpg[0], Epg[0], type, 2, bnm_start0);
+        assemble_pg_extreme_cases(Hpg[0], Bpg[0], Epg[0], type, 0, bnm_start0);
         // G another
-        assemble_pg_extreme_cases(Hpg[1], Bpg[1], Epg[1], type, 3, bnm_start1);
+        assemble_pg_extreme_cases(Hpg[1], Bpg[1], Epg[1], type, 1, bnm_start1);
 
         // A
         type = 1; // A0
-        int family = 0;// row
+        int family = 2;// row
         int bnm_start = -1;
         assemble_pg_extreme_cases(Hpg[2], Bpg[2], Epg[2], type, family, bnm_start);
 
         type = 1; // A1
-        family = 1;// col
+        family = 3;// col
         bnm_start = -1;
         assemble_pg_extreme_cases(Hpg[3], Bpg[3], Epg[3], type, family, bnm_start);
 

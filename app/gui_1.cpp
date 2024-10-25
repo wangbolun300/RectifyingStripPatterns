@@ -2588,6 +2588,7 @@ void lscif::draw_menu2(igl::opengl::glfw::Viewer &viewer, igl::opengl::glfw::img
 
 			ImGui::Combo("FamilyOfDiag", &quad_tool.WhichDiagonal,
 						 "D0\0D1\0\0");
+			ImGui::InputInt("vinrow", &vinrow, 0, 0);
 
 			if (ImGui::Button("LoadQuads", ImVec2(ImGui::GetWindowSize().x * 0.25f, 0.0f)))
 			{
@@ -2749,7 +2750,7 @@ void lscif::draw_menu2(igl::opengl::glfw::Viewer &viewer, igl::opengl::glfw::img
 				CGMesh quadmesh;
 				OpenMesh::IO::read_mesh(quadmesh, fname);
 				std::cout << "\nMesh Readed" << std::endl;
-				quad_tool.init(quadmesh);
+				quad_tool.init(quadmesh, vinrow);
 
 				size_t last_dot = fname.rfind('.');
 				size_t last_slash = fname.rfind(spliter); // TODO on linux it should be '/'

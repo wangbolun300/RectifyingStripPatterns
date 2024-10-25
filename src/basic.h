@@ -187,7 +187,7 @@ public:
     QuadOpt(){};
     void init(CGMesh& mesh_in, const std::vector<std::vector<double>> rowinfo, const std::vector<std::vector<double>>colinfo);
     void init(CGMesh& mesh_in, const std::string& prefix);
-    void init(CGMesh& mesh_in);
+    void init(CGMesh& mesh_in, int vinrow);
     
     std::vector<std::vector<double>> rowinfo; // to record the adjancency info of rows  
     std::vector<std::vector<double>> colinfo; // to record the adjancency info of cols

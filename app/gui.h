@@ -142,6 +142,7 @@ public:
 	double InputThetaTol1 = 23.5; // give 10 degrees of tolerance
 	double InputPhiTol = 45;	  // give 10 degrees of tolerance
 	double InputPhiTol1 = 45;	  // give 10 degrees of tolerance
+	int vinrow = -1;
 
 	double Shading_Latitude = 34;
 	bool shading_init = false;
