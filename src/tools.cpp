@@ -7994,3 +7994,507 @@ void evaluateGGGConsineConstraints()
     }
     std::cout << "the total energy is " << energy.norm() << "\n";
 }
+
+
+
+bool pointInList(int p, const std::array<int, 3>& corners)
+{
+	if (p == corners[0] || p == corners[1] || p == corners[2])
+	{
+		return true;
+	}
+	return false;
+}
+
+// split the loop into 3 segments separated by the 3 corners.
+void splitLoop(const std::array<int, 3>& corners, const std::vector<int> &loop, std::array<std::vector<int>, 3> &segs)
+{
+	int count = 0;
+	int start = corners[0];
+	int lsize = loop.size();
+	while (1)
+	{
+		if (count > 2)
+			break;
+		std::vector<int> s;
+		s.push_back(start);
+		int checker = 0;
+		while (1)
+		{
+			bool foundStart = false;
+			if (loop[checker] == start)
+			{
+				foundStart = true;
+				for (;;)
+				{
+					checker++;
+					int id = checker % lsize;
+					s.push_back(loop[id]);
+					if (pointInList(loop[id], corners))
+					{
+						break;
+					}
+				}
+			}
+			if (foundStart)
+			{
+				break;
+			}
+			checker++;
+		}
+		start = s.back();
+		segs[count] = s;
+		count++;
+	}
+}
+
+int midVerIdOfSegment(const std::vector<int>& seg)
+{
+	int vnbr = seg.size();
+	int mid = (vnbr - 1) / 2;
+	if (mid * 2 + 1 != vnbr)
+	{
+		std::cout << "nbr of ver in seg is not odd!\n";
+		exit(0);
+	}
+	return seg[mid];
+}
+
+void obtianSingleVE(const std::vector<int>& faces, const int vid, std::vector<int>& edges)
+{
+	edges.clear();
+	// start from the edges going out from vid of the first face
+
+}
+
+void outAndInEdgesOfFace(const Eigen::Vector3i& face, int vid, int& out, int& in)
+{
+	int found = 0;
+	for (int i = 0; i < 3; i++)
+	{
+		int e0 = face[i];
+		int e1 = face[(i + 1) % 3];
+		if (e0 == vid)
+		{
+			out = i;
+			found++;
+		}
+		if (e1 == vid)
+		{
+			in = i;
+			found++;
+		}
+	}
+	if(found!=2)
+	{
+		std::cout << "topology wrong in outAndInEdgesOfFace\n";
+	}
+}
+
+void getEdgesOfVer(const Eigen::MatrixXi& F, const std::vector<int>&f, const int vid, std::vector<std::array<int,2>>& edges)
+{
+	int in, out;
+	edges.clear();
+	outAndInEdgesOfFace(F.row(f[0]), vid, out, in);
+	std::array<int, 2> edgeIn = { F(f[0], in), F(f[0], (in + 1) % 3) };
+	std::array<int, 2> edgeOut = { F(f[0], out), F(f[0], (out + 1) % 3) };
+	std::array<int, 2> etemp = { edgeOut[1], edgeOut[0] };
+	std::array<int, 2> ebegin = edgeIn;
+
+	edges.push_back(edgeIn);
+	while (1)
+	{
+		bool found = false;
+		for (int i = 1; i < f.size(); i++)
+		{
+			outAndInEdgesOfFace(F.row(f[i]), vid, out, in);
+			edgeIn = { F(f[i], in), F(f[i], (in + 1) % 3) };
+			edgeOut = { F(f[i], out), F(f[i], (out + 1) % 3) };
+			if (edgeIn == etemp)
+			{
+				edges.push_back(edgeIn);
+				found = true;
+				etemp = { edgeOut[1], edgeOut[0] };
+			}
+		}
+		if (!found) {
+			return;
+		}
+	}
+
+}
+
+void obtainVF(int vnbr,const Eigen::MatrixXi& F, std::vector<std::vector<int>>& vf, std::vector<std::vector<std::array<int, 2>>> &ves)
+{
+	int fnbr = F.rows();
+	vf.clear();
+	vf.resize(vnbr);
+	for (int i = 0; i < fnbr; i++)
+	{
+		for (int j = 0; j < 3; j++)
+		{
+			int vid = F(i, j);
+			vf[vid].push_back(i);
+		}
+	}
+	ves.clear();
+	ves.resize(vnbr);
+	// sort all the edges of an inner vertex such that they are in clockwise or counter clockwise order.
+	for (int i = 0; i < vnbr; i++)
+	{
+		if (vf[i].size() != 6)
+			continue;
+		std::vector<std::array<int, 2>> edges;
+		getEdgesOfVer(F, vf[i], i, edges);
+		ves[i] = edges;
+	}
+}
+// find another edge of the face that connect vstart but not vend
+// the input edge (vstart, vend) is on the boundary, thus only connect to one face
+// the edge[0] is the vstart
+void findAnotherEdgeOfBndTri(const Eigen::MatrixXi& F, const int vstart, const int vend, std::array<int, 2>& edge)
+{
+	int fnbr = F.rows();
+	int fid = -1;
+	int eid = -1;
+	bool found = false;
+	for (int i = 0; i < fnbr; i++)
+	{
+		for (int j = 0; j < 3; j++)
+		{
+			int vid0 = F(i, j);
+			int vid1 = F(i, (j + 1) % 3);
+			if ((vid0 == vstart && vid1 == vend) || (vid0 == vend && vid1 == vstart))
+			{
+				fid = i;
+				eid = j;
+				found = true;
+				int vid2 = F(i, (j + 2) % 3);
+				edge = { vstart, vid2 };
+				return;
+				break;
+			}
+		}
+		if (found)
+		{
+			break;
+		}
+	}
+}
+
+std::vector<int> invertList(const std::vector<int>& list)
+{
+	auto l1 = list;
+	int vnbr = list.size();
+	for (int i = 0; i < list.size(); i++)
+	{
+		l1[i] = list[vnbr - 1 - i];
+	}
+	return l1;
+}
+
+// given an edge (r,p) connected to p, find the opposite edge
+// note that edge is the "in" edge of vertex p, and all the ves are the in edges of the vertices
+std::array<int, 2> oppositeEdge(const std::vector<std::vector<std::array<int, 2>>> &ves, const std::array<int, 2> &edge)
+{
+	std::array<int, 2> result;
+	for (int i = 0; i < ves[edge[1]].size(); i++)
+	{
+		if (ves[edge[1]][i] == edge)
+		{
+			result = ves[edge[1]][(i + 3) % 6];
+			result = { result[1], result[0] }; // make sure the edge is in the inner direction of the next ver.
+			return result;
+		}
+	}
+	std::cout << "nothing returned in oppositeEdge\n";
+
+}
+// if endPt >= 0, trace until this point.
+// otherwise, trace until reach the boundary
+void traceOneCurve(const std::array<int, 2> edge, const std::vector<std::vector<std::array<int, 2>>> &ves, const int endPt,
+	std::vector<int>& curve)
+{
+	//std::cout << "in tracing\n";
+	curve.clear();
+	curve.push_back(edge[0]);
+	curve.push_back(edge[1]);
+	std::array<int, 2> current = edge;
+	if (endPt >= 0) {
+		while (endPt != current[1])
+		{
+			auto oppo = oppositeEdge(ves, current);
+			curve.push_back(oppo[1]);
+			current = oppo;
+		}
+	}
+	else
+	{
+		//std::cout << "this case\n";
+		while (ves[current[1]].size() == 6)
+		{
+			auto oppo = oppositeEdge(ves, current);
+			//std::cout << "current, " << current[0] << " " << current[1] << "\n";
+			curve.push_back(oppo[1]);
+			current = oppo;
+		}
+	}
+	//std::cout << "out tracing\n";
+	return;
+}
+
+int ptLeftOrRightOfMidPt(const std::vector<int>& segBnd, const bool rightPart)
+{
+	int vnbr = segBnd.size();
+	int mid = (vnbr - 1) / 2;
+	if (rightPart)
+	{
+		return segBnd[mid + 1];
+	}
+	else
+	{
+		return segBnd[mid - 1];
+	}
+}
+
+// this function is no longer useful.
+// get the triangular sub region of the web.
+// if check the right part, then the start point is the last point. otherwise the start point is the first pt of the segBnd,
+// bdr is the selected part from the segBnd. The order of bdr is from the corner to the middle
+// seg1 is the diagonal, seg2 is the column direction
+//void traceRegionBoundary(const Eigen::MatrixXi& F, const std::vector<int>& segBnd, const int segMidpt, const int webMidpt, const bool rightPart,
+//	const std::vector<std::vector<std::array<int, 2>>> &ves, std::vector<int> &seg1, std::vector<int> &seg2, 
+//	std::vector<int>& bdr)
+//{
+//	seg1.clear();
+//	seg2.clear();
+//	int bnbr = segBnd.size();
+//	
+//	// trace the diagonal edge
+//	int vfirst = rightPart ? segBnd.back() : segBnd[0];
+//	int vsecond = rightPart ? segBnd[bnbr - 2] : segBnd[1];
+//	std::array<int, 2> edge, nextEdge; // the edge vertices
+//	findAnotherEdgeOfBndTri(F, vfirst, vsecond, edge);
+//	traceOneCurve(edge, ves, webMidpt, seg1);
+//
+//	// trace the vertical edge that shoot from the mid point of the boundary segment
+//	vfirst = segMidpt;
+//	vsecond = ptLeftOrRightOfMidPt(segBnd, rightPart);
+//	findAnotherEdgeOfBndTri(F, vfirst, vsecond, edge);
+//	traceOneCurve(edge, ves, webMidpt, seg2);
+//	bdr = rightPart ? invertList(segBnd) : segBnd;
+//	int removed = bdr.size() / 2;
+//	for (int i = 0; i < removed; i++)
+//		bdr.pop_back();
+//}
+// the two sub-curves are in inverted directions.
+void breakOneCurveIntoHalfs(const std::vector<int>& curve, std::vector<int>& p1, std::vector<int>& p2)
+{
+	int vnbr = curve.size();
+	if (vnbr % 2 == 0)
+	{
+		std::cout << "The size of curve is wrong in breakOneCurveIntoHalfs\n";
+		exit(0);
+	}
+	int size = vnbr / 2 + 1;
+	p1.clear();
+	p2.clear();
+	for (int i = 0; i < size; i++)
+	{
+		p1.push_back(curve[i]);
+		p2.push_back(curve[vnbr - 1 - i]);
+	}
+	return;
+}
+
+// get the diagonal curves of a region. Using the diagonals of the 6 regions, we can obtain the whole sampled patch.
+// this step we only get the first edge of each curve. the rest can be obtained by tracing.
+void getSampledCurvesDiffFamilies(const Eigen::MatrixXi& F, const std::vector<std::vector<std::array<int, 2>>> &ves,
+	//const std::vector<int> &seg1, const std::vector<int> &seg2, 
+	const std::vector<int>& bdr, const int skipI,
+	std::vector<std::vector<int>>& diags)
+{
+	std::cout << "in getSampledCurvesDiffFamilies\n";
+	diags.clear();
+
+	int bnbr = bdr.size();
+	/*if (bnbr != seg2.size())
+	{
+		std::cout << "size wrong in getCurvesDiffFamilies\n";
+		exit(0);
+	}*/
+	std::vector<int> curve;
+
+	// get the diagonals 
+	/*curve.push_back(seg1[0][0]);
+	for (int i = 0; i < seg1.size(); i++)
+	{
+		curve.push_back(seg1[i][1]);
+	}
+	diags.push_back(curve);*/
+	
+	for (int i = 0; i < bnbr - 1; i++)
+	{
+		if (skipI > 0)
+		{
+			if (i%skipI != 0)
+			{
+				continue;
+			}
+		}
+		int vid0 = bdr[i];
+		int vid1 = bdr[i + 1];
+		std::array<int, 2> edge;
+		findAnotherEdgeOfBndTri(F, vid0, vid1, edge);
+		//int endpoint = seg2[bnbr - i - 1][0];
+		//traceOneCurve(edge, ves, endpoint, curve); // TODO change the defination of curve.
+		curve.clear();
+		curve.push_back(edge[0]);
+		curve.push_back(edge[1]);
+		diags.push_back(curve);
+	}
+	std::cout << "out getSampledCurvesDiffFamilies\n";
+}
+
+void computeNormals(const std::vector<std::vector<int>>& vf, const Eigen::MatrixXd& V, const Eigen::MatrixXi& F, std::vector<Eigen::Vector3d>& normals)
+{
+	normals.clear();
+	
+	std::vector<Eigen::Vector3d> fnormals(F.rows());
+	int vnbr = V.rows(), fnbr = F.rows();
+	normals.resize(vnbr);
+	for (int i = 0; i < fnbr; i++)
+	{
+		Eigen::Vector3d v0 = V.row(F(i, 0));
+		Eigen::Vector3d v1 = V.row(F(i, 1));
+		Eigen::Vector3d v2 = V.row(F(i, 2));
+		Eigen::Vector3d n = (v0 - v2).cross(v0 - v1).normalized();
+		fnormals[i] = n;
+	}
+	for (int i = 0; i < vnbr; i++)
+	{
+		normals[i] = fnormals[vf[i][0]];
+		for (int j = 1; j < vf[i].size(); j++)
+		{
+			normals[i] += fnormals[vf[i][j]];
+		}
+		normals[i].normalize();
+	}
+}
+
+#include<igl/boundary_loop.h>
+void processKhusravData(const Eigen::MatrixXd&V, const Eigen::MatrixXi& F, const std::array<int, 3>& corners, int skipI, double offset,
+	const std::string& filename)
+{
+	std::cout << "check 1\n";
+	int vnbr = V.rows();
+	std::vector<int> loop;
+	igl::boundary_loop(F, loop);
+	// break the loop into 3 segments
+	std::array<std::vector<int>, 3> segs;
+	splitLoop(corners, loop, segs);
+	std::array<int, 3> ems;
+	ems[0] = midVerIdOfSegment(segs[0]);
+	ems[1] = midVerIdOfSegment(segs[1]);
+	ems[2] = midVerIdOfSegment(segs[2]);
+	std::vector<std::vector<int>> vf;
+	std::vector<std::vector<std::array<int, 2>>> ves;
+	obtainVF(vnbr, F, vf, ves);
+	for (int i = 0; i < ves.size(); i++)
+	{
+		std::cout << i << ", ";
+		for (int j = 0; j < ves[i].size(); j++)
+		{
+			std::cout << "(" << ves[i][j][0] << ", " << ves[i][j][1] << ")";
+		}
+		std::cout << "\n";
+		
+	}
+	//exit(0);
+	std::vector<Eigen::Vector3d> normals; // normal vectors on each ver
+	computeNormals(vf, V, F, normals);
+	std::cout << "check 2\n";
+	std::array<std::vector<int>, 6> hbdr;
+	breakOneCurveIntoHalfs(segs[0], hbdr[0], hbdr[1]);
+	breakOneCurveIntoHalfs(segs[1], hbdr[2], hbdr[3]);
+	breakOneCurveIntoHalfs(segs[2], hbdr[4], hbdr[5]);
+	for (auto b : hbdr)
+		std::cout << "the nbr of each segment bdr, " << b.size() << "\n";
+	std::vector<std::vector<int>> curves;
+	for (int i = 0; i < 6; i++)
+	{
+		std::vector<std::vector<int>> diags;
+		getSampledCurvesDiffFamilies(F, ves, hbdr[i],skipI, diags);
+		//std::cout << "the diags, \n";
+		for (auto d : diags)
+		{
+			/*for (auto dd : d)
+				std::cout << dd << ", ";
+			std::cout << "\n";*/
+			std::array<int, 2 > edge = { d[0], d[1] };
+			std::vector<int> c;
+			traceOneCurve(edge, ves, -1, c);
+			curves.push_back(c);
+
+		}
+	}
+	curves.push_back(segs[0]);
+	curves.push_back(segs[1]);
+	curves.push_back(segs[2]);
+	std::cout << "check 3\n";
+	// convert the curves into strips
+	std::vector<Eigen::Vector3d> Vs;
+	std::vector<std::array<int, 4>> Fs;
+	int count = 0;
+	for (int i = 0; i < curves.size(); i++)
+	{
+		int pcurve = curves[i].size();
+		for (int j = 0; j < curves[i].size(); j++)
+		{
+			int vid = curves[i][j];
+			Eigen::Vector3d n = normals[vid];
+			int vf = j == 0 ? curves[i][0] : curves[i][j - 1];
+			int vb = j == curves[i].size() - 1 ? curves[i].back() : curves[i][j + 1];
+			Eigen::Vector3d tangent = V.row(vb) - V.row(vf);
+			tangent.normalize();
+			Eigen::Vector3d direction = tangent.cross(n).normalized();
+			Vs.push_back(Eigen::Vector3d(V.row(vid)) + direction * offset);
+			Vs.push_back(Eigen::Vector3d(V.row(vid)) - direction * offset);
+		}
+		for (int j = 0; j < pcurve - 1; j++)
+		{
+			std::array<int, 4> face = { count + 2 * j, count + 1 + 2 * j, count + 3 + 2 * j, count + 2 + 2 * j };
+			Fs.push_back(face);
+		}
+		count += pcurve * 2;
+	}
+	std::cout << "check 4\n";
+
+	std::ofstream fout;
+	fout.open(filename);
+	for (int i = 0; i < Vs.size(); i++)
+	{
+		fout << "v " << Vs[i][0] << " " << Vs[i][1] << " " << Vs[i][2] << "\n";
+	}
+	for (int i = 0; i < Fs.size(); i++) {
+		fout << "f " << Fs[i][0] + 1 << " " << Fs[i][1] + 1 << " " << Fs[i][2] + 1 << " " << Fs[i][3] + 1 << "\n";
+	}
+	fout.close();
+
+}
+void processKhusravData()
+{
+	/*std::string filein = "F:\\tmp\\Khusrav\\newData\\GGG\\GGG_1\\Optimized_GGG_24.10.2024.3.obj";
+	std::string fileout = "F:\\tmp\\Khusrav\\newData\\GGG\\GGG_1\\grids.obj";
+	double offset = 0.03;*/
+	std::string filein = "F:\\tmp\\Khusrav\\newData\\GGG\\GGG_2\\Optimized_GGG_24.10.2024.4.obj";
+	std::string fileout = "F:\\tmp\\Khusrav\\newData\\GGG\\GGG_2\\grids2.obj";
+	Eigen::MatrixXd V;
+	Eigen::MatrixXi F;
+	igl::readOBJ(filein, V, F);
+	std::array<int, 3> corners = {447, 237, 13};
+	int skipI = 2; 
+	double offset = 0.10;
+	processKhusravData(V, F, corners, skipI, offset, fileout);
+
+}

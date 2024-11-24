@@ -544,7 +544,8 @@ void lscif::draw_menu1(igl::opengl::glfw::Viewer &viewer, igl::opengl::glfw::img
 				// write_unfold_single_strip();
 				// draw_catenaries_on_cylinder();
 				// tools.debug_tool();
-				make_example_comparing_two_plylines_distance();
+				//make_example_comparing_two_plylines_distance();
+				processKhusravData();
 			}
 			ImGui::SameLine();
 			if (ImGui::Button("OBJ2CSV", ImVec2(ImGui::GetWindowSize().x * 0.23f, 0.0f)))
