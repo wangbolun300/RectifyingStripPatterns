@@ -8312,7 +8312,7 @@ void breakOneCurveIntoHalfs(const std::vector<int>& curve, std::vector<int>& p1,
 void getSampledCurvesDiffFamilies(const Eigen::MatrixXi& F, const std::vector<std::vector<std::array<int, 2>>> &ves,
 	//const std::vector<int> &seg1, const std::vector<int> &seg2, 
 	const std::vector<int>& bdr, const int skipI,
-	std::vector<std::vector<int>>& diags)
+	std::vector<std::vector<int>>& diags, bool includeFirstOne)
 {
 	std::cout << "in getSampledCurvesDiffFamilies\n";
 	diags.clear();
@@ -8335,6 +8335,10 @@ void getSampledCurvesDiffFamilies(const Eigen::MatrixXi& F, const std::vector<st
 	
 	for (int i = 0; i < bnbr - 1; i++)
 	{
+        if(!includeFirstOne && i==0) // in some cases we skip the first one
+        {
+            continue;
+        }
 		if (skipI > 0)
 		{
 			if (i%skipI != 0)
@@ -8356,145 +8360,188 @@ void getSampledCurvesDiffFamilies(const Eigen::MatrixXi& F, const std::vector<st
 	std::cout << "out getSampledCurvesDiffFamilies\n";
 }
 
-void computeNormals(const std::vector<std::vector<int>>& vf, const Eigen::MatrixXd& V, const Eigen::MatrixXi& F, std::vector<Eigen::Vector3d>& normals)
+void computeNormals(const std::vector<std::vector<int>> &vf, const Eigen::MatrixXd &V, const Eigen::MatrixXi &F, std::vector<Eigen::Vector3d> &normals)
 {
-	normals.clear();
-	
-	std::vector<Eigen::Vector3d> fnormals(F.rows());
-	int vnbr = V.rows(), fnbr = F.rows();
-	normals.resize(vnbr);
-	for (int i = 0; i < fnbr; i++)
-	{
-		Eigen::Vector3d v0 = V.row(F(i, 0));
-		Eigen::Vector3d v1 = V.row(F(i, 1));
-		Eigen::Vector3d v2 = V.row(F(i, 2));
-		Eigen::Vector3d n = (v0 - v2).cross(v0 - v1).normalized();
-		fnormals[i] = n;
-	}
-	for (int i = 0; i < vnbr; i++)
-	{
-		normals[i] = fnormals[vf[i][0]];
-		for (int j = 1; j < vf[i].size(); j++)
-		{
-			normals[i] += fnormals[vf[i][j]];
-		}
-		normals[i].normalize();
-	}
+    normals.clear();
+
+    std::vector<Eigen::Vector3d> fnormals(F.rows());
+    int vnbr = V.rows(), fnbr = F.rows();
+    normals.resize(vnbr);
+    for (int i = 0; i < fnbr; i++)
+    {
+        Eigen::Vector3d v0 = V.row(F(i, 0));
+        Eigen::Vector3d v1 = V.row(F(i, 1));
+        Eigen::Vector3d v2 = V.row(F(i, 2));
+        Eigen::Vector3d n = (v0 - v2).cross(v0 - v1).normalized();
+        fnormals[i] = n;
+    }
+    for (int i = 0; i < vnbr; i++)
+    {
+        normals[i] = fnormals[vf[i][0]];
+        for (int j = 1; j < vf[i].size(); j++)
+        {
+            normals[i] += fnormals[vf[i][j]];
+        }
+        normals[i].normalize();
+    }
 }
 
-#include<igl/boundary_loop.h>
-void processKhusravData(const Eigen::MatrixXd&V, const Eigen::MatrixXi& F, const std::array<int, 3>& corners, int skipI, double offset,
-	const std::string& filename)
+#include <igl/boundary_loop.h>
+void processKhusravData(const Eigen::MatrixXd &V, const Eigen::MatrixXi &F, const std::array<int, 3> &corners, int skipI, double offset,
+                        const std::string &filename, bool writeGridshell, bool writeEdge)
 {
-	std::cout << "check 1\n";
-	int vnbr = V.rows();
-	std::vector<int> loop;
-	igl::boundary_loop(F, loop);
-	// break the loop into 3 segments
-	std::array<std::vector<int>, 3> segs;
-	splitLoop(corners, loop, segs);
-	std::array<int, 3> ems;
-	ems[0] = midVerIdOfSegment(segs[0]);
-	ems[1] = midVerIdOfSegment(segs[1]);
-	ems[2] = midVerIdOfSegment(segs[2]);
-	std::vector<std::vector<int>> vf;
-	std::vector<std::vector<std::array<int, 2>>> ves;
-	obtainVF(vnbr, F, vf, ves);
-	for (int i = 0; i < ves.size(); i++)
-	{
-		std::cout << i << ", ";
-		for (int j = 0; j < ves[i].size(); j++)
-		{
-			std::cout << "(" << ves[i][j][0] << ", " << ves[i][j][1] << ")";
-		}
-		std::cout << "\n";
-		
-	}
-	//exit(0);
-	std::vector<Eigen::Vector3d> normals; // normal vectors on each ver
-	computeNormals(vf, V, F, normals);
-	std::cout << "check 2\n";
-	std::array<std::vector<int>, 6> hbdr;
-	breakOneCurveIntoHalfs(segs[0], hbdr[0], hbdr[1]);
-	breakOneCurveIntoHalfs(segs[1], hbdr[2], hbdr[3]);
-	breakOneCurveIntoHalfs(segs[2], hbdr[4], hbdr[5]);
-	for (auto b : hbdr)
-		std::cout << "the nbr of each segment bdr, " << b.size() << "\n";
-	std::vector<std::vector<int>> curves;
-	for (int i = 0; i < 6; i++)
-	{
-		std::vector<std::vector<int>> diags;
-		getSampledCurvesDiffFamilies(F, ves, hbdr[i],skipI, diags);
-		//std::cout << "the diags, \n";
-		for (auto d : diags)
-		{
-			/*for (auto dd : d)
-				std::cout << dd << ", ";
-			std::cout << "\n";*/
-			std::array<int, 2 > edge = { d[0], d[1] };
-			std::vector<int> c;
-			traceOneCurve(edge, ves, -1, c);
-			curves.push_back(c);
+    std::cout << "check 1\n";
+    int vnbr = V.rows();
+    std::vector<int> loop;
+    igl::boundary_loop(F, loop);
+    // break the loop into 3 segments
+    std::array<std::vector<int>, 3> segs;
+    splitLoop(corners, loop, segs);
+    std::array<int, 3> ems;
+    ems[0] = midVerIdOfSegment(segs[0]);
+    ems[1] = midVerIdOfSegment(segs[1]);
+    ems[2] = midVerIdOfSegment(segs[2]);
+    std::vector<std::vector<int>> vf;
+    std::vector<std::vector<std::array<int, 2>>> ves;
+    obtainVF(vnbr, F, vf, ves);
+    for (int i = 0; i < ves.size(); i++)
+    {
+        std::cout << i << ", ";
+        for (int j = 0; j < ves[i].size(); j++)
+        {
+            std::cout << "(" << ves[i][j][0] << ", " << ves[i][j][1] << ")";
+        }
+        std::cout << "\n";
+    }
+    // exit(0);
+    std::vector<Eigen::Vector3d> normals; // normal vectors on each ver
+    computeNormals(vf, V, F, normals);
+    std::cout << "check 2\n";
+    std::array<std::vector<int>, 6> hbdr;
+    breakOneCurveIntoHalfs(segs[0], hbdr[0], hbdr[1]);
+    breakOneCurveIntoHalfs(segs[1], hbdr[2], hbdr[3]);
+    breakOneCurveIntoHalfs(segs[2], hbdr[4], hbdr[5]);
+    for (auto b : hbdr)
+        std::cout << "the nbr of each segment bdr, " << b.size() << "\n";
+    std::array<std::vector<std::vector<int>>, 6> cvs;
+    bool includeFirstOne = true;
+    std::array<int, 6> cidmap = {0, 1, 1, 2, 2, 0}; // which group of curves should be together
+    for (int i = 0; i < 6; i++)
+    {
+        int group = cidmap[i];
+        std::vector<std::vector<int>> diags;
+        getSampledCurvesDiffFamilies(F, ves, hbdr[i], skipI, diags, includeFirstOne);
+        includeFirstOne = !includeFirstOne;
+        // std::cout << "the diags, \n";
+        for (auto d : diags)
+        {
+            /*for (auto dd : d)
+                std::cout << dd << ", ";
+            std::cout << "\n";*/
+            std::array<int, 2> edge = {d[0], d[1]};
+            std::vector<int> c;
+            traceOneCurve(edge, ves, -1, c);
+            cvs[group].push_back(c);
+        }
+    }
+    cvs[3].push_back(segs[0]);
+    cvs[4].push_back(segs[1]);
+    cvs[5].push_back(segs[2]);
+    std::cout << "check 3\n";
+    // convert the curves into strips
 
-		}
-	}
-	curves.push_back(segs[0]);
-	curves.push_back(segs[1]);
-	curves.push_back(segs[2]);
-	std::cout << "check 3\n";
-	// convert the curves into strips
-	std::vector<Eigen::Vector3d> Vs;
-	std::vector<std::array<int, 4>> Fs;
-	int count = 0;
-	for (int i = 0; i < curves.size(); i++)
-	{
-		int pcurve = curves[i].size();
-		for (int j = 0; j < curves[i].size(); j++)
-		{
-			int vid = curves[i][j];
-			Eigen::Vector3d n = normals[vid];
-			int vf = j == 0 ? curves[i][0] : curves[i][j - 1];
-			int vb = j == curves[i].size() - 1 ? curves[i].back() : curves[i][j + 1];
-			Eigen::Vector3d tangent = V.row(vb) - V.row(vf);
-			tangent.normalize();
-			Eigen::Vector3d direction = tangent.cross(n).normalized();
-			Vs.push_back(Eigen::Vector3d(V.row(vid)) + direction * offset);
-			Vs.push_back(Eigen::Vector3d(V.row(vid)) - direction * offset);
-		}
-		for (int j = 0; j < pcurve - 1; j++)
-		{
-			std::array<int, 4> face = { count + 2 * j, count + 1 + 2 * j, count + 3 + 2 * j, count + 2 + 2 * j };
-			Fs.push_back(face);
-		}
-		count += pcurve * 2;
-	}
-	std::cout << "check 4\n";
+    for (int g = 0; g < 6; g++)
+    {
+        auto curves = cvs[g];
+        std::vector<Eigen::Vector3d> Vs, Ve;
+        int count = 0;
+        std::vector<std::array<int, 4>> Fs;
+        std::vector<std::array<int, 2>> Es;
+        for (int i = 0; i < curves.size(); i++)
+        {
 
-	std::ofstream fout;
-	fout.open(filename);
-	for (int i = 0; i < Vs.size(); i++)
-	{
-		fout << "v " << Vs[i][0] << " " << Vs[i][1] << " " << Vs[i][2] << "\n";
-	}
-	for (int i = 0; i < Fs.size(); i++) {
-		fout << "f " << Fs[i][0] + 1 << " " << Fs[i][1] + 1 << " " << Fs[i][2] + 1 << " " << Fs[i][3] + 1 << "\n";
-	}
-	fout.close();
+            int pcurve = curves[i].size();
+            for (int j = 0; j < curves[i].size(); j++)
+            {
+                int vid = curves[i][j];
+                Eigen::Vector3d n = normals[vid];
+                int vf = j == 0 ? curves[i][0] : curves[i][j - 1];
+                int vb = j == curves[i].size() - 1 ? curves[i].back() : curves[i][j + 1];
+                Eigen::Vector3d tangent = V.row(vb) - V.row(vf);
+                tangent.normalize();
+                Eigen::Vector3d direction = tangent.cross(n).normalized();
+                Vs.push_back(Eigen::Vector3d(V.row(vid)) + direction * offset);
+                Vs.push_back(Eigen::Vector3d(V.row(vid)) - direction * offset);
+                Ve.push_back(V.row(curves[i][j]));
+                if (j == curves[i].size() - 1)
+                {
+                    continue;
+                }
+                vf = Ve.size() - 1;
+                vb = Ve.size();
+                Es.push_back({vf, vb});
+            }
+            for (int j = 0; j < pcurve - 1; j++)
+            {
+                std::array<int, 4> face = {count + 2 * j, count + 1 + 2 * j, count + 3 + 2 * j, count + 2 + 2 * j};
+                Fs.push_back(face);
+            }
+            count += pcurve * 2;
+        }
+        std::cout << "check 4\n";
 
+        std::ofstream fout;
+        if (writeGridshell)
+        {
+            fout.open(filename + "_" + std::to_string(g) + ".obj");
+            for (int i = 0; i < Vs.size(); i++)
+            {
+                fout << "v " << Vs[i][0] << " " << Vs[i][1] << " " << Vs[i][2] << "\n";
+            }
+            for (int i = 0; i < Fs.size(); i++)
+            {
+                fout << "f " << Fs[i][0] + 1 << " " << Fs[i][1] + 1 << " " << Fs[i][2] + 1 << " " << Fs[i][3] + 1 << "\n";
+            }
+            fout.close();
+        }
+        if (writeEdge)
+        {
+            fout.open(filename + "_e" + std::to_string(g) + ".obj");
+            for (int i = 0; i < Ve.size(); i++)
+            {
+                fout << "v " << Ve[i][0] << " " << Ve[i][1] << " " << Ve[i][2] << "\n";
+            }
+            for (int i = 0; i < Es.size(); i++)
+            {
+                fout << "l " << Es[i][0] + 1 << " " << Es[i][1] + 1 << "\n";
+            }
+            fout.close();
+        }
+    }
+}
+void processKhusravData(std::string filein, std::string fileout, bool writeGridshell, bool writeEdge)
+{
+    /*std::string filein = "F:\\tmp\\Khusrav\\newData\\GGG\\GGG_1\\Optimized_GGG_24.10.2024.3.obj";
+    std::string fileout = "F:\\tmp\\Khusrav\\newData\\GGG\\GGG_1\\grids.obj";
+    double offset = 0.03;*/
+
+    Eigen::MatrixXd V;
+    Eigen::MatrixXi F;
+    igl::readOBJ(filein, V, F);
+    std::array<int, 3> corners = {447, 237, 13};
+    int skipI = 2;
+    double offset = 0.10;
+    processKhusravData(V, F, corners, skipI, offset, fileout, writeGridshell, writeEdge);
 }
 void processKhusravData()
 {
-	/*std::string filein = "F:\\tmp\\Khusrav\\newData\\GGG\\GGG_1\\Optimized_GGG_24.10.2024.3.obj";
-	std::string fileout = "F:\\tmp\\Khusrav\\newData\\GGG\\GGG_1\\grids.obj";
-	double offset = 0.03;*/
-	std::string filein = "F:\\tmp\\Khusrav\\newData\\GGG\\GGG_2\\Optimized_GGG_24.10.2024.4.obj";
-	std::string fileout = "F:\\tmp\\Khusrav\\newData\\GGG\\GGG_2\\grids2.obj";
-	Eigen::MatrixXd V;
-	Eigen::MatrixXi F;
-	igl::readOBJ(filein, V, F);
-	std::array<int, 3> corners = {447, 237, 13};
-	int skipI = 2; 
-	double offset = 0.10;
-	processKhusravData(V, F, corners, skipI, offset, fileout);
-
+    std::string filein = "/home/bwang1/Desktop/Khusrav/GGG/gridshell/web9/opt_GGG_26.09.2024.9.obj";
+    std::string fileout = "/home/bwang1/Desktop/Khusrav/GGG/gridshell/web9/Grid9";
+    processKhusravData(filein, fileout, true, true);
+    filein = "/home/bwang1/Desktop/Khusrav/GGG/gridshell/web9/iso_GGG_planar_tri.obj";
+    fileout = "/home/bwang1/Desktop/Khusrav/GGG/gridshell/web9/init";
+    processKhusravData(filein, fileout, false, true);
+    filein = "/home/bwang1/Desktop/Khusrav/GGG/gridshell/web9/init__GGG_26.09.2024.9.obj";
+    fileout = "/home/bwang1/Desktop/Khusrav/GGG/gridshell/web9/Grid9";
+    processKhusravData(filein, fileout, false, true);
 }

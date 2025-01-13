@@ -26,7 +26,7 @@ endfunction()
 function(sparse_interp_download_eigen)
   sparse_interp_download_project(eigen
   GIT_REPOSITORY           https://gitlab.com/libeigen/eigen.git
-	GIT_TAG       3.3.7
+	GIT_TAG       3.4.0
   )
 endfunction()
 

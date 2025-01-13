@@ -48,8 +48,21 @@ FetchContent_Declare(
 FetchContent_MakeAvailable(libigl)
 
  
+# tinyad
 
-
+# FetchContent_Declare(
+#   tinyad
+#   GIT_REPOSITORY https://github.com/patr-schm/tinyad.git
+#   GIT_TAG 75093e14ef0d7bb39657c5f3b2aba1251afaa38c
+# )
+# FetchContent_GetProperties(tinyad)
+# if(NOT tinyad_POPULATED)
+#   # Fetch the content using previously declared details
+#   FetchContent_Populate(tinyad)
+#   message(STATUS "tinyad_SOURCE_DIR: ${tinyad_SOURCE_DIR}")
+#   message(STATUS "tinyad_BINARY_DIR: ${tinyad_BINARY_DIR}")
+#   add_subdirectory(${tinyad_SOURCE_DIR} ${tinyad_BINARY_DIR})
+# endif()
   
   #   # ANN
   # set(ANN_FILE "${CMAKE_CURRENT_SOURCE_DIR}/external/ann.zip")
@@ -107,8 +120,8 @@ FetchContent_MakeAvailable(libigl)
       message("LSC: OpenMesh is already unzipped")
   endif()
   message("LSC: OpenMesh file: ${OM_PATH}/OpenMesh-9.0.0/")
-  if(NOT WIN32)
-  execute_process(COMMAND python ${CMAKE_CURRENT_SOURCE_DIR}/cmake/install_openmesh.py)
+  # if(NOT WIN32)
+  # execute_process(COMMAND python ${CMAKE_CURRENT_SOURCE_DIR}/cmake/install_openmesh.py)
   # if (NOT EXISTS "${OM_PATH}/OpenMesh-9.0.0/build/Build/lib/libOpenMeshCore.a") # TODO add more lib file paths for windows
   #   message("LSC: OpenMesh starting installing")
     
@@ -116,5 +129,5 @@ FetchContent_MakeAvailable(libigl)
   #   else()
   #   message("LSC: OpenMesh is already installed")
   # endif()
-endif()
+# endif()^
 ###########

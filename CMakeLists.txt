@@ -21,11 +21,8 @@ include(UseColors)
 include(${PROJECT_NAME}Dependencies)
 include(PrependCurrentPath)
 include(${PROJECT_NAME}Utils)
+add_subdirectory(${SPARSE_EXTERNAL}/openmesh/OpenMesh-9.0.0)
 
-include_directories(${OM_PATH}/OpenMesh-9.0.0/src)
-link_directories(${OM_PATH}/OpenMesh-9.0.0/build/Build/lib)
-include_directories(${OM_PATH}/OpenMesh-9.1.0/src)
-link_directories(${OM_PATH}/OpenMesh-9.1.0/build/Build/lib)
 ############################
 # libraries
 include(src/SOURCE.cmake)
@@ -35,31 +32,24 @@ lsc_set_source_group(${LSC_SOURCES})
 add_library(lsc ${LSC_SOURCES})
 #target_sources(lsc PRIVATE ${LSC_SOURCES})
 target_include_directories(lsc PUBLIC ${PROJECT_BINARY_DIR}/include)
-target_include_directories(lsc PUBLIC ${OM_PATH}/OpenMesh-9.1.0/src)
 igl_include(core)
 igl_include(opengl)
 igl_include(glfw)
 igl_include(imgui)
-target_link_libraries(lsc PUBLIC igl::core igl::opengl igl::glfw igl::imgui Eigen3::Eigen)
-
-if(WIN32)
-
-target_link_libraries(lsc PUBLIC OpenMeshCore.lib OpenMeshTools.lib)
-else(WIN32)
-target_link_libraries(lsc PUBLIC libOpenMeshCore.a libOpenMeshTools.a)
-endif(WIN32)
+igl_include(predicates)
+target_link_libraries(lsc PUBLIC igl::core igl::opengl igl::glfw igl::imgui Eigen3::Eigen igl::predicates OpenMeshCore OpenMeshTools)
 
 
 target_compile_definitions(lsc PUBLIC
     SI_MESH_DIR="${CMAKE_CURRENT_SOURCE_DIR}/app/meshes/")
 ##############################
 
-add_executable(${PROJECT_NAME}_bin app/main.cpp)
-target_link_libraries(${PROJECT_NAME}_bin PUBLIC lsc)
+# add_executable(${PROJECT_NAME}_bin app/main.cpp)
+# target_link_libraries(${PROJECT_NAME}_bin PUBLIC lsc)
 
-add_definitions(-D_USE_MATH_DEFINES)
-target_compile_definitions(${PROJECT_NAME}_bin PUBLIC
-    CHECKER_BOARD_DATA_DIR="${CMAKE_CURRENT_SOURCE_DIR}/data/")
+# add_definitions(-D_USE_MATH_DEFINES)
+# target_compile_definitions(${PROJECT_NAME}_bin PUBLIC
+#     CHECKER_BOARD_DATA_DIR="${CMAKE_CURRENT_SOURCE_DIR}/data/")
 ################################
 
 add_executable(${PROJECT_NAME}_devbin app/lsc_main.cpp app/gui.cpp app/gui_1.cpp app/gui.h)
@@ -69,5 +59,4 @@ target_link_libraries(${PROJECT_NAME}_devbin PUBLIC lsc)
 add_definitions(-D_USE_MATH_DEFINES)
 target_compile_definitions(${PROJECT_NAME}_devbin PUBLIC
     CHECKER_BOARD_DATA_DIR="${CMAKE_CURRENT_SOURCE_DIR}/data/")
-
 
